@@ -1,33 +1,31 @@
-analysis_electrodes__category: freesurferlabel
 analysis_settings:
   '1':
-    label: A-onset BHA
+    label: High Gamma
     event: Trial Onset
     time:
     - 0
-    - 0.5
+    - 0.3
     frequency:
     - 70
-    - 126
+    - 150
+  '2':
+    label: Beta
+    event: Trial Onset
+    time:
+    - 0
+    - 0.3
+    frequency:
+    - 13
+    - 30
+reference_name: default
 baseline_settings:
   window:
   - - -1.0
     - -0.5
   scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
-electrode_groupings:
-  enabled: no
-  groups:
-    '1':
-      label: STG/S
-      electrodes: 13-14
-    '2':
-      label: Other
-      electrodes: 15-25
 electrodes_list: 13-16,24
-epoch_choice: auditory_onset
-epoch_choice__trial_ends: 2.0
-epoch_choice__trial_starts: -1.0
+project_name: demo
 first_condition_groupings:
   '1':
     label: All Conditions
@@ -49,14 +47,32 @@ first_condition_groupings:
     - meant_av
     - meant_v
     - press_AV
-project_name: demo
-reference_name: default
+analysis_electrodes__category: freesurferlabel
 selected_electrodes: '13 '
-subject_name: DemoSubject
-tensor_collapse_method: mean
+epoch_choice: auditory_onset
+epoch_choice__trial_starts: -1
+epoch_choice__trial_ends: 2
 time_censor:
   enabled: no
   window:
   - 0
   - 1
+subject_name: DemoSubject
+tensor_collapse_method: mean
+electrode_groupings:
+  enabled: no
+  groups:
+    '1':
+      label: STG/S
+      electrodes: 13-14
+    '2':
+      label: Other
+      electrodes: 15-25
 trial_outliers_list: ~
+electrodes_to_export: '13'
+trials_to_export: Collapsed by condition column
+times_to_export: Collapsed, analysis window(s) only
+frequencies_to_export: Collapsed, Analysis window(s) only
+electrode_export_file_type: FST
+loaded_electrodes: 13-16,24
+subject_code: DemoSubject

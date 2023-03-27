@@ -6,6 +6,7 @@ require(stringr)
 require(stringi)
 
 get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_event_types, event_of_interest, trial_outliers_list,
+                                final_data_only=FALSE,
                                 logger=function(...){dipsaus::cat2(level='CAT', pal=list('CAT'='dodgerblue3'))}) {
 
   res <- list()
@@ -69,6 +70,10 @@ get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_eve
 
   # make sure to save out the update time stamps to be used later
   res$events = events
+
+  if(final_data_only) {
+    return(res$shifted_clean_data)
+  }
 
   return(res)
 }
@@ -430,6 +435,24 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
   return(ll[[requested_unit]])
 }
 
+get_unit_of_analysis_varname <- function(uoa){
+  ll = list('percentage' = 'Pct_PowerChange',
+       'sqrt_percentage' = 'Pct_AmpChange',
+       'zscore' = 'Z_PowerChange',
+       'sqrt_zscore' = 'Z_AmpChange',
+       'decibel' = 'Decibel_PowerChange'
+  )
+
+  if(missing(uoa)) return (ll)
+
+  gu = get_unit_of_analysis(names=TRUE)
+  if(uoa %in% gu) {
+    uoa %<>% get_unit_of_analysis
+  }
+
+  ll[[uoa]]
+}
+
 get_baseline_scope <- function(requested_unit, names=FALSE) {
 
   ll = list(
@@ -437,7 +460,7 @@ get_baseline_scope <- function(requested_unit, names=FALSE) {
     "Across trials (aka global baseline)" = c("Frequency", "Electrode"),
     "Across trials and electrodes" = c("Frequency"),
     "Across electrodes only" = c("Trial", "Frequency")
-    )
+  )
 
 
   if(missing(requested_unit)) {
@@ -500,44 +523,152 @@ wrap_data = function(data, ...){
   return (ll)
 }
 
-
-
-
 export_something_great <- function(pipeline, ...) {
+  repo <- pipeline$read('repository')
 
-    repo <- pipeline$read('repository')
+  dest <- tempfile()
+  arr <- filearray::filearray_load_or_create(
+    filebase = dest, dimension = unname(repo$power$dim), type = 'double',
+    repo_signature = repo$signature,
+    electrode_list = repo$electrode_list,
+    on_missing = function(arr) {
+      for(ii in seq_along(repo$electrode_list)) {
+        print(ii)
+        e <- repo$electrode_list[[ii]]
+        arr[,,,ii] <- repo$power$data_list[[sprintf("e_%d", e)]][]
+      }
+      dimnames(arr) <- repo$power$dimnames
+      arr
+    }
+  )
+  arr$get_header('electrode_list')
+  # fa <- filearray::repo$power$data_list
+}
 
-    dest <- tempfile()
-    arr <- filearray::filearray_load_or_create(
-        filebase = dest, dimension = unname(repo$power$dim), type = 'double',
-        repo_signature = repo$signature,
-        electrode_list = repo$electrode_list,
-        on_missing = function(arr) {
-            for(ii in seq_along(repo$electrode_list)) {
-                print(ii)
-                e <- repo$electrode_list[[ii]]
-                arr[,,,ii] <- repo$power$data_list[[sprintf("e_%d", e)]][]
-            }
-            dimnames(arr) <- repo$power$dimnames
-            arr
-        }
-    )
-    arr$get_header('electrode_list')
-    # fa <- filearray::repo$power$data_list
+export_electrode_level_data <- function(pipeline, ...) {
 
 }
 
+build_data_for_export <- function(pipeline, ...) {
 
-
-
+}
 
 get_available_events <- function(columns) {
-    eet <- stringr::str_subset(columns, 'Event_*')
-    if(length(eet) > 0) {
-        eet <- stringr::str_remove_all(eet, 'Event_')
-    }
-    eet <- c("Trial Onset", eet)
+  eet <- stringr::str_subset(columns, 'Event_*')
+  if(length(eet) > 0) {
+    eet <- stringr::str_remove_all(eet, 'Event_')
+  }
+  eet <- c("Trial Onset", eet)
 
-    return(eet)
+  return(eet)
 }
+
+round_pval <- function(pval) {
+  lpval = pmax(round(log10(.Machine$double.eps)), log10(pval))
+  ifelse(lpval > -3.5,
+         formatC(round(pval,4),width = 4, digits=4),
+         paste0('1e', formatC(round(lpval), width=3,flag=0)))
+}
+
+trial_export_types <- function() {
+  return(
+    list(
+      'CLP_CND' = 'Collapsed by condition column',
+      'CLP_GRP' = 'Collapsed by grouping factors',
+      'RAW_GRP' = 'Raw, Conditions used in grouping factors',
+      'RAW_ALL' = 'Raw, All available trials')
+  )
+}
+
+time_export_types <- function() {
+  return(
+    list(
+      'CLP_AWO' = 'Collapsed, Analysis window(s) only',
+      'RAW_AWO' = 'Raw, Analysis window(s) only',
+      'RAW_ALL' = 'Raw, All available times'
+    )
+  )
+}
+
+frequency_export_types <- function() {
+  return(
+    list(
+      'CLP_AWO' = 'Collapsed, Analysis window(s) only',
+      'RAW_AWO' = 'Raw, Analysis window(s) only',
+      'RAW_ALL' = 'Raw, All available frequencies'
+    )
+  )
+}
+
+
+
+
+new_shift_array <- function() {
+  repository <- raveio::prepare_subject_power('demo/DemoSubject', time_windows = c(-1,2))
+
+  # baseline
+  raveio::power_baseline(repository, baseline_windows = c(-1,0))
+
+  shift_amount <- sample(1:10, size = repository$epoch$n_trials, replace = TRUE)
+
+  # start shift array
+
+  # create a temporary file relative to the app session. it persists through out
+  # the RAVE session, and can be restored even browser is closed (shiny session reset)
+  pathdir_app_persist <- ravedash::temp_dir(persist = "app-session")
+
+  # get repository signature so the shifted array is linked to this signature
+  # If the repository does not change, the filearray path need not change
+  # this will prevent spawning too many garbage files
+  shiftarray_basename <- sprintf(
+    "shiftarray_%s",
+    dipsaus::digest(list(
+      repository = repository$signature
+    ))
+  )
+
+  # create file array with cache information!
+  shifted_array <- filearray::filearray_load_or_create(
+    filebase = file.path(pathdir_app_persist, shiftarray_basename),
+    dimension = dim(repository$power$baselined),
+    type = "float", # or "double"
+    mode = "readwrite", partition_size = 1L,
+
+    # make sure if baseline change, this array will change
+    baselined_signature = repository$power$baselined$.header$rave_signature,
+
+    # make sure if shift_amount changes, this array will change
+    # this checking is type-sensitive
+    shift_amount = as.integer(shift_amount),
+
+    on_missing = function(arr) {
+      # create one!
+      baselined <- repository$power$baselined
+      n_electrodes <- dim(baselined)[[4]]
+
+      dipsaus::lapply_async2(seq_len(n_electrodes), function(ii) {
+        subarr <- baselined[,,,ii, drop = FALSE]
+
+        # trial is now at 3rd margin, time is at 2nd margin
+        shifted_array <- ravetools::shift_array(subarr, along_margin = 2L, shift_amount = shift_amount, unit_margin = 3L)
+        arr[,,,ii] <- shifted_array
+      }, plan = FALSE)
+    }
+  )
+
+  # change dimnames
+  dnames <- dimnames(repository$power$baselined)
+  # dnames$Time <- ...
+
+  dimnames(shifted_array) <- dnames
+}
+
+### UI impl to share the exporting code where possible
+customDownloadButton <- function(outputId, label='Export', class=NULL, icon_lbl="download", ...) {
+  tags$a(id = outputId,
+         class = paste("btn btn-default shiny-download-link", class),
+         href = "", target = "_blank", download = NA,
+         ravedash::shiny_icons[[icon_lbl]], label, ...)
+}
+
 

@@ -1,3 +1,11 @@
+get_line_palette <- function(...) {
+  palettes <- list(johnny_five = c("#407899","#deba6f", "#65743a",
+                                            "#de6449", "#4B296B")
+  )
+
+
+  palettes[[1]]
+}
 
 
 draw_many_heat_maps <- function (hmaps, meta_data,
@@ -5,263 +13,259 @@ draw_many_heat_maps <- function (hmaps, meta_data,
                                  show_color_bar = TRUE, useRaster = TRUE, wide = FALSE, PANEL.FIRST = NULL,
                                  PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL, axes = c(TRUE,
                                                                                      TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
-                                 max_columns = 2, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
+                                 max_columns = 3, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
                                  ignore_time_range = NULL, marginal_text_fields = c("Subject",
                                                                                     "Electrodes"), extra_plot_parameters = NULL,
                                  do_layout = TRUE, ...)
 {
 
-    #pe_graphics_settings_cache is defined in aa.R
-    rave_cex.axis <- pe_graphics_settings_cache$get('rave_cex.axis', missing_default = 1.3)
-    rave_cex.main <- pe_graphics_settings_cache$get('rave_cex.main', missing_default = 1.5)
+  #pe_graphics_settings_cache is defined above
+  rave_cex.axis <- pe_graphics_settings_cache$get('rave_cex.axis', missing_default = 1.3)
+  rave_cex.main <- pe_graphics_settings_cache$get('rave_cex.main', missing_default = 1.5)
 
 
-    # how many of the maps actually have usable data (use the range argument)
-    has_data <- which(!sapply(hmaps, function(x) {
-        if(!is.null(x$range)) {
-            return(any(is.nan(x$range)))
-        }
-        return(range(x$data))
-    }))
+  # how many of the maps actually have usable data (use the range argument)
+  has_data <- which(!sapply(hmaps, function(x) {
+    if(!is.null(x$range)) {
+      return(any(is.nan(x$range)))
+    }
+    return(range(x$data))
+  }))
 
-    ravedash::logger('has_data:', has_data, level='warning')
+  # ravedash::logger('has_data:', has_data, level='warning')
 
-    if (do_layout) {
-        orig.pars <- layout_heat_maps(length(has_data), max_col = max_columns,
-                                      layout_color_bar = show_color_bar)
-    }
-    #some people were passing in NULL for max_zlim
-    max_zlim %?<-% 0
+  if (do_layout) {
+    orig.pars <- layout_heat_maps(length(has_data), max_col = max_columns,
+                                  layout_color_bar = show_color_bar)
+  }
+  #some people were passing in NULL for max_zlim
+  max_zlim %?<-% 0
 
-    if (wide) {
-        max_char_count = max(sapply(hmaps, function(h) ifelse(any(is.nan(h$range)),
-                                                              max(nchar(h$conditions)), 1)))
-        par(mar = c(par("mar")[1], 5.1 + max(0, (max_char_count -
-                                                     5) * 0.95), 2, 2))
-    }
-    else {
-        if (any(par("mfrow") > 1)) {
-            default_mar <- c(5.1, 4.1, 4.1, 2.1)
-            if (all(par("mar") == default_mar)) {
-                par(mar = 0.1 + c(4, 4.5, 2, 0))
-            }
-            if (!decorate_all_plots && do_layout) {
-                par(oma = c(0, 0, 2, 0))
-            }
-        }
-        else {
-            if (all(par("mar") == default_mar)) {
-                par(mar = c(par("mar")[1], par("mar")[2], 2,
-                            2))
-            }
-        }
-    }
-    actual_lim = get_data_range(hmaps)
-    if (max_zlim <= 0) {
-        max_zlim <- max(abs(actual_lim), na.rm = TRUE)
-    }
-    else if (percentile_range) {
-        if (max_zlim >= 100) {
-            max_zlim = (max_zlim/100) * max(abs(actual_lim),
-                                            na.rm = TRUE)
-        } else {
-            if (!is.numeric(ignore_time_range)) {
-                max_zlim <- quantile(unlist(lapply(hmaps, getElement,
-                                                   "data")), probs = max_zlim/100, na.rm = TRUE)
-            }
-            else {
-                ind <- !(hmaps[[1]]$x %within% ignore_time_range)
-                max_zlim <- quantile(unlist(lapply(hmaps, function(h) h$data[ind,
-                ])), probs = max_zlim/100, na.rm = TRUE)
-            }
-        }
-        if (max_zlim > 100) {
-            max_zlim %<>% round(-1)
-        }
-        else if (max_zlim > 10) {
-            max_zlim %<>% round_to_nearest(5)
-        }
-    }
-    log_scale <- if (isTRUE(log_scale)) {
-        "y"
+  if (wide) {
+    max_char_count = max(sapply(hmaps, function(h) ifelse(any(is.nan(h$range)),
+                                                          max(nchar(h$conditions)), 1)))
+    par(mar = c(par("mar")[1], 5.1 + max(0, (max_char_count -
+                                               5) * 0.95), 2, 2))
+  }
+  else {
+    if (any(par("mfrow") > 1)) {
+      default_mar <- c(5.1, 4.1, 4.1, 2.1)
+      if (all(par("mar") == default_mar)) {
+        par(mar = 0.1 + c(4, 4.5, 5, 0))
+      }
+      if (!decorate_all_plots && do_layout) {
+        par(oma = c(0, 0, 2, 0))
+      }
     }
     else {
-        ""
+      if (all(par("mar") == default_mar)) {
+        par(mar = c(par("mar")[1], par("mar")[2], 5, 2))
+      }
     }
-    for (mi in seq_along(has_data)) {
-        map = hmaps[[has_data[mi]]]
-        plot_time_range %?<-% range(map$x)
-        if (!all(map$x %within% plot_time_range)) {
-            .attr = attributes(map$data)
-            ind <- map$x %within% plot_time_range
-            map$x <- map$x[ind]
-            map$data <- map$data[ind, , drop = FALSE]
-            .attr$dim = attr(map$data, "dim")
-            attributes(map$data) <- .attr
-        }
-        x <- seq_along(map$x)
-        y <- seq_along(map$y)
-        mto = NULL
-        if (!decorate_all_plots && length(has_data) > 1) {
-            mto = list(allow_sid = FALSE, allow_enum = FALSE, allow_freq = FALSE, allow_sample_size = FALSE)
-            my_r = floor((mi - 1)/par("mfrow")[2]) + 1
-            my_c = 1 + (mi - 1) %% par("mfrow")[2]
-            ncol_wo_cbar <- par("mfrow")[2]
-            if (show_color_bar) {
-                if (my_c == par("mfrow")[2]) {
-                    my_c = 1
-                    my_r = my_r + 1
-                }
-                ncol_wo_cbar = ncol_wo_cbar - 1
-            }
-            if (mi + ncol_wo_cbar <= length(has_data)) {
-                map$xlab <- " "
-            }
-            if (my_c != 1) {
-                map$ylab <- " "
-            }
-        }
-        dy <- 0
-        pc_args = list()
-        if (log_scale == "y") {
-            dy <- (y[2] - y[1])/2 + min(y)
-            pc_args[c("xlim", "ylim", "cex.lab", "log")] = list(x,
-                                                                y + dy, rave_cex.axis * get_cex_for_multifigure(),
-                                                                "y")
-        } else {
-            pad = c(-0.5, 0.5)
-            pc_args[c("xlim", "ylim")] = list(range(x) +
-                                                  pad, range(y) + pad)
-        }
-        if (!is.null(extra_plot_parameters)) {
-            pc_args[names(extra_plot_parameters)] = extra_plot_parameters
-        }
-        do.call(rutabaga::plot_clean, pc_args)
-        if (is.function(PANEL.FIRST)) {
-            PANEL.FIRST(map)
-        }
-        make_image(map$data, x = x, y = y, log = ifelse(log_scale,
-                                                        "y", ""), zlim = c(-1, 1) * max_zlim)
-
-        ### how many x and y ticks do we need?
-        xticks <- ..get_nearest_i(pretty(map$x), map$x)
-        if (length(map$y) <= 5) {
-            yticks <- seq_along(map$y)
-        }
-        else if (diff(range(diff(sort(map$y)))) > 2) {
-            tck = map$y[c(1, round(length(map$y) * (1/3)),
-                          round((2/3) * length(map$y)), 1 * length(map$y))]
-            yticks <- ..get_nearest_i(tck, map$y)
-        }
-        else {
-            yticks <- ..get_nearest_i(pretty(map$y), map$y)
-        }
-
-        ### draw the axis labels (no drawn axes/ticks on the spectrogram: lwd=0, tcl=0)
-        axes %<>% rep_len(2)
-        if (axes[1])
-            rave_axis(1, at = xticks, labels = map$x[xticks],
-                      tcl = 0, lwd = 0, mgpx = c(0, 0.5, 0))
-        if (axes[2])
-            rave_axis(2, at = yticks, labels = map$y[yticks],
-                      tcl = 0, lwd = 0, mgpy = c(0, 0.5, 0))
-
-
-        # call the last decorator
-        if (is.function(PANEL.LAST)) {
-            PANEL.LAST(
-                data=map,
-                condition_data=meta_data$groups[[map$name]],
-                analysis_settings=meta_data$analysis,
-                baseline_settings=meta_data$baseline,
-                Xmap = function(x) ..get_nearest_i(x, map$x),
-                Ymap = function(y) ..get_nearest_i(y, map$y),
-                more_title_options = mto
-            )
-        }
+  }
+  actual_lim = get_data_range(hmaps)
+  if (max_zlim <= 0) {
+    max_zlim <- max(abs(actual_lim), na.rm = TRUE)
+  } else if (percentile_range) {
+    if (max_zlim >= 100) {
+      max_zlim = (max_zlim/100) * max(abs(actual_lim),
+                                      na.rm = TRUE)
+    } else {
+      if (!is.numeric(ignore_time_range)) {
+        max_zlim <- quantile(unlist(lapply(hmaps, getElement,
+                                           "data")), probs = max_zlim/100, na.rm = TRUE)
+      }
+      else {
+        ind <- !(hmaps[[1]]$x %within% ignore_time_range)
+        max_zlim <- quantile(unlist(lapply(hmaps, function(h) h$data[ind,
+        ])), probs = max_zlim/100, na.rm = TRUE)
+      }
     }
+    if (max_zlim > 100) {
+      max_zlim %<>% round(-1)
+    }
+    else if (max_zlim > 10) {
+      max_zlim %<>% round_to_nearest(5)
+    }
+  }
+  log_scale <- if (isTRUE(log_scale)) {
+    "y"
+  }
+  else {
+    ""
+  }
+  for (mi in seq_along(has_data)) {
+    map = hmaps[[has_data[mi]]]
+    plot_time_range %?<-% range(map$x)
+    if (!all(map$x %within% plot_time_range)) {
+      .attr = attributes(map$data)
+      ind <- map$x %within% plot_time_range
+      map$x <- map$x[ind]
+      map$data <- map$data[ind, , drop = FALSE]
+      .attr$dim = attr(map$data, "dim")
+      attributes(map$data) <- .attr
+    }
+    x <- seq_along(map$x)
+    y <- seq_along(map$y)
+    mto = NULL
+    if (!decorate_all_plots && length(has_data) > 1) {
+      mto = list(allow_sid = FALSE, allow_enum = FALSE, allow_freq = FALSE, allow_sample_size = FALSE)
+      my_r = floor((mi - 1)/par("mfrow")[2]) + 1
+      my_c = 1 + (mi - 1) %% par("mfrow")[2]
+      ncol_wo_cbar <- par("mfrow")[2]
+      if (show_color_bar) {
+        if (my_c == par("mfrow")[2]) {
+          my_c = 1
+          my_r = my_r + 1
+        }
+        ncol_wo_cbar = ncol_wo_cbar - 1
+      }
+      if (mi + ncol_wo_cbar <= length(has_data)) {
+        map$xlab <- " "
+      }
+      if (my_c != 1) {
+        map$ylab <- " "
+      }
+    }
+    dy <- 0
+    pc_args = list()
+    if (log_scale == "y") {
+      dy <- (y[2] - y[1])/2 + min(y)
+      pc_args[c("xlim", "ylim", "cex.lab", "log")] = list(x,
+                                                          y + dy, rave_cex.axis * get_cex_for_multifigure(),
+                                                          "y")
+    } else {
+      pad = c(-0.5, 0.5)
+      pc_args[c("xlim", "ylim")] = list(range(x) +
+                                          pad, range(y) + pad)
+    }
+    if (!is.null(extra_plot_parameters)) {
+      pc_args[names(extra_plot_parameters)] = extra_plot_parameters
+    }
+    do.call(rutabaga::plot_clean, pc_args)
+    if (is.function(PANEL.FIRST)) {
+      PANEL.FIRST(map)
+    }
+    make_image(map$data, x = x, y = y, log = ifelse(log_scale,
+                                                    "y", ""), zlim = c(-1, 1) * max_zlim)
 
-    if (show_color_bar) {
-        .mar <- c(par("mar")[1], 3.5, 2, 1)
-        if (is.function(PANEL.COLOR_BAR)) {
-            .mar[3] = 4
-        }
-        .ylab = ""
-        .ylab <- hmaps[[has_data[1]]]$zlab
-        rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar)
-        if (is.function(PANEL.COLOR_BAR)) {
-            PANEL.COLOR_BAR(hmaps)
-        }
+    ### how many x and y ticks do we need?
+    xticks <- ..get_nearest_i(pretty(map$x), map$x)
+    if (length(map$y) <= 5) {
+      yticks <- seq_along(map$y)
+    }
+    else if (diff(range(diff(sort(map$y)))) > 2) {
+      tck = map$y[c(1, round(length(map$y) * (1/3)),
+                    round((2/3) * length(map$y)), 1 * length(map$y))]
+      yticks <- ..get_nearest_i(tck, map$y)
+    }
+    else {
+      yticks <- ..get_nearest_i(pretty(map$y), map$y)
     }
 
-    if (!decorate_all_plots &&
-        any(par("mfrow")[1] > 1, par("mfrow")[2] > 2)
-    ) {
-        if (center_multipanel_title) {
-            xpos <- ifelse(show_color_bar, 0.475, 0.5)
-            adj <- 0.5
-        }
-        else {
-            xpos = 0
-            adj <- 0
-        }
-        tokens = c('Subject' = meta_data$subject_code,
-                   'Electrodes' = "E" %&%
-                       dipsaus::deparse_svec(
-                           unique(c(unlist(sapply(meta_data$groups, `[[`, 'electrodes'))))
-                       ),
-                   'Frequency' = "F" %&% str_collapse(unique(
-                       sapply(meta_data$analysis, function(a) str_collapse(a$frequency, ':'))
-                   )) %&% "Hz"
-        )
+    ### draw the axis labels (no drawn axes/ticks on the spectrogram: lwd=0, tcl=0)
+    axes %<>% rep_len(2)
+    if (axes[1])
+      rave_axis(1, at = xticks, labels = map$x[xticks],
+                tcl = 0, lwd = 0, mgpx = c(0, 0.5, 0))
+    if (axes[2])
+      rave_axis(2, at = yticks, labels = map$y[yticks],
+                tcl = 0, lwd = 0, mgpy = c(0, 0.5, 0))
 
-        tokens = tokens[(names(tokens) %in% marginal_text_fields)]
-        mtext(text = paste(tokens, collapse = " "), line = 0,
-              at = xpos, adj = adj, outer = TRUE, font = 1, cex = rave_cex.main *
-                  0.8)
+    # call the last decorator
+    if (is.function(PANEL.LAST)) {
+      PANEL.LAST(
+        data=map,
+        condition_data=meta_data$groups[[map$name]],
+        baseline_settings=meta_data$baseline,
+        Xmap = function(x) ..get_nearest_i(x, map$x),
+        Ymap = function(y) ..get_nearest_i(y, map$y),
+        more_title_options = mto
+      )
     }
+  }
 
-    invisible(hmaps)
+  if (show_color_bar) {
+    .mar <- c(par("mar")[1], 3.5, 5, 1)
+    if (is.function(PANEL.COLOR_BAR)) {
+      .mar[3] = 5
+    }
+    .ylab = ""
+    .ylab <- hmaps[[has_data[1]]]$zlab
+    rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar)
+    if (is.function(PANEL.COLOR_BAR)) {
+      PANEL.COLOR_BAR(hmaps)
+    }
+  }
+
+  if (!decorate_all_plots &&
+      any(par("mfrow")[1] > 1, par("mfrow")[2] > 2)
+  ) {
+    if (center_multipanel_title) {
+      xpos <- ifelse(show_color_bar, 0.475, 0.5)
+      adj <- 0.5
+    }
+    else {
+      xpos = 0
+      adj <- 0
+    }
+    tokens = c('Subject' = meta_data$subject_code,
+               'Electrodes' = "E" %&%
+                 dipsaus::deparse_svec(
+                   unique(c(unlist(sapply(meta_data$groups, `[[`, 'electrodes'))))
+                 ),
+               'Frequency' = "F" %&% str_collapse(unique(
+                 sapply(meta_data$analysis, function(a) str_collapse(a$frequency, ':'))
+               )) %&% "Hz"
+    )
+
+    tokens = tokens[(names(tokens) %in% marginal_text_fields)]
+    mtext(text = paste(tokens, collapse = " "), line = 0,
+          at = xpos, adj = adj, outer = TRUE, font = 1, cex = rave_cex.main *
+            0.8)
+  }
+
+  invisible(hmaps)
 }
 
 layout_heat_maps <- function(k, max_col, ratio=4, layout_color_bar=TRUE, colorbar_cm=3.5) {
-    opars <- par(no.readonly = TRUE)
+  opars <- par(no.readonly = TRUE)
 
-    # colorbar_cm <- 3.5
-    if(plotting_to_file()) {
-        colorbar_cm <- 3
-    }
+  # colorbar_cm <- 3.5
+  if(plotting_to_file()) {
+    colorbar_cm <- 3
+  }
 
-    nr <- ceiling(k / max_col)
-    max_col = min(k, max_col)
-    m <- 1:k
-    mat <- matrix(c(m, rep.int(0, nr*max_col - k)), byrow = TRUE,
-                  nrow=nr, ncol = max_col)
-    widths <- rep(ratio, max_col)
-    if(layout_color_bar) {
-        mat <- cbind(mat, k+1)
-        widths <- c(widths, lcm(colorbar_cm))
-    }
-    layout(mat, widths=widths)
+  nr <- ceiling(k / max_col)
+  max_col = min(k, max_col)
+  m <- 1:k
+  mat <- matrix(c(m, rep.int(0, nr*max_col - k)), byrow = TRUE,
+                nrow=nr, ncol = max_col)
+  widths <- rep(ratio, max_col)
+  if(layout_color_bar) {
+    mat <- cbind(mat, k+1)
+    widths <- c(widths, lcm(colorbar_cm))
+  }
+  layout(mat, widths=widths)
 }
 
 plotting_to_file <- function() {
-    i = get0(".Devices", envir = baseenv(),
-             ifnotfound = list("-1"), inherits = FALSE)
+  i = get0(".Devices", envir = baseenv(),
+           ifnotfound = list("-1"), inherits = FALSE)
 
-    if("-1" == i[[1]]) {
-        return (FALSE)
-    }
+  if("-1" == i[[1]]) {
+    return (FALSE)
+  }
 
-    if(length(i) < dev.cur()){
-        return (FALSE)
-    }
+  if(length(i) < dev.cur()){
+    return (FALSE)
+  }
 
-    i = i[[dev.cur()]]
+  i = i[[dev.cur()]]
 
-    return (
-        isTRUE('dipsaus_dev_name' %in% names(attributes(i)) || i %in% c('pdf', 'png', 'jpeg'))
-    )
+  return (
+    isTRUE('dipsaus_dev_name' %in% names(attributes(i)) || i %in% c('pdf', 'png', 'jpeg'))
+  )
 }
 
 #' @title RAVE custom image plotter
@@ -277,157 +281,156 @@ plotting_to_file <- function() {
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The built-in calculators know this so we can save a few transposes along the way.
 make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
 
-    if(missing(zlim)) {
-        zlim <- c(-1,1)*max(abs(mat))
-    } else {
-        # if zlim is missing, then the zlim will be set symmetrically based on the range
-        # of the data (in the 'if' block above), so we only have to worry about clipping if the range is passed in
-        if(clip_to_zlim) {
-            mat %<>% clip_x(zlim)
-        }
+  if(missing(zlim)) {
+    zlim <- c(-1,1)*max(abs(mat))
+  } else {
+    # if zlim is missing, then the zlim will be set symmetrically based on the range
+    # of the data (in the 'if' block above), so we only have to worry about clipping if the range is passed in
+    if(clip_to_zlim) {
+      mat %<>% clip_x(zlim)
     }
+  }
 
-    col %?<-% get_currently_active_heatmap()
+  col %?<-% get_currently_active_heatmap()
 
-    if(!('matrix' %in% class(mat))) {
-        stop('mat is not a matrix... check it out: make_image_mat')
-        # assign('make_image_mat', mat, globalenv())
-    }
+  if(!('matrix' %in% class(mat))) {
+    stop('mat is not a matrix... check it out: make_image_mat')
+    # assign('make_image_mat', mat, globalenv())
+  }
 
-    if(is.na(log)) {
-        log = ''
-    }
+  if(is.na(log)) {
+    log = ''
+  }
 
-    # with(make_image_mat, {
+  # with(make_image_mat, {
 
-    image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
-          add=add, axes=F, xlab='', ylab='', main='')
-    # })
+  image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
+        add=add, axes=F, xlab='', ylab='', main='')
+  # })
 
-    # return the clipped zmat
-    invisible(mat)
+  # return the clipped zmat
+  invisible(mat)
 }
 
 get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FALSE) {
-    # Some of these are from:
-    # http://colorbrewer2.org
+  # Some of these are from:
+  # http://colorbrewer2.org
 
-    .heatmap_palettes <- list(
-        BlueWhiteRed = c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff",
-                         "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061") %>% rev,
-        BlueGrayRed = rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#b4b4b4", "#92c5de", "#4393c3", "#2166ac", "#053061")),
-        Spectral = c('#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf',
-                     '#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2') %>% rev,
-        BrownWhiteGreen = c('#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5',
-                            '#c7eae5','#80cdc1','#35978f','#01665e','#003c30'),
-        PinkWhiteGreen =c('#8e0152','#c51b7d','#de77ae','#f1b6da','#fde0ef','#f7f7f7',
-                          '#e6f5d0','#b8e186','#7fbc41','#4d9221','#276419'),
-        PurpleWhiteGreen = c('#40004b','#762a83','#9970ab','#c2a5cf','#e7d4e8','#f7f7f7',
-                             '#d9f0d3','#a6dba0','#5aae61','#1b7837','#00441b'),
-        OrangeWhitePurple = c('#7f3b08','#b35806','#e08214','#fdb863','#fee0b6','#f7f7f7',
-                              '#d8daeb','#b2abd2','#8073ac','#542788','#2d004b'),
-        BlackWhiteRed = c('#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#ffffff',
-                          '#e0e0e0','#bababa','#878787','#4d4d4d','#1a1a1a') %>% rev,
-        BlueYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','#ffffbf',
-                          '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695') %>% rev,
-        GreenYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee08b','#ffffbf',
-                           '#d9ef8b','#a6d96a','#66bd63','#1a9850','#006837') %>% rev
-    )
-    if(missing(pname)) {
-        if(get_palette_names)
-            return (names(.heatmap_palettes))
+  .heatmap_palettes <- list(
+    BlueWhiteRed = c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#fddbc7", "#ffffff",
+                              "#d1e5f0", "#92c5de", "#4393c3", "#2166ac", "#053061") %>% rev,
+                              BlueGrayRed = rev(c("#67001f", "#b2182b", "#d6604d", "#f4a582", "#b4b4b4", "#92c5de", "#4393c3", "#2166ac", "#053061")),
+    Spectral = c('#9e0142','#d53e4f','#f46d43','#fdae61','#fee08b','#ffffbf',
+                          '#e6f598','#abdda4','#66c2a5','#3288bd','#5e4fa2') %>% rev,
+                          BrownWhiteGreen = c('#543005','#8c510a','#bf812d','#dfc27d','#f6e8c3','#f5f5f5',
+                                                       '#c7eae5','#80cdc1','#35978f','#01665e','#003c30'),
+                                                       PinkWhiteGreen =c('#8e0152','#c51b7d','#de77ae','#f1b6da','#fde0ef','#f7f7f7',
+                                                                                  '#e6f5d0','#b8e186','#7fbc41','#4d9221','#276419'),
+                                                                                  PurpleWhiteGreen = c('#40004b','#762a83','#9970ab','#c2a5cf','#e7d4e8','#f7f7f7',
+                                                                                                                '#d9f0d3','#a6dba0','#5aae61','#1b7837','#00441b'),
+                                                                                                                OrangeWhitePurple = c('#7f3b08','#b35806','#e08214','#fdb863','#fee0b6','#f7f7f7',
+                                                                                                                                               '#d8daeb','#b2abd2','#8073ac','#542788','#2d004b'),
+                                                                                                                                               BlackWhiteRed = c('#67001f','#b2182b','#d6604d','#f4a582','#fddbc7','#ffffff',
+                                                                                                                                                                          '#e0e0e0','#bababa','#878787','#4d4d4d','#1a1a1a') %>% rev,
+                                                                                                                                                                          BlueYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee090','#ffffbf',
+                                                                                                                                                                                                     '#e0f3f8','#abd9e9','#74add1','#4575b4','#313695') %>% rev,
+                                                                                                                                                                                                     GreenYellowRed = c('#a50026','#d73027','#f46d43','#fdae61','#fee08b','#ffffbf',
+                                                                                                                                                                                                                                 '#d9ef8b','#a6d96a','#66bd63','#1a9850','#006837') %>% rev
+  )
+  if(missing(pname)) {
+    if(get_palette_names)
+      return (.heatmap_palettes)
+  }
 
-        return (.heatmap_palettes)
-    }
-
+  pal <- .heatmap_palettes[[pname]]
+  if(is.null(pal)) {
+    cat2("Invalid palette requested: ", pname, ". Returning random palette",
+         level="WARNING")
+    pname = sample(names(.heatmap_palettes), 1)
     pal <- .heatmap_palettes[[pname]]
-    if(is.null(pal)) {
-        cat2("Invalid palette requested: ", pname, ". Returning random palette",
-             level="WARNING")
-        pname = sample(names(.heatmap_palettes), 1)
-        pal <- .heatmap_palettes[[pname]]
-    }
-    attr(pal, 'name') = pname
+  }
+  attr(pal, 'name') = pname
 
-    return (pal)
+  return (pal)
 }
 
 get_currently_active_heatmap <- function() {
-    if(!('current_heatmap_palette' %in% pe_graphics_settings_cache$keys())) {
-        pe_graphics_settings_cache$set(
-            key = 'current_heatmap_palette',
-            value = expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101),
-            signature = paste0('BlueWhiteRed', 101)
-        )
-    }
+  if(!('current_heatmap_palette' %in% pe_graphics_settings_cache$keys())) {
+    pe_graphics_settings_cache$set(
+      key = 'current_heatmap_palette',
+      value = expand_heatmap(get_heatmap_palette('BlueWhiteRed'), ncolors = 101),
+      signature = paste0('BlueWhiteRed', 101)
+    )
+  }
 
-    pe_graphics_settings_cache$get('current_heatmap_palette')
+  pe_graphics_settings_cache$get('current_heatmap_palette')
 }
 
 ..get_nearest_i <- function(from,to, lower_only=FALSE) {
 
-    if(lower_only) {
-        res <- sapply(from, function(.x) {
-            to2 = to[to<= .x]
-            which.min(abs(.x-to2))
-        })
-    } else {
-        res <- sapply(from, function(.x) {
-            which.min(abs(.x-to))
-        })
-    }
+  if(lower_only) {
+    res <- sapply(from, function(.x) {
+      to2 = to[to<= .x]
+      which.min(abs(.x-to2))
+    })
+  } else {
+    res <- sapply(from, function(.x) {
+      which.min(abs(.x-to))
+    })
+  }
 
-    return(res)
+  return(res)
 }
 
 ..get_nearest <- function(from, to) {
-    approxfun(to, seq_along(to))(from)
+  approxfun(to, seq_along(to))(from)
 }
 
 ..get_nearest_val <- function(from,to) {
-    to[..get_nearest_i(from,to)]
+  to[..get_nearest_i(from,to)]
 }
 
 `%near%` <- function(x, y, eps=1e-4) {
-    abs(x-y) < eps
+  abs(x-y) < eps
 }
 
 rave_axis <- function(side, at, tcl, labels=at, las=1, cex.axis,
-                      cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.axis, ...) {
+                      cex.lab, mgpy=c(3, .6, 0), mgpx=c(3, .75, 0), col, col.ticks, col.axis, ...) {
 
-    # if the color isn't specified, then we are free to set the color to what we want.
-    # let's set it to be black, unless the background color is black, then we'll do white
-    col %?<-% get_foreground_color()
-    col.axis %?<-% col
+  # if the color isn't specified, then we are free to set the color to what we want.
+  # set it to the fg color, same for lines and for ticks
+  col %?<-% par('fg') # axis line color
+  col.ticks %?<-% col # axis ticks color
+  col.axis %?<-% col  # axis labels color
 
-    tcl %?<-% pe_graphics_settings_cache$get('rave_axis_tcl')
-    cex.axis %?<-% pe_graphics_settings_cache$get('rave_cex.axis')
-    cex.lab %?<-% pe_graphics_settings_cache$get('rave_cex.lab')
+  tcl %?<-% pe_graphics_settings_cache$get('rave_axis_tcl')
+  cex.axis %?<-% pe_graphics_settings_cache$get('rave_cex.axis')
+  cex.lab %?<-% pe_graphics_settings_cache$get('rave_cex.lab')
 
 
-    ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
-    if(shiny::isRunning() && plotting_to_file()) {
-        cex.axis = 1
-        cex.lab = 1
-        mgpy = c(3,.5,0)
-        mgpx = c(3,.4,0)
+  ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
+  if(shiny::isRunning() && plotting_to_file()) {
+    cex.axis = 1
+    cex.lab = 1
+    mgpy = c(3,.5,0)
+    mgpx = c(3,.4,0)
 
-        print("detected plotting to file")
-    }
+    dipsaus::cat2("detected plotting to file")
+  }
 
-    rutabaga::ruta_axis(
-        side = side,
-        at = at,
-        tcl = tcl,
-        labels = labels,
-        las = las,
-        cex.axis = cex.axis*get_cex_for_multifigure(),
-        cex.lab = cex.lab*get_cex_for_multifigure(),
-        mgpy = mgpy,
-        mgpx = mgpx,
-        col=col, col.axis=col.axis,
-        ...
-    )
+  rutabaga::ruta_axis(
+    side = side,
+    at = at,
+    tcl = tcl,
+    labels = labels,
+    las = las,
+    cex.axis = cex.axis*get_cex_for_multifigure(),
+    cex.lab = cex.lab*get_cex_for_multifigure(),
+    mgpy = mgpy,
+    mgpx = mgpx,
+    col=col, col.ticks=col.ticks, col.axis=col.axis,
+    ...
+  )
 }
 
 #' Function make a title for a plot, checks par('bg') to handle dark mode
@@ -436,383 +439,814 @@ rave_axis <- function(side, at, tcl, labels=at, las=1, cex.axis,
 #' @param font the font type (default = 1, plain)
 #' @export
 rave_title <- function(main, cex.main, col, font=1, adj=0.5, ...) {
-    col %?<-% get_foreground_color()
+  col %?<-% par('fg')
 
-    cex.main %?<-% pe_graphics_settings_cache$get('rave_cex.main')
+  cex.main %?<-% pe_graphics_settings_cache$get('rave_cex.main')
 
-    if(plotting_to_file()) {
-        cex.main = 1
-    }
+  if(plotting_to_file()) {
+    cex.main = 1
+  }
 
-    title(main=list(main, cex=cex.main*get_cex_for_multifigure(), col=col, font=font), adj=adj)
+  title(main=list(main, cex=cex.main*get_cex_for_multifigure(), col=col, font=font), adj=adj)
 }
 
 rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab, line=NA, ...) {
-    col %?<-% get_foreground_color()
+  col %?<-% par('col')
 
-    cex.lab %?<-% pe_graphics_settings_cache$get('rave_cex.lab')
+  cex.lab %?<-% pe_graphics_settings_cache$get('rave_cex.lab')
 
-    ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
-    if(plotting_to_file()) {
-        if (cex.lab > 1) cex.lab = 1
+  ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
+  if(plotting_to_file()) {
+    if (cex.lab > 1) cex.lab = 1
 
-        if(!is.null(ylab)) {
-            title(xlab=NULL, ylab=ylab,
-                  cex.lab=cex.lab*get_cex_for_multifigure(),
-                  col.lab=col, line=2.75, ...)
-        }
-
-        if(!is.null(xlab)) {
-            title(xlab=xlab, ylab=NULL,
-                  cex.lab=cex.lab*get_cex_for_multifigure(),
-                  col.lab=col, line=1.5, ...)
-        }
-
-        return()
+    if(!is.null(ylab)) {
+      title(xlab=NULL, ylab=ylab,
+            cex.lab=cex.lab*get_cex_for_multifigure(),
+            col.lab=col, line=2.75, ...)
     }
 
-    title(xlab=xlab, ylab=ylab,
-          cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, line=line, ...)
-}
+    if(!is.null(xlab)) {
+      title(xlab=xlab, ylab=NULL,
+            cex.lab=cex.lab*get_cex_for_multifigure(),
+            col.lab=col, line=1.5, ...)
+    }
 
+    return()
+  }
+
+  title(xlab=xlab, ylab=ylab,
+        cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, line=line, ...)
+}
 
 get_cex_for_multifigure <- function() {
-    cex_multiplier <- 1
-    if(shiny::isRunning()) {
-        if(any(par('mfrow') > 2)) {
-            cex_multiplier = 1/0.66
-        } else if (all(par('mfrow') == 2)) {
-            cex_multiplier <- 1/0.88
-        }
+  cex_multiplier <- 1
+  if(shiny::isRunning()) {
+    if(any(par('mfrow') > 2)) {
+      cex_multiplier = 1/0.66
+    } else if (all(par('mfrow') == 2)) {
+      cex_multiplier <- 1/0.88
     }
-    return (cex_multiplier)
+  }
+  return (cex_multiplier)
 }
+
 get_foreground_color <- function() {
-    switch(par('bg'),
-           'white' = 'black',
-           'black' = 'white',
-           '#1E1E1E' = 'gray70',
-           'gray' = '#A5A5A5',
-           'black'
-    )
+  stop('do not use get foreground color')
+  # switch(par('bg'),
+  #        'white' = 'black',
+  #        'black' = 'white',
+  #        '#1E1E1E' = 'gray70',
+  #        'gray' = '#A5A5A5',
+  #        par('col')
+  # )
+}
+
+setup_palette <- function() {
+  pe_graphics_settings_cache$get('color_palette')
 }
 
 rave_color_bar <- function(zlim, actual_lim, clrs, ylab, ylab.line=1.5,
                            mar=c(5.1, 5.1, 2, 2), adjust_for_nrow=TRUE, horizontal=FALSE, ...) {
-    # print('drawing color bar')
-    clrs %?<-% get_currently_active_heatmap()
-    cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
+  # print('drawing color bar')
+  clrs %?<-% get_currently_active_heatmap()
+  cbar <- matrix(seq(-zlim, zlim, length=length(clrs))) %>% t
 
-    if(horizontal) cbar %<>% t
+  if(horizontal) cbar %<>% t
 
-    ylim = 0:1
-    if(adjust_for_nrow && (par('mfrow')[1] > 1)) {
-        nr = par('mfrow')[1]
-        ylim = 1/nr * c(-1,1) + ylim
-    }
+  ylim = 0:1
+  if(adjust_for_nrow && (par('mfrow')[1] > 1)) {
+    nr = par('mfrow')[1]
+    ylim = 1/nr * c(-1,1) + ylim
+  }
 
-    orig.pty <- par('pty')
-    on.exit(par(pty=orig.pty))
+  orig.pty <- par('pty')
+  on.exit(par(pty=orig.pty))
 
-    par(mar=mar, pty='m')
-    image(cbar, useRaster = FALSE, ylim=ylim,
-          col=clrs, axes=F, ylab='', main='',
-          col.lab = get_foreground_color())
+  par(mar=mar, pty='m')
+  image(cbar, useRaster = FALSE, ylim=ylim,
+        col=clrs, axes=F, ylab='', main='',
+        col.lab = par('fg'))
 
-    # check if any other graphics params were requested, direct them to the proper function
-    more = list(...)
+  # check if any other graphics params were requested, direct them to the proper function
+  more = list(...)
 
-    ral.args = list(ylab=ylab, line=ylab.line)
-    if('cex.lab' %in% names(more)) ral.args$cex.lab = more$cex.lab
+  ral.args = list(ylab=ylab, line=ylab.line)
+  if('cex.lab' %in% names(more)) ral.args$cex.lab = more$cex.lab
 
-    if(horizontal) {
-        rave_title(ral.args$ylab)
-    } else {
-        do.call(rave_axis_labels, ral.args)
-    }
+  if(horizontal) {
+    rave_title(ral.args$ylab)
+  } else {
+    do.call(rave_axis_labels, ral.args)
+  }
 
-    ra.args = list(side=2, at=0:1, labels=pretty_round(c(-zlim,zlim), allow_negative_round = TRUE), tcl=0)
-    if('cex.axis' %in% more) ra.args$cex.axis = more$cex.axis
+  ra.args = list(side=2, at=0:1, labels=pretty_round(c(-zlim,zlim), allow_negative_round = TRUE), tcl=0)
+  if('cex.axis' %in% more) ra.args$cex.axis = more$cex.axis
 
-    if(horizontal) ra.args$side = 1
-    do.call(rave_axis, ra.args)
+  if(horizontal) ra.args$side = 1
+  do.call(rave_axis, ra.args)
 
-    ra.args[c('at', 'labels', 'tcl')] = list(0.5, 0, 0.3)
-    do.call(rave_axis, ra.args)
+  ra.args[c('at', 'labels', 'tcl')] = list(0.5, 0, 0.3)
+  do.call(rave_axis, ra.args)
 
-    # this won't work if we're tweaking ylim based on nrow
-    # the source for box is compiled, but this seems to work. The key is the xpd=T to make sure
-    # we don't get clipping
-    if(!horizontal) {
-        rect(par('usr')[1], 0, par('usr')[2], 1,
-             lwd=1, xpd=TRUE)
-    } else {
-        box()
-    }
+  # this won't work if we're tweaking ylim based on nrow
+  # the source for box is compiled, but this seems to work. The key is the xpd=T to make sure
+  # we don't get clipping
+  if(!horizontal) {
+    rect(par('usr')[1], 0, par('usr')[2], 1,
+         lwd=1, xpd=TRUE)
+  } else {
+    box()
+  }
 
-    invisible(zlim)
+  invisible(zlim)
 }
-
 
 ### decorators ---
 
 draw_box <- function(x,y, ...)  {
-    segments(x0=x[1], x1=x[2], y0=y[1], ...)
-    segments(x0=x[2], y0=y[1], y1=y[2], ...)
-    segments(x0=x[1], x1=x[2], y0=y[2], ...)
-    segments(x0=x[1], y0=y[1], y1=y[2], ...)
+  segments(x0=x[1], x1=x[2], y0=y[1], ...)
+  segments(x0=x[2], y0=y[1], y1=y[2], ...)
+  segments(x0=x[1], x1=x[2], y0=y[2], ...)
+  segments(x0=x[1], y0=y[1], y1=y[2], ...)
 }
 
 
-time_frequency_decorator <- function(data, condition_data, analysis_settings, baseline_settings, Xmap=force, Ymap=force,
+time_frequency_decorator <- function(data, condition_data, baseline_settings, Xmap=force, Ymap=force,
                                      analysis_window_type = c('box', 'line', 'shade'), ...) {
 
-    analysis_window_type = match.arg(analysis_window_type)
+  analysis_window_type = match.arg(analysis_window_type)
 
-    shd2 <- function(data, condition_data, analysis_settings, baseline_settings, Xmap, Ymap, ...) {
+  shd2 <- function(data, condition_data, baseline_settings, Xmap, Ymap, ...) {
+    # put the name of the trial grouping at the top of the spectrogram
+    rave_title(data$name)
 
-        # put the name of the trial grouping at the top of the spectrogram
-        rave_title(data$name)
+    # label the x and y axes
+    rave_axis_labels(data$xlab, data$ylab)
 
-        # label the x and y axes
-        rave_axis_labels(data$xlab, data$ylab)
+    render_vertical <- function(wi, txt, col=adjustcolor(par('fg'), offset=rep(.3, 4)),
+                                lty=2, adjust_text=c(0,0)) {
+      abline(v=Xmap(wi), lty=lty, col=col)
 
+      # cat(paste("RV: wi=", str_collapse(wi), " =>: ", str_collapse(Xmap(wi)), '\npar usr: ',
+      #             str_collapse(par('usr')), '\n'))
 
-        render_vertical <- function(wi, txt, col='gray30', lty=2) {
-            abline(v=Xmap(wi), lty=lty, col=col)
-
-            text(Xmap(wi[1]), par('usr')[4], txt, col=col, xpd=T, pos=4,
-                 cex = pe_graphics_settings_cache$get('rave_cex.lab') * get_cex_for_multifigure()
-            )
-        }
-
-        # label the baseline windows
-        sapply(baseline_settings$window, render_vertical, 'Baseline')
-
-        # label the analysis window(s)
-        render_box <- function(as) {
-            x <- Xmap(as$time); y <- Ymap(as$frequency)
-
-            if(analysis_window_type == 'line') {
-                render_vertical(as$time, as$label, col='black')
-            } else {
-                draw_box(x,y,lty=2,lwd=2, col='black')
-                text(x[1], y[1] + diff(y)*0.90, as$label, col='black', xpd=T, pos=4,
-                     cex = pe_graphics_settings_cache$get('rave_cex.lab') * get_cex_for_multifigure()
-                )
-            }
-        }
-
-        if('time' %in% names(analysis_settings)) {
-            render_box(analysis_settings)
-            # this means there is only one set of settings
-        } else {
-            sapply(analysis_settings, render_box)
-        }
+      mtext(side=3, at=Xmap(wi[1])+adjust_text[1], adj=0,
+            # 1.0*par('usr')[4]+adjust_text[1],
+            text = txt, col=col,
+            cex = pe_graphics_settings_cache$get('rave_cex.lab')
+      )
     }
 
-    if(missing(data) || is.null(data)) {
-        return (shd2)
+    # label the baseline windows
+    sapply(baseline_settings$window, render_vertical, 'Baseline')
+
+    # label the analysis window(s)
+    render_window <- function(as, adjust_text=c(0,0), ...) {
+
+      if(analysis_window_type == 'line') {
+        render_vertical(wi = as$time, txt = as$label, col=par('fg'), adjust_text = adjust_text, ...)
+      } else {
+        x <- Xmap(as$time); y <- Ymap(as$frequency)
+
+        draw_box(x,y,lty=2,lwd=2, col=par('fg'), ...)
+        mtext(side=3, at = x[1]+adjust_text[1], adj=0,
+              # y[1] + (diff(y)*1) + adjust_text[2],
+              text = as$label,
+              col=par('fg'), #xpd=T, pos=4,
+              cex = pe_graphics_settings_cache$get('rave_cex.lab')
+        )
+      }
     }
 
-    shd2(data, condition_data, analysis_settings, baseline_settings, Xmap, Ymap)
+    if('time' %in% names(data$settings)) {
+      # this means there is only one set of settings
+      render_window(data$settings)
+    } else {
+      sapply(data$settings, render_window)
+    }
+  }
+
+  if(missing(data) || is.null(data)) {
+    return (shd2)
+  }
+
+  shd2(data, condition_data, baseline_settings, Xmap, Ymap)
 
 }
 
 spectrogram_heatmap_decorator <- function(plot_data, plot_options, Xmap=force, Ymap=force, btype='line', atype='box',
                                           title_options=list(allow_freq=FALSE), ...) {
-    to <- force(title_options)
-    plot_options = list(
-        plot_title_options = pe_graphics_settings_cache$get('plot_title_options'),
-        draw_decorator_labels = pe_graphics_settings_cache$get('draw_decorator_labels')
+  to <- force(title_options)
+  plot_options = list(
+    plot_title_options = pe_graphics_settings_cache$get('plot_title_options'),
+    draw_decorator_labels = pe_graphics_settings_cache$get('draw_decorator_labels')
+  )
+
+  # the idea of more title options is that the caller might "know better" than the creator about
+  # 'which' plot is being decorated and can selective (dis/en)able certain text
+  shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap, more_title_options, ...) {
+    .args = list('plot_data' = plot_data, 'plot_title_options' = plot_options$plot_title_options)
+
+    if(length(title_options) > 0) {
+      .args[names(title_options)] = title_options
+    }
+
+    if(!missing(more_title_options) && is.list(more_title_options)) {
+      .args[names(more_title_options)] <- more_title_options
+    }
+
+    if(!is.null(title_options)) {
+      do.call(title_decorator, args=.args)
+    }
+
+    rave_axis_labels(xlab=plot_data$xlab, ylab=plot_data$ylab)
+
+    # check if the analysis and baseline windows are fully contained within the plotting window. If not, switch baseline type
+    # to just be a label. This can, of course, be turned off using the regular options.
+    if(!all(plot_data$baseline_window %within% plot_data$x)) {
+      btype = 'label'
+    }
+
+    if(!all(plot_data$analysis_window %within% plot_data$x)) {
+      atype = 'label'
+    }
+
+    # would be nice to have a TRIAL_ONSET or something here, rather than a string...
+    if(!is.null(plot_data$trial_alignment) && plot_data$trial_alignment != 'Trial Onset') {
+      btype = 'n'
+    }
+
+    windows <- list(
+      'Baseline'=list(
+        window = if(btype == 'label') {
+          plot_data$baseline_window
+        }else {
+          Xmap(plot_data$baseline_window)
+        },
+        type=btype
+      ),
+      'Analysis'=list(
+        window = if(atype=='box') {
+          list(x=Xmap(plot_data$analysis_window),
+               y=Ymap(plot_data$frequency_window))
+        } else if(atype == 'label') {
+          plot_data$analysis_window
+        }else {
+          Xmap(plot_data$analysis_window)
+        },
+        type=atype
+      )
     )
 
-    # the idea of more title options is that the caller might "know better" than the creator about
-    # 'which' plot is being decorated and can selective (dis/en)able certain text
-    shd <- function(plot_data, Xmap=Xmap, Ymap=Ymap, more_title_options, ...) {
-        .args = list('plot_data' = plot_data, 'plot_title_options' = plot_options$plot_title_options)
+    if(isTRUE(plot_data$enable_frequency2)) {
 
-        if(length(title_options) > 0) {
-            .args[names(title_options)] = title_options
+      windows[['F2 Analysis']] = list(
+        window = if(atype=='box') {
+          list(x=Xmap(plot_data$analysis_window2),
+               y=Ymap(plot_data$frequency_window2))
+        } else if(atype == 'label') {
+          plot_data$analysis_window2
+        }else {
+          Xmap(plot_data$analysis_window2)
+        },
+        type=atype
+      )
+
+      if('Analysis Window' %in% plot_options$plot_title_options) {
+        plot_options$plot_title_options %<>% c('F2 Analysis Window')
+        # print('adding F2 AW')
+      }
+    }
+    # print(str_collapse(plot_options$plot_title_options))
+
+    lapply(names(windows), function(nm) {
+      if(paste(nm, 'Window') %in% plot_options$plot_title_options & windows[[nm]]$type != 'n') {
+        # cat('trying:\t', str_collapse(c(atype, btype, nm)), '\n')
+
+        lpo <- 0.9
+        if(all('label' == c(btype,atype), nm %in% c('F2 Analysis', 'Analysis'))){
+          lpo <- 0.8
+        } else if(nm == 'F2 Analysis') {
+          lpo = 0.75
         }
 
-        if(!missing(more_title_options) && is.list(more_title_options)) {
-            .args[names(more_title_options)] <- more_title_options
-        }
-
-        if(!is.null(title_options)) {
-            do.call(title_decorator, args=.args)
-        }
-
-        rave_axis_labels(xlab=plot_data$xlab, ylab=plot_data$ylab)
-
-        # check if the analysis and baseline windows are fully contained within the plotting window. If not, switch baseline type
-        # to just be a label. This can, of course, be turned off using the regular options.
-        if(!all(plot_data$baseline_window %within% plot_data$x)) {
-            btype = 'label'
-        }
-
-        if(!all(plot_data$analysis_window %within% plot_data$x)) {
-            atype = 'label'
-        }
-
-        # would be nice to have a TRIAL_ONSET or something here, rather than a string...
-        if(!is.null(plot_data$trial_alignment) && plot_data$trial_alignment != 'Trial Onset') {
-            btype = 'n'
-        }
-
-        windows <- list(
-            'Baseline'=list(
-                window = if(btype == 'label') {
-                    plot_data$baseline_window
-                }else {
-                    Xmap(plot_data$baseline_window)
-                },
-                type=btype
-            ),
-            'Analysis'=list(
-                window = if(atype=='box') {
-                    list(x=Xmap(plot_data$analysis_window),
-                         y=Ymap(plot_data$frequency_window))
-                } else if(atype == 'label') {
-                    plot_data$analysis_window
-                }else {
-                    Xmap(plot_data$analysis_window)
-                },
-                type=atype
-            )
+        with(windows[[nm]],
+             window_decorator(
+               window=window, type=type,
+               text=ifelse(plot_options$draw_decorator_labels, nm, ''))
         )
+      }
+    })
+    # if(results$get_value('draw_decorator_labels')) {
+    #     rave_axis(1, at=Xmap(0), labels = plot_data$trial_alignment, mgpx=c(1,2,1), lwd=0, tcl=0)
+    # }
 
-        if(isTRUE(plot_data$enable_frequency2)) {
+    invisible(plot_data)
+  }
 
-            windows[['F2 Analysis']] = list(
-                window = if(atype=='box') {
-                    list(x=Xmap(plot_data$analysis_window2),
-                         y=Ymap(plot_data$frequency_window2))
-                } else if(atype == 'label') {
-                    plot_data$analysis_window2
-                }else {
-                    Xmap(plot_data$analysis_window2)
-                },
-                type=atype
-            )
+  if(missing(plot_data)) {
+    # dipsaus::cat2('returning decorator')
+    return (shd)
+  }
 
-            if('Analysis Window' %in% plot_options$plot_title_options) {
-                plot_options$plot_title_options %<>% c('F2 Analysis Window')
-                # print('adding F2 AW')
-            }
-        }
-        # print(str_collapse(plot_options$plot_title_options))
-
-        lapply(names(windows), function(nm) {
-            if(paste(nm, 'Window') %in% plot_options$plot_title_options & windows[[nm]]$type != 'n') {
-                # cat('trying:\t', str_collapse(c(atype, btype, nm)), '\n')
-
-                lpo <- 0.9
-                if(all('label' == c(btype,atype), nm %in% c('F2 Analysis', 'Analysis'))){
-                    lpo <- 0.8
-                } else if(nm == 'F2 Analysis') {
-                    lpo = 0.75
-                }
-
-                with(windows[[nm]],
-                     window_decorator(
-                         window=window, type=type,
-                         text=ifelse(plot_options$draw_decorator_labels, nm, ''))
-                )
-            }
-        })
-        # if(results$get_value('draw_decorator_labels')) {
-        #     rave_axis(1, at=Xmap(0), labels = plot_data$trial_alignment, mgpx=c(1,2,1), lwd=0, tcl=0)
-        # }
-
-        invisible(plot_data)
-    }
-
-    if(missing(plot_data)) {
-        # dipsaus::cat2('returning decorator')
-        return (shd)
-    }
-
-    shd(plot_data, Xmap, Ymap)
+  shd(plot_data, Xmap, Ymap)
 }
 
 axis_label_decorator <- function(plot_data, col, Xmap=force, Ymap=force, label_alignment=TRUE, label_alignment.line = 2, ...) {
-    stop('please do not use axis_label_decorator anymore')
+  stop('please do not use axis_label_decorator anymore')
 }
 
 title_decorator <- function(plot_data, plot_title_options,
                             allow_sid=TRUE, allow_enum=TRUE, allow_freq=TRUE,
                             allow_cond=TRUE, allow_sample_size=TRUE, ..., plot=TRUE) {
-    title_string = ''
+  title_string = ''
 
-    # if(missing(plot_title_options)) {
-    #     plot_title_options = build_plot_options()$plot_title_options
-    # }
+  # if(missing(plot_title_options)) {
+  #     plot_title_options = build_plot_options()$plot_title_options
+  # }
 
-    # if we have multiple data, just take the first
-    # the way to guess this is to check for the existence of a variable that we should have...
-    if(is.null(plot_data[['name']])) {
-        plot_data = plot_data[[1]]
-    }
+  # if we have multiple data, just take the first
+  # the way to guess this is to check for the existence of a variable that we should have...
+  if(is.null(plot_data[['name']])) {
+    plot_data = plot_data[[1]]
+  }
 
-    # wraps do_on_inclusion to make the following lines easier to understand
-    add_if_selected <- function(id, expr) {
-        do_on_inclusion(id, expr, plot_title_options)
-    }
+  # wraps do_on_inclusion to make the following lines easier to understand
+  add_if_selected <- function(id, expr) {
+    do_on_inclusion(id, expr, plot_title_options)
+  }
 
-    if(allow_cond)
-        add_if_selected('Condition', {
-            .name <- plot_data[['name']]
-            if(isTRUE(nchar(.name) > 0)) {
-                .name <- '' %&% .name
-            }
-            title_string = .name
-        })
+  if(allow_cond)
+    add_if_selected('Condition', {
+      .name <- plot_data[['name']]
+      if(isTRUE(nchar(.name) > 0)) {
+        .name <- '' %&% .name
+      }
+      title_string = .name
+    })
 
-    # we could write this as a simple m/sapply if the variable names had a clear relationship to one another
-    if(allow_sid)
-        add_if_selected('Subject ID', {
-            conditional_sep(title_string) = plot_data$subject_code
-        })
+  # we could write this as a simple m/sapply if the variable names had a clear relationship to one another
+  if(allow_sid)
+    add_if_selected('Subject ID', {
+      conditional_sep(title_string) = plot_data$subject_code
+    })
 
-    if(allow_enum)
-        add_if_selected('Electrode #', {
-            el <- dipsaus::deparse_svec(plot_data$electrodes, max_lag=1)
-            # print('EL: ' %&% el)
-            conditional_sep(title_string) = 'E' %&% el
-        })
+  if(allow_enum)
+    add_if_selected('Electrode #', {
+      el <- dipsaus::deparse_svec(plot_data$electrodes, max_lag=1)
+      # print('EL: ' %&% el)
+      conditional_sep(title_string) = 'E' %&% el
+    })
 
-    if(allow_freq)
-        add_if_selected('Frequency Range', {
-            conditional_sep(title_string) = 'Freq ' %&% paste0(plot_data$frequency_window, collapse=':')
-        })
+  if(allow_freq)
+    add_if_selected('Frequency Range', {
+      conditional_sep(title_string) = 'Freq ' %&% paste0(plot_data$frequency_window, collapse=':')
+    })
 
-    if(allow_sample_size)
-        add_if_selected('Sample Size', {
-            if(!is.null(plot_data$N))
-                conditional_sep(title_string) = 'N=' %&% plot_data$N
-        })
+  if(allow_sample_size)
+    add_if_selected('Sample Size', {
+      if(!is.null(plot_data$N))
+        conditional_sep(title_string) = 'N=' %&% plot_data$N
+    })
 
-    # rave_title is an "additive" instead of replacement call, so rendering an empty string won't hurt anything,
-    # but let's save a few needless function calls
-    if(nchar(title_string) > 0 && plot) {
-        # dipsaus::cat2('dput on title:\t', dput(title_string), '\nlen: ', length(title_string), ', nchar=', nchar(title_string), pal = list("Blue" = "dodgerblue3"), level = "Blue")
+  # rave_title is an "additive" instead of replacement call, so rendering an empty string won't hurt anything,
+  # but let's save a few needless function calls
+  if(nchar(title_string) > 0 && plot) {
+    # dipsaus::cat2('dput on title:\t', dput(title_string), '\nlen: ', length(title_string), ', nchar=', nchar(title_string), pal = list("Blue" = "dodgerblue3"), level = "Blue")
 
-        rave_title(title_string)
-    }
+    rave_title(title_string)
+  }
 
-    invisible(title_string)
+  invisible(title_string)
 }
 
 # helper to reduce redundancies in searching then evaluating
 do_on_inclusion <- function(needle, expr, haystack) {
-    if(needle %in% haystack) {
-        eval(expr)
-    }
+  if(needle %in% haystack) {
+    eval(expr)
+  }
 }
 ###
 
 round_to_nearest <- function(x, val=10) {
-    val*round(x/val)
+  val*round(x/val)
 }
+
+
+fill_poly <- function(x, y, fill.color=1, fill.alpha=0.6, y0=0, do_stroke=TRUE, stroke.lwd=2, stroke.color=fill.color) {
+  polygon( c(x, rev(x)), c(rep(y0, length(y)), rev(y)), border=NA, col=adjustcolor(fill.color, fill.alpha))
+  #overdraw the data line (this may do weird things if col already has transparency in it)
+  if(isTRUE(do_stroke)) lines(x, y, col=stroke.color, lwd=stroke.lwd)
+}
+
+is.color <- function(x) {
+  if(is.null(x) || is.function(x) || is.nan(x)) return (FALSE)
+
+  res <- tryCatch({
+    col2rgb(x)
+  }, error = function(...) {
+    FALSE
+  })
+  if(isFALSE(res)) return(FALSE)
+
+
+  return(TRUE)
+}
+
+render_analysis_window <- function(settings, lty=2, do_label=TRUE, text.color=par('fg'),
+                                   x, y, line.color=par('fg'), shade.color, stroke.color, shade.alpha=0.6) {
+  # settings <- dd$settings
+  wi = settings$time
+
+  # handle possibly-overlapping multiple time window labels
+  if(do_label) {
+    if(is.list(wi)) {
+
+    } else {
+      mtext(side=3, at=wi[1], adj=0,
+            text = settings$label, col=text.color,
+            cex = pe_graphics_settings_cache$get('rave_cex.lab')
+      )
+    }
+  }
+
+  if(is.numeric(lty)) abline(v=wi, lty=2, col=line.color)
+
+  if(!missing(y) && !missing(x)) {
+    ind <- x %within% settings$time
+    fill_poly(x=x[ind], y=y[ind], fill.color = shade.color, fill.alpha=shade.alpha, stroke.color=stroke.color)
+  }
+}
+
+plot_over_time_by_condition <- function(over_time_data,
+                                        combine_conditions=FALSE,
+                                        combine_events=FALSE) {
+
+  theme <- ravedash::current_shiny_theme()
+  par('bg'=theme$background, 'fg'=theme$foreground, 'col'=theme$foreground)
+
+  grDevices::palette(get_line_palette())
+
+  n.groups <- length(over_time_data)
+  n.events <- length(over_time_data[[1]])
+
+  xlim <- sapply(over_time_data, function(otd) {
+    range(sapply(otd, function(dd) {
+      dd$x
+    }))
+  }) %>% range
+  ylim <- sapply(over_time_data, function(otd) {
+    range(sapply(otd, function(dd) {
+      plus_minus(dd$data)
+    }))
+  }) %>% pretty %>% range
+
+  draw_axis_labels <- function() {
+    nr = par('mfrow')[1]
+    nc = par('mfrow')[2]
+
+    x.dividers = seq_len(nc) * 1/nc
+    x.midpoints = x.dividers - 0.5*(1/nc)
+
+    y.dividers = seq_len(nr) * 1/nr
+    y.midpoints = y.dividers - 0.5*(1/nr)
+
+    rave_cex.axis <- pe_graphics_settings_cache$get('rave_cex.axis')
+    mtext(outer = TRUE, side=1, 'Time (s)', cex=rave_cex.axis, at=x.midpoints)
+    mtext(outer = TRUE, side=2, over_time_data[[1]][[1]]$ylab, at=y.midpoints,
+          cex=rave_cex.axis, line=1)
+  }
+
+  decorate_plot <- function(graph_data, graph_num,
+                            window_label= FALSE, window_type = c('lines', 'fill'), axes=TRUE) {
+    # draw the analysis window behind the data
+    sh = pe_graphics_settings_cache$get('analysis_window.shade.color')
+    if (sh == 'match') sh = graph_num
+
+    st = pe_graphics_settings_cache$get('analysis_window.stroke.color')
+    if (st == 'match') st = graph_num
+
+    if('fill' %in% window_type) {
+      render_analysis_window(graph_data$settings, do_label=window_label,
+                             x=graph_data$x, y=graph_data$data[,1],
+                             shade.color = sh,
+                             stroke.color = st)
+    } else {
+      render_analysis_window(graph_data$settings, do_label=window_label,
+                             shade.color = sh,
+                             stroke.color = st)
+    }
+
+    axes = rep_len(axes, 2)
+    if(axes[1]) rave_axis(1, at=axTicks(1))
+    if(axes[2]) rave_axis(2, at=axTicks(2))
+
+    if(par('usr')[3] < 0) abline(h=0, col='lightgray')
+  }
+
+  # many situations merge into a 1,1 plot type, so have an function for that
+  plot_all_in_one <- function() {
+    par(mfrow=c(1,1), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
+    plot_clean(xlim, ylim)
+    draw_axis_labels()
+    dy = .075*diff(par('usr')[3:4])
+
+    for(ii in seq_along(over_time_data)) {
+      for (jj in seq_along(over_time_data[[ii]])) {
+        dd <- over_time_data[[ii]][[jj]]
+        graph_num = jj + (n.events) * (ii-1)
+
+        # put the decorations behind the data
+        decorate_plot(graph_data = dd, graph_num = graph_num,
+                      window_type = 'lines', axes=(graph_num==1),
+                      # label windows every time there is a new event
+                      window_label = (ii==1)
+        )
+
+        ebar_polygon(dd$x, dd$data[,1], dd$data[,2], col=graph_num)
+
+        yy = max(axTicks(2)) - dy*graph_num
+
+        text(x=axTicks(1)[1], y=yy,
+             labels =paste(dd$time_window_label, dd$data_label, sep=', '), adj=c(0,0),
+             cex = pe_graphics_settings_cache$get('rave_cex.lab', 1),
+             col=graph_num
+        )
+      }
+    }
+  }
+
+  plot_combined_over_conditions <- function(nr,nc) {
+    # we have at least 2 events
+    par(mfrow=c(nr,nc), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
+
+    #loop over events
+    for(ei in seq_along(over_time_data[[1]])) {
+      plot_clean(xlim, ylim)
+      draw_axis_labels()
+      with(over_time_data[[1]][[ei]],
+           rave_title(time_window_label)
+      )
+
+      if(ei==1) {
+        nms <- names(over_time_data)
+        dy = .075*diff(par('usr')[3:4])
+        yy = max(axTicks(2)) - dy*seq_along(nms)
+
+        text(x=axTicks(1)[1], y=yy,
+             labels =nms, adj=c(0,0),
+             cex = pe_graphics_settings_cache$get('rave_cex.lab', 1),
+             col=seq_along(nms)
+        )
+      }
+
+      for(ii in seq_along(over_time_data)) {
+        dd <- over_time_data[[ii]][[ei]]
+        graph_num = ii
+
+        # put the decorations behind the data
+        decorate_plot(graph_data = dd, graph_num = graph_num,
+                      window_type = 'lines', axes=(graph_num==1))
+
+        ebar_polygon(dd$x, dd$data[,1], dd$data[,2], col=graph_num)
+      }
+
+    }
+  }
+
+  plot_combined_over_events <- function(nr,nc) {
+    par(mfrow=c(nr,nc), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
+    for(ii in seq_along(over_time_data)) {
+      plot_clean(xlim, ylim)
+      draw_axis_labels()
+      rave_title(over_time_data[[ii]][[1]]$data_label)
+
+      if(ii==1) {
+        nms <- names(over_time_data[[1]])
+        dy = .075*diff(par('usr')[3:4])
+        yy = max(axTicks(2)) - dy*seq_along(nms)
+
+        text(x=axTicks(1)[1], y=yy,
+             labels =nms, adj=c(0,0),
+             cex = pe_graphics_settings_cache$get('rave_cex.lab', 1),
+             col=seq_along(nms)
+        )
+      }
+
+      for(jj in seq_along(over_time_data[[ii]])) {
+        dd <- over_time_data[[ii]][[jj]]
+        graph_num = jj
+
+        # put the decorations behind the data
+        decorate_plot(graph_data = dd, graph_num = graph_num,
+                      window_type = 'lines', axes=(graph_num==1))
+
+        ebar_polygon(dd$x, dd$data[,1], dd$data[,2], col=graph_num)
+      }
+    }
+    # show a warning if the events have a different origin
+  }
+
+  MAX_COL = pe_graphics_settings_cache$get('max_columns_in_figure', 3)
+
+
+  determine_layout <- function(n.panels) {
+    nr = ceiling(n.panels / MAX_COL)
+
+    nc = min(n.panels, MAX_COL)
+
+    c(nr,nc)
+  }
+
+  if(isTRUE(combine_conditions) && isTRUE(combine_events)){
+    # put everybody in a single plot
+    plot_all_in_one()
+  } else if (isTRUE(combine_conditions)){
+    # we're combining conditions (but not events), so the number of
+    # unique graphs is the number of unique events, second-level dimension
+    layout = determine_layout(length(over_time_data[[1]]))
+
+    if(prod(layout)==1) {
+      plot_all_in_one()
+    } else {
+      plot_combined_over_conditions(nr=layout[1], nc=layout[2])
+    }
+
+  } else if (isTRUE(combine_events)){
+    # here we are combining events but not combining conditions
+    layout <- determine_layout(length(over_time_data))
+
+    if(prod(layout) == 1) {
+      plot_all_in_one()
+    } else {
+      plot_combined_over_events(nr=layout[1], nc=layout[2])
+    }
+  } else {
+    # separate everything
+    k = n.groups * n.events
+
+    # determining our own layout to make sure it looks nice
+    nc = k %% n.groups
+    if(nc ==0) nc = n.groups
+    nr = ceiling(k / n.groups)
+
+    # prefer (1,X) to (X,1)
+    if(nr > 1 && nc ==1) {
+      nc = nr
+      nr = 1
+    }
+
+    par(mfcol=c(nr,nc), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
+    for(ii in seq_along(over_time_data)) {
+      for(jj in seq_along(over_time_data[[ii]])) {
+        plot_clean(xlim, ylim)
+        draw_axis_labels()
+        dd <- over_time_data[[ii]][[jj]]
+        rave_title(paste(sep=' | ', dd$data_label, dd$time_window_label))
+
+        graph_num = jj + (ii-1)*n.events
+
+        # put the decorations behind the data
+        decorate_plot(graph_data = dd, graph_num = graph_num)
+
+        ebar_polygon(dd$x, dd$data[,1], dd$data[,2], col=graph_num)
+      }
+    }
+  }
+}
+
+
+
+plot_per_electrode_statistics <- function(stats, requested_stat='overall', show0=c('smart', 'auto', 'always')) {
+  theme <- ravedash::current_shiny_theme()
+  par('bg'=theme$background, 'fg'=theme$foreground, 'col'=theme$foreground)
+
+  el <- as.numeric(colnames(stats))
+
+  show0 = match.arg(show0)
+
+  par(mfrow=c(1,3),mar=c(4.1,5.1,4.1,2.1))
+  row_ind <- 1:3
+
+  tmp_ind = which(
+    stringr::str_detect(tolower(rownames(stats)),
+                        tolower(requested_stat))
+  )
+
+  if(length(tmp_ind)>1) {
+    row_ind = seq(from=tmp_ind[1], to=2+tmp_ind[1])
+  }
+
+  get_non_consec <- function(ee) {
+    res <- which(diff(ee)>1)
+    sort(c(res, res+1))
+  }
+
+  el_axis <- function() {
+    xat <- if(length(el) <= 5) {
+      seq_along(el)
+    } else {
+      unique(c(1, get_non_consec(el), length(el)))
+    }
+    rave_axis(1, at=xat, labels=el[xat], tcl=0)
+  }
+
+  ylabels <- list('p(' = 'p-value', 't(' = 't-score', 'm(' = 'mean', 'p_fdr(' = 'fdr p-value')
+
+  for(ii in row_ind) {
+    cn <- rownames(stats)[ii]
+    ylab <- ylabels[[substr(cn, 1,2)]]
+    if(is.null(ylab)) {
+      ## check if we have a speciality p-value
+      if(startsWith(cn, 'p_fdr(')) {
+        ylab = ylabels[["p_fdr("]]
+      }
+    }
+
+    yy <- if(ylab %in% c('p-value', 'fdr p-value')) {
+      -log10(stats[ii, ])
+    } else {
+      stats[ii, ]
+    }
+
+    ylim = yy
+    if(show0 == 'always') {
+      ylim = c(0, yy)
+    } else if(show0 == 'smart') {
+      if(any(str_detect(cn, ' - '), str_detect(ylab, '(p-value|t-score)'))) {
+        ylim = c(0,yy)
+      }
+    }
+    plot_clean(seq_along(el), ylim)
+    el_axis()
+    if(str_detect(ylab, 'p-value')) {
+      for(ax in axTicks(2)) rave_axis(2, at=ax, labels=bquote(10**.(-ax)), tcl=0, cex.axis = 1)
+      rave_axis(2, at=axTicks(2), labels=FALSE)
+    } else {
+      rave_axis(2, at=axTicks(2))
+    }
+    rave_axis_labels(xlab='Electrode #', ylab=ylab)
+    rave_title(cn)
+
+    points(seq_along(el), yy, pch=19,
+           col= adjustcolor(par('col'), offset=rep(.25, 4))
+    )
+    # if(0 %within% range(ylim)) {
+    points(seq_along(el), yy, pch=19,
+           col=adjustcolor(par('col'), offset=rep(.35, 4)),
+           type='h', lwd=0.5)
+    # }
+  }
+}
+
+
+pe_graphics_settings_cache <- dipsaus::rds_map(path =
+                                                 file.path(ravedash:::temp_dir(persist = "app-session"),"graphics_settings")
+)
+
+default_pegs <- {list(
+  rave_cex.main = 1.5,
+  rave_cex.axis = 1.3,
+  # putting this to 1.4 because 1.5 causes some clipping of the axis(2) label, we could also try to increase
+  # the (outer) left margin to compensate
+  rave_cex.lab = 1.4,
+  rave_axis_tcl = -0.3,
+  plot_time_range = c(-Inf,Inf),
+  draw_decorator_labels = FALSE,
+  plot_title_options = c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range',
+                         'Sample Size', 'Baseline Window', 'Analysis Window'),
+
+
+  ## this is now managed through ravedash theme
+  background_plot_color_hint = 'white',
+
+  color_palette = 'Beautiful Field',
+  invert_colors_in_palette = FALSE,
+  reverse_colors_in_palette = FALSE,
+
+  analysis_window.shade.color = 'gray70',
+  analysis_window.stroke.color = 'match',
+
+  heatmap_color_palette = get_heatmap_palette(get_palette_names = TRUE)[1],
+  heatmap_number_color_values = 101,
+  invert_colors_in_heatmap_palette = FALSE,
+  reverse_colors_in_heatmap_palette = FALSE,
+
+  show_outliers_on_plots = TRUE,
+
+  log_scale = FALSE,
+  max_zlim = 0,
+  percentile_range = TRUE,
+  sort_trials_by_type = 'Trial Number',
+
+  max_columns_in_figure = 3
+)}
+
+nm <- names(default_pegs) [!pe_graphics_settings_cache$has(names(default_pegs))]
+if(length(nm)) {
+  pe_graphics_settings_cache$mset(.list = default_pegs[nm])
+}
+
+
+
+
