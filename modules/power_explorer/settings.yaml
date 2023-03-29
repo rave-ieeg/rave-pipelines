@@ -1,31 +1,31 @@
-analysis_settings:
-  '1':
-    label: High Gamma
-    event: Trial Onset
-    time:
-    - 0
-    - 0.3
-    frequency:
-    - 70
-    - 150
-  '2':
-    label: Beta
-    event: Trial Onset
-    time:
-    - 0
-    - 0.3
-    frequency:
-    - 13
-    - 30
-reference_name: default
-baseline_settings:
+subject_code: DemoSubject
+loaded_electrodes: 13-16,24
+electrode_export_file_type: FST
+frequencies_to_export: Collapsed, Analysis window(s) only
+times_to_export: Raw, All available times
+trials_to_export: Collapsed by grouping factors
+electrodes_to_export: '15'
+trial_outliers_list: ~
+electrode_groupings:
+  enabled: no
+  groups:
+    '1':
+      label: STG/S
+      electrodes: 13-14
+    '2':
+      label: Other
+      electrodes: 15-25
+tensor_collapse_method: mean
+time_censor:
+  enabled: no
   window:
-  - - -1.0
-    - -0.5
-  scope: Per frequency, trial, and electrode
-  unit_of_analysis: '% Change Power'
-electrodes_list: 13-16,24
-project_name: demo
+  - 0
+  - 1
+epoch_choice__trial_ends: 2
+epoch_choice__trial_starts: -1
+epoch_choice: auditory_onset
+selected_electrodes: '13'
+analysis_electrodes__category: freesurferlabel
 first_condition_groupings:
   '1':
     label: All Conditions
@@ -47,32 +47,22 @@ first_condition_groupings:
     - meant_av
     - meant_v
     - press_AV
-analysis_electrodes__category: freesurferlabel
-selected_electrodes: '13 '
-epoch_choice: auditory_onset
-epoch_choice__trial_starts: -1
-epoch_choice__trial_ends: 2
-time_censor:
-  enabled: no
+project_name: demo
+electrodes_list: 13-16,24
+baseline_settings:
   window:
-  - 0
-  - 1
-subject_name: DemoSubject
-tensor_collapse_method: mean
-electrode_groupings:
-  enabled: no
-  groups:
-    '1':
-      label: STG/S
-      electrodes: 13-14
-    '2':
-      label: Other
-      electrodes: 15-25
-trial_outliers_list: ~
-electrodes_to_export: '13'
-trials_to_export: Collapsed by condition column
-times_to_export: Collapsed, analysis window(s) only
-frequencies_to_export: Collapsed, Analysis window(s) only
-electrode_export_file_type: FST
-loaded_electrodes: 13-16,24
-subject_code: DemoSubject
+  - - -1.0
+    - -0.5
+  scope: Per frequency, trial, and electrode
+  unit_of_analysis: '% Change Power'
+reference_name: default
+analysis_settings:
+  '1':
+    label: High Gamma
+    event: Trial Onset
+    time:
+    - 0.1
+    - 0.6
+    frequency:
+    - 70
+    - 152

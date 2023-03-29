@@ -1,7 +1,4 @@
 
-
-
-
 module_html <- function(){
   shiny::fluidPage(
     shiny::fluidRow(
@@ -9,7 +6,7 @@ module_html <- function(){
         width = 3L,
         shiny::div(
           # class = "row fancy-scroll-y stretch-inner-height",
-          class = "row screen-height overflow-y-scroll padding-bottom-70",
+          class = "row screen-height overflow-y-scroll",
           shiny::column(
             width = 12L,
             electrode_selector$ui_func(),
@@ -84,14 +81,16 @@ module_html <- function(){
       shiny::column(
         width = 9L,
         shiny::div(
-          class = "row screen-height overflow-y-scroll padding-bottom-70 output-wrapper",
+          class = "row screen-height overflow-y-scroll output-wrapper",
           shiny::column(
             width = 12L,
-            shidashi::card(title = 'Brain Viewer', tools = list(
+            shidashi::card_tabset(inputId=ns('brain_viewers'), title = 'Brain Viewers',
+                                  tools = list(
               shidashi::card_tool(widget = "maximize"),
               shidashi::card_tool(widget = "collapse")
               ),
-              threeBrain::threejsBrainOutput(ns("brain_viewer"), height = "40vh")
+              `Results Viewer` = threeBrain::threejsBrainOutput(ns("brain_viewer"), height = "40vh"),
+              `Trial Grouping Movies` = threeBrain::threejsBrainOutput(ns("brain_viewer_movies"), height = "40vh")
             ),
             shidashi::card_tabset(
               inputId = ns('by_electrode_output'),

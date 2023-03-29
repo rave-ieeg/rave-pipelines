@@ -3,15 +3,21 @@ module_server <- function(input, output, session, ...){
   # Local reactive values, used to store reactive event triggers
   local_reactives <- shiny::reactiveValues(
     update_outputs = NULL,
+    update_3dviewer = NULL,
     current_analysis_settings=NULL,
     per_electrode_statistics_chooser=NULL
   )
 
   brain_proxy <- threeBrain::brain_proxy("brain_viewer", session = session)
+  brain_proxy_movies <- threeBrain::brain_proxy("brain_viewer_movies",
+                                                session = session)
 
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
+
   local_data$brain <- NULL
+  local_data$brain_movies <- NULL
+  local_data$available_electrodes = integer()
 
   # get server tools to tweek
   server_tools <- get_default_handlers(session = session)
@@ -27,14 +33,24 @@ module_server <- function(input, output, session, ...){
   )
 
   ### function to anlyze data
-  run_analysis <- function() {
+  run_analysis <- function(trigger_3dviewer=TRUE, force_settings=list(),
+                           progress, ...) {
     settings <- component_container$collect_settings(ids = c(
       "electrode_text"
-      # "baseline_choices",
-      # "condition_groups"#,
-      # "analysis_ranges"
     ))
 
+    if ('electrode_text' %in% names(force_settings)) {
+      settings$analysis_electrodes = paste0(force_settings$electrode_text)
+    }
+
+    if(missing(progress)) {
+      progress = shidashi::shiny_progress("Running analysis", max=4)
+    }
+    if(is.null(progress)) {
+      progress = list(inc=function(...){},close=function(...){})
+    }
+
+    progress$inc("collect settings")
 
     pipeline$set_settings(
       baseline_settings = list(
@@ -59,6 +75,10 @@ module_server <- function(input, output, session, ...){
     #' scheduler's overhead can be removed.
     #' `type="smart"` will start `future` plan in the background, allowing
     #' multicore calculation
+    #'
+
+    progress$inc("Baseline data")
+
     results <- pipeline$run(
       as_promise = FALSE,
       scheduler = "none",
@@ -76,9 +96,15 @@ module_server <- function(input, output, session, ...){
     #local_data = list()
     local_data$results <- results
     local_reactives$update_outputs <- Sys.time()
+
+    if(trigger_3dviewer) {
+      local_reactives$update_3dviewer <- Sys.time()
+    }
+
+    progress$inc("Build statistical models")
     local_data$env <- pipeline$eval(names = c('analysis_settings_clean', 'analysis_groups', 'pluriform_power',
                                               'overall_tf_data', 'tf_correlation_data', 'by_electrode_tf_data',
-                                              'over_time_data', 'scatter_bar_data', 'analysis_data', 'omnibus_results'))
+                                              'over_time_data', 'scatter_bar_data', 'analysis_data', 'omnibus_results', 'over_time_by_electrode_and_group'))
 
     or <- rownames(local_data$env$omnibus_results$stats)
     choices_list <- unique(stringr::str_remove_all(or, '(m+\\(|t+\\(|p+\\(|p_fdr\\(|\\))'))
@@ -89,103 +115,14 @@ module_server <- function(input, output, session, ...){
     shiny::updateSelectInput(inputId = 'per_electrode_statistics_chooser',
                              choices = choices_list, selected = current_choice %OF% choices_list)
 
+    progress$close("Done!")
     return()
   }
-
 
   # Register event: main pipeline need to run
   shiny::bindEvent(
     ravedash::safe_observe({
-      # Invalidate previous results (stop them because they are no longer needed)
-      # if(!is.null(local_data$results)) {
-      # local_data$results$invalidate()
-      # ravedash::logger("Invalidating previous run", level = "trace")
-      # }
-
-      # Collect input data
-      settings <- component_container$collect_settings(ids = c(
-        "electrode_text"
-        # "baseline_choices",
-        # "condition_groups"#,
-        # "analysis_ranges"
-      ))
-
-      pipeline$set_settings(
-        baseline_settings = list(
-          window=list(input$baseline_window),
-          scope = input$baseline_scope,
-          unit_of_analysis = input$baseline_unit
-        ),
-        selected_electrodes = settings$analysis_electrodes,
-        first_condition_groupings = input$first_condition_groupings,
-        analysis_settings = input$ui_analysis_settings
-      )
-
-      # print(dput(pipeline$get_settings()))
-
-      #' Run pipeline without blocking the main session
-      #' The trick to speed up is to set
-      #' `async=TRUE` will run the pipeline in the background
-      #' `shortcut=TRUE` will ignore the dependencies and directly run `names`
-      #' `names` are the target nodes to run
-      #' `scheduler="none"` will try to avoid starting any schedulers and
-      #' run targets sequentially. Combined with `callr_function=NULL`,
-      #' scheduler's overhead can be removed.
-      #' `type="smart"` will start `future` plan in the background, allowing
-      #' multicore calculation
-      results <- pipeline$run(
-        as_promise = TRUE,
-        scheduler = "none",
-        type = "smart",
-        callr_function = NULL,
-        progress_title = "Calculating in progress",
-        async = FALSE,
-        check_interval = 0.1,
-        shortcut = FALSE,
-        names = c(
-          "settings", 'analysis_settings_clean', 'baselined_power'
-        )
-      )
-
-      #local_data = list()
-      local_data$results <- results
-      ravedash::logger("Scheduled: ", pipeline$pipeline_name, level = 'debug', reset_timer = TRUE)
-
-      results$promise$then(
-        onFulfilled = function(...){
-          ravedash::logger("Fulfilled: ", pipeline$pipeline_name, level = 'debug')
-          shidashi::clear_notifications(class = "pipeline-error")
-          local_reactives$update_outputs <- Sys.time()
-          return(TRUE)
-        },
-        onRejected = function(e, ...){
-          msg <- paste(e$message, collapse = "\n")
-          if(inherits(e, "error")){
-            ravedash::logger(msg, level = 'error')
-            ravedash::logger(traceback(e), level = 'error', .sep = "\n")
-            shidashi::show_notification(
-              message = msg,
-              title = "Error while running pipeline", type = "danger",
-              autohide = FALSE, close = TRUE, class = "pipeline-error"
-            )
-          }
-          return(msg)
-        }
-      )
-      local_data$env <- pipeline$eval(names = c('analysis_settings_clean', 'analysis_groups', 'pluriform_power',
-        'overall_tf_data', 'tf_correlation_data', 'by_electrode_tf_data',
-        'over_time_data', 'scatter_bar_data', 'analysis_data', 'omnibus_results'))
-      # local_data$env$analysis_settings
-
-      or <- rownames(local_data$env$omnibus_results$stats)
-      choices_list <- unique(stringr::str_remove_all(or, '(m+\\(|t+\\(|p+\\(|p_fdr\\(|\\))'))
-
-      ## update the by-electrode analysis viewer switcher
-      shiny::updateSelectInput(inputId = 'per_electrode_statistics_chooser',
-        choices = choices_list, selected = choices_list[1])
-      return()
-
-      # run_analysis()
+      run_analysis()
     }),
     server_tools$run_analysis_flag(),
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -234,19 +171,19 @@ module_server <- function(input, output, session, ...){
 
       ##--loading the default baseline settings
       baseline_settings <- new_repository$subject$get_default('baseline_settings',
-        default_if_missing = pipeline$get_settings('baseline_settings'), namespace = module_id)
+                                                              default_if_missing = pipeline$get_settings('baseline_settings'), namespace = module_id)
 
       shiny::updateSliderInput(session = session, inputId = 'baseline_window',
-        value = unname(unlist(baseline_settings$window)), min = min(new_repository$time_points),
-        max = max(new_repository$time_points)
+                               value = unname(unlist(baseline_settings$window)), min = min(new_repository$time_points),
+                               max = max(new_repository$time_points)
       )
       shiny::updateSelectInput(session = session, inputId = 'baseline_scope',
-        selected = baseline_settings$scope
+                               selected = baseline_settings$scope
       )
 
       ##--loading the default analysis settings
       as <- new_repository$subject$get_default('analysis_settings',
-        default_if_missing = pipeline$get_settings('analysis_settings'), namespace = module_id)
+                                               default_if_missing = pipeline$get_settings('analysis_settings'), namespace = module_id)
       def <- list(
         list(label='A1', event='Trial Onset', time=0:1, frequency=c(70,150))
       )
@@ -257,14 +194,14 @@ module_server <- function(input, output, session, ...){
 
       n_analysis <- length(as)
       dipsaus::updateCompoundInput2(session = session,
-        inputId = 'ui_analysis_settings',
-        initialization = list(
-          event = list(selected = 'Trial Onset',
-            choices=get_available_events(columns=new_repository$epoch$columns)
-          ),
-          time = list(min=min(new_repository$time_points), max=max(new_repository$time_points)),
-          frequency = list(min=min(new_repository$frequency), max=max(new_repository$frequency))
-        ), value=as, ncomp = n_analysis)
+                                    inputId = 'ui_analysis_settings',
+                                    initialization = list(
+                                      event = list(selected = 'Trial Onset',
+                                                   choices=get_available_events(columns=new_repository$epoch$columns)
+                                      ),
+                                      time = list(min=min(new_repository$time_points), max=max(new_repository$time_points)),
+                                      frequency = list(min=min(new_repository$frequency), max=max(new_repository$frequency))
+                                    ), value=as, ncomp = n_analysis)
 
       # shiny::textInput(inputId = "label", label = "Label"),
       # shiny::selectInput(inputId = "event", label = "Event", choices=NULL,selected = NULL),
@@ -284,13 +221,16 @@ module_server <- function(input, output, session, ...){
         val <- def
       }
       dipsaus::updateCompoundInput2(session = session,
-        inputId = 'first_condition_groupings',
-        initialization = list(conditions = list(choices = conditions)),
-        value = val, ncomp = length(val))
+                                    inputId = 'first_condition_groupings',
+                                    initialization = list(conditions = list(choices = conditions)),
+                                    value = val, ncomp = length(val))
 
 
       # grab new brain
       local_data$brain = raveio::rave_brain(new_repository$subject$subject_id)
+      local_data$brain_movies = raveio::rave_brain(new_repository$subject$subject_id)
+
+      local_data$available_electrodes = new_repository$power$dimnames$Electrode
 
       # Reset outputs
       shidashi::reset_output("collapse_over_trial")
@@ -307,25 +247,55 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       ravedash::logger('3dBrain double click')
+      ravedash::clear_notifications(class=ns('threedviewer'))
 
       info <- as.list(brain_proxy$mouse_event_double_click)
       if(!isTRUE(info$is_electrode)) {
         return()
       }
 
-      # ravedash::logger(str(info))
-      # ravedash::logger('trigger analysis run')
+      if(! (info$electrode_number %in% local_data$available_electrodes)) {
+        ravedash::show_notification(
+          sprintf("Selected electrode (%s) not loaded", info$electrode_number),
+          title='3dViewer Info',
+                                    type='warning', class=ns('threedviewer_no'),
+                                    delay=2000
+        )
+        return()
+      } else {
+        ravedash::show_notification(paste0("Trying to load data for electrode: ",
+                                           info$electrode_number),
+                                    class=ns('threedviewer_yes'),
+                                    title='3dViewer Info', delay=2000,
+                                    type = 'info')
 
-      id <- component_container$get_input_ids("electrode_text")
-      shiny::updateTextInput(inputId=electrode_text, value=paste0(info$electrode_number))
+        on.exit(add=TRUE, {
+          ravedash::clear_notifications(ns('threedviewer_yes'))
+        })
+      }
 
-      run_analysis()
+      ravedash::logger(str(info))
+
+      id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
+
+      shiny::updateTextInput(inputId=id, value=paste0(info$electrode_number))
+
+      run_analysis(trigger_3dviewer = FALSE,
+                   force_settings=list(electrode_text = info$electrode_number)
+      )
     }),
 
     brain_proxy$mouse_event_double_click,
-
-
     ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe(
+      shiny::updateTextInput(inputId='electrodes_to_export', value=
+                               input[[electrode_selector$get_sub_element_id(with_namespace = FALSE)]]
+      )
+    ),
+    input[[electrode_selector$get_sub_element_id(with_namespace = FALSE)]]
   )
 
 
@@ -370,7 +340,7 @@ module_server <- function(input, output, session, ...){
 
   #### 3d brain viewer
   output$brain_viewer <- threeBrain::renderBrain({
-    basic_checks(local_reactives$update_outputs)
+    basic_checks(local_reactives$update_3dviewer)
 
     df <- data.frame(t(local_data$env$omnibus_results$stats))
 
@@ -383,15 +353,33 @@ module_server <- function(input, output, session, ...){
 
     df$Electrode = as.integer(rownames(df))
 
+    res <- build_palettes_and_ranges_for_omnibus_data(df)
+
     local_data$brain$set_electrode_values(df)
-    local_data$brain$render(outputId = "brain_viewer", session = session)
+    local_data$brain$render(outputId = "brain_viewer", session = session,
+                            palettes=res$palettes, value_ranges=res$val_ranges,
+                            control_display = FALSE, side_display=FALSE,
+                            timestamp=FALSE)
+
+  })
+
+  output$brain_viewer_movies <- threeBrain::renderBrain({
+    basic_checks(local_reactives$update_3dviewer)
+
+    df <- local_data$env$over_time_by_electrode_and_group
+
+    local_data$brain_movies$set_electrode_values(df)
+    res <- build_palettes_and_ranges_for_omnibus_data(df)
+    local_data$brain_movies$render(outputId = "brain_viewer_movies",
+                                   session = session,
+                                   palettes = res$palettes)
   })
 
   ### export button download handler
   output$btn_export_electrodes <- downloadHandler(
     filename=function(...) {
       paste0('power_explorer_output',
-        format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.csv')
+             format(Sys.time(), "%b_%d_%Y_%H_%M_%S"), '.csv')
     },
     content = function(conn) {
       # export settings
@@ -434,15 +422,15 @@ module_server <- function(input, output, session, ...){
     df[pcols] %<>% lapply(function(v)as.numeric(round_pval(v)))
 
     dt <- DT::datatable(df, colnames=colnames(mat), rownames = FALSE,
-      extensions = c('FixedColumns', 'FixedHeader', 'Scroller', 'Buttons'),
-      options=list(autoWidth=TRUE, scroller=TRUE, scrollX=TRUE, scrollY='500px',
-        buttons = list(list(extend = 'copy', title = NULL)),
-        fixedColumns = list(leftColumns = 1),
-        server=TRUE,order=TRUE,
-        columnDefs = list(list(width = '50px', targets = "_all")
-        ),
-        dom = 'Brt'
-      )
+                        extensions = c('FixedColumns', 'FixedHeader', 'Scroller', 'Buttons'),
+                        options=list(autoWidth=TRUE, scroller=TRUE, scrollX=TRUE, scrollY='500px',
+                                     buttons = list(list(extend = 'copy', title = NULL)),
+                                     fixedColumns = list(leftColumns = 1),
+                                     server=TRUE,order=TRUE,
+                                     columnDefs = list(list(width = '50px', targets = "_all")
+                                     ),
+                                     dom = 'Brt'
+                        )
     )
 
     to_round <- df[!pcols] %>% sapply(get_pretty_digits)
@@ -607,31 +595,31 @@ module_server <- function(input, output, session, ...){
   output$over_time_separated_all <- shiny::renderPlot({
     basic_checks(local_reactives$update_outputs)
     plot_over_time_by_condition(local_data$env$over_time_data,
-      combine_events=FALSE, combine_conditions=FALSE)
+                                combine_events=FALSE, combine_conditions=FALSE)
   })
 
   output$over_time_combined_conditions <- shiny::renderPlot({
     basic_checks(local_reactives$update_outputs)
 
     plot_over_time_by_condition(local_data$env$over_time_data,
-      combine_events = FALSE,
-      combine_conditions=TRUE)
+                                combine_events = FALSE,
+                                combine_conditions=TRUE)
   })
 
   output$over_time_combined_events <- shiny::renderPlot({
     basic_checks(local_reactives$update_outputs)
 
     plot_over_time_by_condition(local_data$env$over_time_data,
-      combine_events = TRUE,
-      combine_conditions=FALSE)
+                                combine_events = TRUE,
+                                combine_conditions=FALSE)
   })
 
   output$over_time_combined_all <- shiny::renderPlot({
     basic_checks(local_reactives$update_outputs)
 
     plot_over_time_by_condition(local_data$env$over_time_data,
-      combine_conditions=TRUE,
-      combine_events = TRUE)
+                                combine_conditions=TRUE,
+                                combine_events = TRUE)
   })
 
 }

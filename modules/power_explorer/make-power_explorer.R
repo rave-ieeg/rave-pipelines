@@ -9,6 +9,7 @@ lapply(sort(list.files(
 )), function(f) {
   source(f, local = ._._env_._., chdir = TRUE)
 })
+targets::tar_option_set(envir = ._._env_._.)
 rm(._._env_._.)
 ...targets <- list(`__Check_settings_file` = targets::tar_target_raw("settings_path", 
     "settings.yaml", format = "file"), `__Load_settings` = targets::tar_target_raw("settings", 
@@ -45,9 +46,6 @@ rm(._._env_._.)
         }), deps = "settings"), input_tensor_collapse_method = targets::tar_target_raw("tensor_collapse_method", 
         quote({
             settings[["tensor_collapse_method"]]
-        }), deps = "settings"), input_subject_name = targets::tar_target_raw("subject_name", 
-        quote({
-            settings[["subject_name"]]
         }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
         quote({
             settings[["time_censor"]]
@@ -87,7 +85,7 @@ rm(._._env_._.)
         }), deps = "settings"), check_load_power = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
-                proj_subj <- sprintf("%s/%s", project_name, subject_name)
+                proj_subj <- sprintf("%s/%s", project_name, subject_code)
                 repository <- raveio::prepare_subject_power(subject = proj_subj, 
                   electrodes = electrodes_list, epoch_name = epoch_choice, 
                   reference_name = reference_name, time_windows = c(epoch_choice__trial_starts, 
@@ -105,7 +103,7 @@ rm(._._env_._.)
             target_export = "repository", target_expr = quote({
                 {
                   proj_subj <- sprintf("%s/%s", project_name, 
-                    subject_name)
+                    subject_code)
                   repository <- raveio::prepare_subject_power(subject = proj_subj, 
                     electrodes = electrodes_list, epoch_name = epoch_choice, 
                     reference_name = reference_name, time_windows = c(epoch_choice__trial_starts, 
@@ -113,10 +111,10 @@ rm(._._env_._.)
                   repository
                 }
                 repository
-            }), target_depends = c("project_name", "subject_name", 
+            }), target_depends = c("project_name", "subject_code", 
             "electrodes_list", "epoch_choice", "reference_name", 
             "epoch_choice__trial_starts", "epoch_choice__trial_ends"
-            )), deps = c("project_name", "subject_name", "electrodes_list", 
+            )), deps = c("project_name", "subject_code", "electrodes_list", 
         "epoch_choice", "reference_name", "epoch_choice__trial_starts", 
         "epoch_choice__trial_ends"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), check_requested_electrodes = targets::tar_target_raw(name = "requested_electrodes", 
@@ -1108,7 +1106,138 @@ rm(._._env_._.)
             }), target_depends = c("analysis_groups", "baseline_settings"
             )), deps = c("analysis_groups", "baseline_settings"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_omnibus_results = targets::tar_target_raw(name = "omnibus_results", 
+        iteration = "list"), build_over_time_by_electrode_and_group = targets::tar_target_raw(name = "over_time_by_electrode_and_group", 
+        command = quote({
+            .__target_expr__. <- quote({
+                over_time_by_electrode_and_group <- NULL
+                raveio::with_future_parallel({
+                  raveio::power_baseline(repository, baseline_windows = unlist(baseline_settings$window[[1]]), 
+                    method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
+                    units = get_baseline_scope(baseline_settings$scope), 
+                    signal_type = "LFP", electrodes = repository$electrode_list)
+                })
+                non_empty_groups <- which(get_list_elements(analysis_groups, 
+                  "has_trials"))
+                combine_if_equal <- function(ll, nms = c("Electrode", 
+                  "Time")) {
+                  if (length(ll) == 1) {
+                    return(ll[[1]])
+                  }
+                  r1 <- ll[[1]]
+                  for (jj in seq_along(ll)[-1]) {
+                    stopifnot(all(dim(r1) == dim(ll[[jj]]), sapply(nms, 
+                      function(nm) {
+                        all.equal(r1[[nm]], ll[[jj]][[nm]])
+                      })))
+                  }
+                  for (jj in seq_along(ll)[-1]) {
+                    cn <- names(ll[[jj]])
+                    to_move = setdiff(cn, nms)
+                    r1[to_move] = ll[[jj]][to_move]
+                  }
+                  return(r1)
+                }
+                by_condition_group <- lapply(analysis_groups[non_empty_groups], 
+                  function(ag) {
+                    res <- lapply(analysis_settings_clean, function(as) {
+                      fi <- repository$frequency %within% as$frequency
+                      p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
+                        , , , drop = FALSE], trial_indices = ag$trials, 
+                        events = repository$epoch$table, epoch_event_types = get_available_events(repository$epoch$columns), 
+                        trial_outliers_list = unlist(trial_outliers_list), 
+                        event_of_interest = as$event, final_data_only = TRUE)
+                      stopifnot(names(dimnames(p)) == c("Frequency", 
+                        "Time", "Trial", "Electrode"))
+                      enames = as.integer(dimnames(p)$Electrode)
+                      times = as.numeric(dimnames(p)$Time)
+                      m <- ravetools::collapse(p[drop = FALSE], 
+                        keep = c(4, 2))
+                      df <- data.frame(reshape2::melt(m, value.name = paste(sep = "_", 
+                        as$label, ag$label)))
+                      names(df)[1:2] = c("Electrode", "Time")
+                      df$Electrode = enames[df$Electrode]
+                      df$Time = times[df$Time]
+                      return(df)
+                    })
+                    combine_if_equal(res)
+                  })
+                over_time_by_electrode_and_group <- combine_if_equal(by_condition_group)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(over_time_by_electrode_and_group)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_and_group", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+            target_export = "over_time_by_electrode_and_group", 
+            target_expr = quote({
+                {
+                  over_time_by_electrode_and_group <- NULL
+                  raveio::with_future_parallel({
+                    raveio::power_baseline(repository, baseline_windows = unlist(baseline_settings$window[[1]]), 
+                      method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
+                      units = get_baseline_scope(baseline_settings$scope), 
+                      signal_type = "LFP", electrodes = repository$electrode_list)
+                  })
+                  non_empty_groups <- which(get_list_elements(analysis_groups, 
+                    "has_trials"))
+                  combine_if_equal <- function(ll, nms = c("Electrode", 
+                    "Time")) {
+                    if (length(ll) == 1) {
+                      return(ll[[1]])
+                    }
+                    r1 <- ll[[1]]
+                    for (jj in seq_along(ll)[-1]) {
+                      stopifnot(all(dim(r1) == dim(ll[[jj]]), 
+                        sapply(nms, function(nm) {
+                          all.equal(r1[[nm]], ll[[jj]][[nm]])
+                        })))
+                    }
+                    for (jj in seq_along(ll)[-1]) {
+                      cn <- names(ll[[jj]])
+                      to_move = setdiff(cn, nms)
+                      r1[to_move] = ll[[jj]][to_move]
+                    }
+                    return(r1)
+                  }
+                  by_condition_group <- lapply(analysis_groups[non_empty_groups], 
+                    function(ag) {
+                      res <- lapply(analysis_settings_clean, 
+                        function(as) {
+                          fi <- repository$frequency %within% 
+                            as$frequency
+                          p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
+                            , , , drop = FALSE], trial_indices = ag$trials, 
+                            events = repository$epoch$table, 
+                            epoch_event_types = get_available_events(repository$epoch$columns), 
+                            trial_outliers_list = unlist(trial_outliers_list), 
+                            event_of_interest = as$event, final_data_only = TRUE)
+                          stopifnot(names(dimnames(p)) == c("Frequency", 
+                            "Time", "Trial", "Electrode"))
+                          enames = as.integer(dimnames(p)$Electrode)
+                          times = as.numeric(dimnames(p)$Time)
+                          m <- ravetools::collapse(p[drop = FALSE], 
+                            keep = c(4, 2))
+                          df <- data.frame(reshape2::melt(m, 
+                            value.name = paste(sep = "_", as$label, 
+                              ag$label)))
+                          names(df)[1:2] = c("Electrode", "Time")
+                          df$Electrode = enames[df$Electrode]
+                          df$Time = times[df$Time]
+                          return(df)
+                        })
+                      combine_if_equal(res)
+                    })
+                  over_time_by_electrode_and_group <- combine_if_equal(by_condition_group)
+                }
+                over_time_by_electrode_and_group
+            }), target_depends = c("repository", "baseline_settings", 
+            "analysis_groups", "analysis_settings_clean", "trial_outliers_list"
+            )), deps = c("repository", "baseline_settings", "analysis_groups", 
+        "analysis_settings_clean", "trial_outliers_list"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_omnibus_results = targets::tar_target_raw(name = "omnibus_results", 
         command = quote({
             .__target_expr__. <- quote({
                 raveio::with_future_parallel({
