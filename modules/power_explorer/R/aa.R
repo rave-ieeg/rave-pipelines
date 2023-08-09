@@ -1,6 +1,3 @@
-library(ravedash)
-
-require(magrittr)
 
 # global variables for the module
 

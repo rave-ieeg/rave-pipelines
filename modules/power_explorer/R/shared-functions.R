@@ -4,10 +4,107 @@ require(ravebuiltins)
 require(magrittr)
 require(stringr)
 require(stringi)
+require(data.table)
+require(ravedash)
+require(lmtest)
+require(magrittr)
 
-get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_event_types, event_of_interest, trial_outliers_list,
-                                final_data_only=FALSE,
-                                logger=function(...){dipsaus::cat2(level='CAT', pal=list('CAT'='dodgerblue3'))}) {
+
+pretty.character <- function(x, ...,  upper=c('first', 'all', 'none')) {
+
+  cap_first_letter <- function(s) {
+    paste0(toupper(substr(s, 1, 1)), substr(s, 2, nchar(s)), collapse='')
+  }
+
+  upper = match.arg(upper)
+
+  str <- stringr::str_split(x, '_')[[1]]
+
+  if(upper == 'first') {
+    str[1] %<>% cap_first_letter
+  } else if (upper == 'all') {
+    str %<>% sapply(cap_first_letter)
+  }
+
+  return(paste(str, collapse=" "))
+}
+
+
+get_from_arr <- function(x, v, FUN=`%in%`) {
+  FUN = match.fun(FUN)
+  x[FUN(x,v)]
+}
+
+# note that negate=TRUE is almost always the same as just calling
+# get_from_arr
+remove_from_arr <- function(x, v, FUN=`==`, negate=FALSE) {
+  FUN <- if(negate) {
+    base::Negate(FUN)
+  } else {
+    match.fun(FUN)
+  }
+  x[!FUN(x,v)]
+}
+
+signed_floor <- function(x) {
+  sign(x)*floor(abs(x))
+}
+
+tensor_reshape <- function(mat, orig_dim, pivot) {
+  # ensure we're pivoting within the original matrix
+  stopifnot(pivot <= length(orig_dim))
+
+  if(is.list(mat)) {
+    mat = do.call(c, mat)
+  }
+
+  # redimension the matrix
+  pivot_dim_size <- length(mat) / prod(orig_dim[-pivot])
+  new_dims <- c(orig_dim[-pivot], pivot_dim_size)
+  dim(mat) = new_dims
+
+  # put in order based on pivot location
+  k = length(orig_dim)
+  if(pivot == 1) {
+    perm = c(k, seq_len(k-1))
+  } else if (pivot==k) {
+    perm = seq_len(k)
+  } else {
+    # here 1 < pivot < k
+    perm = c(seq_len(pivot-1), k, seq(from=pivot, to=k-1))
+  }
+
+  return(
+    aperm(mat, perm)
+  )
+
+}
+
+
+which_have_trials <- function(analysis_groups) {
+  which(sapply(analysis_groups, function(ag) isTRUE(ag$has_trials)))
+}
+
+determine_available_shift <- function(event_offsets, available_time, sample_rate) {
+  time_range = round(range(event_offsets), 7)
+
+  # we want to be conservative, so we want to shrink the range as needed. so we use signed_floor
+  signed_floor(sample_rate * (available_time-time_range))/sample_rate
+}
+
+determine_relative_shift_amount <- function(available_shift, event_time, sample_rate, available_time_points) {
+  new_range_ind = abs(round(available_shift*sample_rate))
+
+  new_0_ind = round(sample_rate*(event_time - min(available_time_points)))
+
+  return(new_0_ind - new_range_ind[1])
+}
+
+get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_event_types,
+  event_of_interest, trial_outliers_list,
+  final_data_only=FALSE, sample_rate,
+  logger=function(...){dipsaus::cat2(..., level='CAT',
+    pal=list('CAT'='dodgerblue3'))}) {
 
   res <- list()
 
@@ -21,40 +118,60 @@ get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_eve
     data = baselined_data[,,ti,,drop=FALSE]
   )
 
-
   # now check if we need shifted data
   # R is copy on write, so no worries here about memory
   res$shifted_data = res$data
   shift_amount = NULL
-  # event_of_interest = '1stWord'
+  # event_of_interest = 'Lag_1'
   if(event_of_interest != epoch_event_types[1]) {
-    stop("shifting data not supported yet!")
+    # stop("shifting data not supported yet!")
     logger('Shifting data to: ' %&% event_of_interest)
-    new_range = determine_available_shift(event_of_interest,
-                                          available_time = range(res$data$dimnames$Time),
-                                          epoch_information = events
+
+    event_of_interest = paste0('Event_', event_of_interest)
+    event_offsets = events[[event_of_interest]][ti] - events$Time[ti]
+
+    times = as.numeric(dimnames(res$data)$Time)
+
+    new_range = determine_available_shift(event_offsets,
+      available_time = range(times),
+      sample_rate = sample_rate
     )
 
     logger('available shift: ' %&% paste0(new_range, collapse=':'))
 
-    shift_amount = determine_shift_amount(event_time = events[[event_of_interest]],
-                                          available_shift=new_range)
+    shift_amount = determine_relative_shift_amount(
+      event_time = event_offsets,
+      available_shift=new_range,
+      available_time_points = times,
+      sample_rate = sample_rate
+    )
 
     logger('dispaus::shift')
 
-    if(length(shift_amount) != dim(res$data)[1L]) {
+    stopifnot('Trial' == names(dimnames(res$data))[3])
+    stopifnot('Time' == names(dimnames(res$data))[2])
+
+    if(length(shift_amount) != dim(res$data)[3L]) {
       # assign('shift_amt', shift_amount, envir = globalenv())
       # assign('event_mat', events, envir = globalenv())
       stop('shift amount != # trials... stopping')
     }
 
-    res$shifted_data = get_shifted_tensor(raw_tensor = res$data,
-                                          shift_amount = shift_amount, new_range = new_range,
-                                          dimnames = dimnames(res$data), varnames = names(res$data$dimnames))
+    res$shifted_data = get_shifted_data(data = res$data, shift_amount = shift_amount)
+
+    ## now we need to update the time dimension to reflect the new data range
+    # fill out times, then subset if we need to
+    new_time = round(seq(from=new_range[1], by = 1/sample_rate, length.out = dim(res$data)[2L]), 7)
+    to_keep = new_time %within% new_range
+    if(any(!to_keep)) {
+      res$shifted_data = res$shifted_data[,to_keep,,,drop=FALSE]
+    }
+    dimnames(res$shifted_data)$Time = new_time[new_time %within% new_range]
 
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
     logger('updating events file')
-    events[epoch_event_types[-1]] <- events[epoch_event_types[-1]] - events[[event_of_interest]]
+    nms <- paste0('Event_', epoch_event_types[-1])
+    events[nms] <- events[nms] - events[[event_of_interest]]
     logger('done with shifting')
   }
 
@@ -68,7 +185,7 @@ get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_eve
     res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
   }
 
-  # make sure to save out the update time stamps to be used later
+  # make sure to save out the updated time stamps to be used later
   res$events = events
 
   if(final_data_only) {
@@ -77,6 +194,25 @@ get_pluriform_power <- function(baselined_data, trial_indices, events, epoch_eve
 
   return(res)
 }
+
+get_shifted_data <- function(data, shift_amount, new_range) {
+  dn <- names(dimnames(data))
+
+  # make sure the indices below line up with what we're expecting
+  stopifnot('Electrode' == dn[4], 'Trial'== dn[3], 'Time' == dn[2])
+
+  for(ii in seq_len(dim(data)[4L])) {
+    subarr <- data[,,, ii, drop = FALSE]
+
+    data[,,,ii] <- ravetools::shift_array(
+      x = subarr,
+      along_margin = 2L, shift_amount = shift_amount, unit_margin = 3L
+    )
+  }
+
+  data
+}
+
 
 build_heatmap_data <- function(data, data_wrapper, do_censor=FALSE, censor_window=NULL, analysis_settings, ...) {
 
@@ -101,7 +237,7 @@ build_heatmap_data <- function(data, data_wrapper, do_censor=FALSE, censor_windo
 }
 
 build_heatmap_correlation_data <- function(data, data_wrapper,
-                                           analysis_settings, analysis_settings2, ...) {
+  analysis_settings, analysis_settings2, ...) {
 
   time_index1 <- data$dimnames$Time %within% analysis_settings$analysis_window
   time_index2 <- data$dimnames$Time %within% analysis_settings2$analysis_window
@@ -157,7 +293,7 @@ build_by_trial_heatmap_data <- function(data, data_wrapper, analysis_settings, .
 }
 
 build_over_time_correlation_data <- function(f1, f2,
-                                             lag_length=50, ...) {
+  lag_length=50, ...) {
 
   # time_index1 <- f1$dimnames$Time %within% f1$analysis_window
   # time_index2 <- f1$dimnames$Time %within% f2$analysis_window
@@ -217,9 +353,9 @@ build_electrode_heatmap_data <- function(data, data_wrapper, analysis_settings, 
 build_over_time_data <- function(data, data_wrapper, analysis_settings, ...) {
   otd <- data_wrapper(t(
     apply(data$collapse(keep = 3:4, method = analysis_settings$collapse_method),
-          1, .fast_mse)
+      1, .fast_mse)
   ),
-  xlab='Time (s)', ylab='auto', N=dim(data)[4L], x=data$dimnames$Time, ...
+    xlab='Time (s)', ylab='auto', N=dim(data)[4L], x=data$dimnames$Time, ...
   )
 
 
@@ -247,7 +383,7 @@ build_over_time_data <- function(data, data_wrapper, analysis_settings, ...) {
 }
 
 build_scatter_bar_data <- function(data, data_wrapper,
-                                   analysis_settings, group_info, jitter_seed, ...) {
+  analysis_settings, group_info, jitter_seed, ...) {
 
   time_ind <- data$dimnames$Time %within% unlist(analysis_settings$analysis_window)
   if(analysis_settings$do_censor && !is.null(analysis_settings$censor_window)) {
@@ -274,8 +410,10 @@ build_scatter_bar_data <- function(data, data_wrapper,
 
   xpi <- which(group_info$current_group == which(group_info$group_statuses))
   sbd$xp <- .xp[xpi]
-  set.seed(jitter_seed)
-  sbd$x <- .xp[xpi] + runif(length(sbd$data), -.r, .r)
+
+  sbd$x <- R.utils::withSeed({
+    .xp[xpi] + runif(length(sbd$data), -.r, .r)
+  }, seed = jitter_seed)
 
   # for the scatter_bar_data we also need to get m_se within condition, this is ALWAYS with the clean data
   sbd$mse <- .fast_mse(sbd$data[sbd$is_clean])
@@ -286,7 +424,7 @@ build_scatter_bar_correlation_data <- function(sb1, sb2, data_wrapper, ...) {
   dv <- attr(sb1$data, 'ylab')
   do_str <- function(d) {
     paste0(dv,' from ', str_collapse(d$my_analysis_window, '-'), 's, at ',
-           str_collapse(d$my_frequency_window,':'), 'Hz')
+      str_collapse(d$my_frequency_window,':'), 'Hz')
   }
 
   data_wrapper(
@@ -374,8 +512,8 @@ summary_stat.collapse_electrode <- function(overall_stats) {
 
   if(nlevels(.d$Group) > 1) {
     return (combine_emmeans_results(emmeans::emmeans(lm(y ~ Group, data=.d),
-                                                     options = list(infer=c(F,T)),
-                                                     pairwise ~ Group, infer=c(F,T)))
+      options = list(infer=c(F,T)),
+      pairwise ~ Group, infer=c(F,T)))
     )
   }
   res = as.data.frame(
@@ -397,17 +535,17 @@ summary_stat.fixed_effect <- function(overall_stats) {
   }
 
   combine_emmeans_results(emmeans::emmeans(lmerTest::lmer(y~factor(Electrode)+(1|TrialNumber), data=overall_stats),
-                                           options = list(infer=c(T,T)),
-                                           specs=pairwise~Electrode, infer=c(F,T))
+    options = list(infer=c(T,T)),
+    specs=pairwise~Electrode, infer=c(F,T))
   )
 }
 
 get_summary_statistics <- function(overall_stats, analysis_type) {
   switch(analysis_type,
-         'Random intercept' = summary_stat.random_intercept(overall_stats),
-         'Contrasts per electrode' = summary_stat.contrasts_per_electrode(overall_stats),
-         'Collapse electrode' = summary_stat.collapse_electrode(overall_stats),
-         'Fixed effect' = summary_stat.fixed_effect(overall_stats)
+    'Random intercept' = summary_stat.random_intercept(overall_stats),
+    'Contrasts per electrode' = summary_stat.contrasts_per_electrode(overall_stats),
+    'Collapse electrode' = summary_stat.collapse_electrode(overall_stats),
+    'Fixed effect' = summary_stat.fixed_effect(overall_stats)
   )
 }
 
@@ -437,10 +575,10 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
 
 get_unit_of_analysis_varname <- function(uoa){
   ll = list('percentage' = 'Pct_PowerChange',
-       'sqrt_percentage' = 'Pct_AmpChange',
-       'zscore' = 'Z_PowerChange',
-       'sqrt_zscore' = 'Z_AmpChange',
-       'decibel' = 'Decibel_PowerChange'
+    'sqrt_percentage' = 'Pct_AmpChange',
+    'zscore' = 'Z_PowerChange',
+    'sqrt_zscore' = 'Z_AmpChange',
+    'decibel' = 'Decibel_PowerChange'
   )
 
   if(missing(uoa)) return (ll)
@@ -566,8 +704,8 @@ get_available_events <- function(columns) {
 round_pval <- function(pval) {
   lpval = pmax(round(log10(.Machine$double.eps)), log10(pval))
   ifelse(lpval > -3.5,
-         formatC(round(pval,4),width = 4, digits=4),
-         paste0('1e', formatC(round(lpval), width=3,flag=0)))
+    formatC(round(pval,4),width = 4, digits=4),
+    paste0('1e', formatC(round(lpval), width=3,flag=0)))
 }
 
 trial_export_types <- function() {
@@ -599,9 +737,6 @@ frequency_export_types <- function() {
     )
   )
 }
-
-
-
 
 new_shift_array <- function() {
   repository <- raveio::prepare_subject_power('demo/DemoSubject', time_windows = c(-1,2))
@@ -663,12 +798,22 @@ new_shift_array <- function() {
   dimnames(shifted_array) <- dnames
 }
 
+
+count_elements <- function (x)  {
+  if (is.null(x))
+    return(1)
+
+  length(unique(x))
+}
+
 ### UI impl to share the exporting code where possible
 customDownloadButton <- function(outputId, label='Export', class=NULL, icon_lbl="download", ...) {
   tags$a(id = outputId,
-         class = paste("btn btn-default shiny-download-link", class),
-         href = "", target = "_blank", download = NA,
-         ravedash::shiny_icons[[icon_lbl]], label, ...)
+    class = paste("btn btn-default shiny-download-link", class),
+    href = "", target = "_blank", download = NA,
+    ravedash::shiny_icons[[icon_lbl]], label, ...)
 }
 
-
+get_order_of_magnitude <- function(x) {
+  floor(log10(abs(x)))
+}

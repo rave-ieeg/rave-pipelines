@@ -1,3 +1,8 @@
+target_sample_rate: 100.0
+subject_code: HUP229
+project_name: devel
+precision: float
+pre_downsample: 4.0
 kernel_table:
   Frequency:
   - 2
@@ -21,8 +26,3 @@ kernel_table:
   - 17.0
   - 18.0
   - 19.0
-pre_downsample: 4.0
-precision: float
-project_name: devel
-subject_code: DemoSubject
-target_sample_rate: 100.0

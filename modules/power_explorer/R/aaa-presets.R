@@ -131,16 +131,16 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
                                selected = electrode_category_selector)
       electrode_list_text <- dipsaus::deparse_svec(repo$electrode_list,
                                                    collapse = ", ")
-      logger("Updating `{id}`, value: {electrode_text}, label: Select electrode by number (currently loaded: {electrode_list_text})",
+      logger("Updating `{id}`, value: {electrode_text}, label: Select by number (current: {electrode_list_text})",
              level = "trace", use_glue = TRUE)
       if (multiple) {
         shiny::updateTextInput(session = session, inputId = comp$get_sub_element_id(with_namespace = FALSE),
-                               label = sprintf("Select electrode by number (currently loaded: %s)",
+                               label = sprintf("Elec # (available: %s)",
                                                electrode_list_text), value = electrode_text)
       }
       else {
         shiny::updateSelectInput(session = session, inputId = comp$get_sub_element_id(with_namespace = FALSE),
-                                 label = sprintf("Select electrode by number (currently loaded: %s)",
+                                 label = sprintf("Elec # (available: %s)",
                                                  electrode_list_text), choices = as.character(repo$electrode_list),
                                  selected = electrode_text)
       }
@@ -290,12 +290,12 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
              level = "trace", use_glue = TRUE)
       if (multiple) {
         shiny::updateTextInput(session = session, inputId = id,
-                               label = sprintf("Select electrode by number (currently loaded: %s)",
+                               label = sprintf("Elec # (available: %s)",
                                                electrode_list_text), value = v)
       }
       else {
         shiny::updateSelectInput(session = session, inputId = id,
-                                 label = sprintf("Select electrode by number (currently loaded: %s)",
+                                 label = sprintf("Elec # (available: %s)",
                                                  electrode_list_text), choices = as.character(repository$electrode_list),
                                  selected = as.character(v))
       }
