@@ -43,8 +43,6 @@ apply_current_theme <- function(...) {
   par('bg'=theme$background, 'fg'=theme$foreground, 'col'=theme$foreground,
       'col.axis' = theme$foreground)
 
-  # ravedash::logger(pe_graphics_settings_cache$get('line_color_palette'))
-
   grDevices::palette(get_line_palette(
     pe_graphics_settings_cache$get('line_color_palette'))
   )
@@ -91,9 +89,9 @@ build_palettes_and_ranges_for_omnibus_data <- function(omnidata) {
   )
 }
 
-draw_many_heat_maps <- function (hmaps, meta_data,
+draw_many_heat_maps <- function (hmaps,
                                  max_zlim = 0, percentile_range = FALSE, log_scale = FALSE,
-                                 show_color_bar = TRUE, useRaster = TRUE, wide = FALSE, PANEL.FIRST = NULL,
+                                 show_color_bar = TRUE, useRaster = TRUE, PANEL.FIRST = NULL,
                                  PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL,
                                  axes = c(TRUE, TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
                                  max_columns = 3, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
@@ -127,37 +125,21 @@ draw_many_heat_maps <- function (hmaps, meta_data,
   #some people were passing in NULL for max_zlim
   max_zlim %?<-% 0
 
-  if (wide) {
+  # if (any(par("mfrow") > 1)) {
+  #   default_mar <- c(5.1, 4.1, 4.1, 2.1)
+  #   if (all(par("mar") == default_mar)) {
+  #     mar2 %?<-% 4.5
+  #     par(mar = 0.1 + c(4, mar2, 5, 2))
+  #   }
+  #   if (!decorate_all_plots && do_layout) {
+  #     par(oma = pmax(c(0,0,2,0), par('oma')))
+  #   }
+  # } else {
+  #   if (all(par("mar") == default_mar)) {
+  #     par(mar = 0.1 + c(par("mar")[1], mar2, 5, 2))
+  #   }
+  # }
 
-    if(is.character(hmaps[[1]]$y)) {
-      max_char_count = max(unlist(
-        lapply(hmaps, function(h) nchar(unique(h$y)))
-      ))
-
-    } else {
-      max_char_count = max(sapply(hmaps, function(h) ifelse(any(is.nan(h$range)),
-                                                            max(nchar(h$conditions)), 1)))
-
-    }
-
-    par(mar = c(par("mar")[1], 5.1 + max(0, (max_char_count -
-                                               5) * 0.95), 2, 2))
-  } else {
-    if (any(par("mfrow") > 1)) {
-      default_mar <- c(5.1, 4.1, 4.1, 2.1)
-      if (all(par("mar") == default_mar)) {
-        par(mar = 0.1 + c(4, 4.5, 5, 0))
-      }
-      if (!decorate_all_plots && do_layout) {
-        par(oma = c(0, 0, 2, 0))
-      }
-    }
-    else {
-      if (all(par("mar") == default_mar)) {
-        par(mar = c(par("mar")[1], par("mar")[2], 5, 2))
-      }
-    }
-  }
   actual_lim = get_data_range(hmaps)
   if (max_zlim <= 0) {
     max_zlim <- max(abs(actual_lim), na.rm = TRUE)
@@ -238,6 +220,7 @@ draw_many_heat_maps <- function (hmaps, meta_data,
     if (!is.null(extra_plot_parameters)) {
       pc_args[names(extra_plot_parameters)] = extra_plot_parameters
     }
+
     do.call(rutabaga::plot_clean, pc_args)
     if (is.function(PANEL.FIRST)) {
       PANEL.FIRST(map)
@@ -253,7 +236,7 @@ draw_many_heat_maps <- function (hmaps, meta_data,
     if (axes[1]) {
       xticks <- ..get_nearest_i(pretty(map$x), map$x)
       rave_axis(1, at = xticks, labels = map$x[xticks],
-                tcl = 0, lwd = 0, mgpx = c(0, 0.5, 0))
+                tcl = 0, lwd = 0, mgpx = c(0, 0.75, 0))
     }
 
     if(axes[2]) {
@@ -270,7 +253,7 @@ draw_many_heat_maps <- function (hmaps, meta_data,
       }
 
       rave_axis(2, at = yticks, labels = map$y[yticks],
-                tcl = 0, lwd = 0, mgpy = c(0, 0.5, 0))
+                tcl = 0, lwd = 0, mgpy = c(0, -1/4, 0))
     }
 
 
@@ -278,8 +261,6 @@ draw_many_heat_maps <- function (hmaps, meta_data,
     if (is.function(PANEL.LAST)) {
       PANEL.LAST(
         data=map,
-        condition_data=meta_data$groups[[map$name]],
-        baseline_settings=meta_data$baseline,
         Xmap = function(x) ..get_nearest_i(x, map$x),
         Ymap = function(y) ..get_nearest_i(y, map$y),
         more_title_options = mto
@@ -288,7 +269,7 @@ draw_many_heat_maps <- function (hmaps, meta_data,
   }
 
   if (show_color_bar) {
-    .mar <- c(par("mar")[1], 3.5, 5, 1)
+    .mar <- c(par("mar")[1], 5.1, 5, 1)
     if (is.function(PANEL.COLOR_BAR)) {
       .mar[3] = 5
     }
@@ -300,32 +281,33 @@ draw_many_heat_maps <- function (hmaps, meta_data,
     }
   }
 
-  if (!decorate_all_plots &&
-      any(par("mfrow")[1] > 1, par("mfrow")[2] > 2)
-  ) {
-    if (center_multipanel_title) {
-      xpos <- ifelse(show_color_bar, 0.475, 0.5)
-      adj <- 0.5
-    }
-    else {
-      xpos = 0
-      adj <- 0
-    }
-    tokens = c('Subject' = meta_data$subject_code,
-               'Electrodes' = "E" %&%
-                 dipsaus::deparse_svec(
-                   unique(c(unlist(sapply(meta_data$groups, `[[`, 'electrodes'))))
-                 ),
-               'Frequency' = "F" %&% str_collapse(unique(
-                 sapply(meta_data$analysis, function(a) str_collapse(a$frequency, ':'))
-               )) %&% "Hz"
-    )
+  # if (!decorate_all_plots &&
+  #     any(par("mfrow")[1] > 1, par("mfrow")[2] > 2)
+  # ) {
+  #   if (center_multipanel_title) {
+  #     xpos <- ifelse(show_color_bar, 0.475, 0.5)
+  #     adj <- 0.5
+  #   }
+  #   else {
+  #     xpos = 0
+  #     adj <- 0
+  #   }
 
-    tokens = tokens[(names(tokens) %in% marginal_text_fields)]
-    mtext(text = paste(tokens, collapse = " "), line = 0,
-          at = xpos, adj = adj, outer = TRUE, font = 1, cex = rave_cex.main *
-            0.8)
-  }
+  # tokens = c('Subject' = hmaps[[1]]$subject_code,
+  #            'Electrodes' = "E" %&%
+  #              dipsaus::deparse_svec(
+  #                hmaps[[1]]$electrodes)
+  #              ,
+  #            'Frequency' = "F" %&% str_collapse(unique(
+  #              sapply(meta_data$analysis, function(a) str_collapse(a$frequency, ':'))
+  #            )) %&% "Hz"
+  # )
+  #
+  # tokens = tokens[(names(tokens) %in% marginal_text_fields)]
+  # mtext(text = paste(tokens, collapse = " "), line = 0,
+  #       at = xpos, adj = adj, outer = TRUE, font = 1, cex = rave_cex.main *
+  #         0.8)
+  # }
 
   invisible(hmaps)
 }
@@ -556,32 +538,30 @@ rave_title <- function(main, cex.main, col, font=1, adj=0.5, ...) {
   title(main=list(main, cex=cex.main*get_cex_for_multifigure(), col=col, font=font), adj=adj)
 }
 
-rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab, line=NA, ...) {
+rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab,
+                             xline=1.5, yline=2.75, push_X=0, push_Y=0, ...) {
   col %?<-% par('col')
 
   cex.lab %?<-% pe_graphics_settings_cache$get('rave_cex.lab')
 
-  ## overrule the font scaling if we're writing to a PDF... eventually we'll make this better
+  ## overrule the font scaling if we're writing to a PDF
+  # ... eventually we'll make this better and read from pe_graphics_settings_cache
   if(plotting_to_file()) {
     if (cex.lab > 1) cex.lab = 1
-
-    if(!is.null(ylab)) {
-      title(xlab=NULL, ylab=ylab,
-            cex.lab=cex.lab*get_cex_for_multifigure(),
-            col.lab=col, line=2.75, ...)
-    }
-
-    if(!is.null(xlab)) {
-      title(xlab=xlab, ylab=NULL,
-            cex.lab=cex.lab*get_cex_for_multifigure(),
-            col.lab=col, line=1.5, ...)
-    }
-
-    return()
   }
 
-  title(xlab=xlab, ylab=ylab,
-        cex.lab=cex.lab*get_cex_for_multifigure(), col.lab=col, line=line, ...)
+  if(!is.null(ylab)) {
+    title(xlab=NULL, ylab=ylab,
+          cex.lab=cex.lab*get_cex_for_multifigure(),
+          col.lab=col, line=yline+push_Y, ...)
+  }
+
+  if(!is.null(xlab)) {
+    title(xlab=xlab, ylab=NULL,
+          cex.lab=cex.lab*get_cex_for_multifigure(),
+          col.lab=col, line=xline+push_X, ...)
+  }
+
 }
 
 get_cex_for_multifigure <- function() {
@@ -611,7 +591,7 @@ setup_palette <- function() {
   pe_graphics_settings_cache$get('color_palette')
 }
 
-rave_color_bar <- function(zlim, actual_lim, clrs, ylab, ylab.line=1.5,
+rave_color_bar <- function(zlim, actual_lim, clrs, ylab, ylab.line=2,
                            mar=c(5.1, 5.1, 2, 2), adjust_for_nrow=TRUE, horizontal=FALSE, ...) {
   # print('drawing color bar')
   clrs %?<-% get_currently_active_heatmap()
@@ -636,7 +616,7 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab, ylab.line=1.5,
   # check if any other graphics params were requested, direct them to the proper function
   more = list(...)
 
-  ral.args = list(ylab=ylab, line=ylab.line)
+  ral.args = list(ylab=ylab, yline=ylab.line)
   if('cex.lab' %in% names(more)) ral.args$cex.lab = more$cex.lab
 
   if(horizontal) {
@@ -984,21 +964,38 @@ render_analysis_window <- function(settings, lty=2, do_label=TRUE, text.color=pa
   }
 }
 
-plot_over_time_by_condition <- function(over_time_data,
+plot_over_time_by_condition <- function(over_time_by_condition_data,
                                         combine_conditions=FALSE,
-                                        combine_events=FALSE) {
+                                        combine_events=FALSE,
+                                        condition_switch=NULL) {
+
+  if(is.character(condition_switch)){
+    if (condition_switch=='Separate all')  {
+      combine_events=FALSE
+      combine_conditions=FALSE
+    } else if (condition_switch == 'Combine conditions') {
+      combine_events = FALSE
+      combine_conditions=TRUE
+    } else if (condition_switch == 'Combine events')  {
+      combine_events = TRUE
+      combine_conditions=FALSE
+    } else if (condition_switch == 'Combine all') {
+      combine_events = TRUE
+      combine_conditions=TRUE
+    }
+  }
 
   apply_current_theme()
 
-  n.groups <- length(over_time_data)
-  n.events <- length(over_time_data[[1]])
+  n.groups <- length(over_time_by_condition_data)
+  n.events <- length(over_time_by_condition_data[[1]])
 
-  xlim <- sapply(over_time_data, function(otd) {
+  xlim <- sapply(over_time_by_condition_data, function(otd) {
     range(sapply(otd, function(dd) {
       dd$x
     }))
   }) %>% range
-  ylim <- sapply(over_time_data, function(otd) {
+  ylim <- sapply(over_time_by_condition_data, function(otd) {
     range(sapply(otd, function(dd) {
       plus_minus(dd$data)
     }))
@@ -1016,7 +1013,7 @@ plot_over_time_by_condition <- function(over_time_data,
 
     rave_cex.axis <- pe_graphics_settings_cache$get('rave_cex.axis')
     mtext(outer = TRUE, side=1, 'Time (s)', cex=rave_cex.axis, at=x.midpoints)
-    mtext(outer = TRUE, side=2, over_time_data[[1]][[1]]$ylab, at=y.midpoints,
+    mtext(outer = TRUE, side=2, over_time_by_condition_data[[1]][[1]]$ylab, at=y.midpoints,
           cex=rave_cex.axis, line=1)
   }
 
@@ -1054,9 +1051,9 @@ plot_over_time_by_condition <- function(over_time_data,
     draw_axis_labels()
     dy = .075*diff(par('usr')[3:4])
 
-    for(ii in seq_along(over_time_data)) {
-      for (jj in seq_along(over_time_data[[ii]])) {
-        dd <- over_time_data[[ii]][[jj]]
+    for(ii in seq_along(over_time_by_condition_data)) {
+      for (jj in seq_along(over_time_by_condition_data[[ii]])) {
+        dd <- over_time_by_condition_data[[ii]][[jj]]
         graph_num = jj + (n.events) * (ii-1)
 
         # put the decorations behind the data
@@ -1084,15 +1081,15 @@ plot_over_time_by_condition <- function(over_time_data,
     par(mfrow=c(nr,nc), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
 
     #loop over events
-    for(ei in seq_along(over_time_data[[1]])) {
+    for(ei in seq_along(over_time_by_condition_data[[1]])) {
       plot_clean(xlim, ylim)
       draw_axis_labels()
-      with(over_time_data[[1]][[ei]],
+      with(over_time_by_condition_data[[1]][[ei]],
            rave_title(time_window_label)
       )
 
       if(ei==1) {
-        nms <- names(over_time_data)
+        nms <- names(over_time_by_condition_data)
         dy = .075*diff(par('usr')[3:4])
         yy = max(axTicks(2)) - dy*seq_along(nms)
 
@@ -1103,8 +1100,8 @@ plot_over_time_by_condition <- function(over_time_data,
         )
       }
 
-      for(ii in seq_along(over_time_data)) {
-        dd <- over_time_data[[ii]][[ei]]
+      for(ii in seq_along(over_time_by_condition_data)) {
+        dd <- over_time_by_condition_data[[ii]][[ei]]
         graph_num = ii
 
         # put the decorations behind the data
@@ -1119,13 +1116,13 @@ plot_over_time_by_condition <- function(over_time_data,
 
   plot_combined_over_events <- function(nr,nc) {
     par(mfrow=c(nr,nc), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
-    for(ii in seq_along(over_time_data)) {
+    for(ii in seq_along(over_time_by_condition_data)) {
       plot_clean(xlim, ylim)
       draw_axis_labels()
-      rave_title(over_time_data[[ii]][[1]]$data_label)
+      rave_title(over_time_by_condition_data[[ii]][[1]]$data_label)
 
       if(ii==1) {
-        nms <- names(over_time_data[[1]])
+        nms <- names(over_time_by_condition_data[[1]])
         dy = .075*diff(par('usr')[3:4])
         yy = max(axTicks(2)) - dy*seq_along(nms)
 
@@ -1136,8 +1133,8 @@ plot_over_time_by_condition <- function(over_time_data,
         )
       }
 
-      for(jj in seq_along(over_time_data[[ii]])) {
-        dd <- over_time_data[[ii]][[jj]]
+      for(jj in seq_along(over_time_by_condition_data[[ii]])) {
+        dd <- over_time_by_condition_data[[ii]][[jj]]
         graph_num = jj
 
         # put the decorations behind the data
@@ -1167,7 +1164,7 @@ plot_over_time_by_condition <- function(over_time_data,
   } else if (isTRUE(combine_conditions)){
     # we're combining conditions (but not events), so the number of
     # unique graphs is the number of unique events, second-level dimension
-    layout = determine_layout(length(over_time_data[[1]]))
+    layout = determine_layout(length(over_time_by_condition_data[[1]]))
 
     if(prod(layout)==1) {
       plot_all_in_one()
@@ -1177,7 +1174,7 @@ plot_over_time_by_condition <- function(over_time_data,
 
   } else if (isTRUE(combine_events)){
     # here we are combining events but not combining conditions
-    layout <- determine_layout(length(over_time_data))
+    layout <- determine_layout(length(over_time_by_condition_data))
 
     if(prod(layout) == 1) {
       plot_all_in_one()
@@ -1200,11 +1197,11 @@ plot_over_time_by_condition <- function(over_time_data,
     }
 
     par(mfcol=c(nr,nc), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
-    for(ii in seq_along(over_time_data)) {
-      for(jj in seq_along(over_time_data[[ii]])) {
+    for(ii in seq_along(over_time_by_condition_data)) {
+      for(jj in seq_along(over_time_by_condition_data[[ii]])) {
         plot_clean(xlim, ylim)
         draw_axis_labels()
-        dd <- over_time_data[[ii]][[jj]]
+        dd <- over_time_by_condition_data[[ii]][[jj]]
         rave_title(paste(sep=' | ', dd$data_label, dd$time_window_label))
 
         graph_num = jj + (ii-1)*n.events
@@ -1237,7 +1234,7 @@ plot_per_electrode_statistics <- function(stats, requested_stat, show0=c('smart'
   # if so, then chop off electrodes from the stats block
   which_to_label = integer(0)
   if(!is.null(label_electrodes)) {
-      which_to_label = which(electrode_numbers %in% label_electrodes)
+    which_to_label = which(electrode_numbers %in% label_electrodes)
   }
 
   label_type = match.arg(label_type)
@@ -1343,7 +1340,7 @@ plot_per_electrode_statistics <- function(stats, requested_stat, show0=c('smart'
       }
 
     }
-    rave_axis_labels(xlab='Electrode #', ylab=ylab)
+    rave_axis_labels(xlab='Electrode #', ylab=ylab, push_X = 0.75)
     rave_title(cn)
 
     # if(0 %within% range(ylim)) {
@@ -1848,27 +1845,218 @@ density_jitter <- function(x, around=0, max.r=.2, n=length(x), seed=NULL) {
   }, seed = seed)
 }
 
+build_heatmap_analysis_window_decorator <- function(...,  type=c('line', 'box'),
+                                                    lwd=2, lty=2,
+                                                    show_top_label=FALSE) {
+  force(lwd); force(lty); force(show_top_label)
+  type = match.arg(type)
 
-plot_over_time_by_trial_data <- function(by_trial_data, meta_data) {
-  draw_many_heat_maps(hmaps = by_trial_data, meta_data = meta_data,
-                      wide=TRUE,
-                      axes = c(T,F), max_zlim = 95, percentile_range = TRUE,
-                      PANEL.LAST = function(data, condition_data,
-                                            baseline_settings,
-                                            Xmap, Ymap,
-                                            more_title_options) {
-                        diff_cond = rle(data$y)
-                        len <- diff_cond$lengths
-                        cs_len <- cumsum(len)
-                        abline(h=cs_len+0.5)
+  # make sure we have enough space to write into
+  par('oma' = pmax(c(1,0,0,0), par('oma')))
+
+  hawd <- function(data, Xmap, Ymap, ...) {
+    # label analysis event
+    mtext(data$analysis_event, side = 1, at=Xmap(0),
+          line=2.5, cex=(7/8)*get_cex_for_multifigure(), col = par('fg'))
+
+    # label analysis window
+    xx <- Xmap(data$analysis_window)
+    if(type == 'box') {
+      yy <- Ymap(data$analysis_frequency)
+
+      polygon(c(xx,rev(xx)), rep(yy, each=2),
+              lty=lty, lwd=lwd,border='black')
+
+    } else {
+      abline(v=xx, lty=2, col=par('fg'), xpd=FALSE, lwd=2)
+      if(show_top_label)
+        mtext(data$analysis_group, side=3, at=xx[1], adj = -.25, line=0,
+              cex=get_cex_for_multifigure()*9/8)
+    }
+  }
+
+  return (hawd)
+}
+
+build_axis_label_decorator <- function(..., doX=TRUE, doY=TRUE, push_X=0, push_Y=0) {
+  doX = force(doX)
+  doY = force(doY)
+
+  push_X %<>% force
+  push_Y %<>% force
+
+  o.mar <- par('mar')
+  if(doX) {
+    o.mar[1] <- max(o.mar[1], 5.1+push_X)
+  }
+  if(doY) {
+    o.mar[2] <- max(o.mar[2], 5.1+push_Y/2)
+  }
+  par('mar' = o.mar)
+
+  ald <- function(data, ...) {
+    print(push_X)
+    print(push_Y)
+    if(doX)
+      rave_axis_labels(xlab=data$xlab, push_X = push_X)
+
+    if(doY)
+      rave_axis_labels(ylab=data$ylab, push_Y=push_Y)
+  }
+
+  return(ald)
+}
 
 
-                        midpoints <- len/2 +
-                          c(0, cs_len[-length(len)])
+stack_decorators <- function(...) {
+  decorators <- lapply(list(...), match.fun)
 
-                        mtext(condition_data$conditions,
-                              cex = 1*get_cex_for_multifigure(),
-                              side = 2,at = midpoints, las=1)
-                      }
+  return(function(...) {
+    lapply(decorators, function(DD) {
+      DD(...)
+    })
+  })
+}
+
+
+build_heatmap_condition_label_decorator <- function(all_maps, ...) {
+  o.mar <- par('mar')
+
+  ## make sure we have sufficient left-margin
+  max_char_count <- sapply(all_maps, function(m) {
+    nchar(unique(as.character(m$y)))
+  }) %>% unlist %>% max
+
+  mar2 <- 5.1 + max(0, (max_char_count - 5) * 0.75)
+  new_mar <- o.mar
+  new_mar[2] = max(mar2, o.mar[2])
+
+  par('mar' = new_mar)
+
+  # function that does the decorating
+  hcld <- function(data, Xmap, Ymap, ...) {
+
+    diff_cond = rle(data$y)
+    len <- diff_cond$lengths
+    cs_len <- cumsum(len)
+
+    # drop the last one because we don't need a line at the top
+    cs_len = cs_len[-length(cs_len)]
+
+    if(length(cs_len) > 0) {
+      abline(h=cs_len+0.5)
+    }
+    midpoints <- len/2 + c(0, cs_len)
+
+    mtext(diff_cond$values, side = 2,
+          at = midpoints,
+          cex = 0.8*get_cex_for_multifigure(), las=1, line = 0.5)
+
+  }
+
+  return (hcld)
+}
+
+plot_over_time_by_electrode <- function(by_electrode_tf_data) {
+  decorators <- stack_decorators(
+    build_heatmap_analysis_window_decorator(),
+    build_axis_label_decorator(push_X=3),
+    build_title_decorator()
   )
+
+  draw_many_heat_maps(
+    hmaps = by_electrode_tf_data,
+    PANEL.LAST = decorators
+  )
+}
+
+build_title_decorator <- function(to_include=c('analysis_group',
+                                               'condition_group'), sep = ' | ') {
+  force(to_include)
+  force(sep)
+
+  btd <- function(data, ...) {
+    # grab the items from what's available in data
+    ind <- which(to_include %in% names(data))
+
+    if(length(ind) < 1) {
+      # found nothing, do nothing
+      return()
+    }
+
+    if(length(ind) == 1) {
+      # one item, no separators needed
+      str = data[[to_include[[ind]]]]
+
+    } else {
+      sep = rep_len(sep, length.out = length(to_include)-1)
+
+      # grab the first item
+      str = data[[to_include[[ind[1]]]]]
+
+      # loop from 2:N
+      for(ii in seq_along(ind)[-1]) {
+
+        #grab the next item
+        nm <- to_include[[ind[ii]]]
+        val <- data[[nm]]
+
+        # just in case we have vector values, collapse them here
+        val %<>% paste0(collapse=' ')
+
+        # finally combine using requested separator
+        str %<>% paste(val, sep=sep[ind[ii-1]])
+      }
+    }
+
+    # title!
+    rave_title(str)
+  }
+
+  return (btd)
+}
+
+plot_by_frequency_correlation <- function(by_frequency_correlation_data) {
+
+  decorators <- stack_decorators(
+    build_axis_label_decorator(push_X = 1.5),
+    build_title_decorator()
+  )
+
+  par(pty='s')
+
+  draw_many_heat_maps(
+    by_frequency_correlation_data,
+    PANEL.LAST = decorators
+  )
+}
+
+plot_by_frequency_over_time <- function(by_frequency_over_time_data) {
+  decorators <- stack_decorators(
+    build_heatmap_analysis_window_decorator(type = 'box'),
+    build_axis_label_decorator(push_X = 3),
+    build_title_decorator()
+  )
+
+draw_many_heat_maps(by_frequency_over_time_data, show_color_bar = FALSE)
+  draw_many_heat_maps(
+    by_frequency_over_time_data,
+    PANEL.LAST = decorators
+  )
+}
+
+plot_over_time_by_trial <- function(over_time_by_trial_data) {
+  apply_current_theme()
+
+  decorators <- stack_decorators(
+    build_title_decorator(),
+    build_heatmap_analysis_window_decorator(),
+    build_heatmap_condition_label_decorator(over_time_by_trial_data)
+  )
+
+  draw_many_heat_maps(hmaps = over_time_by_trial_data,
+                      axes = c(T,F), max_zlim = 95, percentile_range = TRUE,
+                      PANEL.LAST = decorators
+  )
+
 }

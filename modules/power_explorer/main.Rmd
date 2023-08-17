@@ -106,7 +106,7 @@ for(ii in seq_along(first_condition_groupings)) {
   }
 }
 
-#ensure now duplicate condition names
+#ensure no duplicate condition names
 dd <- duplicated(sapply(first_condition_groupings, `[[`, 'label'))
 while(sum(dd)) {
   for(w in which(dd)) {
@@ -131,6 +131,12 @@ if(any(duplicated(fcg))) {
 
 if(is.list(trial_outliers_list)) {
   trial_outliers_list %<>% unlist
+}
+
+
+## add in the subejct code to the analysis settings
+for(ii in seq_along(analysis_settings_clean)) {
+  analysis_settings_clean[[ii]]$subject_code = subject_code
 }
 
 analysis_checks_passed=TRUE
@@ -186,7 +192,6 @@ if(!is.null(trial_details$Factor2)) {
 rownames(trial_details) = trial_details$Trial
 
 ```
-
 
 ```{rave build_analysis_groups, language = "R", export = "analysis_groups"}
 # build the groups from the first_condition_groupings variable (eventually add in the 2 cond group)
@@ -282,20 +287,23 @@ for(gg in seq_along(pluriform_power)) {
 }
 ```
 
-```{rave build_overall_tf_data, language="R", export ="overall_tf_data"}
-build_tfd <- function(dd, trial_groups, settings) {
+```{rave build_overall_tf_data, language="R", export ="by_frequency_over_time_data"}
+build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
+  dn <- dimnames(data)
+  stopifnot(c('Time', 'Frequency') == names(dn)[2:1])
+  
   res <- list(
-    data = ravetools::collapse(dd, keep = 2:1),
-    xlab='Time (s)', ylab='Frequency', zlab='Mean ' %&% baseline_settings$unit_of_analysis
+    data = ravetools::collapse(data, keep = 2:1),
+    
+    x = as.numeric(dn$Time),
+    y = as.numeric(dn$Frequency),
+    
+    xlab='Time (s)', ylab='Frequency',
+    zlab='Mean ' %&% baseline_settings$unit_of_analysis
   )
-  res$x = as.numeric(dimnames(dd)$Time)
-  res$y = as.numeric(dimnames(dd)$Frequency)
-  res$N = dim(dd)[4L]
-  res$name = trial_groups$label
   
-  res$settings = settings
-  
-  if(isTRUE(settings$censor_info$enabled)) {
+  # determine range under censoring
+  if(isTRUE(analysis_settings$censor_info$enabled)) {
     ti = res$x %within% settings$censor_info$window
     res$range <- range(res$data[!ti,])
   } else {
@@ -305,104 +313,56 @@ build_tfd <- function(dd, trial_groups, settings) {
   return(res)
 }
 
-overall_tf_data <- mapply(function(pp, ag) {
-  # rm(pp) <- pluriform_power[[1]]
-  if(length(unique(sapply(pp, function(pi) pi$settings$event))) == 1) {
-    # all analysis groups have the same time=0, so we can show them on the same plot
-    # this means we need to build a more complex settings object
-    
-    .settings = list('A' = pp[[1]]$settings)
-    for(ii in seq_along(pp[-1])) {
-      .settings[[LETTERS[ii+1]]] = pp[[ii+1]]$settings
-    }
-    names(.settings) <- names(pp)
-    
-    build_tfd(dd = pp[[1]]$data$shifted_clean_data,
-              trial_groups = ag,
-              settings = .settings
-    )
-  } else {
-    # analysis groups have different time shifts, so they can not be shown on the same plot
-    sapply(pp, function(ppa) {
-      build_tfd(ppa$data$shifted_clean_data, trial_groups = ag, ppa$settings)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-  }
-}, pluriform_power, analysis_groups, SIMPLIFY = FALSE)
-
+by_frequency_over_time_data <- data_builder(pluriform_power = pluriform_power,
+                                            condition_group = analysis_groups, 
+                                            baseline_settings = baseline_settings,
+                                            build_data, data_type = 'shifted_clean_data')
 ```
 
-```{rave build_tf_correlation_data, language="R", export="tf_correlation_data"}
-# for each analysis settings in the overall_tf_data, get the correlation within the time window
-if(length(analysis_settings_clean) == 1) {
-  # we only have one set of settings, so just get the correlations within each of the conditions
-  tf_correlation_data <- vector("list", length = length(overall_tf_data))
-  for(ii in seq_along(tf_correlation_data)) {
-    d <- pluriform_power[[ii]][[1]]$data$shifted_clean_data
-    tm <- as.numeric(dimnames(d)$Time)
-    ti <- tm %within% unlist(pluriform_power[[ii]][[1]]$settings$time)
-    if(isTRUE(pluriform_power[[ii]][[1]]$settings$censor_info$enabled)) {
-      ti = ti & (tm %within% unlist(pluriform_power[[ii]][[1]]$settings$censor_info$window))
-    }
-    stopifnot(c('Frequency', 'Trial') == names(dimnames(d))[c(1,3)])
-    
-    d_collapsed <- ravetools::collapse(d[,ti,,,drop=FALSE], keep = c(2,1))
-    tf_correlation_data[[ii]] <- list(
-      data = cor(d_collapsed),
-      range = c(-1,1),
-      name = analysis_groups[[ii]]$label,
-      settings = pluriform_power[[ii]][[1]]$settings,
-      xlab='Frequency',
-      ylab='Frequency',
-      zlab='Pearson correlation across trials',
-      x = as.numeric(dimnames(d)[[1]]),
-      y = as.numeric(dimnames(d)[[1]])
-    )
-  }
-} else {
-  n = length(overall_tf_data)
-  k = ncol(combn(length(analysis_settings_clean), 2))
-  tf_correlation_data <- vector('list', length = prod(n,k))
+```{rave build_tf_correlation_data, language="R", export = "by_frequency_correlation_data"}
+
+# for each analysis settings in the by_frequency_over_time_data, get the correlation within the time window
+
+# get the average response for _each_ frequency on _each_ trial,
+# averaged across electrodes and time points within the analysis window
+
+build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
+  dn <- dimnames(data)
+  tm <- as.numeric(dn$Time)
   
-  qq <- 1
-  for(ii in seq_along(overall_tf_data)) {
-    # we know there are multiple analysis settings, so we have a combinatorial situation
-    all_pairs <- combn(x = length(analysis_settings_clean), m = 2)
-    for(kk in seq_len(ncol(all_pairs))) {
-      pairs <- all_pairs[,kk]
-      
-      data <- lapply(pairs, function(p) {
-        d <- pluriform_power[[ii]][[p]]$data$shifted_clean_data
-        tm <- as.numeric(dimnames(d)$Time)
-        ti <- tm %within% unlist(pluriform_power[[ii]][[p]]$settings$time)
-        if(isTRUE(pluriform_power[[ii]][[p]]$settings$censor_info$enabled)) {
-          ti = ti & (tm %within% unlist(pluriform_power[[ii]][[p]]$settings$censor_info$window))
-        }
-        
-        stopifnot(c('Frequency', 'Trial') == names(dimnames(d))[c(1,3)])
-        ravetools::collapse(d[,ti,,,drop=FALSE], keep = c(3,1))
-      })
-      
-      fr <- dimnames(pluriform_power[[ii]][[1]]$data$shifted_clean_data)
-      
-      tf_correlation_data[[qq]] <- list(
-        data = cor(data[[1]], data[[2]]),
-        range = c(-1,1),
-        settings = list(pluriform_power[[ii]][[pairs[1]]]$settings,
-                        pluriform_power[[ii]][[pairs[2]]]$settings),
-        name = analysis_groups[[ii]]$label,
-        xlab= names(analysis_settings_clean)[pairs[1]],
-        ylab=names(analysis_settings_clean)[pairs[2]],
-        zlab='Pearson correlation across trials',
-        x = as.numeric(fr$Frequency),
-        y = as.numeric(fr$Frequency)
-      )
-      qq <<- qq + 1
-    }
-    
+  ti <- tm %within% analysis_settings$time
+  if(isTRUE(analysis_settings$censor_info$enabled)) {
+    ti = ti & !(tm %within% analysis_settings$censor_info$window)
   }
-  # there are more than one set of analysis settings, so we correlate the settings within each condition group
+  rawdata <- ravetools::collapse(data[,ti,,,drop=FALSE], keep = c(3,1))
   
+  res <- list(
+    data = cor(rawdata),
+    xlab='Frequency',
+    ylab='Frequency',
+    zlab='Pearson correlation across trials',
+    x = as.numeric(dn$Frequency),
+    y = as.numeric(dn$Frequency),
+    rawdata <- rawdata
+  )
+  res$range = range(res$data)
+  
+  return(res)  
 }
+
+by_frequency_correlation_data <- data_builder(
+  pluriform_power = pluriform_power,
+  condition_group = analysis_groups, 
+  baseline_settings = baseline_settings,
+  build_data, data_type = 'shifted_clean_data'
+)
+```
+
+```{rave plot_bfcd, language='R', export='plot_bfcd_success'}
+plot_bfcd_success = FALSE
+plot_by_frequency_correlation(by_frequency_correlation_data)
+
+plot_bfcd_success = TRUE
 
 ```
 
@@ -411,7 +371,8 @@ build_data <- function(dd, settings) {
   to_keep <- sapply(c('Time', 'Trial'), which.equal, names(dimnames(dd)))
   res <- list(
     data = ravetools::collapse(dd, keep = to_keep),
-    xlab='Time (s)', ylab='Original Trial #', zlab='Mean ' %&% baseline_settings$unit_of_analysis
+    xlab='Time (s)', ylab='Original Trial #',
+    zlab='Mean ' %&% baseline_settings$unit_of_analysis
   )
   
   res[c('x', 'y')] <- dimnames(dd)[to_keep] %>% lapply(as.numeric)
@@ -447,23 +408,27 @@ by_trial_tf_data <- lapply(pluriform_power, function(pp) {
 
 ```
 
-```{rave build_by_electrode_tf_data, language="R", export ="by_electrode_tf_data"}
+```{rave build_over_time_by_electrode_data, language="R", export ="over_time_by_electrode_data"}
 
-build_data <- function(dd, lbl, settings) {
-  to_keep <- sapply(c('Time', 'Electrode'), which.equal, names(dimnames(dd)))
+build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
+  dm <- dimnames(data)
+  to_keep <- sapply(c('Time', 'Electrode'), which.equal, names(dm))
   res <- list(
-    data = ravetools::collapse(dd, keep = to_keep),
-    name = lbl,
-    xlab='Time (s)', ylab='Electrode #', zlab='Mean ' %&% baseline_settings$unit_of_analysis,
-    settings = settings
+    data = ravetools::collapse(data, keep = to_keep),
+    xlab='Time (s)',
+    ylab='Electrode #',
+    zlab='Mean ' %&% baseline_settings$unit_of_analysis,
+    condition_group = condition_group$label,
+    electrodes = as.integer(dm$Electrode),
+    subject_code = subject_code
   )
   
-  res[c('x', 'y')] <- dimnames(dd)[to_keep] %>% lapply(as.numeric)
+  res[c('x', 'y')] <- dimnames(data)[to_keep] %>% lapply(as.numeric)
   
-  res$N = length(dimnames(dd)$Trial)
+  res$N = length(dm$Trial)
   
-  if(isTRUE(settings$censor_info$enabled)) {
-    ti = res$x %within% settings$censor_info$window
+  if(isTRUE(analysis_settings$censor_info$enabled)) {
+    ti = res$x %within% analysis_settings$censor_info$window
     res$range <- range(res$data[!ti,])
   } else {
     res$range <- range(res$data)
@@ -472,43 +437,26 @@ build_data <- function(dd, lbl, settings) {
   return(res)
 }
 
-by_electrode_tf_data <- mapply(function(pp, ag) {
-  # rm(pp <- pluriform_power[[1]])
-  if(length(pp) == 1 || 
-     all(
-       1 == length(table(sapply(pp, function(pi) pi$settings$event))),
-       1 == length(table(sapply(pp, function(pi) str_collapse(pi$settings$frequency))))
-     )
-  ){
-    # all analysis groups have the same time=0, so we can show them on the same plot      
-    build_data(dd = pp[[1]]$data$shifted_clean_data_Fsub,
-               lbl = ag$label,
-               settings = pp[[1]]$settings)
-  } else {
-    # analysis groups have different settings, so they can not be shown on the same plot
-    sapply(pp, function(ppa) {
-      build_data(ppa$data$shifted_clean_data_Fsub, 
-                 lbl = ag$label,
-                 ppa$settings)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-  }
-}, pluriform_power, analysis_groups, SIMPLIFY = FALSE)
+over_time_by_electrode_data <- data_builder(pluriform_power = pluriform_power,
+                                            condition_group = analysis_groups, 
+                                            baseline_settings = baseline_settings,
+                                            build_data)
+
 
 ```
 
-```{rave plot_by_electrode_tf_data, language='R', export='betfd_success', cue="always"}
+```{rave plot_over_time_by_electrode_data_data, language='R', export='betfd_success', cue="always"}
 
 betfd_success <- tryCatch({
-  draw_many_heat_maps(by_electrode_tf_data)
+  draw_many_heat_maps(over_time_by_electrode_data)
   
   TRUE
 }, error=function(e) {
   e
 })
-
 ```
 
-```{rave build_over_time_data, language="R", export ="over_time_data"}
+```{rave build_over_time_by_condition_data, language="R", export ="over_time_by_condition_data"}
 build_data <- function(dd, settings) {
   to_keep <- sapply(c('Time', 'Electrode'), which.equal, names(dimnames(dd)))
   res <- list(
@@ -545,36 +493,27 @@ build_data <- function(dd, settings) {
   return(res)
 }
 
-over_time_data <- lapply(pluriform_power, function(pp) {
-  # rm(pp) <- pluriform_power[[1]]
-  # if(length(pp) == 1 || 
-  #    all(
-  #        1 == length(table(sapply(pp, function(pi) pi$settings$event))),
-  #        1 == length(table(sapply(pp, function(pi) str_collapse(pi$settings$frequency))))
-  #    )
-  # ){
-  #     # all analysis groups have the same time=0, so we can show them on the same plot      
-  #     build_data(pp[[1]]$data$shifted_clean_data_Fsub, pp[[1]]$settings)
-  # } else {
-  # analysis groups have different time shifts, so they can not be shown on the same plot
+over_time_by_condition_data <- lapply(pluriform_power, function(pp) {
   sapply(pp, function(ppa) {
     build_data(ppa$data$shifted_clean_data_Fsub, ppa$settings)
   }, simplify = FALSE, USE.NAMES = TRUE)
-  # }
 })
 
 # bring down the meta data to the plotting level for ease of use
-for(ii in seq_along(over_time_data)) {
-  for(jj in seq_along(over_time_data[[ii]])) {
-    over_time_data[[ii]][[jj]]$data_label = names(over_time_data)[[ii]]
-    over_time_data[[ii]][[jj]]$time_window_label = names(over_time_data[[ii]])[[jj]]
+for(ii in seq_along(over_time_by_condition_data)) {
+  for(jj in seq_along(over_time_by_condition_data[[ii]])) {
+    over_time_by_condition_data[[ii]][[jj]]$data_label = 
+      names(over_time_by_condition_data)[[ii]]
+    
+    over_time_by_condition_data[[ii]][[jj]]$time_window_label =
+      names(over_time_by_condition_data[[ii]])[[jj]]
   }
 }
 ```
 
 ```{rave plot_over_time_data, language='R', export='plot_over_time_by_condition_result', cue='always'}
 plot_over_time_by_condition_result = TRUE
-plot_over_time_by_condition(over_time_data, F, F)
+# plot_over_time_by_condition(over_time_by_condition_data, F, F)
 ```
 
 ```{rave build_scatter_bar_data, language="R", export ="scatter_bar_data"}
@@ -610,11 +549,12 @@ build_data <- function(dd, settings) {
   return(res)
 }
 
-scatter_bar_data <- lapply(pluriform_power, function(pp) {
-  sapply(pp, function(ppa) {
-    build_data(ppa$data$shifted_clean_data_Fsub, ppa$settings)
-  }, simplify = FALSE, USE.NAMES = TRUE)
-})
+# scatter_bar_data <- lapply(pluriform_power, function(pp) {
+#   sapply(pp, function(ppa) {
+#     build_data(ppa$data$shifted_clean_data_Fsub, ppa$settings)
+#   }, simplify = FALSE, USE.NAMES = TRUE)
+# })
+scatter_bar_data=FALSE
 
 ```
 
@@ -681,8 +621,8 @@ analysis_data$datatype <- baseline_settings$unit_of_analysis
 ```
 
 
-```{rave build_over_time_by_electrode_and_group, language='R', export='over_time_by_electrode_and_group'}
-over_time_by_electrode_and_group <- NULL
+```{rave build_over_time_by_electrode_dataframe, language='R', export='over_time_by_electrode_dataframe'}
+over_time_by_electrode_dataframe <- NULL
 # building data for the movie viewer
 # first baseline all the electrodes
 raveio::power_baseline(
@@ -769,11 +709,13 @@ by_condition_group <-
   )
 
 #merge the resulting datasets
-over_time_by_electrode_and_group <- by_condition_group[[1]]
+over_time_by_electrode_dataframe <- by_condition_group[[1]]
 
 if(length(by_condition_group) > 1) {
   for(ii in seq_along(by_condition_group)[-1]){
-    over_time_by_electrode_and_group = merge(over_time_by_electrode_and_group, by_condition_group[[ii]], all=TRUE)
+    over_time_by_electrode_dataframe = merge(over_time_by_electrode_dataframe,
+                                             by_condition_group[[ii]],
+                                             all=TRUE)
   }
 }
 
@@ -781,8 +723,9 @@ if(length(by_condition_group) > 1) {
 
 ```{rave build_over_time_by_trial, language="R", export ="over_time_by_trial_data"}
 
-build_data <- function(dd, settings) {
-  dm <- dimnames(dd)
+build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
+  
+  dm <- dimnames(data)
   
   to_keep <- c(
     which.equal('Time', names(dm)),
@@ -790,29 +733,23 @@ build_data <- function(dd, settings) {
   )
   
   res <- list(
-    data = ravetools::collapse(dd[,drop=FALSE], keep = to_keep),
+    data = ravetools::collapse(data[,drop=FALSE], keep = to_keep),
+    x = as.numeric(dm$Time),
     xlab='Time',
     ylab='Trial (sorted by condition)',
-    zlab='Mean ' %&% baseline_settings$unit_of_analysis
+    zlab=sprintf('Mean %s', baseline_settings$unit_of_analysis)
   )
-  dim(res$data)
+  
   res$range <- range(res$data)
+  ind <- which(sapply(first_condition_groupings, `[[`, 'label')==condition_group[[1]])
+  cnds <- first_condition_groupings[[ind]]$conditions
   
-  res$x <- as.numeric(dimnames(dd)$Time)
-  res$y <- NA
-  tt <- dimnames(dd)$Trial
-  res$N = length(tt)
-  
-  # sort the data by condition
-  res$y <- trial_details[tt,'Condition']
-  
-  condition_group = unique(trial_details[tt,'Factor1'])
-  res$name = condition_group[[1]]
-
-  cnds <- first_condition_groupings[[condition_group[[1]]]]$conditions
+  tt = as.numeric(dm$Trial)
+  res$y = trial_details[as.character(tt), 'Condition']
   cf <- factor(res$y, levels = cnds)
-  ord = order(cf, as.numeric(tt))
+  ord = order(cf, tt)
   
+  # sort the trial labels
   res$y <- res$y[ord]
   
   # NB: the condition data are stored in the COLUMNS of the data, so sort appropriately
@@ -822,14 +759,14 @@ build_data <- function(dd, settings) {
   return(res)
 }
 
-over_time_by_trial_data <- lapply(pluriform_power, function(pp) {
-  sapply(pp, function(ppa) {
-    build_data(ppa$data$shifted_clean_data_Fsub, ppa$settings)
-  }, simplify = FALSE, USE.NAMES = TRUE)
-})
+over_time_by_trial_data <- data_builder(
+  pluriform_power, condition_groups = analysis_groups,
+  baseline_settings = baseline_settings,
+  BUILDER_FUN = build_data, 
+  data_type = 'shifted_clean_data_Fsub'
+)
+
 ```
-
-
 
 ```{rave build_omnibus_results, language="R", export="omnibus_results"}
 # 
@@ -923,8 +860,16 @@ if(!is.null(all_data$AnalysisLabel)) {
   all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
 }
 
-collapsed_data <- cbind_list(sapply(by_condition_group, 
-                                    get_list_elements, 'collapsed', use_sapply=FALSE))
+# add in currently selected information so plots are accurate
+# to selected electrodes
+rn <- 'currently_selected'
+while(rn %in% names(all_data)) {
+  rn <- 'PWR_EXPLR_' %&% rn
+}
+all_data[[rn]] = all_data$Electrode %in% requested_electrodes
+
+# collapsed_data <- cbind_list(sapply(by_condition_group, 
+                                    # get_list_elements, 'collapsed', use_sapply=FALSE))
 
 # for the stats, we need to figure out the factors involved and then build 
 # the appropriate model
@@ -989,13 +934,23 @@ stats <- all_data %>% split((.)$Electrode) %>%
   dipsaus::lapply_async2(run_stats, plan=FALSE) %>%
   cbind_list
 
+# add in "currently active" electrodes so users can filter
+rn <- 'currently_selected'
+while(rn %in% rownames(stats)) {
+  rn = 'RAVE_' %&% rn
+}
+val = matrix(nrow=1,
+             as.integer(colnames(stats) == as.character(requested_electrodes)),
+             dimnames=list(rn))
+stats %<>% rbind(val)
+
 # add in electrode labels as an attribute of the stats block.
 # don't add as row, otherwise we lose numeric-ness
 attr(stats, 'electrode_labels') = repository$electrode_table$Label
 
-# check for random effects
+#combine into large list for exporting
 omnibus_results = list(
-  'collapsed' = collapsed_data,
+  # 'collapsed' = collapsed_data,
   'data' = all_data,
   'stats' = stats
 )
@@ -1036,7 +991,7 @@ if(!length(electrodes_to_keep)){
 # there might be efficiency wins if we subset trials NOW prior to baseline, but
 # only if the baselines aren't already cached 
 
-prog$inc("Baseline data")
+prog$inc("Baseline data [export loop]")
 raveio::power_baseline(
   x = repository,
   baseline_windows = unlist(baseline_settings$window[[1]]),

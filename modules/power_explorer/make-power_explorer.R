@@ -16,87 +16,87 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+    input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
         quote({
-            settings[["electrode_export_data_type"]]
-        }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
-        quote({
-            settings[["electrodes_to_export"]]
-        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
-        quote({
-            settings[["trials_to_export"]]
-        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
-        quote({
-            settings[["times_to_export"]]
-        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
-        quote({
-            settings[["frequencies_to_export"]]
-        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
-        quote({
-            settings[["electrode_export_file_type"]]
-        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
-        quote({
-            settings[["trial_outliers_list"]]
-        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
-        quote({
-            settings[["time_censor"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
-        quote({
-            settings[["loaded_electrodes"]]
-        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
-        quote({
-            settings[["epoch_choice"]]
-        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
-        quote({
-            settings[["epoch_choice__trial_starts"]]
-        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
-        quote({
-            settings[["epoch_choice__trial_ends"]]
-        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
-        quote({
-            settings[["reference_name"]]
-        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
-        quote({
-            settings[["baseline_settings"]]
-        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
-        quote({
-            settings[["analysis_electrodes"]]
-        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
-        quote({
-            settings[["first_condition_groupings"]]
-        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
-        quote({
-            settings[["second_condition_groupings"]]
-        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
-        quote({
-            settings[["enable_second_condition_groupings"]]
-        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
-        quote({
-            settings[["enable_custom_ROI"]]
-        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
-        quote({
-            settings[["custom_roi_type"]]
-        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
-        quote({
-            settings[["custom_roi_variable"]]
-        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
-        quote({
-            settings[["custom_roi_groupings"]]
-        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
-        quote({
-            settings[["analysis_settings"]]
+            settings[["electrodes_to_export_roi_categories"]]
         }), deps = "settings"), input_electrodes_to_export_roi_name = targets::tar_target_raw("electrodes_to_export_roi_name", 
         quote({
             settings[["electrodes_to_export_roi_name"]]
-        }), deps = "settings"), input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
+        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
         quote({
-            settings[["electrodes_to_export_roi_categories"]]
+            settings[["analysis_settings"]]
+        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
+        quote({
+            settings[["custom_roi_groupings"]]
+        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
+        quote({
+            settings[["custom_roi_variable"]]
+        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
+        quote({
+            settings[["custom_roi_type"]]
+        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
+        quote({
+            settings[["enable_custom_ROI"]]
+        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
+        quote({
+            settings[["enable_second_condition_groupings"]]
+        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
+        quote({
+            settings[["second_condition_groupings"]]
+        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
+        quote({
+            settings[["first_condition_groupings"]]
+        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
+        quote({
+            settings[["analysis_electrodes"]]
+        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
+        quote({
+            settings[["baseline_settings"]]
+        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
+        quote({
+            settings[["reference_name"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
+        quote({
+            settings[["epoch_choice__trial_ends"]]
+        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
+        quote({
+            settings[["epoch_choice__trial_starts"]]
+        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
+        quote({
+            settings[["epoch_choice"]]
+        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
+        quote({
+            settings[["loaded_electrodes"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
+        quote({
+            settings[["time_censor"]]
+        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
+        quote({
+            settings[["trial_outliers_list"]]
+        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
+        quote({
+            settings[["electrode_export_file_type"]]
+        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
+        quote({
+            settings[["frequencies_to_export"]]
+        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
+        quote({
+            settings[["times_to_export"]]
+        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
+        quote({
+            settings[["trials_to_export"]]
+        }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
+        quote({
+            settings[["electrodes_to_export"]]
+        }), deps = "settings"), input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+        quote({
+            settings[["electrode_export_data_type"]]
         }), deps = "settings"), check_load_power = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
@@ -255,6 +255,9 @@ rm(._._env_._.)
                 if (is.list(trial_outliers_list)) {
                   trial_outliers_list %<>% unlist
                 }
+                for (ii in seq_along(analysis_settings_clean)) {
+                  analysis_settings_clean[[ii]]$subject_code = subject_code
+                }
                 analysis_checks_passed = TRUE
             })
             tryCatch({
@@ -353,16 +356,20 @@ rm(._._env_._.)
                   if (is.list(trial_outliers_list)) {
                     trial_outliers_list %<>% unlist
                   }
+                  for (ii in seq_along(analysis_settings_clean)) {
+                    analysis_settings_clean[[ii]]$subject_code = subject_code
+                  }
                   analysis_checks_passed = TRUE
                 }
                 analysis_settings_clean
             }), target_depends = c("repository", "analysis_settings", 
             "baseline_settings", "time_censor", "first_condition_groupings", 
             "enable_second_condition_groupings", "second_condition_groupings", 
-            "trial_outliers_list")), deps = c("repository", "analysis_settings", 
-        "baseline_settings", "time_censor", "first_condition_groupings", 
-        "enable_second_condition_groupings", "second_condition_groupings", 
-        "trial_outliers_list"), cue = targets::tar_cue("thorough"), 
+            "trial_outliers_list", "subject_code")), deps = c("repository", 
+        "analysis_settings", "baseline_settings", "time_censor", 
+        "first_condition_groupings", "enable_second_condition_groupings", 
+        "second_condition_groupings", "trial_outliers_list", 
+        "subject_code"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), calculate_baseline = targets::tar_target_raw(name = "baselined_power", 
         command = quote({
             .__target_expr__. <- quote({
@@ -623,19 +630,18 @@ rm(._._env_._.)
             "trial_outliers_list")), deps = c("repository", "baselined_power", 
         "requested_electrodes", "analysis_groups", "analysis_settings_clean", 
         "trial_outliers_list"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), build_overall_tf_data = targets::tar_target_raw(name = "overall_tf_data", 
+        pattern = NULL, iteration = "list"), build_overall_tf_data = targets::tar_target_raw(name = "by_frequency_over_time_data", 
         command = quote({
             .__target_expr__. <- quote({
-                build_tfd <- function(dd, trial_groups, settings) {
-                  res <- list(data = ravetools::collapse(dd, 
-                    keep = 2:1), xlab = "Time (s)", ylab = "Frequency", 
-                    zlab = "Mean " %&% baseline_settings$unit_of_analysis)
-                  res$x = as.numeric(dimnames(dd)$Time)
-                  res$y = as.numeric(dimnames(dd)$Frequency)
-                  res$N = dim(dd)[4L]
-                  res$name = trial_groups$label
-                  res$settings = settings
-                  if (isTRUE(settings$censor_info$enabled)) {
+                build_data <- function(data, analysis_settings, 
+                  condition_group, baseline_settings, ...) {
+                  dn <- dimnames(data)
+                  stopifnot(c("Time", "Frequency") == names(dn)[2:1])
+                  res <- list(data = ravetools::collapse(data, 
+                    keep = 2:1), x = as.numeric(dn$Time), y = as.numeric(dn$Frequency), 
+                    xlab = "Time (s)", ylab = "Frequency", zlab = "Mean " %&% 
+                      baseline_settings$unit_of_analysis)
+                  if (isTRUE(analysis_settings$censor_info$enabled)) {
                     ti = res$x %within% settings$censor_info$window
                     res$range <- range(res$data[!ti, ])
                   } else {
@@ -643,45 +649,29 @@ rm(._._env_._.)
                   }
                   return(res)
                 }
-                overall_tf_data <- mapply(function(pp, ag) {
-                  if (length(unique(sapply(pp, function(pi) pi$settings$event))) == 
-                    1) {
-                    .settings = list(A = pp[[1]]$settings)
-                    for (ii in seq_along(pp[-1])) {
-                      .settings[[LETTERS[ii + 1]]] = pp[[ii + 
-                        1]]$settings
-                    }
-                    names(.settings) <- names(pp)
-                    build_tfd(dd = pp[[1]]$data$shifted_clean_data, 
-                      trial_groups = ag, settings = .settings)
-                  } else {
-                    sapply(pp, function(ppa) {
-                      build_tfd(ppa$data$shifted_clean_data, 
-                        trial_groups = ag, ppa$settings)
-                    }, simplify = FALSE, USE.NAMES = TRUE)
-                  }
-                }, pluriform_power, analysis_groups, SIMPLIFY = FALSE)
+                by_frequency_over_time_data <- data_builder(pluriform_power = pluriform_power, 
+                  condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                  build_data, data_type = "shifted_clean_data")
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(overall_tf_data)
+                return(by_frequency_over_time_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "overall_tf_data", 
+                asNamespace("raveio")$resolve_pipeline_error(name = "by_frequency_over_time_data", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "overall_tf_data", target_expr = quote({
+            target_export = "by_frequency_over_time_data", target_expr = quote({
                 {
-                  build_tfd <- function(dd, trial_groups, settings) {
-                    res <- list(data = ravetools::collapse(dd, 
-                      keep = 2:1), xlab = "Time (s)", ylab = "Frequency", 
+                  build_data <- function(data, analysis_settings, 
+                    condition_group, baseline_settings, ...) {
+                    dn <- dimnames(data)
+                    stopifnot(c("Time", "Frequency") == names(dn)[2:1])
+                    res <- list(data = ravetools::collapse(data, 
+                      keep = 2:1), x = as.numeric(dn$Time), y = as.numeric(dn$Frequency), 
+                      xlab = "Time (s)", ylab = "Frequency", 
                       zlab = "Mean " %&% baseline_settings$unit_of_analysis)
-                    res$x = as.numeric(dimnames(dd)$Time)
-                    res$y = as.numeric(dimnames(dd)$Frequency)
-                    res$N = dim(dd)[4L]
-                    res$name = trial_groups$label
-                    res$settings = settings
-                    if (isTRUE(settings$censor_info$enabled)) {
+                    if (isTRUE(analysis_settings$censor_info$enabled)) {
                       ti = res$x %within% settings$censor_info$window
                       res$range <- range(res$data[!ti, ])
                     } else {
@@ -689,162 +679,98 @@ rm(._._env_._.)
                     }
                     return(res)
                   }
-                  overall_tf_data <- mapply(function(pp, ag) {
-                    if (length(unique(sapply(pp, function(pi) pi$settings$event))) == 
-                      1) {
-                      .settings = list(A = pp[[1]]$settings)
-                      for (ii in seq_along(pp[-1])) {
-                        .settings[[LETTERS[ii + 1]]] = pp[[ii + 
-                          1]]$settings
-                      }
-                      names(.settings) <- names(pp)
-                      build_tfd(dd = pp[[1]]$data$shifted_clean_data, 
-                        trial_groups = ag, settings = .settings)
-                    } else {
-                      sapply(pp, function(ppa) {
-                        build_tfd(ppa$data$shifted_clean_data, 
-                          trial_groups = ag, ppa$settings)
-                      }, simplify = FALSE, USE.NAMES = TRUE)
-                    }
-                  }, pluriform_power, analysis_groups, SIMPLIFY = FALSE)
+                  by_frequency_over_time_data <- data_builder(pluriform_power = pluriform_power, 
+                    condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                    build_data, data_type = "shifted_clean_data")
                 }
-                overall_tf_data
-            }), target_depends = c("baseline_settings", "pluriform_power", 
-            "analysis_groups")), deps = c("baseline_settings", 
-        "pluriform_power", "analysis_groups"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), build_tf_correlation_data = targets::tar_target_raw(name = "tf_correlation_data", 
+                by_frequency_over_time_data
+            }), target_depends = c("pluriform_power", "analysis_groups", 
+            "baseline_settings")), deps = c("pluriform_power", 
+        "analysis_groups", "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_tf_correlation_data = targets::tar_target_raw(name = "by_frequency_correlation_data", 
         command = quote({
             .__target_expr__. <- quote({
-                if (length(analysis_settings_clean) == 1) {
-                  tf_correlation_data <- vector("list", length = length(overall_tf_data))
-                  for (ii in seq_along(tf_correlation_data)) {
-                    d <- pluriform_power[[ii]][[1]]$data$shifted_clean_data
-                    tm <- as.numeric(dimnames(d)$Time)
-                    ti <- tm %within% unlist(pluriform_power[[ii]][[1]]$settings$time)
-                    if (isTRUE(pluriform_power[[ii]][[1]]$settings$censor_info$enabled)) {
-                      ti = ti & (tm %within% unlist(pluriform_power[[ii]][[1]]$settings$censor_info$window))
-                    }
-                    stopifnot(c("Frequency", "Trial") == names(dimnames(d))[c(1, 
-                      3)])
-                    d_collapsed <- ravetools::collapse(d[, ti, 
-                      , , drop = FALSE], keep = c(2, 1))
-                    tf_correlation_data[[ii]] <- list(data = cor(d_collapsed), 
-                      range = c(-1, 1), name = analysis_groups[[ii]]$label, 
-                      settings = pluriform_power[[ii]][[1]]$settings, 
-                      xlab = "Frequency", ylab = "Frequency", 
-                      zlab = "Pearson correlation across trials", 
-                      x = as.numeric(dimnames(d)[[1]]), y = as.numeric(dimnames(d)[[1]]))
+                build_data <- function(data, analysis_settings, 
+                  condition_group, baseline_settings, ...) {
+                  dn <- dimnames(data)
+                  tm <- as.numeric(dn$Time)
+                  ti <- tm %within% analysis_settings$time
+                  if (isTRUE(analysis_settings$censor_info$enabled)) {
+                    ti = ti & !(tm %within% analysis_settings$censor_info$window)
                   }
-                } else {
-                  n = length(overall_tf_data)
-                  k = ncol(combn(length(analysis_settings_clean), 
-                    2))
-                  tf_correlation_data <- vector("list", length = prod(n, 
-                    k))
-                  qq <- 1
-                  for (ii in seq_along(overall_tf_data)) {
-                    all_pairs <- combn(x = length(analysis_settings_clean), 
-                      m = 2)
-                    for (kk in seq_len(ncol(all_pairs))) {
-                      pairs <- all_pairs[, kk]
-                      data <- lapply(pairs, function(p) {
-                        d <- pluriform_power[[ii]][[p]]$data$shifted_clean_data
-                        tm <- as.numeric(dimnames(d)$Time)
-                        ti <- tm %within% unlist(pluriform_power[[ii]][[p]]$settings$time)
-                        if (isTRUE(pluriform_power[[ii]][[p]]$settings$censor_info$enabled)) {
-                          ti = ti & (tm %within% unlist(pluriform_power[[ii]][[p]]$settings$censor_info$window))
-                        }
-                        stopifnot(c("Frequency", "Trial") == 
-                          names(dimnames(d))[c(1, 3)])
-                        ravetools::collapse(d[, ti, , , drop = FALSE], 
-                          keep = c(3, 1))
-                      })
-                      fr <- dimnames(pluriform_power[[ii]][[1]]$data$shifted_clean_data)
-                      tf_correlation_data[[qq]] <- list(data = cor(data[[1]], 
-                        data[[2]]), range = c(-1, 1), settings = list(pluriform_power[[ii]][[pairs[1]]]$settings, 
-                        pluriform_power[[ii]][[pairs[2]]]$settings), 
-                        name = analysis_groups[[ii]]$label, xlab = names(analysis_settings_clean)[pairs[1]], 
-                        ylab = names(analysis_settings_clean)[pairs[2]], 
-                        zlab = "Pearson correlation across trials", 
-                        x = as.numeric(fr$Frequency), y = as.numeric(fr$Frequency))
-                      qq <<- qq + 1
-                    }
-                  }
+                  rawdata <- ravetools::collapse(data[, ti, , 
+                    , drop = FALSE], keep = c(3, 1))
+                  res <- list(data = cor(rawdata), xlab = "Frequency", 
+                    ylab = "Frequency", zlab = "Pearson correlation across trials", 
+                    x = as.numeric(dn$Frequency), y = as.numeric(dn$Frequency), 
+                    rawdata <- rawdata)
+                  res$range = range(res$data)
+                  return(res)
                 }
+                by_frequency_correlation_data <- data_builder(pluriform_power = pluriform_power, 
+                  condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                  build_data, data_type = "shifted_clean_data")
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(tf_correlation_data)
+                return(by_frequency_correlation_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "tf_correlation_data", 
+                asNamespace("raveio")$resolve_pipeline_error(name = "by_frequency_correlation_data", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "tf_correlation_data", target_expr = quote({
+            target_export = "by_frequency_correlation_data", 
+            target_expr = quote({
                 {
-                  if (length(analysis_settings_clean) == 1) {
-                    tf_correlation_data <- vector("list", length = length(overall_tf_data))
-                    for (ii in seq_along(tf_correlation_data)) {
-                      d <- pluriform_power[[ii]][[1]]$data$shifted_clean_data
-                      tm <- as.numeric(dimnames(d)$Time)
-                      ti <- tm %within% unlist(pluriform_power[[ii]][[1]]$settings$time)
-                      if (isTRUE(pluriform_power[[ii]][[1]]$settings$censor_info$enabled)) {
-                        ti = ti & (tm %within% unlist(pluriform_power[[ii]][[1]]$settings$censor_info$window))
-                      }
-                      stopifnot(c("Frequency", "Trial") == names(dimnames(d))[c(1, 
-                        3)])
-                      d_collapsed <- ravetools::collapse(d[, 
-                        ti, , , drop = FALSE], keep = c(2, 1))
-                      tf_correlation_data[[ii]] <- list(data = cor(d_collapsed), 
-                        range = c(-1, 1), name = analysis_groups[[ii]]$label, 
-                        settings = pluriform_power[[ii]][[1]]$settings, 
-                        xlab = "Frequency", ylab = "Frequency", 
-                        zlab = "Pearson correlation across trials", 
-                        x = as.numeric(dimnames(d)[[1]]), y = as.numeric(dimnames(d)[[1]]))
+                  build_data <- function(data, analysis_settings, 
+                    condition_group, baseline_settings, ...) {
+                    dn <- dimnames(data)
+                    tm <- as.numeric(dn$Time)
+                    ti <- tm %within% analysis_settings$time
+                    if (isTRUE(analysis_settings$censor_info$enabled)) {
+                      ti = ti & !(tm %within% analysis_settings$censor_info$window)
                     }
-                  } else {
-                    n = length(overall_tf_data)
-                    k = ncol(combn(length(analysis_settings_clean), 
-                      2))
-                    tf_correlation_data <- vector("list", length = prod(n, 
-                      k))
-                    qq <- 1
-                    for (ii in seq_along(overall_tf_data)) {
-                      all_pairs <- combn(x = length(analysis_settings_clean), 
-                        m = 2)
-                      for (kk in seq_len(ncol(all_pairs))) {
-                        pairs <- all_pairs[, kk]
-                        data <- lapply(pairs, function(p) {
-                          d <- pluriform_power[[ii]][[p]]$data$shifted_clean_data
-                          tm <- as.numeric(dimnames(d)$Time)
-                          ti <- tm %within% unlist(pluriform_power[[ii]][[p]]$settings$time)
-                          if (isTRUE(pluriform_power[[ii]][[p]]$settings$censor_info$enabled)) {
-                            ti = ti & (tm %within% unlist(pluriform_power[[ii]][[p]]$settings$censor_info$window))
-                          }
-                          stopifnot(c("Frequency", "Trial") == 
-                            names(dimnames(d))[c(1, 3)])
-                          ravetools::collapse(d[, ti, , , drop = FALSE], 
-                            keep = c(3, 1))
-                        })
-                        fr <- dimnames(pluriform_power[[ii]][[1]]$data$shifted_clean_data)
-                        tf_correlation_data[[qq]] <- list(data = cor(data[[1]], 
-                          data[[2]]), range = c(-1, 1), settings = list(pluriform_power[[ii]][[pairs[1]]]$settings, 
-                          pluriform_power[[ii]][[pairs[2]]]$settings), 
-                          name = analysis_groups[[ii]]$label, 
-                          xlab = names(analysis_settings_clean)[pairs[1]], 
-                          ylab = names(analysis_settings_clean)[pairs[2]], 
-                          zlab = "Pearson correlation across trials", 
-                          x = as.numeric(fr$Frequency), y = as.numeric(fr$Frequency))
-                        qq <<- qq + 1
-                      }
-                    }
+                    rawdata <- ravetools::collapse(data[, ti, 
+                      , , drop = FALSE], keep = c(3, 1))
+                    res <- list(data = cor(rawdata), xlab = "Frequency", 
+                      ylab = "Frequency", zlab = "Pearson correlation across trials", 
+                      x = as.numeric(dn$Frequency), y = as.numeric(dn$Frequency), 
+                      rawdata <- rawdata)
+                    res$range = range(res$data)
+                    return(res)
                   }
+                  by_frequency_correlation_data <- data_builder(pluriform_power = pluriform_power, 
+                    condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                    build_data, data_type = "shifted_clean_data")
                 }
-                tf_correlation_data
-            }), target_depends = c("analysis_settings_clean", 
-            "overall_tf_data", "pluriform_power", "analysis_groups"
-            )), deps = c("analysis_settings_clean", "overall_tf_data", 
-        "pluriform_power", "analysis_groups"), cue = targets::tar_cue("thorough"), 
+                by_frequency_correlation_data
+            }), target_depends = c("pluriform_power", "analysis_groups", 
+            "baseline_settings")), deps = c("pluriform_power", 
+        "analysis_groups", "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), plot_bfcd = targets::tar_target_raw(name = "plot_bfcd_success", 
+        command = quote({
+            .__target_expr__. <- quote({
+                plot_bfcd_success = FALSE
+                plot_by_frequency_correlation(by_frequency_correlation_data)
+                plot_bfcd_success = TRUE
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(plot_bfcd_success)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "plot_bfcd_success", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+            target_export = "plot_bfcd_success", target_expr = quote({
+                {
+                  plot_bfcd_success = FALSE
+                  plot_by_frequency_correlation(by_frequency_correlation_data)
+                  plot_bfcd_success = TRUE
+                }
+                plot_bfcd_success
+            }), target_depends = "by_frequency_correlation_data"), 
+        deps = "by_frequency_correlation_data", cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_by_trial_tf_data = targets::tar_target_raw(name = "by_trial_tf_data", 
         command = quote({
             .__target_expr__. <- quote({
@@ -923,93 +849,80 @@ rm(._._env_._.)
             }), target_depends = c("baseline_settings", "pluriform_power"
             )), deps = c("baseline_settings", "pluriform_power"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_by_electrode_tf_data = targets::tar_target_raw(name = "by_electrode_tf_data", 
+        iteration = "list"), build_over_time_by_electrode_data = targets::tar_target_raw(name = "over_time_by_electrode_data", 
         command = quote({
             .__target_expr__. <- quote({
-                build_data <- function(dd, lbl, settings) {
+                build_data <- function(data, analysis_settings, 
+                  condition_group, baseline_settings, ...) {
+                  dm <- dimnames(data)
                   to_keep <- sapply(c("Time", "Electrode"), which.equal, 
-                    names(dimnames(dd)))
-                  res <- list(data = ravetools::collapse(dd, 
-                    keep = to_keep), name = lbl, xlab = "Time (s)", 
-                    ylab = "Electrode #", zlab = "Mean " %&% 
-                      baseline_settings$unit_of_analysis, settings = settings)
-                  res[c("x", "y")] <- dimnames(dd)[to_keep] %>% 
+                    names(dm))
+                  res <- list(data = ravetools::collapse(data, 
+                    keep = to_keep), xlab = "Time (s)", ylab = "Electrode #", 
+                    zlab = "Mean " %&% baseline_settings$unit_of_analysis, 
+                    condition_group = condition_group$label, 
+                    electrodes = as.integer(dm$Electrode), subject_code = subject_code)
+                  res[c("x", "y")] <- dimnames(data)[to_keep] %>% 
                     lapply(as.numeric)
-                  res$N = length(dimnames(dd)$Trial)
-                  if (isTRUE(settings$censor_info$enabled)) {
-                    ti = res$x %within% settings$censor_info$window
+                  res$N = length(dm$Trial)
+                  if (isTRUE(analysis_settings$censor_info$enabled)) {
+                    ti = res$x %within% analysis_settings$censor_info$window
                     res$range <- range(res$data[!ti, ])
                   } else {
                     res$range <- range(res$data)
                   }
                   return(res)
                 }
-                by_electrode_tf_data <- mapply(function(pp, ag) {
-                  if (length(pp) == 1 || all(1 == length(table(sapply(pp, 
-                    function(pi) pi$settings$event))), 1 == length(table(sapply(pp, 
-                    function(pi) str_collapse(pi$settings$frequency)))))) {
-                    build_data(dd = pp[[1]]$data$shifted_clean_data_Fsub, 
-                      lbl = ag$label, settings = pp[[1]]$settings)
-                  } else {
-                    sapply(pp, function(ppa) {
-                      build_data(ppa$data$shifted_clean_data_Fsub, 
-                        lbl = ag$label, ppa$settings)
-                    }, simplify = FALSE, USE.NAMES = TRUE)
-                  }
-                }, pluriform_power, analysis_groups, SIMPLIFY = FALSE)
+                over_time_by_electrode_data <- data_builder(pluriform_power = pluriform_power, 
+                  condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                  build_data)
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(by_electrode_tf_data)
+                return(over_time_by_electrode_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "by_electrode_tf_data", 
+                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_data", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "by_electrode_tf_data", target_expr = quote({
+            target_export = "over_time_by_electrode_data", target_expr = quote({
                 {
-                  build_data <- function(dd, lbl, settings) {
+                  build_data <- function(data, analysis_settings, 
+                    condition_group, baseline_settings, ...) {
+                    dm <- dimnames(data)
                     to_keep <- sapply(c("Time", "Electrode"), 
-                      which.equal, names(dimnames(dd)))
-                    res <- list(data = ravetools::collapse(dd, 
-                      keep = to_keep), name = lbl, xlab = "Time (s)", 
-                      ylab = "Electrode #", zlab = "Mean " %&% 
-                        baseline_settings$unit_of_analysis, settings = settings)
-                    res[c("x", "y")] <- dimnames(dd)[to_keep] %>% 
+                      which.equal, names(dm))
+                    res <- list(data = ravetools::collapse(data, 
+                      keep = to_keep), xlab = "Time (s)", ylab = "Electrode #", 
+                      zlab = "Mean " %&% baseline_settings$unit_of_analysis, 
+                      condition_group = condition_group$label, 
+                      electrodes = as.integer(dm$Electrode), 
+                      subject_code = subject_code)
+                    res[c("x", "y")] <- dimnames(data)[to_keep] %>% 
                       lapply(as.numeric)
-                    res$N = length(dimnames(dd)$Trial)
-                    if (isTRUE(settings$censor_info$enabled)) {
-                      ti = res$x %within% settings$censor_info$window
+                    res$N = length(dm$Trial)
+                    if (isTRUE(analysis_settings$censor_info$enabled)) {
+                      ti = res$x %within% analysis_settings$censor_info$window
                       res$range <- range(res$data[!ti, ])
                     } else {
                       res$range <- range(res$data)
                     }
                     return(res)
                   }
-                  by_electrode_tf_data <- mapply(function(pp, 
-                    ag) {
-                    if (length(pp) == 1 || all(1 == length(table(sapply(pp, 
-                      function(pi) pi$settings$event))), 1 == 
-                      length(table(sapply(pp, function(pi) str_collapse(pi$settings$frequency)))))) {
-                      build_data(dd = pp[[1]]$data$shifted_clean_data_Fsub, 
-                        lbl = ag$label, settings = pp[[1]]$settings)
-                    } else {
-                      sapply(pp, function(ppa) {
-                        build_data(ppa$data$shifted_clean_data_Fsub, 
-                          lbl = ag$label, ppa$settings)
-                      }, simplify = FALSE, USE.NAMES = TRUE)
-                    }
-                  }, pluriform_power, analysis_groups, SIMPLIFY = FALSE)
+                  over_time_by_electrode_data <- data_builder(pluriform_power = pluriform_power, 
+                    condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                    build_data)
                 }
-                by_electrode_tf_data
-            }), target_depends = c("baseline_settings", "pluriform_power", 
-            "analysis_groups")), deps = c("baseline_settings", 
-        "pluriform_power", "analysis_groups"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), plot_by_electrode_tf_data = targets::tar_target_raw(name = "betfd_success", 
+                over_time_by_electrode_data
+            }), target_depends = c("subject_code", "pluriform_power", 
+            "analysis_groups", "baseline_settings")), deps = c("subject_code", 
+        "pluriform_power", "analysis_groups", "baseline_settings"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), plot_over_time_by_electrode_data_data = targets::tar_target_raw(name = "betfd_success", 
         command = quote({
             .__target_expr__. <- quote({
                 betfd_success <- tryCatch({
-                  draw_many_heat_maps(by_electrode_tf_data)
+                  draw_many_heat_maps(over_time_by_electrode_data)
                   TRUE
                 }, error = function(e) {
                   e
@@ -1026,16 +939,16 @@ rm(._._env_._.)
             target_export = "betfd_success", target_expr = quote({
                 {
                   betfd_success <- tryCatch({
-                    draw_many_heat_maps(by_electrode_tf_data)
+                    draw_many_heat_maps(over_time_by_electrode_data)
                     TRUE
                   }, error = function(e) {
                     e
                   })
                 }
                 betfd_success
-            }), target_depends = "by_electrode_tf_data"), deps = "by_electrode_tf_data", 
-        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
-    build_over_time_data = targets::tar_target_raw(name = "over_time_data", 
+            }), target_depends = "over_time_by_electrode_data"), 
+        deps = "over_time_by_electrode_data", cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), build_over_time_by_condition_data = targets::tar_target_raw(name = "over_time_by_condition_data", 
         command = quote({
             .__target_expr__. <- quote({
                 build_data <- function(dd, settings) {
@@ -1064,28 +977,29 @@ rm(._._env_._.)
                   res$settings = settings
                   return(res)
                 }
-                over_time_data <- lapply(pluriform_power, function(pp) {
-                  sapply(pp, function(ppa) {
-                    build_data(ppa$data$shifted_clean_data_Fsub, 
-                      ppa$settings)
-                  }, simplify = FALSE, USE.NAMES = TRUE)
-                })
-                for (ii in seq_along(over_time_data)) {
-                  for (jj in seq_along(over_time_data[[ii]])) {
-                    over_time_data[[ii]][[jj]]$data_label = names(over_time_data)[[ii]]
-                    over_time_data[[ii]][[jj]]$time_window_label = names(over_time_data[[ii]])[[jj]]
+                over_time_by_condition_data <- lapply(pluriform_power, 
+                  function(pp) {
+                    sapply(pp, function(ppa) {
+                      build_data(ppa$data$shifted_clean_data_Fsub, 
+                        ppa$settings)
+                    }, simplify = FALSE, USE.NAMES = TRUE)
+                  })
+                for (ii in seq_along(over_time_by_condition_data)) {
+                  for (jj in seq_along(over_time_by_condition_data[[ii]])) {
+                    over_time_by_condition_data[[ii]][[jj]]$data_label = names(over_time_by_condition_data)[[ii]]
+                    over_time_by_condition_data[[ii]][[jj]]$time_window_label = names(over_time_by_condition_data[[ii]])[[jj]]
                   }
                 }
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(over_time_data)
+                return(over_time_by_condition_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_data", 
+                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_condition_data", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "over_time_data", target_expr = quote({
+            target_export = "over_time_by_condition_data", target_expr = quote({
                 {
                   build_data <- function(dd, settings) {
                     to_keep <- sapply(c("Time", "Electrode"), 
@@ -1113,20 +1027,21 @@ rm(._._env_._.)
                     res$settings = settings
                     return(res)
                   }
-                  over_time_data <- lapply(pluriform_power, function(pp) {
-                    sapply(pp, function(ppa) {
-                      build_data(ppa$data$shifted_clean_data_Fsub, 
-                        ppa$settings)
-                    }, simplify = FALSE, USE.NAMES = TRUE)
-                  })
-                  for (ii in seq_along(over_time_data)) {
-                    for (jj in seq_along(over_time_data[[ii]])) {
-                      over_time_data[[ii]][[jj]]$data_label = names(over_time_data)[[ii]]
-                      over_time_data[[ii]][[jj]]$time_window_label = names(over_time_data[[ii]])[[jj]]
+                  over_time_by_condition_data <- lapply(pluriform_power, 
+                    function(pp) {
+                      sapply(pp, function(ppa) {
+                        build_data(ppa$data$shifted_clean_data_Fsub, 
+                          ppa$settings)
+                      }, simplify = FALSE, USE.NAMES = TRUE)
+                    })
+                  for (ii in seq_along(over_time_by_condition_data)) {
+                    for (jj in seq_along(over_time_by_condition_data[[ii]])) {
+                      over_time_by_condition_data[[ii]][[jj]]$data_label = names(over_time_by_condition_data)[[ii]]
+                      over_time_by_condition_data[[ii]][[jj]]$time_window_label = names(over_time_by_condition_data[[ii]])[[jj]]
                     }
                   }
                 }
-                over_time_data
+                over_time_by_condition_data
             }), target_depends = c("baseline_settings", "pluriform_power"
             )), deps = c("baseline_settings", "pluriform_power"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
@@ -1134,8 +1049,6 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 plot_over_time_by_condition_result = TRUE
-                plot_over_time_by_condition(over_time_data, F, 
-                  F)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1149,11 +1062,9 @@ rm(._._env_._.)
             target_expr = quote({
                 {
                   plot_over_time_by_condition_result = TRUE
-                  plot_over_time_by_condition(over_time_data, 
-                    F, F)
                 }
                 plot_over_time_by_condition_result
-            }), target_depends = "over_time_data"), deps = "over_time_data", 
+            }), target_depends = character(0)), deps = character(0), 
         cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
     build_scatter_bar_data = targets::tar_target_raw(name = "scatter_bar_data", 
         command = quote({
@@ -1178,12 +1089,7 @@ rm(._._env_._.)
                   res$N = length(dimnames(dd)$Trial)
                   return(res)
                 }
-                scatter_bar_data <- lapply(pluriform_power, function(pp) {
-                  sapply(pp, function(ppa) {
-                    build_data(ppa$data$shifted_clean_data_Fsub, 
-                      ppa$settings)
-                  }, simplify = FALSE, USE.NAMES = TRUE)
-                })
+                scatter_bar_data = FALSE
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1215,19 +1121,12 @@ rm(._._env_._.)
                     res$N = length(dimnames(dd)$Trial)
                     return(res)
                   }
-                  scatter_bar_data <- lapply(pluriform_power, 
-                    function(pp) {
-                      sapply(pp, function(ppa) {
-                        build_data(ppa$data$shifted_clean_data_Fsub, 
-                          ppa$settings)
-                      }, simplify = FALSE, USE.NAMES = TRUE)
-                    })
+                  scatter_bar_data = FALSE
                 }
                 scatter_bar_data
-            }), target_depends = c("baseline_settings", "pluriform_power"
-            )), deps = c("baseline_settings", "pluriform_power"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_analysis_data = targets::tar_target_raw(name = "analysis_data", 
+            }), target_depends = "baseline_settings"), deps = "baseline_settings", 
+        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
+    build_analysis_data = targets::tar_target_raw(name = "analysis_data", 
         command = quote({
             .__target_expr__. <- quote({
                 has_data <- which(sapply(analysis_groups, `[[`, 
@@ -1254,10 +1153,10 @@ rm(._._env_._.)
             }), target_depends = c("analysis_groups", "baseline_settings"
             )), deps = c("analysis_groups", "baseline_settings"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_over_time_by_electrode_and_group = targets::tar_target_raw(name = "over_time_by_electrode_and_group", 
+        iteration = "list"), build_over_time_by_electrode_dataframe = targets::tar_target_raw(name = "over_time_by_electrode_dataframe", 
         command = quote({
             .__target_expr__. <- quote({
-                over_time_by_electrode_and_group <- NULL
+                over_time_by_electrode_dataframe <- NULL
                 raveio::power_baseline(repository, baseline_windows = unlist(baseline_settings$window[[1]]), 
                   method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                   units = get_baseline_scope(baseline_settings$scope), 
@@ -1309,26 +1208,26 @@ rm(._._env_._.)
                     })
                     combine_if_equal(res)
                   })
-                over_time_by_electrode_and_group <- by_condition_group[[1]]
+                over_time_by_electrode_dataframe <- by_condition_group[[1]]
                 if (length(by_condition_group) > 1) {
                   for (ii in seq_along(by_condition_group)[-1]) {
-                    over_time_by_electrode_and_group = merge(over_time_by_electrode_and_group, 
+                    over_time_by_electrode_dataframe = merge(over_time_by_electrode_dataframe, 
                       by_condition_group[[ii]], all = TRUE)
                   }
                 }
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(over_time_by_electrode_and_group)
+                return(over_time_by_electrode_dataframe)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_and_group", 
+                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_dataframe", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "over_time_by_electrode_and_group", 
+            target_export = "over_time_by_electrode_dataframe", 
             target_expr = quote({
                 {
-                  over_time_by_electrode_and_group <- NULL
+                  over_time_by_electrode_dataframe <- NULL
                   raveio::power_baseline(repository, baseline_windows = unlist(baseline_settings$window[[1]]), 
                     method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                     units = get_baseline_scope(baseline_settings$scope), 
@@ -1384,15 +1283,15 @@ rm(._._env_._.)
                         })
                       combine_if_equal(res)
                     })
-                  over_time_by_electrode_and_group <- by_condition_group[[1]]
+                  over_time_by_electrode_dataframe <- by_condition_group[[1]]
                   if (length(by_condition_group) > 1) {
                     for (ii in seq_along(by_condition_group)[-1]) {
-                      over_time_by_electrode_and_group = merge(over_time_by_electrode_and_group, 
+                      over_time_by_electrode_dataframe = merge(over_time_by_electrode_dataframe, 
                         by_condition_group[[ii]], all = TRUE)
                     }
                   }
                 }
-                over_time_by_electrode_and_group
+                over_time_by_electrode_dataframe
             }), target_depends = c("repository", "baseline_settings", 
             "analysis_groups", "analysis_settings_clean", "trial_outliers_list"
             )), deps = c("repository", "baseline_settings", "analysis_groups", 
@@ -1400,38 +1299,30 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), build_over_time_by_trial = targets::tar_target_raw(name = "over_time_by_trial_data", 
         command = quote({
             .__target_expr__. <- quote({
-                build_data <- function(dd, settings) {
-                  dm <- dimnames(dd)
+                build_data <- function(data, analysis_settings, 
+                  condition_group, baseline_settings, ...) {
+                  dm <- dimnames(data)
                   to_keep <- c(which.equal("Time", names(dm)), 
                     which.equal("Trial", names(dm)))
-                  res <- list(data = ravetools::collapse(dd[, 
-                    drop = FALSE], keep = to_keep), xlab = "Time", 
-                    ylab = "Trial (sorted by condition)", zlab = "Mean " %&% 
-                      baseline_settings$unit_of_analysis)
-                  dim(res$data)
+                  res <- list(data = ravetools::collapse(data[, 
+                    drop = FALSE], keep = to_keep), x = as.numeric(dm$Time), 
+                    xlab = "Time", ylab = "Trial (sorted by condition)", 
+                    zlab = sprintf("Mean %s", baseline_settings$unit_of_analysis))
                   res$range <- range(res$data)
-                  res$x <- as.numeric(dimnames(dd)$Time)
-                  res$y <- NA
-                  tt <- dimnames(dd)$Trial
-                  res$N = length(tt)
-                  res$y <- trial_details[tt, "Condition"]
-                  condition_group = unique(trial_details[tt, 
-                    "Factor1"])
-                  res$name = condition_group[[1]]
-                  cnds <- first_condition_groupings[[condition_group[[1]]]]$conditions
+                  ind <- which(sapply(first_condition_groupings, 
+                    `[[`, "label") == condition_group[[1]])
+                  cnds <- first_condition_groupings[[ind]]$conditions
+                  tt = as.numeric(dm$Trial)
+                  res$y = trial_details[as.character(tt), "Condition"]
                   cf <- factor(res$y, levels = cnds)
-                  ord = order(cf, as.numeric(tt))
+                  ord = order(cf, tt)
                   res$y <- res$y[ord]
                   res$data <- res$data[, ord]
                   return(res)
                 }
-                over_time_by_trial_data <- lapply(pluriform_power, 
-                  function(pp) {
-                    sapply(pp, function(ppa) {
-                      build_data(ppa$data$shifted_clean_data_Fsub, 
-                        ppa$settings)
-                    }, simplify = FALSE, USE.NAMES = TRUE)
-                  })
+                over_time_by_trial_data <- data_builder(pluriform_power, 
+                  condition_groups = analysis_groups, baseline_settings = baseline_settings, 
+                  BUILDER_FUN = build_data, data_type = "shifted_clean_data_Fsub")
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1443,44 +1334,37 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_trial_data", target_expr = quote({
                 {
-                  build_data <- function(dd, settings) {
-                    dm <- dimnames(dd)
+                  build_data <- function(data, analysis_settings, 
+                    condition_group, baseline_settings, ...) {
+                    dm <- dimnames(data)
                     to_keep <- c(which.equal("Time", names(dm)), 
                       which.equal("Trial", names(dm)))
-                    res <- list(data = ravetools::collapse(dd[, 
-                      drop = FALSE], keep = to_keep), xlab = "Time", 
-                      ylab = "Trial (sorted by condition)", zlab = "Mean " %&% 
-                        baseline_settings$unit_of_analysis)
-                    dim(res$data)
+                    res <- list(data = ravetools::collapse(data[, 
+                      drop = FALSE], keep = to_keep), x = as.numeric(dm$Time), 
+                      xlab = "Time", ylab = "Trial (sorted by condition)", 
+                      zlab = sprintf("Mean %s", baseline_settings$unit_of_analysis))
                     res$range <- range(res$data)
-                    res$x <- as.numeric(dimnames(dd)$Time)
-                    res$y <- NA
-                    tt <- dimnames(dd)$Trial
-                    res$N = length(tt)
-                    res$y <- trial_details[tt, "Condition"]
-                    condition_group = unique(trial_details[tt, 
-                      "Factor1"])
-                    res$name = condition_group[[1]]
-                    cnds <- first_condition_groupings[[condition_group[[1]]]]$conditions
+                    ind <- which(sapply(first_condition_groupings, 
+                      `[[`, "label") == condition_group[[1]])
+                    cnds <- first_condition_groupings[[ind]]$conditions
+                    tt = as.numeric(dm$Trial)
+                    res$y = trial_details[as.character(tt), "Condition"]
                     cf <- factor(res$y, levels = cnds)
-                    ord = order(cf, as.numeric(tt))
+                    ord = order(cf, tt)
                     res$y <- res$y[ord]
                     res$data <- res$data[, ord]
                     return(res)
                   }
-                  over_time_by_trial_data <- lapply(pluriform_power, 
-                    function(pp) {
-                      sapply(pp, function(ppa) {
-                        build_data(ppa$data$shifted_clean_data_Fsub, 
-                          ppa$settings)
-                      }, simplify = FALSE, USE.NAMES = TRUE)
-                    })
+                  over_time_by_trial_data <- data_builder(pluriform_power, 
+                    condition_groups = analysis_groups, baseline_settings = baseline_settings, 
+                    BUILDER_FUN = build_data, data_type = "shifted_clean_data_Fsub")
                 }
                 over_time_by_trial_data
-            }), target_depends = c("baseline_settings", "trial_details", 
-            "first_condition_groupings", "pluriform_power")), 
-        deps = c("baseline_settings", "trial_details", "first_condition_groupings", 
-        "pluriform_power"), cue = targets::tar_cue("thorough"), 
+            }), target_depends = c("first_condition_groupings", 
+            "trial_details", "pluriform_power", "analysis_groups", 
+            "baseline_settings")), deps = c("first_condition_groupings", 
+        "trial_details", "pluriform_power", "analysis_groups", 
+        "baseline_settings"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_omnibus_results = targets::tar_target_raw(name = "omnibus_results", 
         command = quote({
             .__target_expr__. <- quote({
@@ -1541,8 +1425,11 @@ rm(._._env_._.)
                 if (!is.null(all_data$AnalysisLabel)) {
                   all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
                 }
-                collapsed_data <- cbind_list(sapply(by_condition_group, 
-                  get_list_elements, "collapsed", use_sapply = FALSE))
+                rn <- "currently_selected"
+                while (rn %in% names(all_data)) {
+                  rn <- "PWR_EXPLR_" %&% rn
+                }
+                all_data[[rn]] = all_data$Electrode %in% requested_electrodes
                 get_factor_length <- function(x) length(unique(all_data[[x]]))
                 repeated_factors <- "AnalysisLabel"
                 unrepeated_factors <- c("Factor1", "Factor2")
@@ -1602,9 +1489,15 @@ rm(._._env_._.)
                 stats <- all_data %>% split((.)$Electrode) %>% 
                   dipsaus::lapply_async2(run_stats, plan = FALSE) %>% 
                   cbind_list
+                rn <- "currently_selected"
+                while (rn %in% rownames(stats)) {
+                  rn = "RAVE_" %&% rn
+                }
+                val = matrix(nrow = 1, as.integer(colnames(stats) == 
+                  as.character(requested_electrodes)), dimnames = list(rn))
+                stats %<>% rbind(val)
                 attr(stats, "electrode_labels") = repository$electrode_table$Label
-                omnibus_results = list(collapsed = collapsed_data, 
-                  data = all_data, stats = stats)
+                omnibus_results = list(data = all_data, stats = stats)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1673,8 +1566,11 @@ rm(._._env_._.)
                   if (!is.null(all_data$AnalysisLabel)) {
                     all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
                   }
-                  collapsed_data <- cbind_list(sapply(by_condition_group, 
-                    get_list_elements, "collapsed", use_sapply = FALSE))
+                  rn <- "currently_selected"
+                  while (rn %in% names(all_data)) {
+                    rn <- "PWR_EXPLR_" %&% rn
+                  }
+                  all_data[[rn]] = all_data$Electrode %in% requested_electrodes
                   get_factor_length <- function(x) length(unique(all_data[[x]]))
                   repeated_factors <- "AnalysisLabel"
                   unrepeated_factors <- c("Factor1", "Factor2")
@@ -1735,18 +1631,24 @@ rm(._._env_._.)
                   stats <- all_data %>% split((.)$Electrode) %>% 
                     dipsaus::lapply_async2(run_stats, plan = FALSE) %>% 
                     cbind_list
+                  rn <- "currently_selected"
+                  while (rn %in% rownames(stats)) {
+                    rn = "RAVE_" %&% rn
+                  }
+                  val = matrix(nrow = 1, as.integer(colnames(stats) == 
+                    as.character(requested_electrodes)), dimnames = list(rn))
+                  stats %<>% rbind(val)
                   attr(stats, "electrode_labels") = repository$electrode_table$Label
-                  omnibus_results = list(collapsed = collapsed_data, 
-                    data = all_data, stats = stats)
+                  omnibus_results = list(data = all_data, stats = stats)
                 }
                 omnibus_results
             }), target_depends = c("repository", "baseline_settings", 
             "analysis_groups", "analysis_settings_clean", "trial_outliers_list", 
-            "enable_second_condition_groupings")), deps = c("repository", 
-        "baseline_settings", "analysis_groups", "analysis_settings_clean", 
-        "trial_outliers_list", "enable_second_condition_groupings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_data_for_export = targets::tar_target_raw(name = "data_for_export", 
+            "enable_second_condition_groupings", "requested_electrodes"
+            )), deps = c("repository", "baseline_settings", "analysis_groups", 
+        "analysis_settings_clean", "trial_outliers_list", "enable_second_condition_groupings", 
+        "requested_electrodes"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_data_for_export = targets::tar_target_raw(name = "data_for_export", 
         command = quote({
             .__target_expr__. <- quote({
                 warning("Overlapping time/frequency windows will not be coded properly in the export file")
@@ -1775,7 +1677,7 @@ rm(._._env_._.)
                 if (!length(electrodes_to_keep)) {
                   stop("No electrodes were found passing all selection criteria")
                 }
-                prog$inc("Baseline data")
+                prog$inc("Baseline data [export loop]")
                 raveio::power_baseline(x = repository, baseline_windows = unlist(baseline_settings$window[[1]]), 
                   method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                   units = get_baseline_scope(baseline_settings$scope), 
@@ -1921,7 +1823,7 @@ rm(._._env_._.)
                   if (!length(electrodes_to_keep)) {
                     stop("No electrodes were found passing all selection criteria")
                   }
-                  prog$inc("Baseline data")
+                  prog$inc("Baseline data [export loop]")
                   raveio::power_baseline(x = repository, baseline_windows = unlist(baseline_settings$window[[1]]), 
                     method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                     units = get_baseline_scope(baseline_settings$scope), 

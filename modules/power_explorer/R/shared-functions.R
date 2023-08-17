@@ -29,6 +29,18 @@ pretty.character <- function(x, ...,  upper=c('first', 'all', 'none')) {
   return(paste(str, collapse=" "))
 }
 
+unpretty <- function(str, ...) {
+  UseMethod('unpretty')
+}
+
+unpretty.default <- function(str, ...) {
+  return(str)
+}
+
+unpretty.character <- function(str, ...) {
+  tolower(stringr::str_replace_all(str, " ", '_'))
+}
+
 
 get_from_arr <- function(x, v, FUN=`%in%`) {
   FUN = match.fun(FUN)
@@ -661,6 +673,47 @@ wrap_data = function(data, ...){
   return (ll)
 }
 
+add_analysis_settings <- function(ll, analysis_settings, baseline_settings) {
+  append(ll, list(
+    subject_code = analysis_settings$subject_code,
+    analysis_group = analysis_settings$label,
+    analysis_event = analysis_settings$event,
+    analysis_window = analysis_settings$time,
+    analysis_frequency = analysis_settings$frequency,
+    baseline_window = baseline_settings$window[[1]],
+    baseline_scope = baseline_settings$scope,
+    unit_of_analysis = baseline_settings$unit_of_analysis
+  ))
+}
+
+data_builder <- function(pluriform_power, condition_groups, baseline_settings,
+                         BUILDER_FUN, data_type='shifted_clean_data_Fsub') {
+
+  tmp <- mapply(function(pp, cg) {
+    # power are nested within analysis groups
+    sapply(pp, function(ppa) {
+
+      res <- BUILDER_FUN(data=ppa$data[[data_type]],
+                  analysis_settings=ppa$settings,
+                  condition_group = cg,
+                  baseline_settings = baseline_settings) %>%
+        add_analysis_settings(ppa$setting, baseline_settings)
+
+      # add in other details the user may have forgotten
+      res$condition_group %?<-% cg$label
+      res$electrodes %?<-% as.integer(dimnames(ppa$data[[data_type]])$Electrode)
+
+      return(res)
+
+    }, simplify = FALSE, USE.NAMES = TRUE)
+  }, pluriform_power, condition_groups, SIMPLIFY = FALSE)
+
+  # flatten the result
+  do.call(c, tmp)
+}
+
+
+
 export_something_great <- function(pipeline, ...) {
   repo <- pipeline$read('repository')
 
@@ -814,6 +867,41 @@ customDownloadButton <- function(outputId, label='Export', class=NULL, icon_lbl=
     ravedash::shiny_icons[[icon_lbl]], label, ...)
 }
 
+
+## for downloading images
+build_modal_plot_download <- function(download_plot_info, outputId='do_download_plot') {
+  shiny::showModal(shiny::modalDialog(
+    title = "Download plot",
+    size = "m",
+    easyClose = TRUE,
+    footer = shiny::tagList(
+      shiny::modalButton("Cancel"),
+      shiny::downloadButton(
+        outputId = ns(outputId),
+        label = "Download plot",
+        class = "btn-primary"
+      )
+    ),
+      shiny::fluidRow(
+        shiny::column(4, shiny::p(shiny::strong("Plot name:"), pretty(download_plot_info$id))),
+        shiny::column(3, shiny::numericInput(ns('download_plot_width'), 'Width (in)',
+                                                 min = 0.1, max=100, value = 7, step=.25)
+        ),
+        shiny::column(3, shiny::numericInput(ns('download_plot_height'), 'Height (in)',
+                                                 min = 0.1, max=100, value = 4, step=.25)
+        ),
+        shiny::column(2, shiny::selectInput(ns('download_plot_type'), "Type", selected='pdf',
+                                            choices = c('pdf', 'png', 'jpeg', 'bmp', 'tiff (lzw)')))
+      )
+  ))
+
+}
+
 get_order_of_magnitude <- function(x) {
   floor(log10(abs(x)))
 }
+
+
+
+
+
