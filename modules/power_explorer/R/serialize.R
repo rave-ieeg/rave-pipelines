@@ -37,6 +37,7 @@ rave_serialize <- function(object, data_path, target_export) {
 
 # ---- global variables
 # this file is independently loaded (shared-xxx.R are not available)
+# Please make sure this file can run standalone
 `%within%` <- rutabaga::`%within%`
 
 # ---- target-based implementation
@@ -136,11 +137,17 @@ unserialize_pluriform_power <- function(data_path) {
 }
 
 unserialize_baselined_power <- function(data_path) {
-  filearray::filearray_load(data_path, mode = "readonly")
+
+  filebase <- readLines(data_path, n = 1)
+
+  filearray::filearray_load(filebase, mode = "readonly")
 }
 
 serialize_baselined_power <- function(object, data_path) {
-  # ignore data_path and use thhe filearray meta path
+  # used by unserializer to obtain the filebase
+  writeLines(object$.filebase, data_path)
+
+  # ignore data_path and use the filearray filebase for signature calculation
   normalizePath(object$.filebase, winslash = "/")
 }
 
