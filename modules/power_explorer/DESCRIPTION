@@ -1,13 +1,25 @@
 Package: power_explorer
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: Explore Power or Amplitute of iEEG Spectrogram
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 License: MIT
 Authors@R: c(
-    person("your first name", "last/family name", email = your.email@edu", role = c("aut", "cre"))
+    person("John", "Magnotti", email = "john.magnotti@pennmedicine.upenn.edu", role = c("aut", "cre")),
+    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: 
+    Built-in module for exploring iEEG power data.
+BugReports: https://github.com/rave-ieeg/rave-pipeline/issues
+URL: https://github.com/rave-ieeg/rave-pipeline
+Imports:
+    dipsaus,
+    rutabaga,
+    ravebuiltins,
+    magrittr,
+    stringr,
+    stringi,
+    data.table,
+    ravedash,
+    lmtest
