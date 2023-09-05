@@ -909,11 +909,23 @@ module_server <- function(input, output, session, ...){
       df <- data.frame(t(local_data$results$omnibus_results$stats))
 
       # fix some column names
-      names(df) = stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
+      # Avoid changing `df` multiple times
+      # names(df) = stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
+      cnames <- stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
 
-      names(df) = stringr::str_replace_all(names(df), '\\.', ' ')
+      # names(df) = stringr::str_replace_all(names(df), '\\.', ' ')
+      cnames <- stringr::str_replace_all(cnames, '\\.', ' ')
 
-      names(df) = stringr::str_replace_all(names(df), '\\ $', '')
+      # names(df) = stringr::str_replace_all(names(df), '\\ $', '')
+      cnames <- stringr::str_replace_all(cnames, '\\ $', '')
+      names(df) <- cnames
+
+      if("currently_selected" %in% cnames) {
+        df$currently_selected <- factor(
+          c("Yes", "No")[ 2L - as.integer(df$currently_selected) ],
+          levels = c("Yes", "No")
+        )
+      }
 
       df$Electrode = as.integer(rownames(df))
 
