@@ -75,8 +75,8 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
                             key = vname, constraint = constraint)
   }
   comp$ui_func <- function(id, value, depends) {
-    input_card(class_header = "shidashi-anchor",
-               href = card_href(label, type = "input", module_id = comp$container$module_id),
+    ravedash::input_card(class_header = "shidashi-anchor",
+               href = ravedash::card_href(label, type = "input", module_id = comp$container$module_id),
                title = shiny::tagList(label, " ", shiny::textOutput(comp$get_sub_element_id(selected_electrode_text_str,
                                                                                             with_namespace = TRUE), inline = TRUE, shiny::tags$small)),
                shiny::selectInput(inputId = comp$get_sub_element_id(category_str,
@@ -100,7 +100,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
       shiny::isolate(isFALSE(watch_loader_opened()))
     }
     reset <- function(...) {
-      logger("Updating {id}", level = "trace", use_glue = TRUE)
+      ravedash::logger("Updating {id}", level = "trace", use_glue = TRUE)
       repo <- get_repo()
       if (is.null(repo)) {
         return()
@@ -124,14 +124,14 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
       electrode_category_selector <- get_default(sub_id = category_str,
                                                  missing = c("freesurferlabel", "FSLabel", comp$get_sub_element_input(category_str)),
                                                  constraint = electrode_table_names)
-      logger("Updating `{id}__{category_str}`, value: {electrode_category_selector} {length(electrode_table_names)}",
+      ravedash::logger("Updating `{id}__{category_str}`, value: {electrode_category_selector} {length(electrode_table_names)}",
              level = "trace", use_glue = TRUE)
       shiny::updateSelectInput(session = session, inputId = comp$get_sub_element_id(category_str,
                                                                                     with_namespace = FALSE), choices = electrode_table_names,
                                selected = electrode_category_selector)
       electrode_list_text <- dipsaus::deparse_svec(repo$electrode_list,
                                                    collapse = ", ")
-      logger("Updating `{id}`, value: {electrode_text}, label: Select by number (current: {electrode_list_text})",
+      ravedash::logger("Updating `{id}`, value: {electrode_text}, label: Select by number (current: {electrode_list_text})",
              level = "trace", use_glue = TRUE)
       if (multiple) {
         shiny::updateTextInput(session = session, inputId = comp$get_sub_element_id(with_namespace = FALSE),
@@ -192,14 +192,14 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
                                      new_value <- dipsaus::deparse_svec(electrodes)
                                      if (!identical(new_value, comp$current_value)) {
                                        val <- dipsaus::deparse_svec(electrodes)
-                                       logger("Updating `{id}`, value: {val}",
+                                       ravedash::logger("Updating `{id}`, value: {val}",
                                               level = "trace", use_glue = TRUE)
                                        shiny::updateTextInput(session = session,
                                                               inputId = id, value = val)
                                      }
                                    } else {
                                      val <- as.character(electrodes[[1]])
-                                     logger("Updating `{id}`, value: {val}", level = "trace",
+                                     ravedash::logger("Updating `{id}`, value: {val}", level = "trace",
                                             use_glue = TRUE)
                                      shiny::updateSelectInput(session = session,
                                                               inputId = id, selected = val)
@@ -225,7 +225,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
                                        if (!length(expected_category)) {
                                          expected_category <- character(0L)
                                        }
-                                       logger("Updating `{id}__{category_choices_str}` ({length(expected_category)})",
+                                       ravedash::logger("Updating `{id}__{category_choices_str}` ({length(expected_category)})",
                                               level = "trace", use_glue = TRUE)
                                        shiny::updateSelectInput(session = session,
                                                                 inputId = input_str, selected = expected_category)
@@ -259,7 +259,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
         category <- get_default(sub_id = category_str,
                                 missing = c("freesurferlabel", "FSLabel"),
                                 constraint = electrode_table_names)
-        logger("Updating `{id}__{category_str}`, value: {category} ({length(electrode_table_names)})",
+        ravedash::logger("Updating `{id}__{category_str}`, value: {category} ({length(electrode_table_names)})",
                level = "trace", use_glue = TRUE)
         shiny::updateSelectInput(session = session, inputId = comp$get_sub_element_id(category_str,
                                                                                       with_namespace = FALSE), choices = electrode_table_names,
@@ -272,7 +272,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
           choices <- character(0L)
         }
       }
-      logger("Updating choices of `{id}__{category_choices_str}` ({length(choices)})",
+      ravedash::logger("Updating choices of `{id}__{category_choices_str}` ({length(choices)})",
              level = "trace", use_glue = TRUE)
       shiny::updateSelectInput(session = session, inputId = comp$get_sub_element_id(sub_id = category_choices_str,
                                                                                     with_namespace = FALSE), choices = unique(choices),
@@ -286,7 +286,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
       }
       electrode_list_text <- dipsaus::deparse_svec(repository$electrode_list,
                                                    collapse = ", ")
-      logger("Updating `{id}`, value: {v}, label: Select electrode by number (currently loaded: {electrode_list_text})",
+      ravedash::logger("Updating `{id}`, value: {v}, label: Select electrode by number (currently loaded: {electrode_list_text})",
              level = "trace", use_glue = TRUE)
       if (multiple) {
         shiny::updateTextInput(session = session, inputId = id,

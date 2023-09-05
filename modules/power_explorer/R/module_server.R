@@ -48,7 +48,7 @@ module_server <- function(input, output, session, ...){
   local_data$electrode_meta_data <- NULL
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
   # This is used by auto-recalculation feature
@@ -739,7 +739,7 @@ module_server <- function(input, output, session, ...){
       'overall'
     })
 
-    ind <- which(str_detect(rownames(omni_stats), pesc))
+    ind <- which(stringr::str_detect(rownames(omni_stats), pesc))
 
     if(row[1] %within% seq_along(ind)) {
       return(omni_stats[ind[row[1]],])
@@ -881,7 +881,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       local_reactives$current_analysis_settings = input$ui_analysis_settings
-      print(dput(input$ui_analysis_settings))
+      # print(dput(input$ui_analysis_settings))
     }),
     input$ui_analysis_settings, ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -909,11 +909,11 @@ module_server <- function(input, output, session, ...){
       df <- data.frame(t(local_data$results$omnibus_results$stats))
 
       # fix some column names
-      names(df) = str_replace_all(names(df), '\\.\\.\\.', ' vs ')
+      names(df) = stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
 
-      names(df) = str_replace_all(names(df), '\\.', ' ')
+      names(df) = stringr::str_replace_all(names(df), '\\.', ' ')
 
-      names(df) = str_replace_all(names(df), '\\ $', '')
+      names(df) = stringr::str_replace_all(names(df), '\\ $', '')
 
       df$Electrode = as.integer(rownames(df))
 
@@ -938,11 +938,11 @@ module_server <- function(input, output, session, ...){
   #   df <- data.frame(t(local_data$results$omnibus_results$stats))
   #
   #   # fix some column names
-  #   names(df) = str_replace_all(names(df), '\\.\\.\\.', ' vs ')
+  #   names(df) = stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
   #
-  #   names(df) = str_replace_all(names(df), '\\.', ' ')
+  #   names(df) = stringr::str_replace_all(names(df), '\\.', ' ')
   #
-  #   names(df) = str_replace_all(names(df), '\\ $', '')
+  #   names(df) = stringr::str_replace_all(names(df), '\\ $', '')
   #
   #   df$Electrode = as.integer(rownames(df))
   #
@@ -1287,7 +1287,7 @@ module_server <- function(input, output, session, ...){
 
     df <- data.frame(mat)
 
-    pcols <- str_detect(colnames(mat), 'p\\(|p_fdr\\(')
+    pcols <- stringr::str_detect(colnames(mat), 'p\\(|p_fdr\\(')
     df[pcols] %<>% lapply(function(v)as.numeric(round_pval(v)))
 
     dt <- DT::datatable(df, colnames=colnames(mat), rownames = FALSE,
