@@ -166,6 +166,7 @@ module_server <- function(input, output, session, ...){
                     'by_frequency_correlation_data',
                     'over_time_by_trial_data',
                     'over_time_by_electrode_data',
+                    'over_time_by_electrode_dataframe',
                     'omnibus_results',
                     'over_time_by_condition_data'
     )
@@ -933,6 +934,7 @@ module_server <- function(input, output, session, ...){
       res <- build_palettes_and_ranges_for_omnibus_data(df)
 
       local_data$brain$set_electrode_values(df)
+
       local_data$brain$render(outputId = "brain_viewer", session = session,
                               palettes=res$palettes, value_ranges=res$val_ranges,
                               control_display = FALSE, side_display=FALSE,
