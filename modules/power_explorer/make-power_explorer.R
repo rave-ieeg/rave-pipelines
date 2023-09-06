@@ -181,8 +181,7 @@ rm(._._env_._.)
                     as$frequency %<>% unlist
                     if (is.null(as$label) || nchar(as$label) < 
                       1) {
-                      as$label <- paste("Window", stri_rand_strings(1, 
-                        4))
+                      as$label <- paste("Window", rand_string(length = 4))
                     }
                     if (is.null(as$censor_info)) {
                       as$censor_info <- list(enabled = FALSE, 
@@ -281,8 +280,7 @@ rm(._._env_._.)
                       as$frequency %<>% unlist
                       if (is.null(as$label) || nchar(as$label) < 
                         1) {
-                        as$label <- paste("Window", stri_rand_strings(1, 
-                          4))
+                        as$label <- paste("Window", rand_string(length = 4))
                       }
                       if (is.null(as$censor_info)) {
                         as$censor_info <- list(enabled = FALSE, 
