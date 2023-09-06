@@ -23,8 +23,6 @@ module_server <- function(input, output, session, ...){
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
 
-  local_data$brain <- NULL
-  local_data$brain_movies <- NULL
   local_data$available_electrodes = integer()
 
   local_data$download_plot_info <- list(
@@ -472,9 +470,7 @@ module_server <- function(input, output, session, ...){
       )
 
       # grab new brain
-      local_data$brain = raveio::rave_brain(new_repository$subject$subject_id)
-      local_data$brain_movies = raveio::rave_brain(new_repository$subject$subject_id)
-
+      brain <- raveio::rave_brain(new_repository$subject$subject_id)
       local_data$available_electrodes = new_repository$power$dimnames$Electrode
 
 
@@ -492,6 +488,12 @@ module_server <- function(input, output, session, ...){
       # Reset outputs
       shidashi::reset_output("collapse_over_trial")
       shidashi::reset_output("over_time_by_electrode_data")
+      if(is.null(brain)) {
+        # no 3D brain available, collapse the first cardset
+        shidashi::card_operate(title = "Brain Viewers", method = "collapse")
+      } else {
+        shidashi::card_operate(title = "Brain Viewers", method = "expand")
+      }
 
 
       #TODO update UI selectors to possibly cached values
@@ -544,6 +546,7 @@ module_server <- function(input, output, session, ...){
     }),
 
     brain_proxy$mouse_event_double_click,
+    brain_proxy_movies$mouse_event_double_click,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
@@ -900,13 +903,14 @@ module_server <- function(input, output, session, ...){
     render_function = threeBrain::renderBrain({
       basic_checks(local_reactives$update_3dviewer)
 
-      # shiny::validate(
-      #   shiny::need(
-      #     length(local_reactives$update_outputs) &&
-      #       !isFALSE(local_reactives$update_outputs),
-      #     message = "Please run the module first"
-      #   )
-      # )
+      brain <- raveio::rave_brain(component_container$data$repository$subject)
+
+      shiny::validate(
+        shiny::need(
+          !is.null(brain),
+          message = "No 3D brain models found"
+        )
+      )
 
       df <- data.frame(t(local_data$results$omnibus_results$stats))
 
@@ -933,16 +937,12 @@ module_server <- function(input, output, session, ...){
 
       res <- build_palettes_and_ranges_for_omnibus_data(df)
 
-      local_data$brain$set_electrode_values(df)
+      brain$set_electrode_values(df)
 
-      local_data$brain$render(outputId = "brain_viewer", session = session,
+      brain$render(outputId = "brain_viewer", session = session,
                               palettes=res$palettes, value_ranges=res$val_ranges,
                               control_display = FALSE, side_display=FALSE,
                               timestamp=FALSE)
-
-
-
-      # local_data$brain_widget
     })
   )
 
@@ -952,13 +952,25 @@ module_server <- function(input, output, session, ...){
     render_function = threeBrain::renderBrain({
       basic_checks(local_reactives$update_3dviewer)
 
+      brain <- raveio::rave_brain(component_container$data$repository$subject)
+
+      shiny::validate(
+        shiny::need(
+          !is.null(brain),
+          message = "No 3D brain models found"
+        )
+      )
+
       df <- local_data$results$over_time_by_electrode_dataframe
 
-      local_data$brain_movies$set_electrode_values(df)
+      brain$set_electrode_values(df)
       res <- build_palettes_and_ranges_for_omnibus_data(df)
-      local_data$brain_movies$render(outputId = "brain_viewer_movies",
-                                     session = session,
-                                     palettes = res$palettes)
+      brain$render(
+        outputId = "brain_viewer_movies",
+        session = session,
+        palettes = res$palettes,
+        title = 'Click "Play/Pause" to start animation'
+      )
     })
   )
 
