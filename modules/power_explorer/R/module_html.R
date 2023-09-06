@@ -413,24 +413,27 @@ module_html <- function(){
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
                   shiny::div(
                     class = "row fill-height",
-                    shiny::div(class = "col-sm-4 fill-height", shiny::plotOutput(
-                      outputId = ns('per_electrode_statistics_mean'),
-                      # hover = ns('pes_hover'),
-                      click = ns('pes_click_m'),
-                      height = "100%"
-                    )),
-                    shiny::div(class = "col-sm-4 fill-height", shiny::plotOutput(
-                      outputId = ns('per_electrode_statistics_tstat'),
-                      # hover = ns('pes_hover'),
-                      click = ns('pes_click_t'),
-                      height = "100%"
-                    )),
-                    shiny::div(class = "col-sm-4 fill-height", shiny::plotOutput(
-                      outputId = ns('per_electrode_statistics_fdrp'),
-                      # hover = ns('pes_hover'),
-                      click = ns('pes_click_p'),
-                      height = "100%"
-                    ))
+                    shiny::div(class = "col-sm-4 fill-height",
+                               ravedash::plotOutput2(
+                                 outputId = ns('per_electrode_statistics_mean'),
+                                 # hover = ns('pes_hover'),
+                                 click = ns('pes_click_m'),
+                                 min_height = 400
+                               )),
+                    shiny::div(class = "col-sm-4 fill-height",
+                               ravedash::plotOutput2(
+                                 outputId = ns('per_electrode_statistics_tstat'),
+                                 # hover = ns('pes_hover'),
+                                 click = ns('pes_click_t'),
+                                 min_height = 400
+                               )),
+                    shiny::div(class = "col-sm-4 fill-height",
+                               ravedash::plotOutput2(
+                                 outputId = ns('per_electrode_statistics_fdrp'),
+                                 # hover = ns('pes_hover'),
+                                 click = ns('pes_click_p'),
+                                 min_height = 400
+                               ))
                   )
                 )
               ),
@@ -447,15 +450,15 @@ module_html <- function(){
               tools = list(),
               append_tools = FALSE,
               `Over time` = ravedash::output_gadget_container(
-                shiny::plotOutput(
+                ravedash::plotOutput2(
                   outputId = ns("by_frequency_over_time"),
-                  height = "100%", width = "100%"
+                  min_height = 400
                 )
               ),
               `Correlation` = ravedash::output_gadget_container(
-                shiny::plotOutput(
+                ravedash::plotOutput2(
                   outputId = ns("by_frequency_correlation"),
-                  height = "100%", width = "100%"
+                  min_height = 400
                 )
               )
             ),
@@ -502,8 +505,9 @@ module_html <- function(){
                 shiny::div(
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
                   ravedash::output_gadget_container(
-                    shiny::plotOutput(outputId = ns('over_time_by_condition'),
-                                      width = "100%", height = "100%")
+                    ravedash::plotOutput2(
+                      outputId = ns('over_time_by_condition'),
+                      min_height = 400)
                   )
                 )
               ),
@@ -511,8 +515,10 @@ module_html <- function(){
                 shiny::div(
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
                   ravedash::output_gadget_container(
-                    shiny::plotOutput(ns('over_time_by_electrode'),
-                                      width = "100%", height = "100%")
+                    ravedash::plotOutput2(
+                      outputId = ns('over_time_by_electrode'),
+                      min_height = 400
+                    )
                   )
                 )
               ),
@@ -520,8 +526,9 @@ module_html <- function(){
                 shiny::div(
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
                   ravedash::output_gadget_container(
-                    shiny::plotOutput(ns('over_time_by_trial'),
-                                      width = "100%", height = "100%")
+                    ravedash::plotOutput2(
+                      outputId = ns('over_time_by_trial'),
+                      min_height = 400)
                   )
                 )
               )
@@ -541,8 +548,9 @@ module_html <- function(){
                   class = "no-padding fill-width height-400 min-height-400 resize-vertical",
 
                   ravedash::output_gadget_container(
-                    shiny::plotOutput(outputId = ns('by_trial_by_condition'),
-                                      width = "100%", height = "100%")
+                    ravedash::plotOutput2(
+                      outputId = ns('by_trial_by_condition'),
+                      min_height = 400)
                   )
 
                 )
