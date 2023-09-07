@@ -444,6 +444,13 @@ get_heatmap_palette <- function(pname, get_palettes=FALSE, get_palette_names=FAL
   return (pal)
 }
 
+set_currently_active_line_palette <- function(pal_name) {
+  pal_name <- pal_name %OF% get_line_palette(get_palette_names = TRUE)
+  pe_graphics_settings_cache$set(key='line_color_palette',
+                                 signature = pal_name,
+                                 value = pal_name)
+}
+
 get_currently_active_heatmap <- function() {
   if(!('current_heatmap_palette' %in% pe_graphics_settings_cache$keys())) {
     pe_graphics_settings_cache$set(
@@ -454,6 +461,24 @@ get_currently_active_heatmap <- function() {
   }
 
   pe_graphics_settings_cache$get('current_heatmap_palette')
+}
+
+set_currently_active_heatmap <- function( pal_name, n_colors = 101 ) {
+  pal_name <- pal_name %OF% get_heatmap_palette(get_palette_names = TRUE)
+
+  pal <- ravebuiltins::expand_heatmap(
+    ravebuiltins::get_heatmap_palette(pal_name),
+    ncolors = 101
+  )
+
+  pe_graphics_settings_cache$set(key='heatmap_color_palette',
+                                 signature = pal_name,
+                                 value = pal_name)
+  pe_graphics_settings_cache$set(
+    key = 'current_heatmap_palette',
+    value = pal,
+    signature = paste0(pal_name, n_colors)
+  )
 }
 
 ..get_nearest_i <- function(from,to, lower_only=FALSE) {

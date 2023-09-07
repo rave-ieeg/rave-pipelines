@@ -4,6 +4,7 @@ module_server <- function(input, output, session, ...){
   local_reactives <- shiny::reactiveValues(
     update_outputs = NULL,
     update_line_plots = NULL,
+    update_heatmap_plots = NULL,
     update_3dviewer = NULL,
     update_by_trial_plot = NULL,
     update_over_time_plot = NULL,
@@ -496,6 +497,7 @@ module_server <- function(input, output, session, ...){
       }
       local_reactives$update_outputs <- NULL
       local_reactives$update_line_plots <- NULL
+      local_reactives$update_heatmap_plots <- NULL
       local_reactives$update_3dviewer <- NULL
       local_reactives$update_by_trial_plot <- NULL
       local_reactives$update_over_time_plot <- NULL
@@ -880,13 +882,21 @@ module_server <- function(input, output, session, ...){
   ### tracking changes to global plot options
   shiny::bindEvent(
     ravedash::safe_observe({
-      pe_graphics_settings_cache$set(key='line_color_palette',
-                                     signature=input$gpo_lines_palette,
-                                     value = input$gpo_lines_palette)
+
+      set_currently_active_line_palette( input$gpo_lines_palette )
 
       local_reactives$update_line_plots = Sys.time()
 
-    }), input$gpo_lines_palette, ignoreNULL = TRUE, ignoreInit = TRUE
+    }), input$gpo_lines_palette, ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      set_currently_active_heatmap( input$gpo_heatmap_palette )
+      local_reactives$update_heatmap_plots = Sys.time()
+
+    }), input$gpo_heatmap_palette, ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
 
@@ -1394,6 +1404,7 @@ module_server <- function(input, output, session, ...){
     outputId = "over_time_by_electrode",
     shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_heatmap_plots)
 
       plot_over_time_by_electrode(local_data$results$over_time_by_electrode_data)
     })
@@ -1405,6 +1416,7 @@ module_server <- function(input, output, session, ...){
       # req(FALSE)
 
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_heatmap_plots)
 
       plot_by_frequency_over_time(local_data$results$by_frequency_over_time_data)
 
@@ -1415,6 +1427,7 @@ module_server <- function(input, output, session, ...){
     outputId = "by_frequency_correlation",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_heatmap_plots)
 
       plot_by_frequency_correlation(
         local_data$results$by_frequency_correlation_data
@@ -1526,6 +1539,7 @@ module_server <- function(input, output, session, ...){
     outputId = "over_time_by_trial",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_heatmap_plots)
 
       # check if we are in a multiple event situation
       plot_over_time_by_trial(

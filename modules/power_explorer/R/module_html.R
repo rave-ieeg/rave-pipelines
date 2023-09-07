@@ -1,5 +1,9 @@
 
 module_html <- function(){
+
+  line_palettes <- get_line_palette(get_palette_names = TRUE)
+  heatmap_palettes <- get_heatmap_palette(get_palette_names = TRUE)
+
   shiny::fluidPage(
     shiny::fluidRow(
 
@@ -151,9 +155,11 @@ module_html <- function(){
                 condition = "input.plot_customizer_select == 'Global plot options'",
                 ns = ns,
                 shiny::selectInput(ns("gpo_lines_palette"), "Lines/Points palette",
-                                   choices=get_line_palette(get_palette_names = TRUE)),
+                                   choices = line_palettes,
+                                   selected = pe_graphics_settings_cache$get('line_color_palette') %OF% line_palettes),
                 shiny::selectInput(ns("gpo_heatmap_palette"), "Heatmap palette",
-                                   choices=get_heatmap_palette(get_palette_names = TRUE)
+                                   choices = heatmap_palettes,
+                                   selected = pe_graphics_settings_cache$get('heatmap_color_palette') %OF% heatmap_palettes
                 )
 
               ),
