@@ -50,7 +50,7 @@ analysis_settings_clean <- lapply(analysis_settings, function(as) {
   as$frequency %<>% unlist
   
   if(is.null(as$label) || nchar(as$label) < 1) {
-    as$label <- paste('Window', stri_rand_strings(1,4))
+    as$label <- paste('Window', rand_string(length = 4))
   }
   
   if(is.null(as$censor_info)) {
@@ -74,7 +74,7 @@ if(!baseline_settings$scope %in% ua) {
 }
 
 # ensure analysis choices are valid
-sapply(analysis_settings_clean, function(setting) {
+lapply(analysis_settings_clean, function(setting) {
   check_range(setting$frequency, unlist(repository$frequency), 'frequency')
   check_range(setting$time, unlist(repository$time_windows), 'analysis time')
 })
@@ -86,7 +86,7 @@ dd <- duplicated(sapply(analysis_settings_clean, `[[`, 'label'))
 while(sum(dd)) {
   for(w in which(dd)) {
     analysis_settings_clean[[w]]$label = paste(analysis_settings_clean[[w]]$label,
-                                               stringi::stri_rand_strings(n = 1, length = 4))
+                                               rand_string(length = 4))
   }
   dd <- duplicated(sapply(analysis_settings_clean, `[[`, 'label'))
 }
@@ -101,7 +101,7 @@ for(ii in seq_along(analysis_settings_clean)) {
 
 #### checks on condition groupings
 for(ii in seq_along(first_condition_groupings)) {
-  if(nchar(first_condition_groupings[[ii]]$label)<1) {
+  if(!nzchar(first_condition_groupings[[ii]]$label)) {
     first_condition_groupings[[ii]]$label = paste('Group', ii)
   }
 }
@@ -111,7 +111,7 @@ dd <- duplicated(sapply(first_condition_groupings, `[[`, 'label'))
 while(sum(dd)) {
   for(w in which(dd)) {
     first_condition_groupings[[w]]$label = paste(first_condition_groupings[[w]]$label,
-                                                 stringi::stri_rand_strings(n = 1, length = 4))
+                                                 rand_string(length = 4))
   }
   dd <- duplicated(sapply(first_condition_groupings, `[[`, 'label'))
 }
@@ -142,10 +142,10 @@ for(ii in seq_along(analysis_settings_clean)) {
 analysis_checks_passed=TRUE
 ```
 
-```{rave calculate_baseline, language = "R", export = "baselined_power", cue = "always"}
+```{rave calculate_baseline, language = "R", export = "baselined_power", cue = "always", format = "user-defined-r"}
 raveio::power_baseline(
   x = repository,
-  baseline_windows = unlist(baseline_settings$window[[1]]),
+  baseline_windows = baseline_settings$window,
   method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
   units = get_baseline_scope(baseline_settings$scope),
   signal_type = "LFP",
@@ -159,23 +159,27 @@ baselined_power <- repository$power$baselined
 k = sapply(lapply(first_condition_groupings, `[[`, 'conditions'), length)
 fcgs <- first_condition_groupings[k>0]
 
-all_trials <- c(unname(unlist(sapply(fcgs, `[[`, 'conditions'))))
+all_trials <- c(unname(unlist(lapply(fcgs, `[[`, 'conditions'))))
 
 tbl <- subset(repository$epoch$table, Condition %in% all_trials,
               select=c('Trial', 'Condition'))
 
-f1 <- lapply(fcgs, function(ff) {
-  # ff = fcgs[[1]]
-  data.frame('Factor1'=ff$label, 'Condition'=ff$conditions)
-}) %>% rbind_list
+f1 <- rutabaga::rbind_list(
+  lapply(fcgs, function(ff) {
+    # ff = fcgs[[1]]
+    data.frame('Factor1'=ff$label, 'Condition'=ff$conditions)
+  })
+)
 
 trial_details <- merge(tbl, f1, by=c('Condition'))
 
 if(isTRUE(enable_second_condition_groupings)) {
-  f2 <- lapply(second_condition_groupings, function(ff) {
-    # ff = second_condition_groupings[[1]]
-    data.frame('Factor2'=ff$label, 'Condition'=ff$conditions)
-  }) %>% rbind_list
+  f2 <- rutabaga::rbind_list(
+    lapply(second_condition_groupings, function(ff) {
+      # ff = second_condition_groupings[[1]]
+      data.frame('Factor2'=ff$label, 'Condition'=ff$conditions)
+    })
+  )
   
   trial_details %<>% merge(f2, by=c('Condition'))
 }
@@ -251,7 +255,8 @@ names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 
 ```
 
-```{rave build_pluriform_power, language = "R", export = "pluriform_power"}
+```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
+# Depends on baselined_power, 
 epoch_event_types = get_available_events(repository$epoch$columns)
 
 baselined_power_data <- subset(baselined_power,
@@ -270,7 +275,7 @@ pluriform_power <- sapply(analysis_groups, function(ag) {
       event_of_interest = as$event,
       sample_rate = repository$subject$power_sample_rate
     )
-    list('data'=p, 'settings'=as)
+    list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list)
   }, simplify = FALSE, USE.NAMES = TRUE)
 }, simplify = FALSE, USE.NAMES = TRUE)
 
@@ -293,7 +298,7 @@ build_data <- function(data, analysis_settings, condition_group, baseline_settin
   stopifnot(c('Time', 'Frequency') == names(dn)[2:1])
   
   res <- list(
-    data = ravetools::collapse(data, keep = 2:1),
+    data = raveio::collapse2(data, keep = 2:1, method = "mean"),
     
     x = as.numeric(dn$Time),
     y = as.numeric(dn$Frequency),
@@ -469,7 +474,7 @@ build_data <- function(dd, settings) {
   # no get m_se across electrode at each time point
   res$data <- cbind(
     .rowMeans(res$data, nrow(res$data), ncol(res$data)),
-    sqrt(diag(fastcov2(t(res$data))) / ncol(res$data))
+    sqrt(diag(dipsaus::fastcov2(t(res$data))) / ncol(res$data))
   )
   
   ind <- is.nan(res$data[,2]) | !is.finite(res$data[,2])
@@ -483,9 +488,9 @@ build_data <- function(dd, settings) {
   
   if(isTRUE(settings$censor_info$enabled)) {
     ti = res$x %within% settings$censor_info$window
-    res$range <- range(plus_minus(res$data[!ti,]))
+    res$range <- range(rutabaga::plus_minus(res$data[!ti,]))
   } else {
-    res$range <- range(plus_minus(res$data))
+    res$range <- range(rutabaga::plus_minus(res$data))
   }
   
   res$settings = settings
@@ -627,7 +632,7 @@ over_time_by_electrode_dataframe <- NULL
 # first baseline all the electrodes
 raveio::power_baseline(
   repository,
-  baseline_windows = unlist(baseline_settings$window[[1]]),
+  baseline_windows = baseline_settings$window,
   method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
   units = get_baseline_scope(baseline_settings$scope),
   signal_type = "LFP",
@@ -636,7 +641,8 @@ raveio::power_baseline(
 
 # for each condition group and for each analysis setting
 # get one value per TIME per electrode
-non_empty_groups <- which(get_list_elements(analysis_groups, 'has_trials'))
+non_empty_groups <- which(rutabaga::get_list_elements(
+  analysis_groups, 'has_trials'))
 
 combine_if_equal <- function(ll, nms = c('Electrode', 'Time')) {
   if(length(ll) == 1) {
@@ -773,7 +779,7 @@ over_time_by_trial_data <- data_builder(
 # first baseline all the electrodes
 raveio::power_baseline(
   repository,
-  baseline_windows = unlist(baseline_settings$window[[1]]),
+  baseline_windows = baseline_settings$window,
   method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
   units = get_baseline_scope(baseline_settings$scope),
   signal_type = "LFP",
@@ -782,7 +788,7 @@ raveio::power_baseline(
 
 # for each condition group and for each analysis setting
 # get one value per trial per electrode
-non_empty_groups <- which(get_list_elements(analysis_groups, 'has_trials'))
+non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 'has_trials'))
 by_condition_group <- raveio::lapply_async(
   x = analysis_groups[non_empty_groups],
   function(ag) {
@@ -806,7 +812,7 @@ by_condition_group <- raveio::lapply_async(
       
       m <- ravetools::collapse(p[,ti,,,drop=FALSE], keep = 3:4)
       
-      mse <- apply(m, 2, m_se)
+      mse <- apply(m, 2, rutabaga::m_se)
       ts = mse[1,] / mse[2,]
       collapsed <- cbind(mse[1,],
                          ts,
@@ -831,8 +837,8 @@ by_condition_group <- raveio::lapply_async(
     })
   })
 
-all_data <- rbind_list(sapply(by_condition_group, 
-                              get_list_elements, 'df', use_sapply=FALSE))
+all_data <- rutabaga::rbind_list(sapply(by_condition_group, 
+                              rutabaga::get_list_elements, 'df', use_sapply=FALSE))
 
 # if we have a second factor (eventually an ROI) we need to clean up the naming
 if(isTRUE(enable_second_condition_groupings)) {
@@ -931,8 +937,15 @@ run_stats <- function(el) {
 
 # now we want to calculate the stats for each electrode
 stats <- all_data %>% split((.)$Electrode) %>% 
-  dipsaus::lapply_async2(run_stats, plan=FALSE) %>%
-  cbind_list
+  raveio::lapply_async(function(el) {
+    tryCatch({
+      return(run_stats(el))
+    }, error = function(...) {
+      # The data contains NA/NaN
+      NULL
+    })
+  }) %>%
+  rutabaga::cbind_list()
 
 # add in "currently active" electrodes so users can filter
 rn <- 'currently_selected'
@@ -940,7 +953,7 @@ while(rn %in% rownames(stats)) {
   rn = 'RAVE_' %&% rn
 }
 val = matrix(nrow=1,
-             as.integer(colnames(stats) == as.character(requested_electrodes)),
+             as.integer(colnames(stats) %in% as.character(requested_electrodes)),
              dimnames=list(rn))
 stats %<>% rbind(val)
 
@@ -1072,9 +1085,10 @@ tensors <- lapply(analysis_settings_clean, function(asc) {
   #
   # Frequency dimension
   fet = frequency_export_types()
-  if(frequencies_to_export %in% c(fet$CLP_AWO, fet$RAW_AWO))
+  if(frequencies_to_export %in% c(fet$CLP_AWO, fet$RAW_AWO)) {
     ff <- dn$Frequency %within% asc$frequency
-  current_tensor = current_tensor[ff,,,,drop=FALSE]
+    current_tensor = current_tensor[ff,,,,drop=FALSE]
+  }
   dn$Frequency = as.numeric(dimnames(current_tensor)$Frequency)
   
   if(frequencies_to_export == fet$CLP_AWO) {
@@ -1135,8 +1149,9 @@ if(electrode_export_data_type == 'tensor') {
   }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
   
   
-  if(!is.data.table(flat_tables)) {
-    flat_tables %<>% rbind_list
+  if(!data.table::is.data.table(flat_tables)) {
+    # flat_tables %<>% rbind_list
+    flat_tables <- rutabaga::rbind_list(flat_tables)
   }
   
   # convert factors back to characters
@@ -1157,8 +1172,6 @@ if(electrode_export_data_type == 'tensor') {
       baseline_scope = baseline_settings$scope[[1]]
     )
   )
-  
-  
 }
 
 ```
