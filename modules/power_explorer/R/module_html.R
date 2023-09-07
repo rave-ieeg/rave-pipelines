@@ -439,7 +439,10 @@ module_html <- function(){
               ),
 
               # ---- Output tab: Univariate statistics > Tabular Results -------
-              `Tabular Results` = DT::dataTableOutput(outputId = ns('per_electrode_results_table'))
+              `Tabular Results` = shiny::div(
+                class = "fill-width min-height-400",
+                DT::dataTableOutput(outputId = ns('per_electrode_results_table'))
+              )
             ),
 
             # ---- Output tab-set: By Frequency --------------------------------
