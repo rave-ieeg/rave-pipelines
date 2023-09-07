@@ -510,50 +510,54 @@ module_server <- function(input, output, session, ...){
 
 
   #### tracking clicks on 3dViewer
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      ravedash::logger('3dBrain double click')
-      ravedash::clear_notifications(class=ns('threedviewer'))
+  track_3dviewer_clicks <- function(proxy) {
+    shiny::bindEvent(
+      ravedash::safe_observe({
+        ravedash::logger('3dBrain double click')
+        ravedash::clear_notifications(class=ns('threedviewer'))
 
-      info <- as.list(brain_proxy$mouse_event_double_click)
-      if(!isTRUE(info$is_electrode)) {
-        return()
-      }
+        info <- as.list(proxy$mouse_event_double_click)
+        if(!isTRUE(info$is_electrode)) {
+          return()
+        }
 
-      if(! (info$electrode_number %in% local_data$available_electrodes)) {
-        ravedash::show_notification(
-          sprintf("Selected electrode (%s) not loaded", info$electrode_number),
-          title='3dViewer Info',
-          type='warning', class=ns('threedviewer_no'),
-          delay=2000
+        if(! (info$electrode_number %in% local_data$available_electrodes)) {
+          ravedash::show_notification(
+            sprintf("Selected electrode (%s) not loaded", info$electrode_number),
+            title='3dViewer Info',
+            type='warning', class=ns('threedviewer_no'),
+            delay=2000
+          )
+          return()
+        } else {
+          ravedash::show_notification(paste0("Trying to load data for electrode: ",
+                                             info$electrode_number),
+                                      class=ns('threedviewer_yes'),
+                                      title='3dViewer Info', delay=2000,
+                                      type = 'info')
+
+          on.exit(add=TRUE, {
+            ravedash::clear_notifications(ns('threedviewer_yes'))
+          })
+        }
+
+        # ravedash::logger(str(info))
+        id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
+
+        shiny::updateTextInput(inputId=id, value=paste0(info$electrode_number))
+
+        run_analysis(trigger_3dviewer = FALSE,
+                     force_settings=list(electrode_text = info$electrode_number)
         )
-        return()
-      } else {
-        ravedash::show_notification(paste0("Trying to load data for electrode: ",
-                                           info$electrode_number),
-                                    class=ns('threedviewer_yes'),
-                                    title='3dViewer Info', delay=2000,
-                                    type = 'info')
+      }),
 
-        on.exit(add=TRUE, {
-          ravedash::clear_notifications(ns('threedviewer_yes'))
-        })
-      }
-
-      # ravedash::logger(str(info))
-      id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
-
-      shiny::updateTextInput(inputId=id, value=paste0(info$electrode_number))
-
-      run_analysis(trigger_3dviewer = FALSE,
-                   force_settings=list(electrode_text = info$electrode_number)
-      )
-    }),
-
-    brain_proxy$mouse_event_double_click,
-    brain_proxy_movies$mouse_event_double_click,
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+      proxy$mouse_event_double_click,
+      # brain_proxy_movies$mouse_event_double_click,
+      ignoreNULL = TRUE, ignoreInit = TRUE
+    )
+  }
+  track_3dviewer_clicks(brain_proxy)
+  track_3dviewer_clicks(brain_proxy_movies)
 
   # shiny::bindEvent(
   #   ravedash::safe_observe(
@@ -896,7 +900,9 @@ module_server <- function(input, output, session, ...){
   )
 
   basic_checks <- function(flag) {
-    shiny::validate(shiny::need(flag, 'Results not yet available, please click RAVE!'))
+    cond <- !is.null(flag)
+    shiny::validate(shiny::need(cond, 'Results not yet available, please click RAVE!'))
+    cond
   }
 
   # Register outputs
@@ -906,16 +912,13 @@ module_server <- function(input, output, session, ...){
     outputId = "brain_viewer",
     output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
-      basic_checks(local_reactives$update_3dviewer)
+      cond <- basic_checks(local_reactives$update_3dviewer)
 
       brain <- raveio::rave_brain(component_container$data$repository$subject)
 
-      shiny::validate(
-        shiny::need(
-          !is.null(brain),
-          message = "No 3D brain models found"
-        )
-      )
+      if(!cond || is.null(brain)) {
+        return(threeBrain::threejs_brain(title = "No 3D model found"))
+      }
 
       df <- data.frame(t(local_data$results$omnibus_results$stats))
 
@@ -955,16 +958,13 @@ module_server <- function(input, output, session, ...){
     outputId = "brain_viewer_movies",
     output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
-      basic_checks(local_reactives$update_3dviewer)
+      cond <- basic_checks(local_reactives$update_3dviewer)
 
       brain <- raveio::rave_brain(component_container$data$repository$subject)
 
-      shiny::validate(
-        shiny::need(
-          !is.null(brain),
-          message = "No 3D brain models found"
-        )
-      )
+      if(!cond || is.null(brain)) {
+        return(threeBrain::threejs_brain(title = "No 3D model found"))
+      }
 
       df <- local_data$results$over_time_by_electrode_dataframe
 
