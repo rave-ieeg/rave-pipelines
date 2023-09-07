@@ -151,7 +151,7 @@ module_html <- function(){
                 condition = "input.plot_customizer_select == 'Global plot options'",
                 ns = ns,
                 shiny::selectInput(ns("gpo_lines_palette"), "Lines/Points palette",
-                                   choices=get_line_palette(get_palette_names = T)),
+                                   choices=get_line_palette(get_palette_names = TRUE)),
                 shiny::selectInput(ns("gpo_heatmap_palette"), "Heatmap palette",
                                    choices=get_heatmap_palette(get_palette_names = TRUE)
                 )
