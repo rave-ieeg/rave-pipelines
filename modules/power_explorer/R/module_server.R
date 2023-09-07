@@ -486,14 +486,19 @@ module_server <- function(input, output, session, ...){
 
 
       # Reset outputs
-      shidashi::reset_output("collapse_over_trial")
-      shidashi::reset_output("over_time_by_electrode_data")
+      # shidashi::reset_output("collapse_over_trial")
+      # shidashi::reset_output("over_time_by_electrode_data")
       if(is.null(brain)) {
         # no 3D brain available, collapse the first cardset
         shidashi::card_operate(title = "Brain Viewers", method = "collapse")
       } else {
         shidashi::card_operate(title = "Brain Viewers", method = "expand")
       }
+      local_reactives$update_outputs <- NULL
+      local_reactives$update_line_plots <- NULL
+      local_reactives$update_3dviewer <- NULL
+      local_reactives$update_by_trial_plot <- NULL
+      local_reactives$update_over_time_plot <- NULL
 
 
       #TODO update UI selectors to possibly cached values
