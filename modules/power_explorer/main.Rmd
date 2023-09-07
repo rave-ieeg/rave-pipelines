@@ -937,7 +937,14 @@ run_stats <- function(el) {
 
 # now we want to calculate the stats for each electrode
 stats <- all_data %>% split((.)$Electrode) %>% 
-  raveio::lapply_async(run_stats) %>%
+  raveio::lapply_async(function(el) {
+    tryCatch({
+      return(run_stats(el))
+    }, error = function(...) {
+      # The data contains NA/NaN
+      NULL
+    })
+  }) %>%
   rutabaga::cbind_list()
 
 # add in "currently active" electrodes so users can filter
