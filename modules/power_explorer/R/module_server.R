@@ -401,17 +401,25 @@ module_server <- function(input, output, session, ...){
       if(is.null(as) || !all(sapply(as, function(aa) {all(c('event', 'frequency', 'label', 'time') %in% names(aa))}))){
         as <- def
       }
+      available_events <- get_available_events(columns=new_repository$epoch$columns)
+      as <- lapply(as, function(val) {
+        val$event <- val$event %OF% available_events
+        val
+      })
 
       n_analysis <- length(as)
-      dipsaus::updateCompoundInput2(session = session,
-                                    inputId = 'ui_analysis_settings',
-                                    initialization = list(
-                                      event = list(selected = 'Trial Onset',
-                                                   choices=get_available_events(columns=new_repository$epoch$columns)
-                                      ),
-                                      time = list(min=min(new_repository$time_points), max=max(new_repository$time_points)),
-                                      frequency = list(min=min(new_repository$frequency), max=max(new_repository$frequency))
-                                    ), value=as, ncomp = n_analysis)
+      dipsaus::updateCompoundInput2(
+        session = session,
+        inputId = 'ui_analysis_settings',
+        initialization = list(
+          event = list(
+            choices = get_available_events(columns=new_repository$epoch$columns),
+            selected = 'Trial Onset'
+          ),
+          time = list(min=min(new_repository$time_points), max=max(new_repository$time_points)),
+          frequency = list(min=min(new_repository$frequency), max=max(new_repository$frequency))
+        ), value=as, ncomp = n_analysis
+      )
 
       ## default condition groups
       cond_tbl <- table(new_repository$epoch$table$Condition)

@@ -168,8 +168,7 @@ draw_many_heat_maps <- function (hmaps,
   }
   log_scale <- if (isTRUE(log_scale)) {
     "y"
-  }
-  else {
+  } else {
     ""
   }
   for (mi in seq_along(has_data)) {
@@ -182,6 +181,9 @@ draw_many_heat_maps <- function (hmaps,
       map$x <- map$x[ind]
       map$data <- map$data[ind, , drop = FALSE]
       .attr$dim = attr(map$data, "dim")
+      if(length(.attr$dimnames) && length(.attr$dimnames$Time)) {
+        .attr$dimnames$Time <- .attr$dimnames$Time[ ind ]
+      }
       attributes(map$data) <- .attr
     }
     x <- seq_along(map$x)
@@ -2020,7 +2022,7 @@ plot_by_frequency_over_time <- function(by_frequency_over_time_data) {
     build_title_decorator()
   )
 
-draw_many_heat_maps(by_frequency_over_time_data, show_color_bar = FALSE)
+  # draw_many_heat_maps(by_frequency_over_time_data, show_color_bar = FALSE)
   draw_many_heat_maps(
     by_frequency_over_time_data,
     PANEL.LAST = decorators
