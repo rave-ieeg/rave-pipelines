@@ -12,7 +12,7 @@ module_html <- function(){
     shiny::fluidRow(
 
       shiny::column(
-        width = 4L,
+        width = 3L,
         shiny::div(
           # class = "row fancy-scroll-y stretch-inner-height",
           class = "row screen-height overflow-y-scroll",
@@ -30,7 +30,7 @@ module_html <- function(){
       ),
 
       shiny::column(
-        width = 8L,
+        width = 9L,
         shiny::div(
           class = "row screen-height overflow-y-scroll output-wrapper",
           shiny::column(
@@ -39,9 +39,6 @@ module_html <- function(){
             ravedash::output_card(
               title = "Import DICOM Folders or Nifti Images",
               start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("may require `dcm2niix`|bg-yellow")
-              ),
               # class_foot = "no-padding",
               append_tools = FALSE,
               footer = shiny::tagList(
@@ -112,11 +109,56 @@ module_html <- function(){
             ),
 
             ravedash::output_card(
+              title = "ACPC Re-alignment (Optional)",
+              start_collapsed = TRUE,
+              class_body = "no-padding min-height-300 height-500 resize-vertical full-width",
+              threeBrain::threejsBrainOutput(
+                outputId = ns("acpc_3dviewer"),
+                width = "100%",
+                height = "100%"
+              ),
+
+              footer = shiny::fluidRow(
+                shiny::column(
+                  width = 7L,
+                  shiny::selectInput(
+                    inputId = ns("param_acpc_infile"),
+                    label = "MRI file (select one to be ACPC re-aligned)",
+                    choices = character(0L)
+                  )
+                ),
+                shiny::column(
+                  width = 1L,
+                  shiny::actionButton(
+                    inputId = ns("param_acpc_refresh"),
+                    label = "",
+                    icon = ravedash::shiny_icons$refresh,
+                    style = "margin-top: 2rem;",
+                    width = "100%"
+                  )
+                ),
+                shiny::column(
+                  width = 4L,
+                  dipsaus::actionButtonStyled(
+                    inputId = ns("param_acpc_start"),
+                    label = "Start re-alignment",
+                    style = "margin-top: 2rem;",
+                    width = "100%"
+                  )
+                ),
+                shiny::column(
+                  width = 12L,
+                  shiny::htmlOutput(
+                    outputId = ns("acpc_results"),
+                    inline = TRUE
+                  )
+                )
+              )
+            ),
+
+            ravedash::output_card(
               title = "MRI Preprocessing",
               start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("may require `FreeSurfer`|bg-yellow")
-              ),
               append_tools = FALSE,
               # class_foot = "no-padding",
               footer = shiny::tags$details(
@@ -192,7 +234,12 @@ module_html <- function(){
                       if(dry_run) {
                         NULL
                       } else {
-                        shiny::actionButton(ns("btn_recon_run"), "Run from RAVE")
+                        shiny::conditionalPanel(
+                          "!['recon-all-clinical.sh', 'recon-all -all'].includes( input.param_fs_prog )",
+                          shiny::actionButton(ns("btn_recon_run"), "Run from RAVE"),
+                          ns = ns,
+                          style = "display: inline"
+                        )
                       }
                     }),
                     dipsaus::actionButtonStyled(ns("btn_recon_copy"), "Save & run by yourself")
@@ -204,9 +251,6 @@ module_html <- function(){
             ravedash::output_card(
               title = "Co-registration CT and T1",
               start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("may require `AFNI/FSL/Python`|bg-yellow")
-              ),
               append_tools = FALSE,
               # class_foot = "no-padding",
               footer = shiny::tags$details(

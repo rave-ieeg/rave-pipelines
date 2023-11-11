@@ -166,6 +166,35 @@ check_result <- list(
 )
 ```
 
+### ACPC Re-alignment
+
+```{rave generate_viewer_for_ACPC_alignment, export = "viewer_acpc", cue = "always", echo=FALSE, format="rave-brain"}
+path_root <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+mri_path <- file.path(path_root, "inputs", "MRI", acpc_infile)
+acpc_root <- file.path(path_root, "acpc-alignment")
+if(!isTRUE(file.exists(mri_path))) {
+  stop("Invalid file [", paste(mri_path, collapse = ""), "] for ACPC alignment.")
+}
+acpc_mri_dir <- file.path(acpc_root, "mri")
+if(file.exists(acpc_mri_dir)) {
+  unlink(acpc_mri_dir, recursive = TRUE)
+}
+raveio::dir_create2(acpc_mri_dir)
+
+# RNifti is available since RNiftyReg depends on it
+mri <- RNifti::readNifti(mri_path, internal = TRUE)
+RNifti::writeNifti(mri, file.path(acpc_mri_dir, "brain.nii.gz"))
+viewer_acpc <- threeBrain::threeBrain(
+  path = acpc_root,
+  subject_code = subject$subject_code
+)
+## Code to show viewer
+# viewer_acpc$plot(
+#   control_presets = "acpcrealign",
+#   background = "#000000", 
+# )
+```
+
 ### Generate command-line scripts
 
 Command-line script to import T1 MR images. If the images are `DICOM` slices, use `dcm2niix` command to import, otherwise the file must be in `Nifti` file format and we simply copy it.

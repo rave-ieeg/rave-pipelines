@@ -25,6 +25,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_dcm2niix_path = targets::tar_target_raw("dcm2niix_path", 
         quote({
             settings[["dcm2niix_path"]]
+        }), deps = "settings"), input_acpc_infile = targets::tar_target_raw("acpc_infile", 
+        quote({
+            settings[["acpc_infile"]]
         }), deps = "settings"), input_params = targets::tar_target_raw("params", 
         quote({
             settings[["params"]]
@@ -337,6 +340,62 @@ rm(._._env_._.)
             "skip_recon", "path_ct", "skip_coregistration")), 
         deps = c("subject", "path_mri", "cmd_tools", "skip_recon", 
         "path_ct", "skip_coregistration"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), generate_viewer_for_ACPC_alignment = targets::tar_target_raw(name = "viewer_acpc", 
+        command = quote({
+            .__target_expr__. <- quote({
+                path_root <- file.path(subject$preprocess_settings$raw_path, 
+                  "rave-imaging")
+                mri_path <- file.path(path_root, "inputs", "MRI", 
+                  acpc_infile)
+                acpc_root <- file.path(path_root, "acpc-alignment")
+                if (!isTRUE(file.exists(mri_path))) {
+                  stop("Invalid file [", paste(mri_path, collapse = ""), 
+                    "] for ACPC alignment.")
+                }
+                acpc_mri_dir <- file.path(acpc_root, "mri")
+                if (file.exists(acpc_mri_dir)) {
+                  unlink(acpc_mri_dir, recursive = TRUE)
+                }
+                raveio::dir_create2(acpc_mri_dir)
+                mri <- RNifti::readNifti(mri_path, internal = TRUE)
+                RNifti::writeNifti(mri, file.path(acpc_mri_dir, 
+                  "brain.nii.gz"))
+                viewer_acpc <- threeBrain::threeBrain(path = acpc_root, 
+                  subject_code = subject$subject_code)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(viewer_acpc)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "viewer_acpc", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-brain", 
+            target_export = "viewer_acpc", target_expr = quote({
+                {
+                  path_root <- file.path(subject$preprocess_settings$raw_path, 
+                    "rave-imaging")
+                  mri_path <- file.path(path_root, "inputs", 
+                    "MRI", acpc_infile)
+                  acpc_root <- file.path(path_root, "acpc-alignment")
+                  if (!isTRUE(file.exists(mri_path))) {
+                    stop("Invalid file [", paste(mri_path, collapse = ""), 
+                      "] for ACPC alignment.")
+                  }
+                  acpc_mri_dir <- file.path(acpc_root, "mri")
+                  if (file.exists(acpc_mri_dir)) {
+                    unlink(acpc_mri_dir, recursive = TRUE)
+                  }
+                  raveio::dir_create2(acpc_mri_dir)
+                  mri <- RNifti::readNifti(mri_path, internal = TRUE)
+                  RNifti::writeNifti(mri, file.path(acpc_mri_dir, 
+                    "brain.nii.gz"))
+                  viewer_acpc <- threeBrain::threeBrain(path = acpc_root, 
+                    subject_code = subject$subject_code)
+                }
+                viewer_acpc
+            }), target_depends = c("subject", "acpc_infile")), 
+        deps = c("subject", "acpc_infile"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), import_T1_MRI = targets::tar_target_raw(name = "import_T1", 
         command = quote({
             .__target_expr__. <- quote({
@@ -452,9 +511,9 @@ rm(._._env_._.)
                         quoted = TRUE, expr = bquote({
                           subject <- raveio::as_rave_subject(.(subject$subject_id))
                           mri_src <- .(mri_path)
-                          mri_dirpath <- file.path(subject$preprocess_settings$raw_path, 
+                          ants_dirpath <- file.path(subject$preprocess_settings$raw_path, 
                             "rave-imaging", "ants")
-                          raveio::ants_preprocessing(work_path = mri_dirpath, 
+                          raveio::ants_preprocessing(work_path = ants_dirpath, 
                             image_path = mri_src, resample = TRUE, 
                             verbose = TRUE, template_subject = .(raveio::raveio_getopt("threeBrain_template_subject")))
                           deriv_path <- file.path(subject$preprocess_settings$raw_path, 
@@ -464,6 +523,11 @@ rm(._._env_._.)
                             .(sprintf("MRI_RAW.%s", mri_postfix))), 
                             overwrite = TRUE, recursive = FALSE, 
                             copy.mode = TRUE, copy.date = TRUE)
+                          file.copy(from = file.path(ants_dirpath, 
+                            "mri", "resampled.nii.gz"), to = file.path(deriv_path, 
+                            "T1-ants.nii.gz"), overwrite = TRUE, 
+                            recursive = FALSE, copy.mode = TRUE, 
+                            copy.date = TRUE)
                           message("Done")
                         }))
                     }, {
@@ -535,9 +599,9 @@ rm(._._env_._.)
                         quoted = TRUE, expr = bquote({
                           subject <- raveio::as_rave_subject(.(subject$subject_id))
                           mri_src <- .(mri_path)
-                          mri_dirpath <- file.path(subject$preprocess_settings$raw_path, 
+                          ants_dirpath <- file.path(subject$preprocess_settings$raw_path, 
                             "rave-imaging", "ants")
-                          raveio::ants_preprocessing(work_path = mri_dirpath, 
+                          raveio::ants_preprocessing(work_path = ants_dirpath, 
                             image_path = mri_src, resample = TRUE, 
                             verbose = TRUE, template_subject = .(raveio::raveio_getopt("threeBrain_template_subject")))
                           deriv_path <- file.path(subject$preprocess_settings$raw_path, 
@@ -547,6 +611,11 @@ rm(._._env_._.)
                             .(sprintf("MRI_RAW.%s", mri_postfix))), 
                             overwrite = TRUE, recursive = FALSE, 
                             copy.mode = TRUE, copy.date = TRUE)
+                          file.copy(from = file.path(ants_dirpath, 
+                            "mri", "resampled.nii.gz"), to = file.path(deriv_path, 
+                            "T1-ants.nii.gz"), overwrite = TRUE, 
+                            recursive = FALSE, copy.mode = TRUE, 
+                            copy.date = TRUE)
                           message("Done")
                         }))
                     }, {
