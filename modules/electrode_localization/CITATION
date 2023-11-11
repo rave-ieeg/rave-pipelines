@@ -1,4 +1,4 @@
-bibentry(bibtype = "Unpublished",
+bibentry(bibtype = "Article",
          title        = "{YAEL}: Your advanced electrode localizer",
          author       = c(as.person("Zhengjia Wang"),
                           as.person("John F. Magnotti"),
@@ -6,8 +6,13 @@ bibentry(bibtype = "Unpublished",
                           as.person("Michael S. Beauchamp")),
          header       = "[YAEL] To cite this module in publications use:",
          year         = "2023",
-         textVersion  = "[1] Wang, Z., Magnotti, J.F., Zhang, X., and Beauchamp, M.S., YAEL: Your advanced electrode localizer",
-         note         = "https://yael.wiki"
+         volume       = "10",
+         number       = "10",
+         doi          = "10.1523/ENEURO.0328-23.2023",
+         publisher    = "Society for Neuroscience",
+         URL          = "https://yael.wiki",
+         journal      = "eNeuro",
+         textVersion  = "[1] Wang, Z., Magnotti, J.F., Zhang, X., and Beauchamp, M.S., YAEL: Your advanced electrode localizer"
 )
 
 bibentry(bibtype = "Article",
@@ -20,7 +25,7 @@ bibentry(bibtype = "Article",
          volume       = "223",
          pages        = "117341",
          doi          = "10.1016/j.neuroimage.2020.117341",
-         header       = "[RAVE] To cite RAVE:",
+         header       = "[RAVE] To cite RAVE in general:",
          textVersion  = "[2] Magnotti, J.F., Wang, Z. and Beauchamp, M.S., 2020. RAVE: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data. NeuroImage, 223, p.117341."
 )
 
