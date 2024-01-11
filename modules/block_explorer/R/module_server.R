@@ -549,7 +549,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       outputs_need_update()
 
-      env <- pipeline$eval(names = "plot_filtered_signals", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_filtered_signals", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_filtered_signals
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = ""))
@@ -573,7 +573,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       outputs_need_update(message = "")
 
-      env <- pipeline$eval(names = "plot_filtered_signals_subset", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_filtered_signals_subset", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_filtered_signals_subset
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = "Please draw a range from figure to my left."))
@@ -586,7 +586,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       outputs_need_update(message = "")
 
-      env <- pipeline$eval(names = "plot_pwelch", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_pwelch", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_pwelch
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = ""))
@@ -801,7 +801,7 @@ module_server <- function(input, output, session, ...){
 
       outputs_need_update(message = "")
 
-      env <- pipeline$eval(names = "plot_pwelch_subset", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_pwelch_subset", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_pwelch_subset
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = ""))

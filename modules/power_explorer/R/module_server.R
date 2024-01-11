@@ -169,7 +169,7 @@ module_server <- function(input, output, session, ...){
                     'omnibus_results',
                     'over_time_by_condition_data'
     )
-    local_data$results[eval_names] <- as.list(pipeline$eval(names = eval_names))[eval_names]
+    local_data$results[eval_names] <- as.list(pipeline$eval(names = eval_names, shortcut = TRUE))[eval_names]
     progress$inc("Done pipeline eval")
 
     or <- rownames(local_data$results$omnibus_results$stats)
