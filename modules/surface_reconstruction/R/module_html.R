@@ -205,9 +205,12 @@ module_html <- function(){
                         shiny::selectInput(
                           inputId = ns("param_fs_prog"),
                           label = "Command",
-                          choices = c("recon-all -all", "recon-all -autorecon1",
-                                      "recon-all-clinical.sh", "ants-preprocessing",
-                                      "simple-import"),
+                          choices = c(
+                            "recon-all -all", "recon-all -autorecon1",
+                            "recon-all-clinical.sh", "ants-preprocessing",
+                            "ants+recon-all",
+                            "simple-import"
+                          ),
                           selected = "recon-all"
                         )
                       )

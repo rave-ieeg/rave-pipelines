@@ -800,6 +800,12 @@ module_server <- function(input, output, session, ...){
               program = "ants-preprocessing"
             )
           },
+          "ants+recon-all" = {
+            list(
+              program = "ants+recon-all",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
           {
             list(
               program = "simple-import",

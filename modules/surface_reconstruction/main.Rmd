@@ -171,23 +171,29 @@ check_result <- list(
 ```{rave generate_viewer_for_ACPC_alignment, export = "viewer_acpc", cue = "always", echo=FALSE, format="rave-brain"}
 path_root <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
 mri_path <- file.path(path_root, "inputs", "MRI", acpc_infile)
-acpc_root <- file.path(path_root, "acpc-alignment")
-if(!isTRUE(file.exists(mri_path))) {
-  stop("Invalid file [", paste(mri_path, collapse = ""), "] for ACPC alignment.")
-}
-acpc_mri_dir <- file.path(acpc_root, "mri")
-if(file.exists(acpc_mri_dir)) {
-  unlink(acpc_mri_dir, recursive = TRUE)
-}
-raveio::dir_create2(acpc_mri_dir)
 
-# RNifti is available since RNiftyReg depends on it
-mri <- RNifti::readNifti(mri_path, internal = TRUE)
-RNifti::writeNifti(mri, file.path(acpc_mri_dir, "brain.nii.gz"))
-viewer_acpc <- threeBrain::threeBrain(
-  path = acpc_root,
-  subject_code = subject$subject_code
-)
+if( length(mri_path) ) {
+  acpc_root <- file.path(path_root, "acpc-alignment")
+  if(!isTRUE(file.exists(mri_path))) {
+    stop("Invalid file [", paste(mri_path, collapse = ""), "] for ACPC alignment.")
+  }
+  acpc_mri_dir <- file.path(acpc_root, "mri")
+  if(file.exists(acpc_mri_dir)) {
+    unlink(acpc_mri_dir, recursive = TRUE)
+  }
+  raveio::dir_create2(acpc_mri_dir)
+  
+  # RNifti is available since RNiftyReg depends on it
+  mri <- RNifti::readNifti(mri_path, internal = TRUE)
+  RNifti::writeNifti(mri, file.path(acpc_mri_dir, "brain.nii.gz"))
+  viewer_acpc <- threeBrain::threeBrain(
+    path = acpc_root,
+    subject_code = subject$subject_code
+  )
+} else {
+  viewer_acpc <- NULL
+}
+
 ## Code to show viewer
 # viewer_acpc$plot(
 #   control_presets = "acpcrealign",
@@ -317,6 +323,16 @@ image_segmentation <- tryCatch({
         dry_run = TRUE,
         verbose = FALSE,
         command_path = cmd_tools$freesurfer
+      )
+    },
+    "ants+recon-all" = {
+      raveio::cmd_run_yael_preprocess_t1(
+        subject = subject,
+        mri_path = mri_path,
+        overwrite = overwrite,
+        command_path = cmd_tools$freesurfer,
+        dry_run = TRUE,
+        verbose = FALSE
       )
     },
     "ants-preprocessing" = {

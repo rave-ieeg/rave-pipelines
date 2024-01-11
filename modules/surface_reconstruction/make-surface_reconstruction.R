@@ -25,12 +25,12 @@ rm(._._env_._.)
         }), deps = "settings"), input_dcm2niix_path = targets::tar_target_raw("dcm2niix_path", 
         quote({
             settings[["dcm2niix_path"]]
-        }), deps = "settings"), input_acpc_infile = targets::tar_target_raw("acpc_infile", 
-        quote({
-            settings[["acpc_infile"]]
         }), deps = "settings"), input_params = targets::tar_target_raw("params", 
         quote({
             settings[["params"]]
+        }), deps = "settings"), input_acpc_infile = targets::tar_target_raw("acpc_infile", 
+        quote({
+            settings[["acpc_infile"]]
         }), deps = "settings"), input_afni_path = targets::tar_target_raw("afni_path", 
         quote({
             settings[["afni_path"]]
@@ -347,36 +347,7 @@ rm(._._env_._.)
                   "rave-imaging")
                 mri_path <- file.path(path_root, "inputs", "MRI", 
                   acpc_infile)
-                acpc_root <- file.path(path_root, "acpc-alignment")
-                if (!isTRUE(file.exists(mri_path))) {
-                  stop("Invalid file [", paste(mri_path, collapse = ""), 
-                    "] for ACPC alignment.")
-                }
-                acpc_mri_dir <- file.path(acpc_root, "mri")
-                if (file.exists(acpc_mri_dir)) {
-                  unlink(acpc_mri_dir, recursive = TRUE)
-                }
-                raveio::dir_create2(acpc_mri_dir)
-                mri <- RNifti::readNifti(mri_path, internal = TRUE)
-                RNifti::writeNifti(mri, file.path(acpc_mri_dir, 
-                  "brain.nii.gz"))
-                viewer_acpc <- threeBrain::threeBrain(path = acpc_root, 
-                  subject_code = subject$subject_code)
-            })
-            tryCatch({
-                eval(.__target_expr__.)
-                return(viewer_acpc)
-            }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "viewer_acpc", 
-                  condition = e, expr = .__target_expr__.)
-            })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-brain", 
-            target_export = "viewer_acpc", target_expr = quote({
-                {
-                  path_root <- file.path(subject$preprocess_settings$raw_path, 
-                    "rave-imaging")
-                  mri_path <- file.path(path_root, "inputs", 
-                    "MRI", acpc_infile)
+                if (length(mri_path)) {
                   acpc_root <- file.path(path_root, "acpc-alignment")
                   if (!isTRUE(file.exists(mri_path))) {
                     stop("Invalid file [", paste(mri_path, collapse = ""), 
@@ -392,6 +363,43 @@ rm(._._env_._.)
                     "brain.nii.gz"))
                   viewer_acpc <- threeBrain::threeBrain(path = acpc_root, 
                     subject_code = subject$subject_code)
+                } else {
+                  viewer_acpc <- NULL
+                }
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(viewer_acpc)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "viewer_acpc", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-brain", 
+            target_export = "viewer_acpc", target_expr = quote({
+                {
+                  path_root <- file.path(subject$preprocess_settings$raw_path, 
+                    "rave-imaging")
+                  mri_path <- file.path(path_root, "inputs", 
+                    "MRI", acpc_infile)
+                  if (length(mri_path)) {
+                    acpc_root <- file.path(path_root, "acpc-alignment")
+                    if (!isTRUE(file.exists(mri_path))) {
+                      stop("Invalid file [", paste(mri_path, 
+                        collapse = ""), "] for ACPC alignment.")
+                    }
+                    acpc_mri_dir <- file.path(acpc_root, "mri")
+                    if (file.exists(acpc_mri_dir)) {
+                      unlink(acpc_mri_dir, recursive = TRUE)
+                    }
+                    raveio::dir_create2(acpc_mri_dir)
+                    mri <- RNifti::readNifti(mri_path, internal = TRUE)
+                    RNifti::writeNifti(mri, file.path(acpc_mri_dir, 
+                      "brain.nii.gz"))
+                    viewer_acpc <- threeBrain::threeBrain(path = acpc_root, 
+                      subject_code = subject$subject_code)
+                  } else {
+                    viewer_acpc <- NULL
+                  }
                 }
                 viewer_acpc
             }), target_depends = c("subject", "acpc_infile")), 
@@ -506,6 +514,11 @@ rm(._._env_._.)
                       raveio::cmd_run_recon_all_clinical(subject = subject, 
                         mri_path = mri_path, overwrite = overwrite, 
                         dry_run = TRUE, verbose = FALSE, command_path = cmd_tools$freesurfer)
+                    }, `ants+recon-all` = {
+                      raveio::cmd_run_yael_preprocess_t1(subject = subject, 
+                        mri_path = mri_path, overwrite = overwrite, 
+                        command_path = cmd_tools$freesurfer, 
+                        dry_run = TRUE, verbose = FALSE)
                     }, `ants-preprocessing` = {
                       raveio::cmd_run_r(dry_run = TRUE, verbose = FALSE, 
                         quoted = TRUE, expr = bquote({
@@ -594,6 +607,11 @@ rm(._._env_._.)
                       raveio::cmd_run_recon_all_clinical(subject = subject, 
                         mri_path = mri_path, overwrite = overwrite, 
                         dry_run = TRUE, verbose = FALSE, command_path = cmd_tools$freesurfer)
+                    }, `ants+recon-all` = {
+                      raveio::cmd_run_yael_preprocess_t1(subject = subject, 
+                        mri_path = mri_path, overwrite = overwrite, 
+                        command_path = cmd_tools$freesurfer, 
+                        dry_run = TRUE, verbose = FALSE)
                     }, `ants-preprocessing` = {
                       raveio::cmd_run_r(dry_run = TRUE, verbose = FALSE, 
                         quoted = TRUE, expr = bquote({
