@@ -25,6 +25,7 @@ module_server <- function(input, output, session, ...){
   local_data <- dipsaus::fastmap2()
 
   local_data$available_electrodes = integer()
+  local_data$epoch_table=NULL
 
   local_data$download_plot_info <- list(
     id = 'none',
@@ -86,7 +87,6 @@ module_server <- function(input, output, session, ...){
       settings$analysis_electrodes <- input$electrode_text
     }
 
-
     pipeline$set_settings(
       baseline_settings = list(
         window=list(input$baseline_window),
@@ -94,6 +94,7 @@ module_server <- function(input, output, session, ...){
         unit_of_analysis = input$baseline_unit
       ),
       analysis_electrodes = settings$analysis_electrodes,
+      condition_variable = input$condition_variable,
       first_condition_groupings = input$first_condition_groupings,
       second_condition_groupings = input$second_condition_groupings,
       enable_second_condition_groupings = isTRUE(input$enable_second_condition_groupings),
@@ -169,14 +170,23 @@ module_server <- function(input, output, session, ...){
                     'omnibus_results',
                     'over_time_by_condition_data'
     )
-    local_data$results[eval_names] <- as.list(pipeline$eval(names = eval_names))[eval_names]
+    local_data$results[eval_names] <- as.list(pipeline$eval(names = eval_names,
+                                                            shortcut=FALSE))[eval_names]
     progress$inc("Done pipeline eval")
+
+
+    ### bring down the univariate stats to a more convenient place
+    # so they fit the data/plotting naming convention
+    local_data$results$univariate_statistics_graphical_results_data <-
+      local_data$results$omnibus_results$stats
+
+    local_data$results$by_trial_by_condition_data <-
+      local_data$results$omnibus_results$data
 
     or <- rownames(local_data$results$omnibus_results$stats)
     choices_list <- unique(stringr::str_remove_all(or, '(m+\\(|t+\\(|p+\\(|p_fdr\\(|\\))'))
 
     ## update the by-electrode analysis viewer switcher
-
     current_choice <- input$per_electrode_statistics_chooser
     shiny::updateSelectInput(inputId = 'per_electrode_statistics_chooser',
                              choices = choices_list, selected = current_choice %OF% choices_list)
@@ -201,6 +211,18 @@ module_server <- function(input, output, session, ...){
                                choices=c('First Factor', 'Second Factor', 'First:Second', 'Analysis Group')
       )
     }
+
+
+    ## set the plot time range limits for plots
+    newly_available_time <- get_recursive_summary(
+      local_data$results$over_time_by_condition_data, 'x'
+    )
+    shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
+                             value = range(newly_available_time),
+                             min = min(newly_available_time),
+                             max = max(newly_available_time)
+    )
+
 
     local_reactives$update_outputs <- Sys.time()
     if(trigger_3dviewer) {
@@ -391,6 +413,14 @@ module_server <- function(input, output, session, ...){
                                selected = baseline_settings$scope
       )
 
+      tmp <- names(new_repository$epoch$table)
+      condition_vars <- tmp[which(stringr::str_detect(tmp, 'Condition'))]
+
+      shiny::updateSelectInput(session = session, inputId = 'condition_variable',
+                               choices = condition_vars,
+                               selected = input$condition_variable %OF% condition_vars
+      )
+
       ##--loading the default analysis settings
       as <- new_repository$subject$get_default('analysis_settings',
                                                default_if_missing = pipeline$get_settings('analysis_settings'), namespace = module_id)
@@ -421,8 +451,26 @@ module_server <- function(input, output, session, ...){
         ), value=as, ncomp = n_analysis
       )
 
+
+      ## set the plot time range limits for plots
+      shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
+                               value = range(new_repository$time_points),
+                               min = min(new_repository$time_points),
+                               max = max(new_repository$time_points)
+      )
+
       ## default condition groups
-      cond_tbl <- table(new_repository$epoch$table$Condition)
+      cvar = 'Condition'
+      if(input$condition_variable != "Condition") {
+        tmp_cvar = input$condition_variable
+        if(!is.null(new_repository$epoch$table[[tmp_cvar]])) {
+          cvar = tmp_cvar
+        }
+      }
+
+      local_data$epoch_table = new_repository$epoch$table
+
+      cond_tbl <- table(new_repository$epoch$table[[cvar]])
       cond_tbl <- cond_tbl[order(names(cond_tbl))]
       conditions <- names(cond_tbl)
       def <- list(
@@ -482,7 +530,6 @@ module_server <- function(input, output, session, ...){
       brain <- raveio::rave_brain(new_repository$subject$subject_id)
       local_data$available_electrodes = new_repository$power$dimnames$Electrode
 
-
       # update export electrode categories
       new_choices = c('none', roi_vars)
       if(isTRUE(input$enable_custom_ROI)) {
@@ -492,7 +539,6 @@ module_server <- function(input, output, session, ...){
       shiny::updateSelectInput(inputId='electrodes_to_export_roi_name',
                                selected = 'none', choices = new_choices
       )
-
 
       # Reset outputs
       # shidashi::reset_output("collapse_over_trial")
@@ -628,6 +674,41 @@ module_server <- function(input, output, session, ...){
                                   value = scg, ncomp = length(scg))
   }
 
+  get_available_conditions <- function() {
+    cvar = 'Condition'
+
+    if(input$condition_variable != "Condition") {
+      tmp_cvar = input$condition_variable
+      if(!is.null(local_data$epoch_table[[tmp_cvar]])) {
+        cvar = tmp_cvar
+      }
+    }
+
+    cond_tbl <- table(local_data$epoch_table[[cvar]])
+    cond_tbl <- cond_tbl[order(names(cond_tbl))]
+    conditions <- names(cond_tbl)
+  }
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      conditions <- get_available_conditions()
+
+      val <- list(
+        list(label = "All Conditions", conditions = conditions)
+      )
+
+      all_fcg_conditions <- unname(unlist(sapply(val, `[[`, 'conditions')))
+      dipsaus::updateCompoundInput2(session = session,
+                                    inputId = 'first_condition_groupings',
+                                    initialization = list(conditions =
+                                                            list(choices = conditions)
+                                    ),
+                                    value = val, ncomp = length(val))
+
+    }), input$condition_variable, ignoreNULL = TRUE, ignoreInit=TRUE
+  )
+
 
   # track changes to the ROI grouping variable selector
   shiny::bindEvent(
@@ -723,7 +804,8 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$update_over_time_plot = Sys.time()
 
-    }), input$over_time_by_condition_switch, ignoreNULL = TRUE, ignoreInit = TRUE
+    }), input$over_time_by_condition_switch, input$over_time_plot_range,
+    ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
   shiny::bindEvent(
@@ -738,14 +820,47 @@ module_server <- function(input, output, session, ...){
     input$over_time_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::req(local_data$results)
+      local_data$download_plot_info$id =
+        paste0("univariate_statistics_", unpretty(input$univariate_statistics_tabset))
+
+      build_modal_plot_download(local_data$download_plot_info)
+    }),
+    input$univariate_statistics_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::req(local_data$results)
+      local_data$download_plot_info$id =
+        paste0("by_trial_", unpretty(input$by_trial_tabset))
+      build_modal_plot_download(local_data$download_plot_info)
+    }),
+    input$by_trial_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # listen to camera on the by_frequency tabset
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::req(local_data$results)
+      local_data$download_plot_info$id =
+        paste0("by_frequency_", unpretty(input$by_frequency_tabset))
+
+      build_modal_plot_download(local_data$download_plot_info)
+    }),
+    input$by_frequency_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
 
-# shiny::bindEvent(
-#   ravedash::safe_observe({
-#     print("test test test")
-#   }),
-#   input$test, ignoreNULL = TRUE, ignoreInit = TRUE
-# )
+
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     print("test test test")
+  #   }),
+  #   input$test, ignoreNULL = TRUE, ignoreInit = TRUE
+  # )
 
   # shiny::bindEvent(
   #   ravedash::safe_observe({
@@ -801,7 +916,19 @@ module_server <- function(input, output, session, ...){
 
       # dipsaus::cat2('select mode: ', input$pes_select_mode, level='INFO')
       if (select_mode == 'Label maker') {
-        new_elec <- elec_in_order[new_loc$x]
+
+        # weight in the Y-axis location to find nearest electrode
+        tx_y = yy
+        if(!is.null(local_reactives$pes_manual_threshold$transform_string) &&
+           local_reactives$pes_manual_threshold$transform_string != "force") {
+          TX <- match.fun(local_reactives$pes_manual_threshold$transform_string)
+          tx_y = TX(yy)
+        }
+
+        pt_dist = (abs(tx_y - click$y)^2 / max(tx_y)) +
+          ((click$x - seq_along(elec_in_order))^2 / length(elec_in_order))
+
+        new_elec <- elec_in_order[which.min(pt_dist)]
 
         # add if new location, remove if old location
         if(new_elec %in% current_selection) {
@@ -881,11 +1008,18 @@ module_server <- function(input, output, session, ...){
     input$pes_click_p, ignoreInit = TRUE, ignoreNULL = TRUE
   )
 
-  #
-  #     local_reactives$pes_electrode_hover = input$pes_mean_click
-  #   },
-  #   input$pes_mean_click, ignoreInit = TRUE
-  # )
+  ### tracking changes to clicks on the by-trial by-condition plot
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      click = input$btbc_click
+
+
+
+
+    }), input$btbc_click, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+
 
   ### tracking changes to global plot options
   shiny::bindEvent(
@@ -966,9 +1100,9 @@ module_server <- function(input, output, session, ...){
       brain$set_electrode_values(df)
 
       brain$render(outputId = "brain_viewer", session = session,
-                              palettes=res$palettes, value_ranges=res$val_ranges,
-                              control_display = FALSE, side_display=FALSE,
-                              timestamp=FALSE)
+                   palettes=res$palettes, value_ranges=res$val_ranges,
+                   control_display = FALSE, side_display=FALSE,
+                   timestamp=FALSE)
     })
   )
 
@@ -1059,6 +1193,7 @@ module_server <- function(input, output, session, ...){
       pipeline$set_settings(
         electrode_export_file_type = input$electrode_export_file_type,
         frequencies_to_export = input$frequencies_to_export,
+        condition_variable = input$condition_variable,
         times_to_export = input$times_to_export,
         trials_to_export = input$trials_to_export,
         electrodes_to_export = input$electrodes_to_export,
@@ -1073,7 +1208,7 @@ module_server <- function(input, output, session, ...){
       )
 
       # make sure this is available for export later
-      env <- pipeline$eval('data_for_export')
+      env <- pipeline$eval('data_for_export', shortcut=TRUE)
       dfe <- env$data_for_export
 
       kv <- list(
@@ -1168,7 +1303,7 @@ module_server <- function(input, output, session, ...){
       )
     },
     content = function(conn) {
-      env <- pipeline$eval("data_for_export")
+      env <- pipeline$eval("data_for_export", shortcut=TRUE)
       dfe <- env$data_for_export
 
 
@@ -1184,7 +1319,7 @@ module_server <- function(input, output, session, ...){
                                                compress=99)
                               },
                               'HDF5' = function() {
-                                h5file = temp_file('h5_out', fileext = 'h5')
+                                h5file = ravedash::temp_file('h5_out', fileext = 'h5')
 
                                 # recursive method for saving to h5 file
                                 save_list_to_h5 <- function(v, nm) {
@@ -1208,13 +1343,13 @@ module_server <- function(input, output, session, ...){
                               },
                               'Compressed CSV' = function() {
 
-                                tf <- temp_file(
+                                tf <- ravedash::temp_file(
                                   pattern = paste0('data_export_', format(Sys.time(), "%b_%d_%Y_%H_%M")),
                                   fileext = '.csv'
                                 )
                                 data.table::fwrite(data_to_write, file=tf)
 
-                                zf <- temp_file(
+                                zf <- ravedash::temp_file(
                                   pattern = 'pow_expl_', fileext = '.csv.zip'
                                 )
                                 utils::zip(zipfile = zf, files = tf, extras='-j')
@@ -1248,14 +1383,17 @@ module_server <- function(input, output, session, ...){
   output$do_download_plot <- shiny::downloadHandler(
     filename = function() {
       type = input$download_plot_type
-      nm = local_data$download_plot$id
+      if(type == 'tiff (lzw)') {
+        type = 'tiff'
+      }
+      nm = local_data$download_plot_info$id
 
       paste(paste("plot", nm, Sys.Date(), type, sep="_"), type, sep='.')
     },
     content = function(file) {
 
-      type = input$download_plot_type
-      nm = local_data$download_plot$id
+      type = input$download_plot_info
+      nm = local_data$download_plot_info$id
 
       FUN = get(
         paste0('plot_', local_data$download_plot_info$id)
@@ -1266,13 +1404,58 @@ module_server <- function(input, output, session, ...){
       args <- list()
       args[[dset]] = local_data$results[[dset]]
 
+
+      ### some functions need extra data
       if(dset == 'over_time_by_condition_data') {
         args$condition_switch = input$over_time_by_condition_switch
       }
 
-      pdf(file, width=input$download_plot_width, height=input$download_plot_height,
-          useDingbats = FALSE)
+      if(dset == 'by_trial_by_condition_data') {
+        args$grouped_plot_options = local_data$grouped_plot_options
+        args$ylab = local_data$results$baseline_settings$unit_of_analysis
+      }
+
+      ###---
+
+
+      ### open up the proper plotting device
+      OPEN_FILE <- switch(input$download_plot_type,
+                          'pdf' = function() {
+                            pdf(file, width=input$download_plot_width,
+                                height=input$download_plot_height,
+                                useDingbats = FALSE,
+                                title = 'RAVE Plot Export')
+                          },
+                          'png' = function() {
+                            scl = 1
+                            png(file, width=scl*input$download_plot_width,
+                                height=scl*input$download_plot_height,
+                                units = 'in', res=72*4)
+                          },
+                          'jpeg' = function(){
+                            jpeg(file,width=input$download_plot_width,
+                                 height=input$download_plot_height,
+                                 units = 'in', quality = 90, , res=72*4)
+
+                          },
+                          'bmp' = function(){
+                            bmp(file,width=input$download_plot_width,
+                                height=input$download_plot_height,
+                                units = 'in', res=72*4)
+
+                          },
+                          'tiff (lzw)' = function(){
+                            tiff(file,compression='lzw',
+                                 width=input$download_plot_width,
+                                 height=input$download_plot_height,
+                                 units = 'in', res=72*4)
+
+                          }
+      )
+
+      OPEN_FILE()
       on.exit(dev.off())
+
       do.call(FUN, args)
     })
 
@@ -1351,59 +1534,12 @@ module_server <- function(input, output, session, ...){
       force(local_reactives$update_by_trial_plot)
       force(local_reactives$update_line_plots)
 
-      data <- local_data$results$omnibus_results$data
-
-      po <- local_data$grouped_plot_options
-
-      # based on shiny input, change xvar/yvar
-      count=function(x) {
-        if(is.null(x)) return (1)
-        length(unique(x))
-      }
-
-      k = 10 + 2.5*(count(data$Factor1)*count(data$AnalysisLabel)-1)
-      if(!is.null(data$Factor2)) {
-        k = k + 2.5 * (count(data$Factor2)-1)
-      }
-
-      MAX = 30
-      layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(min(k, MAX)),1))
-      oom <- get_order_of_magnitude(median(abs(pretty(data$y))))
-
-      line = 2.75 + oom
-
-      #read in group label posision
-      label_position = 'top' #c('none', 'bottom', 'top')
-
-
-      ### if there is a panel var, split the data and do multiple plots
-      po$panelvar = NULL
-
-      # fix the names of xvar and gvar
-      for(nm in c('xvar', 'gvar')) {
-        if(po[[nm]] == 'First Factor') po[[nm]] = 'Factor1'
-        if(po[[nm]] == 'Second Factor') po[[nm]] = 'Factor2'
-        if(po[[nm]] == 'First:Second') po[[nm]] = 'Factor1Factor2'
-        if(po[[nm]] == 'Analysis Group') po[[nm]] = 'AnalysisLabel'
-      }
-
-      # we need to collapse over electrode, but first
-      # select out the electrodes that are requested for analysis.
-      # by default, omnibus has all (omni) of the data
-      nms <- names(data)
-      nms <- nms[!(nms %in% c('y', 'Electrode'))]
-      mat = data.table::data.table(data)
-
-      mat = mat[data$currently_selected, list(y=mean(get('y'))), keyby=nms]
-
-      par('mar'=c(4, 4.5+oom, ifelse(label_position=='top',3.5,2), 2)+.1)
-      do.call(plot_grouped_data,
-              append(po, list(mat=as.data.frame(mat),
-                              do_axes=TRUE, names.pos=label_position))
+      plot_by_trial_by_condition(
+        local_data$results$by_trial_by_condition_data,
+        grouped_plot_options = local_data$grouped_plot_options,
+        ylab = local_data$results$baseline_settings$unit_of_analysis
       )
 
-      uoa = local_data$results$settings$baseline_settings$unit_of_analysis
-      rave_axis_labels(ylab=uoa, outer=FALSE, yline=line, xpd=TRUE)
     })
   )
 
@@ -1426,7 +1562,29 @@ module_server <- function(input, output, session, ...){
       basic_checks(local_reactives$update_outputs)
       force(local_reactives$update_heatmap_plots)
 
-      plot_by_frequency_over_time(local_data$results$by_frequency_over_time_data)
+      by_frequency_over_time_data = local_data$results$by_frequency_over_time_data
+
+
+      # if there are any changes to the analysis window, we want to highlight
+      # them on the graph
+      for(ii in seq_along(local_reactives$current_analysis_settings)) {
+        ss <- local_reactives$current_analysis_settings[[ii]]
+
+        new_time = unlist(ss$time)
+        new_freq = unlist(ss$frequency)
+
+        jj = which(endsWith(names(by_frequency_over_time_data), ss$label))
+
+        for(curr_map in jj) {
+          if(any(new_time != by_frequency_over_time_data[[curr_map]]$analysis_window,
+                 new_freq != by_frequency_over_time_data[[curr_map]]$analysis_frequency)) {
+            by_frequency_over_time_data[[curr_map]]$analysis_window_tmp = new_time
+            by_frequency_over_time_data[[curr_map]]$analysis_frequency_tmp = new_freq
+          }
+        }
+      }
+
+      plot_by_frequency_over_time(by_frequency_over_time_data)
 
     })
   )
@@ -1541,8 +1699,33 @@ module_server <- function(input, output, session, ...){
     })
   )
 
-  ### by trial over time plot
+  # special function used by the downloader to get all 3 plots in one
+  plot_univariate_statistics_graphical_results <- function(
+    univariate_statistics_graphical_results_data) {
 
+    par(mfrow=c(1,3))
+
+    lbl_elecs = NULL
+    requested_stat = NULL
+
+    if(!is.null(local_reactives$per_electrode_statistics_chooser)) {
+      requested_stat = local_reactives$per_electrode_statistics_chooser
+
+      if(!is.null(local_reactives$pes_selected_electrodes)) {
+        lbl_elecs <- local_reactives$pes_selected_electrodes
+      }
+    }
+
+    sapply(c('m', 't', 'p'), function(st) {
+      plot_per_electrode_statistics(univariate_statistics_graphical_results_data,
+                                    requested_stat, which_plots = st,
+                                    draw_threshold=get_threshold(st),
+                                    label_electrodes=lbl_elecs, label_type = input$pes_label_type)
+    })
+  }
+
+
+  ### by trial over time plot
   ravedash::register_output(
     outputId = "over_time_by_trial",
     render_function = shiny::renderPlot({
@@ -1560,16 +1743,15 @@ module_server <- function(input, output, session, ...){
     outputId = "over_time_by_condition",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+
       force(local_reactives$update_line_plots)
       force(local_reactives$update_over_time_plot)
 
       plot_over_time_by_condition(
         local_data$results$over_time_by_condition_data,
-        condition_switch=input$over_time_by_condition_switch
+        condition_switch=input$over_time_by_condition_switch,
+        plot_range = input$over_time_by_condition_plot_range
       )
     })
   )
 }
-
-
-

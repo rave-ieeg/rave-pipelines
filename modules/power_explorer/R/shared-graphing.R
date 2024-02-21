@@ -97,7 +97,8 @@ draw_many_heat_maps <- function (hmaps,
                                  axes = c(TRUE, TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
                                  max_columns = 3, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
                                  ignore_time_range = NULL,
-                                 marginal_text_fields = c("Subject", "Electrodes"), extra_plot_parameters = NULL,
+                                 #marginal_text_fields = c("Subject", "Electrodes"),
+                                 extra_plot_parameters = NULL,
                                  do_layout = TRUE, byrow=TRUE, ...)
 {
 
@@ -334,6 +335,15 @@ layout_heat_maps <- function(k, max_col, ratio=4, byrow=TRUE,
     mat <- cbind(mat, k+1)
     widths <- c(widths, lcm(colorbar_cm))
   }
+
+  if(k > 1) {
+    newmar = par('mar')
+    if(newmar[4] == 2.1) {
+      newmar[4] = 0.1
+      par('mar' = newmar)
+    }
+  }
+
   layout(mat, widths=widths)
 }
 
@@ -483,12 +493,21 @@ set_currently_active_heatmap <- function( pal_name, n_colors = 101 ) {
   )
 }
 
-..get_nearest_i <- function(from,to, lower_only=FALSE) {
+..get_nearest_i <- function(from,to, condition=c('equal', 'less', 'greater')) {
 
-  if(lower_only) {
+  condition = match.arg(condition)
+
+  if(condition == 'less') {
     res <- sapply(from, function(.x) {
-      to2 = to[to<= .x]
+      ind <- (to<= .x)
+      to2 = to[ind]
       which.min(abs(.x-to2))
+    })
+  } else if (condition == 'greater') {
+    res <- sapply(from, function(.x) {
+      ind = to>= .x
+      to2 = to[ind]
+      which.min(abs(.x-to2)) + (which(ind)[1] - 1)
     })
   } else {
     res <- sapply(from, function(.x) {
@@ -497,6 +516,17 @@ set_currently_active_heatmap <- function( pal_name, n_colors = 101 ) {
   }
 
   return(res)
+}
+
+
+find_index_of_nearest <- ..get_nearest_i
+
+
+map_indices_within <- function(from, to) {
+  mapply(find_index_of_nearest,
+         from, condition=list('greater', 'less'),
+         MoreArgs = list(to=to)
+  )
 }
 
 ..get_nearest <- function(from, to) {
@@ -996,7 +1026,8 @@ render_analysis_window <- function(settings, lty=2, do_label=TRUE, text.color=pa
 plot_over_time_by_condition <- function(over_time_by_condition_data,
                                         combine_conditions=FALSE,
                                         combine_events=FALSE,
-                                        condition_switch=NULL) {
+                                        condition_switch=NULL,
+                                        plot_range=c(-Inf,Inf)) {
 
   if(is.character(condition_switch)){
     if (condition_switch=='Separate all')  {
@@ -1019,11 +1050,37 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
   n.groups <- length(over_time_by_condition_data)
   n.events <- length(over_time_by_condition_data[[1]])
 
-  xlim <- sapply(over_time_by_condition_data, function(otd) {
-    range(sapply(otd, function(dd) {
-      dd$x
+  xlim <- range(
+    unlist(sapply(over_time_by_condition_data, function(otd) {
+      sapply(otd, function(dd) {c(min(dd$x), max(dd$x))})
     }))
-  }) %>% range
+  )
+
+  # intersect with the requested plot lim
+  new_lim <- c(
+    max(xlim[1], min(plot_range)),
+    min(xlim[2], max(plot_range))
+  )
+
+  if(any(new_lim != xlim)) {
+    xlim = new_lim
+
+    # trim the data before plotting
+    for(ii in seq_along(over_time_by_condition_data)) {
+      for(jj in seq_along(over_time_by_condition_data[[ii]])) {
+        ind <- over_time_by_condition_data[[ii]][[jj]]$x %within% xlim
+
+        over_time_by_condition_data[[ii]][[jj]]$x <-
+          over_time_by_condition_data[[ii]][[jj]]$x[ind]
+
+        over_time_by_condition_data[[ii]][[jj]]$data <-
+          over_time_by_condition_data[[ii]][[jj]]$data[ind,,drop=FALSE]
+      }
+    }
+
+
+  }
+
   ylim <- sapply(over_time_by_condition_data, function(otd) {
     range(sapply(otd, function(dd) {
       rutabaga::plus_minus(dd$data)
@@ -1177,7 +1234,6 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
   }
 
   MAX_COL = pe_graphics_settings_cache$get('max_columns_in_figure', 3)
-
 
   determine_layout <- function(n.panels) {
     nr = ceiling(n.panels / MAX_COL)
@@ -1561,17 +1617,17 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   long_col <- rep(col, times=ncol(bars.x))
   # for jittering and other l/r movement
   r <- if(length(bars.x) == 1) {
-    1/3
+    1/4
   } else if(nrow(bars.x) == 1) {
-    (1/3) * min(diff(c(bars.x)))
+    (1/4) * min(diff(c(bars.x)))
   } else {
     if ('overlay' == layout && ncol(bars.x) > 1) {
-      (1 / 3) * min(diff(t(bars.x)))
+      (1 / 4) * min(diff(t(bars.x)))
     } else {
-      (1/3) * min(diff(bars.x))
+      (1/4) * min(diff(bars.x))
     }
   }
-  if(any(r==0, is.infinite(r))) {r <- 1/3}
+  if(any(r==0, is.infinite(r))) {r <- 1/4}
 
   #keep the data together so we can check outlier status later
   points_list <- split(raw, by=keys)# %>% lapply(`[[`, yvar)
@@ -1831,6 +1887,8 @@ density_jitter <- function(x, around=0, max.r=.2, n=length(x), seed=NULL) {
 
 build_heatmap_analysis_window_decorator <- function(...,  type=c('line', 'box'),
                                                     lwd=2, lty=2,
+                                                    active_adjust=0.5,
+                                                    tmp_lty=4,
                                                     show_top_label=FALSE) {
   force(lwd); force(lty); force(show_top_label)
   type = match.arg(type)
@@ -1838,18 +1896,39 @@ build_heatmap_analysis_window_decorator <- function(...,  type=c('line', 'box'),
   # make sure we have enough space to write into
   par('oma' = pmax(c(1,0,0,0), par('oma')))
 
+  if(! active_adjust %within% 0:1) {
+    active_adjust = 0.5
+  }
+
+  tmp_color = (1/255) * c(active_adjust * col2rgb(par('fg')) +
+                            (1-active_adjust) * col2rgb(par('bg')))
+  tmp_color <- do.call(rgb, as.list(tmp_color))
+
   hawd <- function(data, Xmap, Ymap, ...) {
     # label analysis event
     mtext(data$analysis_event, side = 1, at=Xmap(0),
           line=2.5, cex=(7/8)*get_cex_for_multifigure(), col = par('fg'))
 
     # label analysis window
-    xx <- Xmap(data$analysis_window)
-    if(type == 'box') {
-      yy <- Ymap(data$analysis_frequency)
+    xx <- c(-0.5, .5) + map_indices_within(data$analysis_window, data$x)
 
-      polygon(c(xx,rev(xx)), rep(yy, each=2),
-              lty=lty, lwd=lwd,border='black')
+    if(type == 'box') {
+      yy <- c(-0.5, 0.5) + map_indices_within(data$analysis_frequency, data$y)
+
+      if(!is.null(data$analysis_window_tmp) && !is.null(data$analysis_frequency_tmp)) {
+        polygon(c(xx,rev(xx)), rep(yy, each=2),
+                lty=lty, lwd=lwd,border=tmp_color)
+
+        xxnew <- c(-0.5, .5) + map_indices_within(data$analysis_window_tmp, data$x)
+        yynew <- c(-0.5, .5) + map_indices_within(data$analysis_frequency_tmp, data$y)
+
+        polygon(c(xxnew,rev(xxnew)), rep(yynew, each=2),
+                lwd=tmp_lty,border=par('fg'), lty=3)
+      } else {
+        polygon(c(xx,rev(xx)), rep(yy, each=2),
+                lty=lty, lwd=lwd,border=par('fg'))
+      }
+
 
     } else {
       abline(v=xx, lty=2, col=par('fg'), xpd=FALSE, lwd=2)
@@ -1942,6 +2021,8 @@ build_heatmap_condition_label_decorator <- function(all_maps, ...) {
 }
 
 plot_over_time_by_electrode <- function(by_electrode_tf_data) {
+  apply_current_theme()
+
   decorators <- stack_decorators(
     build_heatmap_analysis_window_decorator(),
     build_axis_label_decorator(push_X=3),
@@ -2022,12 +2103,68 @@ plot_by_frequency_over_time <- function(by_frequency_over_time_data) {
     build_title_decorator()
   )
 
-  # draw_many_heat_maps(by_frequency_over_time_data, show_color_bar = FALSE)
   draw_many_heat_maps(
     by_frequency_over_time_data,
     PANEL.LAST = decorators
   )
 }
+
+plot_by_trial_by_condition <- function(by_trial_by_condition_data, grouped_plot_options, ylab='') {
+  apply_current_theme()
+
+  po <- grouped_plot_options
+
+  # based on shiny input, change xvar/yvar
+  count=function(x) {
+    if(is.null(x)) return (1)
+    length(unique(x))
+  }
+
+  k = 10 + 2.5*(count(by_trial_by_condition_data$Factor1)*count(by_trial_by_condition_data$AnalysisLabel)-1)
+  if(!is.null(by_trial_by_condition_data$Factor2)) {
+    k = k + 2.5 * (count(by_trial_by_condition_data$Factor2)-1)
+  }
+
+  MAX = 30
+  layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(min(k, MAX)),1))
+  oom <- get_order_of_magnitude(median(abs(pretty(by_trial_by_condition_data$y))))
+
+  line = 2.75 + oom
+
+  #read in group label posision
+  label_position = 'top' #c('none', 'bottom', 'top')
+
+  ### if there is a panel var, split the data and do multiple plots
+  po$panelvar = NULL
+
+  # fix the names of xvar and gvar
+  for(nm in c('xvar', 'gvar')) {
+    if(po[[nm]] == 'First Factor') po[[nm]] = 'Factor1'
+    if(po[[nm]] == 'Second Factor') po[[nm]] = 'Factor2'
+    if(po[[nm]] == 'First:Second') po[[nm]] = 'Factor1Factor2'
+    if(po[[nm]] == 'Analysis Group') po[[nm]] = 'AnalysisLabel'
+  }
+
+  # we need to collapse over electrode, but first
+  # select out the electrodes that are requested for analysis.
+  # by default, omnibus has all (omni) of the data
+  nms <- names(by_trial_by_condition_data)
+  nms <- nms[!(nms %in% c('y', 'Electrode'))]
+  mat = data.table::data.table(by_trial_by_condition_data)
+  mat = mat[by_trial_by_condition_data$currently_selected, list(y=mean(get('y'))), keyby=nms]
+
+  par('mar'=c(4, 4.5+oom, ifelse(label_position=='top',3.5,2), 2)+.1)
+  do.call(plot_grouped_data,
+          append(po, list(mat=as.data.frame(mat),
+                          do_axes=TRUE, names.pos=label_position))
+  )
+
+  # uoa = local_data$results$baseline_settings$unit_of_analysis
+  if(nzchar(ylab)) {
+    rave_axis_labels(ylab=ylab, outer=FALSE, yline=line, xpd=TRUE)
+  }
+}
+
 
 plot_over_time_by_trial <- function(over_time_by_trial_data) {
   apply_current_theme()
@@ -2042,6 +2179,28 @@ plot_over_time_by_trial <- function(over_time_by_trial_data) {
                       axes = c(T,F), max_zlim = 95, percentile_range = TRUE,
                       PANEL.LAST = decorators
   )
+
+}
+
+
+
+plot_by_trial_look_for_outliers <- function(by_trial_look_for_outliers_data) {
+
+}
+
+plot_by_trial_assess_normality <- function(by_trial_look_for_outliers_data) {
+
+}
+
+plot_by_trial_assess_stationarity <- function(by_trial_assess_stationarity_data) {
+
+  # by_trial_assess_stationarity_data$
+
+}
+
+plot_by_trial_electrode_similarity <- function(by_trial_electrode_similarity_data) {
+
+  # by_trial_assess_stationarity_data$
 
 }
 

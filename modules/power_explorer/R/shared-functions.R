@@ -22,6 +22,16 @@ rand_string <- raveio:::rand_string
 
 stopifnot2 <- raveio:::stopifnot2
 
+
+
+get_recursive_summary <- function(ll, nm, FUN=range) {
+  if(is.null(ll[[nm]])) {
+    return(FUN(unlist(lapply(ll, get_recursive_summary, nm=nm))))
+  }
+
+  FUN(ll[[nm]])
+}
+
 pretty.character <- function(x, ...,  upper=c('first', 'all', 'none')) {
 
   cap_first_letter <- function(s) {
@@ -204,10 +214,14 @@ get_pluriform_power <- function(
     res$clean_data <- res$data
     res$shifted_clean_data <- res$shifted_data
   } else {
-    # FIXME: res$data is not a filearray now so res$data$subset is not a function!
     ravedash::logger('Handling outliers...')
-    res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
-    res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
+
+    # UPDATED res$data is not a filearray now so res$data$subset is not a function!
+    #res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
+    #res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
+
+    res$clean_data = subset(res$data, !(Trial %in% trial_outliers_list))
+    res$shifted_clean_data = subset(res$shifted_data, !(Trial %in% trial_outliers_list))
   }
 
   # make sure to save out the updated time stamps to be used later
@@ -828,7 +842,7 @@ new_shift_array <- function() {
     ))
   )
 
-  # create file array with cache information!
+  # create file array with cache information
   shifted_array <- filearray::filearray_load_or_create(
     filebase = file.path(pathdir_app_persist, shiftarray_basename),
     dimension = dim(repository$power$baselined),

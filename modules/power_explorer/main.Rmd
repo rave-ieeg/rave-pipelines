@@ -160,28 +160,39 @@ k = sapply(lapply(first_condition_groupings, `[[`, 'conditions'), length)
 fcgs <- first_condition_groupings[k>0]
 
 all_trials <- c(unname(unlist(lapply(fcgs, `[[`, 'conditions'))))
+ep_table <- repository$epoch$table
 
-tbl <- subset(repository$epoch$table, Condition %in% all_trials,
-              select=c('Trial', 'Condition'))
+tbl <- subset(ep_table, ep_table[[condition_variable]] %in% all_trials,
+              select=c('Trial', condition_variable))
 
 f1 <- rutabaga::rbind_list(
   lapply(fcgs, function(ff) {
     # ff = fcgs[[1]]
-    data.frame('Factor1'=ff$label, 'Condition'=ff$conditions)
+    df = list()
+    df[[condition_variable]] =ff$conditions
+    df$Factor1 =ff$label
+    
+    as.data.frame(df)
   })
 )
 
-trial_details <- merge(tbl, f1, by=c('Condition'))
+trial_details <- merge(tbl, f1, by=condition_variable)
 
 if(isTRUE(enable_second_condition_groupings)) {
   f2 <- rutabaga::rbind_list(
     lapply(second_condition_groupings, function(ff) {
       # ff = second_condition_groupings[[1]]
-      data.frame('Factor2'=ff$label, 'Condition'=ff$conditions)
+      # data.frame('Factor2'=ff$label, 'Condition'=ff$conditions)
+      
+      df = list()
+      df[[condition_variable]] =ff$conditions
+      df$Factor2 =ff$label
+      
+      as.data.frame(df)
     })
   )
   
-  trial_details %<>% merge(f2, by=c('Condition'))
+  trial_details %<>% merge(f2, by=condition_variable)
 }
 trial_details = trial_details[order(trial_details$Trial),]
 
@@ -194,7 +205,6 @@ if(!is.null(trial_details$Factor2)) {
 
 # add rownames to trial details to make for easy selection by trial
 rownames(trial_details) = trial_details$Trial
-
 ```
 
 ```{rave build_analysis_groups, language = "R", export = "analysis_groups"}
@@ -229,7 +239,7 @@ if(isTRUE(enable_second_condition_groupings)) {
     trials <- c()
     if(length(cg$conditions)>0) {
       trials <- repository$epoch$table$Trial[
-        repository$epoch$table$Condition %in% cg$conditions
+        repository$epoch$table[[condition_variable]] %in% cg$conditions
       ]
     }
     
@@ -252,8 +262,8 @@ if(length(analysis_groups) < 1) stop('No trials available in condition groups')
 
 # bring up the label as the element name for ease of use
 names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
-
 ```
+
 
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
 # Depends on baselined_power, 
@@ -751,7 +761,7 @@ build_data <- function(data, analysis_settings, condition_group, baseline_settin
   cnds <- first_condition_groupings[[ind]]$conditions
   
   tt = as.numeric(dm$Trial)
-  res$y = trial_details[as.character(tt), 'Condition']
+  res$y = trial_details[as.character(tt), condition_variable]
   cf <- factor(res$y, levels = cnds)
   ord = order(cf, tt)
   
@@ -969,6 +979,26 @@ omnibus_results = list(
 )
 ```
 
+
+```{rave build_by_trial_electrode_similarity_data, language="R", export="by_trial_electrode_similarity_data"}
+dd <- omnibus_results$data
+if(enable_second_condition_groupings) {
+  
+} else {
+  # for each condition group, correlate the electrode responses across trials
+  by_trial_electrode_similarity_data <- 
+    lapply(split(dd, list(dd$AnalysisLabel, dd$Factor1)),
+           function(bb) {
+             bb <- bb[order(bb$Electrode, bb$Trial),]
+             
+             mat <- matrix(c(bb$y), nrow=length(unique(bb$Trial)),
+                           dimnames = list(NULL, unique(bb$Electrode)))
+             
+             cor(mat)
+           })
+}
+```
+
 ```{rave build_data_for_export, language="R", export='data_for_export', cue = "always"}
 warning("Overlapping time/frequency windows will not be coded properly in the export file")
 
@@ -977,7 +1007,6 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
 }
 
 prog <- shidashi::shiny_progress("Building export data", max=4, shiny_auto_close = TRUE)
-
 
 data_for_export = FALSE
 
@@ -1024,7 +1053,6 @@ prog$inc("Subset data")
 tensors <- lapply(analysis_settings_clean, function(asc) {
   current_tensor = subset(repository$power$baselined, 
                           Electrode ~ Electrode %in% electrodes_to_keep)
-  
   dn <- lapply(dimnames(current_tensor), as.numeric)
   
   # 
@@ -1055,6 +1083,12 @@ tensors <- lapply(analysis_settings_clean, function(asc) {
                                     orig_dim = dim(current_tensor), pivot=3)
     dn$Trial = unname(sapply(analysis_groups[with_trials], `[[`, 'label'))
     dimnames(current_tensor) = dn
+  }
+  
+  ### add a name for the trial groups
+  attr_TrialLabel = paste0(dn$Trial)
+  for(ag in which_have_trials(analysis_groups)) {
+     attr_TrialLabel[dn$Trial %in% analysis_groups[[ag]]$trials] = names(analysis_groups)[ag]
   }
   
   # 
@@ -1102,6 +1136,11 @@ tensors <- lapply(analysis_settings_clean, function(asc) {
     dimnames(current_tensor) = dn
   }
   
+  ## add in the trial label last
+  if(length(attr_TrialLabel) == length(dn$Trial)) {
+    attr(current_tensor, 'TrialLabel') = attr_TrialLabel
+  }
+  
   return(current_tensor)
 })
 
@@ -1109,6 +1148,7 @@ uoa = get_unit_of_analysis_varname(baseline_settings$unit_of_analysis)
 
 if(electrode_export_data_type == 'tensor') {
   data_for_export =  mapply(function(tensor, asc) {
+    
     dn <- dimnames(tensor)
     
     ## try to convert to numeric
@@ -1127,6 +1167,11 @@ if(electrode_export_data_type == 'tensor') {
     res$baseline_window = baseline_settings$window[[1]]
     res$baseline_scope = baseline_settings$scope[[1]]
     
+    # add in the trial label if one was calculated above
+    if(!is.null(attributes(tensor)[['TrialLabel']])) {
+      res$TrialLabel = attr(tensor, 'TrialLabel')
+    }
+    
     return(res)
   }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
   
@@ -1140,12 +1185,31 @@ if(electrode_export_data_type == 'tensor') {
     tbl <- data.table::as.data.table(
       reshape2::melt(tensor[drop = FALSE], value.name = uoa)
     )
+    
     tbl$AnalysisGroup = asc$label
     
     ###FIXME Add in meta data
     
-    return(tbl)
+    # add in the trial label if one was calculated above
+    if(!is.null(attributes(tensor)[['TrialLabel']])) {
+      
+      trials <- as.numeric(dimnames(tensor)$Trial)
+      lbls <- attributes(tensor)[['TrialLabel']]
+      
+      tbl$TrialLabel = paste0(tbl$Trial)
+      for(tt in unique(tbl$Trial)) {
+        if(! paste0(tt) %in% lbls) {
+          ind = which(tbl$Trial == tt)
+          
+          tbl$TrialLabel[ind] = lbls[
+            which(tt == trials)
+          ]
+        }
+      }
+      
+    }
     
+    return(tbl)
   }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
   
   

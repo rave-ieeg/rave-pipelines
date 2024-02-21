@@ -112,6 +112,8 @@ module_html <- function(){
             ravedash::input_card(
               class_header = "shidashi-anchor",
               title = "First Trial Factor",
+              shiny::selectInput(inputId=ns('condition_variable'),
+                                 "Condition Variable", choices=c('Condition')),
               dipsaus::compoundInput2(
                 inputId = ns('first_condition_groupings'),
                 label = "Trial Group", initial_ncomp = 1L, min_ncomp = 1L,
@@ -145,76 +147,15 @@ module_html <- function(){
             # ---- Input tab: Plot Options -------------------------------------
 
             ravedash::input_card(
-              class_header='shidashi-anchor', title='Plot Options',
-              shiny::selectInput(
-                inputId = ns('plot_customizer_select'),
-                label = 'Which plot to customize',
-                choices = c('Global plot options', 'By Trial', 'By Frequency', 'By Electrode', 'Over Time'),
-                selected = 'by trial'),
-              shiny::conditionalPanel(
-                condition = "input.plot_customizer_select == 'Global plot options'",
-                ns = ns,
-                shiny::selectInput(ns("gpo_lines_palette"), "Lines/Points palette",
-                                   choices = line_palettes,
-                                   selected = pe_graphics_settings_cache$get('line_color_palette') %OF% line_palettes),
-                shiny::selectInput(ns("gpo_heatmap_palette"), "Heatmap palette",
-                                   choices = heatmap_palettes,
-                                   selected = pe_graphics_settings_cache$get('heatmap_color_palette') %OF% heatmap_palettes
-                )
-
-              ),
-              shiny::conditionalPanel(
-                condition = "input.plot_customizer_select == 'By Electrode'",
-                ns = ns,
-                shiny::p("By Electrode Panel")),
-              shiny::conditionalPanel(
-                condition = "input.plot_customizer_select == 'By Frequency'",
-                ns = ns,
-                shiny::p("By Frequency Panel")),
-              shiny::conditionalPanel(
-                condition = "input.plot_customizer_select == 'By Trial'",
-                ns = ns,
-                shiny::selectInput(
-                  inputId = ns("btp_types"), label = 'Plot types',
-                  multiple = TRUE,
-                  choices = c('jitter points', 'means', 'ebar polygons',
-                              'points', 'connect points',
-                              'densities', 'density polygons',
-                              'bars', 'borders', 'ebars'),
-                  selected=c('jitter points', 'means', 'ebar polygons')
-                ),
-                shiny::selectInput(
-                  inputId = ns("btp_xvar"),
-                  label = "X-axis variable",
-                  choices=c('First Factor', 'Analysis Group')
-                ),
-                shiny::selectInput(
-                  inputId = ns("btp_gvar"),
-                  label = "Grouping variable",
-                  choices = c('Analysis Group', 'First Factor')
-                ),
-                shiny::selectInput(
-                  inputId = ns("btp_panelvar"),
-                  label = "Panel variable",
-                  choices = c('none', 'Analysis Group', 'First Factor')
-                ),
-                shiny::numericInput(
-                  inputId = ns('btp_pt.alpha'),
-                  label = 'Point alpha (opacity)',
-                  value = 100, min=0, max=100
-                ),
-                shiny::numericInput(
-                  inputId = ns('btp_pt.cex'),
-                  label = 'Point scaling',
-                  value = 1,
-                  min = 0.1,
-                  max = 10,
-                  step = 0.1
-                )
+              class_header='shidashi-anchor', title='Global plot options',
+              shiny::selectInput(ns("gpo_lines_palette"), "Lines/Points palette",
+                                 choices = line_palettes,
+                                 selected = pe_graphics_settings_cache$get('line_color_palette') %OF% line_palettes),
+              shiny::selectInput(ns("gpo_heatmap_palette"), "Heatmap palette",
+                                 choices = heatmap_palettes,
+                                 selected = pe_graphics_settings_cache$get('heatmap_color_palette') %OF% heatmap_palettes
               )
             ),
-
-
             # ---- Input tab: Export Electrodes --------------------------------
 
             ravedash::input_card(
@@ -333,21 +274,25 @@ module_html <- function(){
             # ---- Output tab-set: Univariate statistics -----------------------
 
             ravedash::output_cardset(
-              inputId = ns('by_electrode_output'),
+              inputId = ns('univariate_statistics_tabset'),
               title = "Univariate Statistics",
               class_body = "no-padding fill-width",
               append_tools = FALSE,
               tools = list(
                 shidashi::card_tool(
                   widget = "custom", icon = ravedash::shiny_icons$puzzle,
-                  inputId = ns("by_electrode_tabset_config")
+                  inputId = ns("univariate_statistics_tabset_config")
+                ),
+                shidashi::card_tool(
+                  widget = "custom", icon = ravedash::shiny_icons$camera,
+                  inputId = ns("univariate_statistics_tabset_camera")
                 )
               ),
 
               # ---- Output tab: Univariate statistics > Graphical Results -----
               `Graphical Results` = shiny::div(
                 shiny::conditionalPanel(
-                  condition = "input['by_electrode_tabset_config']%2 == 1",
+                  condition = "input['univariate_statistics_tabset_config']%2 == 1",
                   ns = ns,
                   shiny::div(
                     class = "container-fluid",
@@ -360,14 +305,6 @@ module_html <- function(){
                           choices = c('No groups available')
                         )
                       ),
-                      # shiny::column(
-                      #   width = 3,
-                      #   shiny::actionLink(
-                      #     ns('clear_pes_annotations'),
-                      #     label = 'Clear labels',
-                      #     icon = ravedash::shiny_icons$trash
-                      #   )
-                      # ),
                       shiny::column(
                         width = 3L,
                         shiny::selectInput(
@@ -422,21 +359,18 @@ module_html <- function(){
                     shiny::div(class = "col-sm-4 fill-height",
                                ravedash::plotOutput2(
                                  outputId = ns('per_electrode_statistics_mean'),
-                                 # hover = ns('pes_hover'),
                                  click = ns('pes_click_m'),
                                  min_height = 400
                                )),
                     shiny::div(class = "col-sm-4 fill-height",
                                ravedash::plotOutput2(
                                  outputId = ns('per_electrode_statistics_tstat'),
-                                 # hover = ns('pes_hover'),
                                  click = ns('pes_click_t'),
                                  min_height = 400
                                )),
                     shiny::div(class = "col-sm-4 fill-height",
                                ravedash::plotOutput2(
                                  outputId = ns('per_electrode_statistics_fdrp'),
-                                 # hover = ns('pes_hover'),
                                  click = ns('pes_click_p'),
                                  min_height = 400
                                ))
@@ -453,10 +387,15 @@ module_html <- function(){
 
             # ---- Output tab-set: By Frequency --------------------------------
             ravedash::output_cardset(
-              inputId = ns('by_frequency_output'),
+              inputId = ns('by_frequency_tabset'),
               title='By Frequency',
               class_body = "no-padding fill-width height-400 min-height-400 resize-vertical",
-              tools = list(),
+              tools = list(
+                shidashi::card_tool(
+                  widget = "custom", icon = ravedash::shiny_icons$camera,
+                  inputId = ns("by_frequency_tabset_camera")
+                )
+              ),
               append_tools = FALSE,
               `Over time` = ravedash::output_gadget_container(
                 ravedash::plotOutput2(
@@ -494,18 +433,24 @@ module_html <- function(){
                 shiny::div(
                   # opens a fluid container
                   class = "container-fluid",
-                  shiny::fluidRow(
-                    shiny::column(
-                      width = 3L,
-                      shiny::conditionalPanel(
-                        condition = "input['over_time_tabset_config']%2 == 1",
-                        ns = ns,
+                  shiny::conditionalPanel(
+                    condition = "input['over_time_tabset_config']%2 == 1",
+                    ns = ns,
+                    shiny::fluidRow(
+                      shiny::column(
+                        width = 3L,
                         shiny::selectInput(
                           inputId = ns('over_time_by_condition_switch'),
                           label='Plot type', selected = 'Combine conditions',
                           choices = c('Combine conditions', 'Combine events',
-                                      'Combine all', 'Separate all'),
-                          width = "100%"
+                                      'Combine all', 'Separate all')
+                        )),
+                      shiny::column(offset = 1,
+                        width = 4L,
+                        shiny::sliderInput(
+                          inputId = ns('over_time_by_condition_plot_range'),
+                          label='Plot range', value = c(0,1),
+                          min =0, max=1, step = 0.01, dragRange = TRUE
                         )
                       )
                     )
@@ -545,26 +490,69 @@ module_html <- function(){
 
             # ---- Output tab-set: By Trial ------------------------------------
             ravedash::output_cardset(
-              inputId = ns('by_condition_tabset'),
+              inputId = ns('by_trial_tabset'),
               title='By Trial',
               class_body='no-padding fill-width',
               append_tools = FALSE,
-              tools = list(),
-
-              `By Condition` = shiny::tagList(
-
-                shiny::div(
-                  class = "no-padding fill-width height-400 min-height-400 resize-vertical",
-
-                  ravedash::output_gadget_container(
-                    ravedash::plotOutput2(
-                      outputId = ns('by_trial_by_condition'),
-                      min_height = 400)
+              tools = list(
+                shidashi::card_tool(
+                  widget = "custom", icon = ravedash::shiny_icons$puzzle,
+                  inputId = ns("by_trial_tabset_config")
+                ),
+                shidashi::card_tool(
+                  widget = "custom", icon = ravedash::shiny_icons$camera,
+                  inputId = ns("by_trial_tabset_camera")
+                )
+              ),
+              `By Condition` = shiny::div(
+                id='makeinline',
+                style='margin-left:20px; margin-top: 5px; margin-bottom:5px',
+                shiny::conditionalPanel(
+                  "input['power_explorer-by_trial_tabset_config'] %2 == 1",
+                  shiny::fluidRow(
+                    shiny::column(
+                      width=6,
+                      shiny::selectInput(ns("btp_types"), label = 'Plot types',
+                                         multiple = TRUE,
+                                         choices = c('jitter points', 'means', 'ebar polygons',
+                                                     'points', 'connect points',
+                                                     'densities', 'density polygons',
+                                                     'bars', 'borders', 'ebars'),
+                                         selected=c('jitter points', 'means', 'ebar polygons')
+                      )),
+                    shiny::column(width=2,
+                                  shiny::selectInput(ns("btp_xvar"),
+                                                     "X-axis", choices=c('First Factor',
+                                                                         'Analysis Group'))
+                    ),
+                    shiny::column(width=2,
+                                  shiny::selectInput(ns("btp_gvar"),
+                                                     "Group by", choices=c('Analysis Group', 'First Factor')),
+                    ),
+                    shiny::column(width=2,
+                                  shiny::selectInput(ns("btp_panelvar"),
+                                                     "Panel by", choices=c('none', 'Analysis Group',
+                                                                           'First Factor'))
+                    ),
+                  ),
+                  shiny::fluidRow(
+                    shiny::column(width=3,
+                                  shiny::numericInput(ns('btp_pt.alpha'), 'Point alpha (opacity)', value = 100, min=0, max=100)
+                    ),
+                    shiny::column(width=3,
+                                  shiny::numericInput(ns('btp_pt.cex'), 'Point scaling', value = 1, min=0.1, max=10, step = .1)
+                    )
                   )
 
+                ),
+                # shiny::plotOutput(ns('by_trial_by_condition'))
+                ravedash::plotOutput2(ns('by_trial_by_condition'),
+                                      click = ns('btbc_click'),
+                                      # dblClick=ns('btbc_dblclick'),
+                                      hover=ns('btbc_hover')
                 )
-
               )
+
             )
 
             #   `card with flip` = shidashi::flip_box(

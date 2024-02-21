@@ -8,6 +8,14 @@ pipeline <- raveio::pipeline(
   pipeline_name = "power_explorer",
   paths = "./modules")
 
+
+# get_my_preference <- raveio::use_global_preferences(
+#   name = "ravebuiltins", # <- give it a name just for your global prefs
+#   item1 = "A", ... # <- default items
+# )
+# get_my_preference("item1", "default is not found")
+#
+
 # analysis_lock_choices <- c("Unlocked", "Lock frequency", "Lock time")
 # max_analysis_ranges <- 2
 # gray_label_color <- "#c8c9ca"

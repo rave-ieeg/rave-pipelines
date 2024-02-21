@@ -1,12 +1,25 @@
-controllers: []
-data_source: Uploads
-data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
-data_source_pipeline_target: omnibus_results
-data_source_project: demo
-main_camera: []
-project_name: demo
-shiny_outputId: custom_3d_viewer-viewer_ready
-subject_code: YAB
-surface_types: ~
+uploaded_source: '[New Uploads]'
 template_ok: no
-uploaded_source: YAB_demo_export-20210525-072121.fst
+surface_types: ~
+subject_code: DemoSubject
+shiny_outputId: custom_3d_viewer-viewer_ready
+project_name: demo
+main_camera:
+  target:
+    x: 500
+    'y': 0
+    z: 0
+  position:
+  - 500.0
+  - 0.0
+  - 0.0
+  up:
+  - 0.0
+  - 0.0
+  - 1.0
+  zoom: 1.0
+data_source_project: demo
+data_source_pipeline_target: omnibus_results
+data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
+data_source: Uploads
+controllers: []
