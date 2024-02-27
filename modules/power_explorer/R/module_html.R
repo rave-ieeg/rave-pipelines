@@ -320,6 +320,8 @@ module_html <- function(){
                         shiny::selectInput(
                           inputId = ns('pes_label_type'),
                           label = 'Label type',
+                          multiple = TRUE,
+                          selected='number',
                           choices = c('number', 'name', 'color', 'showcase')
                         )
                       ),
@@ -541,6 +543,9 @@ module_html <- function(){
                     ),
                     shiny::column(width=3,
                                   shiny::numericInput(ns('btp_pt.cex'), 'Point scaling', value = 1, min=0.1, max=10, step = .1)
+                    ),
+                    shiny::column(width=3,
+                                  shiny::numericInput(ns('scale_pbtbc'), 'Plot width scaling', value = 1, min=0.1, max=10, step = .1)
                     )
                   )
 

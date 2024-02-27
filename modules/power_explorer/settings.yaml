@@ -6,10 +6,19 @@ analysis_settings:
     event: AudStart
     time:
     - 0
-    - 0.55
+    - 0.6
     frequency:
     - 70
-    - 152
+    - 150
+  '2':
+    label: TrialStart
+    event: newVisStart
+    time:
+    - 0
+    - 0.5
+    frequency:
+    - 70
+    - 150
 custom_roi_groupings:
   '1':
     label: ''
@@ -18,37 +27,42 @@ custom_roi_variable: none
 custom_roi_type: Filter only
 enable_custom_ROI: no
 condition_variable: Condition
-enable_second_condition_groupings: no
+enable_second_condition_groupings: yes
 second_condition_groupings:
   '1':
-    label: Ac
+    label: LowIntell
     conditions:
-    - Ac_UNK
-    - Ac_(0.8,0.9]
-    - Ac_(0.9,1]
+    - AnV_c0_2
+    - AcV_c0_2
+    - AnV_c2_4
+    - AcV_c2_4
+    - AnV_c4_6
+    - AcV_c4_6
   '2':
-    label: AV
+    label: HighIntell
     conditions:
-    - AcV_UNK
-    - AcV_(0.9,1]
-    - AcV_(0.8,0.9]
+    - AnV_c6_8
+    - AnV_c8_1
+    - AcV_c8_1
+    - AcV_c6_8
 first_condition_groupings:
   '1':
-    label: Acc_UNK
+    label: Noisy
     conditions:
-    - AcV_UNK
+    - AnV_c0_2
+    - AnV_c2_4
+    - AnV_c4_6
+    - AnV_c6_8
+    - AnV_c8_1
   '2':
-    label: Acc_81
+    label: Clear
     conditions:
-    - AcV_(0.9,1]
-    - AcV_(0.8,0.9]
-  '3':
-    label: Acc_47
-    conditions:
-    - AcV_(0.4,0.5]
-    - AcV_(0.5,0.6]
-    - AcV_(0.6,0.7]
-analysis_electrodes: 33-35,39-49,85-90,92,94-104,170-174,177-178
+    - AcV_c0_2
+    - AcV_c2_4
+    - AcV_c4_6
+    - AcV_c6_8
+    - AcV_c8_1
+analysis_electrodes: '34'
 baseline_settings:
   window:
   - - -0.5
@@ -58,7 +72,7 @@ baseline_settings:
 reference_name: bipolar
 epoch_choice__trial_ends: 3
 epoch_choice__trial_starts: -1
-epoch_choice: YEU_with_acc_Feb16
+epoch_choice: Acc_UTO_YEU_intelligibility_ALL_voao
 loaded_electrodes: 33-51,85-106,170-181
 subject_code: YEU
 project_name: mTurkWords
@@ -68,9 +82,9 @@ time_censor:
   - 0.0
   - 1.0
 trial_outliers_list: ~
-electrode_export_file_type: HDF5
+electrode_export_file_type: Compressed CSV
 frequencies_to_export: Collapsed, Analysis window(s) only
 times_to_export: Raw, All available times
-trials_to_export: Raw, Only trials used in grouping factors
-electrodes_to_export: ''
-electrode_export_data_type: tensor
+trials_to_export: Raw, All available trials
+electrodes_to_export: 33-35,41-47,85-90,95-103,170-173
+electrode_export_data_type: flat

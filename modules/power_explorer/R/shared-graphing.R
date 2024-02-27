@@ -1302,7 +1302,7 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
 
 plot_per_electrode_statistics <- function(stats, requested_stat, show0=c('smart', 'auto', 'always'),
                                           which_plots=c('all', 'm', 't', 'p'), draw_threshold = NULL,
-                                          label_electrodes = NULL, label_type=c('number', 'name', 'color', 'showcase')) {
+                                          label_electrodes = NULL, label_type='number') {
 
   if(missing(requested_stat) || is.null(requested_stat) || nchar(requested_stat) == 0) {
     requested_stat = 'overall'
@@ -1313,20 +1313,31 @@ plot_per_electrode_statistics <- function(stats, requested_stat, show0=c('smart'
   theme <- ravedash::current_shiny_theme()
   par('bg'=theme$background, 'fg'=theme$foreground, 'col'=theme$foreground)
 
-  electrode_numbers <- as.integer(colnames(stats))
 
-  ### the first thing to check is if we are in 'showcase' mode
-  # if so, then chop off electrodes from the stats block
   which_to_label = integer(0)
+  electrode_numbers <- as.integer(colnames(stats))
   if(!is.null(label_electrodes)) {
     which_to_label = which(electrode_numbers %in% label_electrodes)
   }
 
-  label_type = match.arg(label_type)
+  label_type = match.arg(label_type,
+                         choices = c('number', 'name', 'color', 'showcase', 'size'),
+                         several.ok = TRUE)
 
-  if(length(which_to_label) > 0 && label_type == 'showcase') {
+  electrode_names <- electrode_numbers
+
+  if('electrode_labels' %in% names(attributes(stats))) {
+    electrode_names <- attr(stats, 'electrode_labels')
+  }
+
+  # the first thing to check is if we are in 'showcase' mode
+  # if so, then chop off electrodes from the stats block
+  if(length(which_to_label) > 0 && 'showcase' %in% label_type) {
+    # this drops attributes which means we lose electrode labels
     stats = stats[,which_to_label,drop=FALSE]
     electrode_numbers <- as.integer(colnames(stats))
+    electrode_names <- electrode_names[which_to_label]
+    which_to_label <- seq_len(ncol(stats))
   }
 
   show0 = match.arg(show0)
@@ -1439,23 +1450,31 @@ plot_per_electrode_statistics <- function(stats, requested_stat, show0=c('smart'
     )
 
     if(length(which_to_label) > 0) {
-      if(label_type == 'number') {
+      if('number' %in% label_type) {
         text(.x[which_to_label], yy[which_to_label], labels=electrode_numbers[which_to_label],
              pos=ifelse(yy[which_to_label]<0, 1, 3), font=2, xpd=TRUE,
              cex = pe_graphics_settings_cache$get('rave_cex.lab'),
              xpd=TRUE)
 
-      } else if (label_type == 'color') {
+      }
+      if ('color' %in% label_type) {
         # plotting at 1.01 to make sure we cover existing circle
-        points(.x[which_to_label], yy[which_to_label], col=pe_graphics_settings_cache$get('champions_tunic'), pch=19, cex=1.01)
-      } else if(label_type == 'name') {
-        electrode_names = electrode_numbers
+        points(.x[which_to_label], yy[which_to_label],
+               col=pe_graphics_settings_cache$get('champions_tunic'),
+               pch=19, cex=1.01)
+      }
+      if('name' %in% label_type) {
 
-        if('electrode_labels' %in% names(attributes(stats))) {
-          electrode_names = attr(stats, 'electrode_labels')
+        # if we are also plotting the numbers, then we want to move the names
+        # farther from the point
+        delta = if('number' %in% label_type) {
+          1.4 * strheight("1", font=2) * sign(yy[which_to_label])
+        } else {
+          0
         }
 
-        text(.x[which_to_label], yy[which_to_label], labels=electrode_names[which_to_label],
+        text(.x[which_to_label], delta+yy[which_to_label],
+             labels=electrode_names[which_to_label],
              pos=ifelse(yy[which_to_label]<0, 1, 3), font=2, xpd=TRUE,
              cex = pe_graphics_settings_cache$get('rave_cex.lab'),
              xpd=TRUE)
@@ -2109,9 +2128,9 @@ plot_by_frequency_over_time <- function(by_frequency_over_time_data) {
   )
 }
 
-plot_by_trial_by_condition <- function(by_trial_by_condition_data, grouped_plot_options, ylab='') {
+plot_by_trial_by_condition <- function(by_trial_by_condition_data,
+                                       grouped_plot_options, ylab='') {
   apply_current_theme()
-
   po <- grouped_plot_options
 
   # based on shiny input, change xvar/yvar
@@ -2126,8 +2145,12 @@ plot_by_trial_by_condition <- function(by_trial_by_condition_data, grouped_plot_
   }
 
   MAX = 30
-  layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(min(k, MAX)),1))
+  ravedash::logger(po$plot_width_scale)
+  layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(po$plot_width_scale*min(k, MAX)),1))
   oom <- get_order_of_magnitude(median(abs(pretty(by_trial_by_condition_data$y))))
+
+  # remove plot_width scale so it doesn't mes things up later
+  po$plot_width_scale = NULL
 
   line = 2.75 + oom
 

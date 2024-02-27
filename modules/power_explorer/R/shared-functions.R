@@ -159,7 +159,7 @@ get_pluriform_power <- function(
   # event_of_interest = 'Lag_1'
   if(event_of_interest != epoch_event_types[1]) {
     # stop("shifting data not supported yet!")
-    ravedash::logger('Shifting data to: ' %&% event_of_interest)
+    ravedash::logger('Shifting data to: ' %&% event_of_interest, level='debug')
 
     event_of_interest = paste0('Event_', event_of_interest)
     event_offsets = events[[event_of_interest]][ti] - events$Time[ti]
@@ -171,7 +171,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+    # ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
 
     shift_amount = determine_relative_shift_amount(
       event_time = event_offsets,
@@ -180,7 +180,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    ravedash::logger('dispaus::shift')
+    # ravedash::logger('dispaus::shift')
 
     stopifnot('Trial' == names(dimnames(res$data))[3])
     stopifnot('Time' == names(dimnames(res$data))[2])
@@ -203,10 +203,10 @@ get_pluriform_power <- function(
     dimnames(res$shifted_data)$Time = new_time[new_time %within% new_range]
 
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
-    ravedash::logger('updating events file')
+    # ravedash::logger('updating events file')
     nms <- paste0('Event_', epoch_event_types[-1])
     events[nms] <- events[nms] - events[[event_of_interest]]
-    ravedash::logger('done with shifting')
+    ravedash::logger('done with shifting', level='debug')
   }
 
   # handle outliers
@@ -717,9 +717,11 @@ data_builder <- function(pluriform_power, condition_groups, baseline_settings,
                          BUILDER_FUN, data_type='shifted_clean_data_Fsub') {
 
   tmp <- mapply(function(pp, cg) {
+    # pp = pluriform_power[[1]]
+    # cg = condition_groups[[1]]
     # power are nested within analysis groups
     sapply(pp, function(ppa) {
-
+      # ppa = pp[[1]]
       res <- BUILDER_FUN(data=ppa$data[[data_type]],
                   analysis_settings=ppa$settings,
                   condition_group = cg,
@@ -793,7 +795,7 @@ trial_export_types <- function() {
     list(
       'CLP_CND' = 'Collapsed by condition column',
       'CLP_GRP' = 'Collapsed by grouping factors',
-      'RAW_GRP' = 'Raw, Conditions used in grouping factors',
+      'RAW_GRP' = 'Raw, Only trials used in grouping factors',
       'RAW_ALL' = 'Raw, All available trials')
   )
 }

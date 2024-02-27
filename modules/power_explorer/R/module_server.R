@@ -8,6 +8,7 @@ module_server <- function(input, output, session, ...){
     update_3dviewer = NULL,
     update_by_trial_plot = NULL,
     update_over_time_plot = NULL,
+    update_plot_by_trial_by_condition=NULL,
     current_analysis_settings=NULL,
     per_electrode_statistics_chooser=NULL,
     pes_electrode_hover=NULL,
@@ -41,7 +42,8 @@ module_server <- function(input, output, session, ...){
     'panelvar' = 'none',
     'plot_options' = list('pt.alpha' = 100, 'pt.cex' = 1),
     'types' = c('jitter points', 'means', 'ebar polygons'),
-    'jitter_seed' = Sys.time()
+    'jitter_seed' = Sys.time(),
+    'plot_width_scale' = 1
   )
 
   # this is used to get ROI variables
@@ -62,7 +64,7 @@ module_server <- function(input, output, session, ...){
 
   ### function to analyze data
   run_analysis <- function(trigger_3dviewer=TRUE, force_settings=list(),
-                           progress, ...) {
+                           progress, ..., extra_names=c()) {
     if(missing(progress)) {
       progress = shidashi::shiny_progress("Running analysis", max=4)
     }
@@ -80,6 +82,8 @@ module_server <- function(input, output, session, ...){
     #   "electrode_text"
     # ))
     settings <- dipsaus::fastmap2()
+
+
 
     if ('electrode_text' %in% names(force_settings)) {
       settings$analysis_electrodes = paste0(force_settings$electrode_text)
@@ -136,7 +140,6 @@ module_server <- function(input, output, session, ...){
 
     progress$inc("Starting pipeline [main loop]")
 
-
     # in the initial run we're just checking the settings and
     # doing the baseline
     results <- pipeline$run(
@@ -153,7 +156,7 @@ module_server <- function(input, output, session, ...){
         'baseline_settings',
         'baselined_power',
         'analysis_groups',
-        'pluriform_power'
+        'pluriform_power', extra_names
       )
     )
 
@@ -1034,6 +1037,15 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
+      local_data$grouped_plot_options$plot_width_scale = input$scale_pbtbc
+
+      local_reactives$update_plot_by_trial_by_condition = Sys.time()
+
+    }), input$scale_pbtbc, ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
 
       set_currently_active_heatmap( input$gpo_heatmap_palette )
       local_reactives$update_heatmap_plots = Sys.time()
@@ -1202,13 +1214,13 @@ module_server <- function(input, output, session, ...){
         electrodes_to_export_roi_categories = input$electrodes_to_export_roi_categories
       )
 
-      run_analysis(
-        trigger_3dviewer = FALSE,
+      run_analysis(extra_names = "data_for_export",
+        trigger_3dviewer = TRUE,
         force_settings = list(electrode_text=input$electrodes_to_export)
       )
 
       # make sure this is available for export later
-      env <- pipeline$eval('data_for_export', shortcut=TRUE)
+      env <- pipeline$eval('data_for_export', shortcut=FALSE)
       dfe <- env$data_for_export
 
       kv <- list(
@@ -1344,7 +1356,8 @@ module_server <- function(input, output, session, ...){
                               'Compressed CSV' = function() {
 
                                 tf <- ravedash::temp_file(
-                                  pattern = paste0('data_export_', format(Sys.time(), "%b_%d_%Y_%H_%M")),
+                                  pattern = paste0(stringr::str_replace_all(repository$subject$subject_id, '/', '_'),
+                                                   'data_export_', format(Sys.time(), "%b_%d_%Y_%H_%M")),
                                   fileext = '.csv'
                                 )
                                 data.table::fwrite(data_to_write, file=tf)
@@ -1533,6 +1546,8 @@ module_server <- function(input, output, session, ...){
 
       force(local_reactives$update_by_trial_plot)
       force(local_reactives$update_line_plots)
+
+      force(local_reactives$update_plot_by_trial_by_condition)
 
       plot_by_trial_by_condition(
         local_data$results$by_trial_by_condition_data,
