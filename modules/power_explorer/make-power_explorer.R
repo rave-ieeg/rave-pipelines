@@ -577,18 +577,19 @@ rm(._._env_._.)
                 epoch_event_types = get_available_events(repository$epoch$columns)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
-                pluriform_power <- sapply(analysis_groups, function(ag) {
-                  ravedash::logger(level = "debug", "working on:", 
-                    ag$label, "data", .sep = " ")
-                  sapply(analysis_settings_clean, function(as) {
-                    p <- get_pluriform_power(baselined_data = baselined_power_data, 
-                      trial_indices = ag$trials, events = repository$epoch$table, 
-                      epoch_event_types = epoch_event_types, 
-                      trial_outliers_list = unlist(trial_outliers_list), 
-                      event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
-                    list(data = p, settings = as, outliers = trial_outliers_list)
-                  }, simplify = FALSE, USE.NAMES = TRUE)
-                }, simplify = FALSE, USE.NAMES = TRUE)
+                pluriform_power <- raveio::lapply_async(analysis_groups, 
+                  callback = function(x) {
+                    paste("working on:", x$label, "data")
+                  }, FUN = function(ag) {
+                    sapply(analysis_settings_clean, function(as) {
+                      p <- get_pluriform_power(baselined_data = baselined_power_data, 
+                        trial_indices = ag$trials, events = repository$epoch$table, 
+                        epoch_event_types = epoch_event_types, 
+                        trial_outliers_list = unlist(trial_outliers_list), 
+                        event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
+                      list(data = p, settings = as, outliers = trial_outliers_list)
+                    }, simplify = FALSE, USE.NAMES = TRUE)
+                  })
                 for (gg in seq_along(pluriform_power)) {
                   for (aa in seq_along(pluriform_power[[gg]])) {
                     fi <- as.numeric(dimnames(pluriform_power[[gg]][[aa]]$data$shifted_data)$Frequency) %within% 
@@ -613,10 +614,10 @@ rm(._._env_._.)
                   epoch_event_types = get_available_events(repository$epoch$columns)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
-                  pluriform_power <- sapply(analysis_groups, 
-                    function(ag) {
-                      ravedash::logger(level = "debug", "working on:", 
-                        ag$label, "data", .sep = " ")
+                  pluriform_power <- raveio::lapply_async(analysis_groups, 
+                    callback = function(x) {
+                      paste("working on:", x$label, "data")
+                    }, FUN = function(ag) {
                       sapply(analysis_settings_clean, function(as) {
                         p <- get_pluriform_power(baselined_data = baselined_power_data, 
                           trial_indices = ag$trials, events = repository$epoch$table, 
@@ -625,7 +626,7 @@ rm(._._env_._.)
                           event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
                         list(data = p, settings = as, outliers = trial_outliers_list)
                       }, simplify = FALSE, USE.NAMES = TRUE)
-                    }, simplify = FALSE, USE.NAMES = TRUE)
+                    })
                   for (gg in seq_along(pluriform_power)) {
                     for (aa in seq_along(pluriform_power[[gg]])) {
                       fi <- as.numeric(dimnames(pluriform_power[[gg]][[aa]]$data$shifted_data)$Frequency) %within% 
@@ -1195,8 +1196,10 @@ rm(._._env_._.)
                   }
                   return(r1)
                 }
-                by_condition_group <- lapply(analysis_groups[non_empty_groups], 
-                  function(ag) {
+                by_condition_group <- raveio::lapply_async(analysis_groups, 
+                  callback = function(x) {
+                    paste("working on:", x$label, "data")
+                  }, FUN = function(ag) {
                     res <- lapply(analysis_settings_clean, function(as) {
                       fi <- repository$frequency %within% as$frequency
                       p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
@@ -1274,8 +1277,10 @@ rm(._._env_._.)
                     }
                     return(r1)
                   }
-                  by_condition_group <- lapply(analysis_groups[non_empty_groups], 
-                    function(ag) {
+                  by_condition_group <- raveio::lapply_async(analysis_groups, 
+                    callback = function(x) {
+                      paste("working on:", x$label, "data")
+                    }, FUN = function(ag) {
                       res <- lapply(analysis_settings_clean, 
                         function(as) {
                           fi <- repository$frequency %within% 
@@ -1744,12 +1749,8 @@ rm(._._env_._.)
                 data_for_export = FALSE
                 electrodes_to_keep <- dipsaus::parse_svec(electrodes_to_export, 
                   sep = ",|;", connect = ":-")
-                ravedash::logger("1033::Electrodes to keep:[", 
-                  electrodes_to_keep, "]", level = "warning")
                 electrodes_to_keep %<>% remove_from_arr(repository$power$dimnames$Electrode, 
                   `%in%`, negate = TRUE)
-                ravedash::logger("1033::Electrodes to keep, clean:[", 
-                  electrodes_to_keep, "]", level = "warning")
                 if (electrodes_to_export_roi_name != "none") {
                   v = if (electrodes_to_export_roi_name == "Custom ROI") {
                   } else {
@@ -1763,9 +1764,6 @@ rm(._._env_._.)
                 }
                 if (!length(electrodes_to_keep)) {
                   stop("No electrodes were found passing all selection criteria")
-                } else {
-                  ravedash::logger("Electrodes to keep:", dipsaus::deparse_svec(electrodes_to_keep), 
-                    level = "warning")
                 }
                 prog$inc("Baseline data [export loop]")
                 raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
@@ -1808,6 +1806,7 @@ rm(._._env_._.)
                   attr_TrialLabel = subset(repository$epoch$table, 
                     Trial %in% dn$Trial, select = c("Trial", 
                       condition_variable)) %>% data.table::setorder("Trial")
+                  attr_TrialLabel$OrigCondition = attr_TrialLabel[[condition_variable]]
                   for (ag in which_have_trials(analysis_groups)) {
                     ind = attr_TrialLabel$Trial %in% analysis_groups[[ag]]$trials
                     attr_TrialLabel$Condition[ind] = names(analysis_groups)[ag]
@@ -1846,6 +1845,7 @@ rm(._._env_._.)
                   if (length(attr_TrialLabel$Condition) == length(dn$Trial) && 
                     all(0 == (dn$Trial - attr_TrialLabel$Trial))) {
                     attr(shifted_tensor, "TrialLabel") = attr_TrialLabel$Condition
+                    attr(shifted_tensor, "OrigTrialLabel") = attr_TrialLabel$OrigCondition
                   } else {
                     ravedash::logger(level = "warning", "Could not apply trial labels. Length mismatch between labels (", 
                       nrow(attr_TrialLabel), ") and  trials (", 
@@ -1869,6 +1869,7 @@ rm(._._env_._.)
                     res$baseline_scope = baseline_settings$scope[[1]]
                     if (!is.null(attributes(tensor)[["TrialLabel"]])) {
                       res$TrialLabel = attr(tensor, "TrialLabel")
+                      res$OrigTrialLabel = attr(tensor, "OrigTrialLabel")
                     }
                     return(res)
                   }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
@@ -1883,11 +1884,14 @@ rm(._._env_._.)
                     if (!is.null(attributes(tensor)[["TrialLabel"]])) {
                       trials <- as.numeric(dimnames(tensor)$Trial)
                       lbls <- attributes(tensor)[["TrialLabel"]]
+                      og_lbls <- attributes(tensor)[["OrigTrialLabel"]]
                       tbl$TrialLabel = paste0(tbl$Trial)
                       for (tt in unique(tbl$Trial)) {
                         if (!paste0(tt) %in% lbls) {
                           ind = which(tbl$Trial == tt)
                           tbl$TrialLabel[ind] = lbls[which(tt == 
+                            trials)]
+                          tbl$OrigTrialLabel[ind] = og_lbls[which(tt == 
                             trials)]
                         }
                       }
@@ -1903,6 +1907,11 @@ rm(._._env_._.)
                     }
                     x
                   }) %>% as.data.frame
+                  all_elecs <- as.integer(unique(sapply(tensors, 
+                    function(tn) dimnames(tn)$Electrode)))
+                  et <- subset(repository$electrode_table, Electrode %in% 
+                    all_elecs)
+                  flat_tables %<>% merge(et)
                   data_for_export = list(type = "flat_data", 
                     data_names = "all_data", all_data = list(data = flat_tables), 
                     metadata = list(unit = uoa, baseline_window = paste0(collapse = ":", 
@@ -1932,12 +1941,8 @@ rm(._._env_._.)
                   data_for_export = FALSE
                   electrodes_to_keep <- dipsaus::parse_svec(electrodes_to_export, 
                     sep = ",|;", connect = ":-")
-                  ravedash::logger("1033::Electrodes to keep:[", 
-                    electrodes_to_keep, "]", level = "warning")
                   electrodes_to_keep %<>% remove_from_arr(repository$power$dimnames$Electrode, 
                     `%in%`, negate = TRUE)
-                  ravedash::logger("1033::Electrodes to keep, clean:[", 
-                    electrodes_to_keep, "]", level = "warning")
                   if (electrodes_to_export_roi_name != "none") {
                     v = if (electrodes_to_export_roi_name == 
                       "Custom ROI") {
@@ -1952,9 +1957,6 @@ rm(._._env_._.)
                   }
                   if (!length(electrodes_to_keep)) {
                     stop("No electrodes were found passing all selection criteria")
-                  } else {
-                    ravedash::logger("Electrodes to keep:", dipsaus::deparse_svec(electrodes_to_keep), 
-                      level = "warning")
                   }
                   prog$inc("Baseline data [export loop]")
                   raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
@@ -1998,6 +2000,7 @@ rm(._._env_._.)
                       attr_TrialLabel = subset(repository$epoch$table, 
                         Trial %in% dn$Trial, select = c("Trial", 
                           condition_variable)) %>% data.table::setorder("Trial")
+                      attr_TrialLabel$OrigCondition = attr_TrialLabel[[condition_variable]]
                       for (ag in which_have_trials(analysis_groups)) {
                         ind = attr_TrialLabel$Trial %in% analysis_groups[[ag]]$trials
                         attr_TrialLabel$Condition[ind] = names(analysis_groups)[ag]
@@ -2039,6 +2042,7 @@ rm(._._env_._.)
                         length(dn$Trial) && all(0 == (dn$Trial - 
                         attr_TrialLabel$Trial))) {
                         attr(shifted_tensor, "TrialLabel") = attr_TrialLabel$Condition
+                        attr(shifted_tensor, "OrigTrialLabel") = attr_TrialLabel$OrigCondition
                       } else {
                         ravedash::logger(level = "warning", "Could not apply trial labels. Length mismatch between labels (", 
                           nrow(attr_TrialLabel), ") and  trials (", 
@@ -2063,6 +2067,7 @@ rm(._._env_._.)
                       res$baseline_scope = baseline_settings$scope[[1]]
                       if (!is.null(attributes(tensor)[["TrialLabel"]])) {
                         res$TrialLabel = attr(tensor, "TrialLabel")
+                        res$OrigTrialLabel = attr(tensor, "OrigTrialLabel")
                       }
                       return(res)
                     }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
@@ -2077,11 +2082,14 @@ rm(._._env_._.)
                       if (!is.null(attributes(tensor)[["TrialLabel"]])) {
                         trials <- as.numeric(dimnames(tensor)$Trial)
                         lbls <- attributes(tensor)[["TrialLabel"]]
+                        og_lbls <- attributes(tensor)[["OrigTrialLabel"]]
                         tbl$TrialLabel = paste0(tbl$Trial)
                         for (tt in unique(tbl$Trial)) {
                           if (!paste0(tt) %in% lbls) {
                             ind = which(tbl$Trial == tt)
                             tbl$TrialLabel[ind] = lbls[which(tt == 
+                              trials)]
+                            tbl$OrigTrialLabel[ind] = og_lbls[which(tt == 
                               trials)]
                           }
                         }
@@ -2097,6 +2105,11 @@ rm(._._env_._.)
                       }
                       x
                     }) %>% as.data.frame
+                    all_elecs <- as.integer(unique(sapply(tensors, 
+                      function(tn) dimnames(tn)$Electrode)))
+                    et <- subset(repository$electrode_table, 
+                      Electrode %in% all_elecs)
+                    flat_tables %<>% merge(et)
                     data_for_export = list(type = "flat_data", 
                       data_names = "all_data", all_data = list(data = flat_tables), 
                       metadata = list(unit = uoa, baseline_window = paste0(collapse = ":", 

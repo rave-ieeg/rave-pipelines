@@ -279,25 +279,30 @@ epoch_event_types = get_available_events(repository$epoch$columns)
 baselined_power_data <- subset(baselined_power,
                                Electrode ~ Electrode %in% requested_electrodes)
 
-pluriform_power <- sapply(analysis_groups, function(ag) {
-  ravedash::logger(level='debug', 
-                   'working on:', ag$label, 'data', .sep = ' ')
+
+pluriform_power <- raveio::lapply_async(
+  analysis_groups,
+  callback = function(x) {
+    paste('working on:', x$label, 'data')
+  }, 
   
-  # ag <- analysis_groups[[1]]
-  sapply(analysis_settings_clean, function(as) {
-    # as <- analysis_settings_clean[[1]]
-    p <- get_pluriform_power(
-      baselined_data=baselined_power_data,
-      trial_indices = ag$trials,
-      events = repository$epoch$table,
-      epoch_event_types = epoch_event_types,
-      trial_outliers_list=unlist(trial_outliers_list),
-      event_of_interest = as$event,
-      sample_rate = repository$subject$power_sample_rate
-    )
-    list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list)
-  }, simplify = FALSE, USE.NAMES = TRUE)
-}, simplify = FALSE, USE.NAMES = TRUE)
+  FUN = function(ag) {
+    # for each analysis group, run through each analysis setting
+    sapply(analysis_settings_clean, function(as) {
+      # as <- analysis_settings_clean[[1]]
+      p <- get_pluriform_power(
+        baselined_data=baselined_power_data,
+        trial_indices = ag$trials,
+        events = repository$epoch$table,
+        epoch_event_types = epoch_event_types,
+        trial_outliers_list=unlist(trial_outliers_list),
+        event_of_interest = as$event,
+        sample_rate = repository$subject$power_sample_rate
+      )
+      list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list)
+    }, simplify = FALSE, USE.NAMES = TRUE)
+  })
+
 
 # now create frequency-subsetted versions of the data
 for(gg in seq_along(pluriform_power)) {
@@ -690,64 +695,69 @@ combine_if_equal <- function(ll, nms = c('Electrode', 'Time')) {
   return(r1)
 }
 
-by_condition_group <-
-  lapply(analysis_groups[non_empty_groups],
-         function(ag) {
-           res <- lapply(analysis_settings_clean, function(as) {
-             # as = analysis_settings_clean[[1]]
-             # freq needed
-             fi <- repository$frequency %within% as$frequency
-             
-             # shift the data and subset on trials/freq
-             p <- get_pluriform_power(
-               baselined_data=repository$power$baselined[fi,,,,drop=FALSE],
-               trial_indices = ag$trials, events = repository$epoch$table,
-               epoch_event_types = get_available_events(repository$epoch$columns), trial_outliers_list=unlist(trial_outliers_list),
-               event_of_interest = as$event, final_data_only=TRUE,
-               sample_rate = repository$subject$power_sample_rate
-             )
-             
-             # make sure dimensions are what we think they are
-             stopifnot(
-               names(dimnames(p)) == c('Frequency', 'Time', 'Trial', 'Electrode')
-             )
-             
-             enames = as.integer(dimnames(p)$Electrode)
-             times = as.numeric(dimnames(p)$Time)
-             
-             m <- ravetools::collapse(p[drop=FALSE], keep = c(4,2))
-             
-             df <- data.frame(
-               reshape2::melt(m,
-                              value.name=paste(sep='_', as$label, ag$label))
-             )
-             # head(df)
-             names(df)[1:2] = c('Electrode', 'Time')
-             df$Electrode = enames[df$Electrode]
-             df$Time = times[df$Time]
-             
-             return(df)
-           })
-           
-           # combine if everything lines up
-           # if you have different events with different windows, things will not line up
-           # combine_if_equal(res)
-           
-           
-           # just merge them? 
-           if(length(res) == 1) {
-             return(res[[1]])
-           }
-           
-           merged_res <- res[[1]]
-           
-           for(ri in seq_along(res)[-1]) {
-             merged_res = merge(merged_res, res[[ri]], all=TRUE)
-           }
-           return(merged_res)
-         
-           }
-  )
+
+by_condition_group <- raveio::lapply_async(
+  analysis_groups,
+  callback = function(x) {
+    paste('working on:', x$label, 'data')
+  }, 
+  # lapply(analysis_groups[non_empty_groups],
+  FUN = function(ag) {
+    res <- lapply(analysis_settings_clean, function(as) {
+      # as = analysis_settings_clean[[1]]
+      # freq needed
+      fi <- repository$frequency %within% as$frequency
+      
+      # shift the data and subset on trials/freq
+      p <- get_pluriform_power(
+        baselined_data=repository$power$baselined[fi,,,,drop=FALSE],
+        trial_indices = ag$trials, events = repository$epoch$table,
+        epoch_event_types = get_available_events(repository$epoch$columns), trial_outliers_list=unlist(trial_outliers_list),
+        event_of_interest = as$event, final_data_only=TRUE,
+        sample_rate = repository$subject$power_sample_rate
+      )
+      
+      # make sure dimensions are what we think they are
+      stopifnot(
+        names(dimnames(p)) == c('Frequency', 'Time', 'Trial', 'Electrode')
+      )
+      
+      enames = as.integer(dimnames(p)$Electrode)
+      times = as.numeric(dimnames(p)$Time)
+      
+      m <- ravetools::collapse(p[drop=FALSE], keep = c(4,2))
+      
+      df <- data.frame(
+        reshape2::melt(m,
+                       value.name=paste(sep='_', as$label, ag$label))
+      )
+      # head(df)
+      names(df)[1:2] = c('Electrode', 'Time')
+      df$Electrode = enames[df$Electrode]
+      df$Time = times[df$Time]
+      
+      return(df)
+    })
+    
+    # combine if everything lines up
+    # if you have different events with different windows, things will not line up
+    # combine_if_equal(res)
+    
+    
+    # just merge them? 
+    if(length(res) == 1) {
+      return(res[[1]])
+    }
+    
+    merged_res <- res[[1]]
+    
+    for(ri in seq_along(res)[-1]) {
+      merged_res = merge(merged_res, res[[ri]], all=TRUE)
+    }
+    return(merged_res)
+    
+  }
+)
 
 #merge the resulting datasets
 over_time_by_electrode_dataframe <- by_condition_group[[1]]
@@ -812,7 +822,7 @@ over_time_by_trial_data <- data_builder(
 ```
 
 ```{rave build_omnibus_results, language="R", export="omnibus_results"}
-# 
+
 # first baseline all the electrodes
 raveio::power_baseline(
   repository,
