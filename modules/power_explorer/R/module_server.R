@@ -1356,8 +1356,7 @@ module_server <- function(input, output, session, ...){
                               'Compressed CSV' = function() {
 
                                 tf <- ravedash::temp_file(
-                                  pattern = paste0(stringr::str_replace_all(repository$subject$subject_id, '/', '_'),
-                                                   'data_export_', format(Sys.time(), "%b_%d_%Y_%H_%M")),
+                                  pattern = paste0('data_export_', format(Sys.time(), "%b_%d_%Y_%H_%M")),
                                   fileext = '.csv'
                                 )
                                 data.table::fwrite(data_to_write, file=tf)

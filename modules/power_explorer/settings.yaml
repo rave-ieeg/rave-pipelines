@@ -1,8 +1,61 @@
-electrodes_to_export_roi_categories: ~
-electrodes_to_export_roi_name: none
+electrode_export_data_type: tensor
+electrodes_to_export: ''
+trials_to_export: Raw, Only trials used in grouping factors
+times_to_export: Raw, All available times
+frequencies_to_export: Collapsed, Analysis window(s) only
+electrode_export_file_type: HDF5
+trial_outliers_list: ~
+time_censor:
+  enabled: no
+  window:
+  - 0.0
+  - 1.0
+project_name: mTurkWords
+subject_code: YEU
+loaded_electrodes: 33-34
+epoch_choice: Acc_UTO_YEU_intelligibility_ALL_voao
+epoch_choice__trial_starts: -1
+epoch_choice__trial_ends: 3
+reference_name: bipolar
+baseline_settings:
+  window:
+  - - -0.5
+    - 0.0
+  scope: Per frequency, trial, and electrode
+  unit_of_analysis: '% Change Power'
+analysis_electrodes: '34'
+first_condition_groupings:
+  '1':
+    label: Ac
+    conditions:
+    - Ac_c0_2
+    - Ac_c2_4
+    - Ac_c4_6
+    - Ac_c6_8
+    - Ac_c8_1
+  '2':
+    label: Vo
+    conditions:
+    - Vo
+second_condition_groupings:
+  '1':
+    label: LowIntell
+    conditions: []
+  '2':
+    label: HighIntell
+    conditions: []
+enable_second_condition_groupings: no
+condition_variable: Condition
+enable_custom_ROI: no
+custom_roi_type: Filter only
+custom_roi_variable: none
+custom_roi_groupings:
+  '1':
+    label: ''
+    conditions: []
 analysis_settings:
   '1':
-    label: AudOnset
+    label: AS
     event: AudStart
     time:
     - 0
@@ -10,81 +63,5 @@ analysis_settings:
     frequency:
     - 70
     - 150
-  '2':
-    label: TrialStart
-    event: newVisStart
-    time:
-    - 0
-    - 0.5
-    frequency:
-    - 70
-    - 150
-custom_roi_groupings:
-  '1':
-    label: ''
-    conditions: []
-custom_roi_variable: none
-custom_roi_type: Filter only
-enable_custom_ROI: no
-condition_variable: Condition
-enable_second_condition_groupings: yes
-second_condition_groupings:
-  '1':
-    label: LowIntell
-    conditions:
-    - AnV_c0_2
-    - AcV_c0_2
-    - AnV_c2_4
-    - AcV_c2_4
-    - AnV_c4_6
-    - AcV_c4_6
-  '2':
-    label: HighIntell
-    conditions:
-    - AnV_c6_8
-    - AnV_c8_1
-    - AcV_c8_1
-    - AcV_c6_8
-first_condition_groupings:
-  '1':
-    label: Noisy
-    conditions:
-    - AnV_c0_2
-    - AnV_c2_4
-    - AnV_c4_6
-    - AnV_c6_8
-    - AnV_c8_1
-  '2':
-    label: Clear
-    conditions:
-    - AcV_c0_2
-    - AcV_c2_4
-    - AcV_c4_6
-    - AcV_c6_8
-    - AcV_c8_1
-analysis_electrodes: '34'
-baseline_settings:
-  window:
-  - - -0.5
-    - 0.0
-  scope: Per frequency, trial, and electrode
-  unit_of_analysis: z-score Amplitude
-reference_name: bipolar
-epoch_choice__trial_ends: 3
-epoch_choice__trial_starts: -1
-epoch_choice: Acc_UTO_YEU_intelligibility_ALL_voao
-loaded_electrodes: 33-51,85-106,170-181
-subject_code: YEU
-project_name: mTurkWords
-time_censor:
-  enabled: no
-  window:
-  - 0.0
-  - 1.0
-trial_outliers_list: ~
-electrode_export_file_type: Compressed CSV
-frequencies_to_export: Collapsed, Analysis window(s) only
-times_to_export: Raw, All available times
-trials_to_export: Raw, All available trials
-electrodes_to_export: 33-35,41-47,85-90,95-103,170-173
-electrode_export_data_type: flat
+electrodes_to_export_roi_name: none
+electrodes_to_export_roi_categories: ~

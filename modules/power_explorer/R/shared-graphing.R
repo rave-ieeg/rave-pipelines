@@ -1543,14 +1543,14 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   if(!is.null(raw$is_clean) && any(!raw$is_clean)) {
     # get the aggregate data for plotting means/se
     clean <- raw[raw$is_clean, ]
-    agg <- clean[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), n=.N), keyby=keys]
+    agg <- clean[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), sd=sd(get(yvar)), n=.N), keyby=keys]
 
   } else {
     # if is_clean is null, we need to create it and set them to TRUE.
     raw$is_clean = TRUE
 
     # get the aggregate data for plotting means/se
-    agg <- raw[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), n=.N), keyby=keys]
+    agg <- raw[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), sd=sd(get(yvar)), n=.N), keyby=keys]
   }
 
   # convert y into a matrix for plotting
@@ -1600,6 +1600,10 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
       range(rutabaga::plus_minus(agg$y, agg$se))
     } else {
       range(agg$y)
+    }
+
+    if('sd polygons' %in% types) {
+      tmp_y <- range(rutabaga::plus_minus(agg$y, agg$sd))
     }
 
     if (any(c('points', 'jitter points', 'connect points',
@@ -1835,6 +1839,19 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
         col = long_col[ii], alpha = .3*255)
     }
   }
+
+  if('sd polygons' %in% types) {
+    for(ii in 1:nrow(agg)) {
+      rutabaga::do_poly(
+        rutabaga::plus_minus(x = bars.x[ii], d = r),
+        # bars.x[ii] %>% plus_minus(r),
+        rutabaga::plus_minus(x = agg$y[ii], d = agg$sd[ii]),
+        # y = agg$y[ii] %>% plus_minus(agg$se[ii]),
+        col = long_col[ii], alpha = .3*255)
+    }
+  }
+
+
 
   if ('connect means' %in% types) {
     # I think if we are grouped, then we don't allow the lines to go across the groups

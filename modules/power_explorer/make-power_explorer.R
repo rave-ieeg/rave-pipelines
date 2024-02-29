@@ -1218,7 +1218,15 @@ rm(._._env_._.)
                       df$Time = times[df$Time]
                       return(df)
                     })
-                    combine_if_equal(res)
+                    if (length(res) == 1) {
+                      return(res[[1]])
+                    }
+                    merged_res <- res[[1]]
+                    for (ri in seq_along(res)[-1]) {
+                      merged_res = merge(merged_res, res[[ri]], 
+                        all = TRUE)
+                    }
+                    return(merged_res)
                   })
                 over_time_by_electrode_dataframe <- by_condition_group[[1]]
                 if (length(by_condition_group) > 1) {
@@ -1293,7 +1301,15 @@ rm(._._env_._.)
                           df$Time = times[df$Time]
                           return(df)
                         })
-                      combine_if_equal(res)
+                      if (length(res) == 1) {
+                        return(res[[1]])
+                      }
+                      merged_res <- res[[1]]
+                      for (ri in seq_along(res)[-1]) {
+                        merged_res = merge(merged_res, res[[ri]], 
+                          all = TRUE)
+                      }
+                      return(merged_res)
                     })
                   over_time_by_electrode_dataframe <- by_condition_group[[1]]
                   if (length(by_condition_group) > 1) {

@@ -729,9 +729,24 @@ by_condition_group <-
              return(df)
            })
            
-           # confirm everything lines up
-           combine_if_equal(res)
-         }
+           # combine if everything lines up
+           # if you have different events with different windows, things will not line up
+           # combine_if_equal(res)
+           
+           
+           # just merge them? 
+           if(length(res) == 1) {
+             return(res[[1]])
+           }
+           
+           merged_res <- res[[1]]
+           
+           for(ri in seq_along(res)[-1]) {
+             merged_res = merge(merged_res, res[[ri]], all=TRUE)
+           }
+           return(merged_res)
+         
+           }
   )
 
 #merge the resulting datasets
@@ -1030,12 +1045,8 @@ prog <- shidashi::shiny_progress("Building export data", max=4,
 data_for_export = FALSE
 
 electrodes_to_keep <- dipsaus::parse_svec(electrodes_to_export, sep=',|;', connect  = ':-')
-ravedash::logger("1033::Electrodes to keep:[", electrodes_to_keep, ']', level = 'warning')
-
 
 electrodes_to_keep %<>% remove_from_arr(repository$power$dimnames$Electrode, `%in%`, negate=TRUE)
-
-ravedash::logger("1033::Electrodes to keep, clean:[", electrodes_to_keep, ']', level = 'warning')
 
 
 ## check for ROI exclusion criteria
@@ -1051,12 +1062,9 @@ if(electrodes_to_export_roi_name!='none') {
 
 if(!length(electrodes_to_keep)){ 
   stop("No electrodes were found passing all selection criteria")
-} else {
-  ravedash::logger("Electrodes to keep:", dipsaus::deparse_svec(electrodes_to_keep), level = 'warning')
-}
+} 
 
 prog$inc("Baseline data [export loop]")
-
 
 ## ensure the data are available
 raveio::power_baseline(
@@ -1077,7 +1085,7 @@ raveio::power_baseline(
 tensors <- lapply(analysis_settings_clean, function(asc) {
   # asc = analysis_settings_clean[[1]]
   ravedash::logger('Working on ', asc$label)
-
+  
   current_tensor = subset(repository$power$baselined, 
                           Electrode ~ Electrode %in% electrodes_to_keep)
   
@@ -1138,6 +1146,8 @@ tensors <- lapply(analysis_settings_clean, function(asc) {
                            select=c('Trial', condition_variable)
   ) %>% data.table::setorder('Trial')
   
+  attr_TrialLabel$OrigCondition = attr_TrialLabel[[condition_variable]]
+  
   # add trial groups if we have them  
   for(ag in which_have_trials(analysis_groups)) {
     ind = attr_TrialLabel$Trial %in% analysis_groups[[ag]]$trials
@@ -1192,6 +1202,8 @@ tensors <- lapply(analysis_settings_clean, function(asc) {
   if(length(attr_TrialLabel$Condition) == length(dn$Trial) &&
      all(0 == (dn$Trial - attr_TrialLabel$Trial))) {
     attr(shifted_tensor, 'TrialLabel') = attr_TrialLabel$Condition
+    attr(shifted_tensor, 'OrigTrialLabel') = attr_TrialLabel$OrigCondition
+    
   } else {
     ravedash::logger(level='warning', "Could not apply trial labels. Length mismatch between labels (", nrow(attr_TrialLabel), ") and  trials (", length(dn$Trial), "), or trial numbers didn't line up")
   }
@@ -1225,6 +1237,7 @@ if(electrode_export_data_type == 'tensor') {
     # add in the trial label if one was calculated above
     if(!is.null(attributes(tensor)[['TrialLabel']])) {
       res$TrialLabel = attr(tensor, 'TrialLabel')
+      res$OrigTrialLabel = attr(tensor, 'OrigTrialLabel')
     }
     
     return(res)
@@ -1243,13 +1256,14 @@ if(electrode_export_data_type == 'tensor') {
     
     tbl$AnalysisGroup = asc$label
     
-    ###FIXME Add in meta data
+    # Add in necessary meta data
     
     # add in the trial label if one was calculated above
     if(!is.null(attributes(tensor)[['TrialLabel']])) {
       
       trials <- as.numeric(dimnames(tensor)$Trial)
       lbls <- attributes(tensor)[['TrialLabel']]
+      og_lbls <- attributes(tensor)[['OrigTrialLabel']]
       
       tbl$TrialLabel = paste0(tbl$Trial)
       for(tt in unique(tbl$Trial)) {
@@ -1259,9 +1273,12 @@ if(electrode_export_data_type == 'tensor') {
           tbl$TrialLabel[ind] = lbls[
             which(tt == trials)
           ]
+          
+          tbl$OrigTrialLabel[ind] = og_lbls[
+            which(tt == trials)
+          ]
         }
       }
-      
     }
     
     return(tbl)
@@ -1280,6 +1297,17 @@ if(electrode_export_data_type == 'tensor') {
     }
     x
   }) %>% as.data.frame
+  
+  # merge in the electrode level data
+  # this greatly increases the size of the file,
+  # but it's compressed while downloading
+  all_elecs <- as.integer(unique(
+    sapply(tensors, function(tn) dimnames(tn)$Electrode)
+  ))
+  
+  et <- subset(repository$electrode_table, Electrode %in% all_elecs)
+  
+  flat_tables %<>% merge(et)
   
   data_for_export = list(
     type='flat_data',

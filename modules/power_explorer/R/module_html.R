@@ -516,7 +516,7 @@ module_html <- function(){
                       width=6,
                       shiny::selectInput(ns("btp_types"), label = 'Plot types',
                                          multiple = TRUE,
-                                         choices = c('jitter points', 'means', 'ebar polygons',
+                                         choices = c('jitter points', 'means', 'ebar polygons', 'sd polygons',
                                                      'points', 'connect points',
                                                      'densities', 'density polygons',
                                                      'bars', 'borders', 'ebars'),
