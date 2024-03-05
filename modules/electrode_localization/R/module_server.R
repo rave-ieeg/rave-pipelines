@@ -107,7 +107,7 @@ module_server <- function(input, output, session, ...){
     custom_path <- file.path(subject$preprocess_settings$raw_path,
                              "rave-imaging", "custom-data")
     custom_path <- raveio::dir_create2(custom_path)
-    raveio::save_fst(table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
+    raveio::save_fst(final_results$electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
 
     # Save BIDS-compatible
     bids <- raveio::convert_electrode_table_to_bids(subject)
