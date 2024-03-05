@@ -40,12 +40,17 @@ module_server <- function(input, output, session, ...){
     t1RAS <- sprintf("%.0f,%.0f,%.0f", table$T1R, table$T1A, table$T1S)
     mni305 <- sprintf("%.0f,%.0f,%.0f", table$MNI305_x, table$MNI305_y, table$MNI305_z)
     mni152 <- sprintf("%.0f,%.0f,%.0f", table$MNI152_x, table$MNI152_y, table$MNI152_z)
+    prototype <- table$Prototype
+    if(!length(prototype)) {
+      prototype <- ""
+    }
 
     return(data.frame(
       row.names = table$Electrode,
       Label = table$Label,
       Dimension = table$Dimension,
       LocationType = table$LocationType,
+      Prototype = prototype,
       FSIndex = table$FSIndex,
       FSLabel = table$FSLabel,
       tkrRAS = tkrRAS,
@@ -77,17 +82,26 @@ module_server <- function(input, output, session, ...){
 
     Sys.sleep(0.5)
     dipsaus::close_alert2()
-    table <- pipeline$read('localization_result_final')
+    final_results <- pipeline$read('localization_result_final')
     subject <- component_container$data$subject
     raveio::save_meta2(
-      data = table,
+      data = final_results$electrode_table,
       meta_type = "electrodes",
       project_name = subject$project_name,
       subject_code = subject$subject_code
     )
+    brain <- component_container$data$brain
+    if(length(final_results$prototype_definitions)) {
+      proto_defs <- final_results$prototype_definitions
+      for(nm in names(proto_defs)) {
+        target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
+        writeLines(proto_defs[[nm]], target_path)
+      }
+    }
 
     # backup unsaved.csv as it's not useful anymore
     unlink(file.path(subject$meta_path, "electrodes_unsaved.csv"))
+    unlink(file.path(subject$meta_path, "geometry_unsaved.json"))
 
     # also save it to subject custom-data path so users can view the results with colors
     custom_path <- file.path(subject$preprocess_settings$raw_path,
@@ -460,8 +474,7 @@ module_server <- function(input, output, session, ...){
         transform_matrix = localize_data$transform_matrix,
         mri_path = localize_data$mri_path,
         show_modal = FALSE,
-        controllers = controllers,
-        debug = TRUE
+        controllers = controllers
       )
 
       viewer
@@ -1036,8 +1049,8 @@ module_server <- function(input, output, session, ...){
         gtable <- group_table
       }
       # local_data$plan_list[[group_id]]
-      n <- min(nrow(table), nrow(gtable))
-      if(n <= 0) { return() }
+      n <- nrow(table)
+      if(min(nrow(table), nrow(gtable)) <= 0) { return() }
 
       if( relocalize ) {
         # reset flag

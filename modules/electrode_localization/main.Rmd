@@ -647,13 +647,15 @@ if(length(re) && nrow(re)) {
 Make sure you run target `localization_result_initial` first
 
 ```{rave get_finalized_table, export = "localization_result_final", cue="always"}
+localization_result_final <- list()
 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
+prot <- file.path(subject$meta_path, "geometry_unsaved.json")
 if(file.exists(src)) {
-  localization_result_final <- utils::read.csv(src)
-} else {
-  localization_result_final <- NULL
+  localization_result_final$electrode_table <- utils::read.csv(src)
 }
-
+if(file.exists(prot)) {
+  localization_result_final$prototype_definitions <- raveio::load_json(prot)
+}
 ```
 
 

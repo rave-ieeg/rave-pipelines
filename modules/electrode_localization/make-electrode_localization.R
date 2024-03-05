@@ -17,37 +17,36 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
-        "./data/localization_plan.json", format = "file"), input_localization_plan = targets::tar_target_raw("localization_plan", 
+    input_path_ct = targets::tar_target_raw("path_ct", quote({
+        settings[["path_ct"]]
+    }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
-            asNamespace("raveio")$pipeline_load_extdata(name = "localization_plan", 
-                format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
-                  class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_plan_"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
+            settings[["subject_code"]]
+        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
+        quote({
+            settings[["path_mri"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
+        quote({
+            settings[["path_transform"]]
+        }), deps = "settings"), input_transform_space = targets::tar_target_raw("transform_space", 
+        quote({
+            settings[["transform_space"]]
+        }), deps = "settings"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
         "./data/localization_list.json", format = "file"), input_localization_list = targets::tar_target_raw("localization_list", 
         quote({
             asNamespace("raveio")$pipeline_load_extdata(name = "localization_list", 
                 format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
                   class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_list_"), input_transform_space = targets::tar_target_raw("transform_space", 
+        }), deps = "settings_path._localization_list_"), `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
+        "./data/localization_plan.json", format = "file"), input_localization_plan = targets::tar_target_raw("localization_plan", 
         quote({
-            settings[["transform_space"]]
-        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
-        quote({
-            settings[["path_transform"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
-        quote({
-            settings[["path_mri"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
-        quote({
-            settings[["path_ct"]]
-        }), deps = "settings"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
+            asNamespace("raveio")$pipeline_load_extdata(name = "localization_plan", 
+                format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
+                  class = "key_missing"), pipe_dir = ".")
+        }), deps = "settings_path._localization_plan_"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
         command = quote({
             .__target_expr__. <- quote({
                 fslut_path <- system.file("palettes", "datacube2", 
@@ -1193,11 +1192,14 @@ rm(._._env_._.)
         iteration = "list"), get_finalized_table = targets::tar_target_raw(name = "localization_result_final", 
         command = quote({
             .__target_expr__. <- quote({
+                localization_result_final <- list()
                 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
+                prot <- file.path(subject$meta_path, "geometry_unsaved.json")
                 if (file.exists(src)) {
-                  localization_result_final <- utils::read.csv(src)
-                } else {
-                  localization_result_final <- NULL
+                  localization_result_final$electrode_table <- utils::read.csv(src)
+                }
+                if (file.exists(prot)) {
+                  localization_result_final$prototype_definitions <- raveio::load_json(prot)
                 }
             })
             tryCatch({
@@ -1210,11 +1212,14 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "localization_result_final", target_expr = quote({
                 {
+                  localization_result_final <- list()
                   src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
+                  prot <- file.path(subject$meta_path, "geometry_unsaved.json")
                   if (file.exists(src)) {
-                    localization_result_final <- utils::read.csv(src)
-                  } else {
-                    localization_result_final <- NULL
+                    localization_result_final$electrode_table <- utils::read.csv(src)
+                  }
+                  if (file.exists(prot)) {
+                    localization_result_final$prototype_definitions <- raveio::load_json(prot)
                   }
                 }
                 localization_result_final
