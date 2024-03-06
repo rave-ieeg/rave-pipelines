@@ -84,8 +84,11 @@ module_server <- function(input, output, session, ...){
     dipsaus::close_alert2()
     final_results <- pipeline$read('localization_result_final')
     subject <- component_container$data$subject
+    electrode_table <- final_results$electrode_table
+    electrode_table$SubjectCode <- subject$subject_code
+
     raveio::save_meta2(
-      data = final_results$electrode_table,
+      data = electrode_table,
       meta_type = "electrodes",
       project_name = subject$project_name,
       subject_code = subject$subject_code
@@ -107,7 +110,7 @@ module_server <- function(input, output, session, ...){
     custom_path <- file.path(subject$preprocess_settings$raw_path,
                              "rave-imaging", "custom-data")
     custom_path <- raveio::dir_create2(custom_path)
-    raveio::save_fst(final_results$electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
+    raveio::save_fst(electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
 
     # Save BIDS-compatible
     bids <- raveio::convert_electrode_table_to_bids(subject)
