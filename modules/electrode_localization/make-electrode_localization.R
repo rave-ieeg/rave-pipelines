@@ -998,12 +998,12 @@ rm(._._env_._.)
                     Coord_x = item$Coord_x, Coord_y = item$Coord_y, 
                     Coord_z = item$Coord_z, Label = item$Label, 
                     LabelPrefix = item$LabelPrefix, Prototype = item$Prototype, 
-                    Dimension = item$Dimension, Interpolation = item$Interpolation, 
-                    LocationType = item$LocationType, Radius = item$Radius, 
-                    Hemisphere = item$Hemisphere, MNI305_x = item$MNI305_x, 
-                    MNI305_y = item$MNI305_y, MNI305_z = item$MNI305_z, 
-                    FSIndex = item$FSIndex, FSLabel = item$FSLabel, 
-                    FSLabel_aparc_a2009s_aseg = item$FSLabel_aparc_a2009s_aseg, 
+                    ContactOrder = item$ContactOrder, Dimension = item$Dimension, 
+                    Interpolation = item$Interpolation, LocationType = item$LocationType, 
+                    Radius = item$Radius, Hemisphere = item$Hemisphere, 
+                    MNI305_x = item$MNI305_x, MNI305_y = item$MNI305_y, 
+                    MNI305_z = item$MNI305_z, FSIndex = item$FSIndex, 
+                    FSLabel = item$FSLabel, FSLabel_aparc_a2009s_aseg = item$FSLabel_aparc_a2009s_aseg, 
                     FSLabel_aparc_aseg = item$FSLabel_aparc_aseg, 
                     FSLabel_aparc_DKTatlas_aseg = item$FSLabel_aparc_DKTatlas_aseg, 
                     FSLabel_aseg = item$FSLabel_aseg, OrigCoord_x = item$OrigCoord_x, 
@@ -1124,12 +1124,12 @@ rm(._._env_._.)
                       Coord_x = item$Coord_x, Coord_y = item$Coord_y, 
                       Coord_z = item$Coord_z, Label = item$Label, 
                       LabelPrefix = item$LabelPrefix, Prototype = item$Prototype, 
-                      Dimension = item$Dimension, Interpolation = item$Interpolation, 
-                      LocationType = item$LocationType, Radius = item$Radius, 
-                      Hemisphere = item$Hemisphere, MNI305_x = item$MNI305_x, 
-                      MNI305_y = item$MNI305_y, MNI305_z = item$MNI305_z, 
-                      FSIndex = item$FSIndex, FSLabel = item$FSLabel, 
-                      FSLabel_aparc_a2009s_aseg = item$FSLabel_aparc_a2009s_aseg, 
+                      ContactOrder = item$ContactOrder, Dimension = item$Dimension, 
+                      Interpolation = item$Interpolation, LocationType = item$LocationType, 
+                      Radius = item$Radius, Hemisphere = item$Hemisphere, 
+                      MNI305_x = item$MNI305_x, MNI305_y = item$MNI305_y, 
+                      MNI305_z = item$MNI305_z, FSIndex = item$FSIndex, 
+                      FSLabel = item$FSLabel, FSLabel_aparc_a2009s_aseg = item$FSLabel_aparc_a2009s_aseg, 
                       FSLabel_aparc_aseg = item$FSLabel_aparc_aseg, 
                       FSLabel_aparc_DKTatlas_aseg = item$FSLabel_aparc_DKTatlas_aseg, 
                       FSLabel_aseg = item$FSLabel_aseg, OrigCoord_x = item$OrigCoord_x, 
@@ -1195,11 +1195,46 @@ rm(._._env_._.)
                 localization_result_final <- list()
                 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
                 prot <- file.path(subject$meta_path, "geometry_unsaved.json")
-                if (file.exists(src)) {
-                  localization_result_final$electrode_table <- utils::read.csv(src)
-                }
                 if (file.exists(prot)) {
                   localization_result_final$prototype_definitions <- raveio::load_json(prot)
+                }
+                if (file.exists(src)) {
+                  localization_result_final$electrode_table <- utils::read.csv(src)
+                  try({
+                    if (isTRUE(localize_data$transform_space %in% 
+                      c("fsl", "ijk2ras", "resampled"))) {
+                      electrode_table <- localization_result_final$electrode_table
+                      scan_ras <- rbind(electrode_table$T1R, 
+                        electrode_table$T1A, electrode_table$T1S, 
+                        1)
+                      switch(localize_data$transform_space, fsl = {
+                        ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
+                        ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                        mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
+                        mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
+                        ct_ijk_to_mr_ras <- mr_ijk2ras %*% solve(mr_ijk2fsl) %*% 
+                          localize_data$transform_matrix %*% 
+                          ct_ijk2fsl
+                        ct_ijk <- solve(ct_ijk_to_mr_ras) %*% 
+                          scan_ras
+                        ct_ras <- ct_ijk2ras %*% ct_ijk
+                      }, ijk2ras = {
+                        ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                        ct_ijk2mr_ras <- localize_data$transform_matrix
+                        ct_ijk <- solve(ct_ijk2mr_ras) %*% scan_ras
+                        ct_ras <- ct_ijk2ras %*% ct_ijk
+                      }, {
+                        ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                        ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
+                        ct_ras <- scan_ras
+                      })
+                      localization_result_final$ct_table <- data.frame(Electrode = electrode_table$Electrode, 
+                        CTVoxel_I = ct_ijk[1, ], CTVoxel_J = ct_ijk[2, 
+                          ], CTVoxel_K = ct_ijk[3, ], CT_R = ct_ras[1, 
+                          ], CT_A = ct_ras[2, ], CT_S = ct_ras[3, 
+                          ])
+                    }
+                  })
                 }
             })
             tryCatch({
@@ -1215,13 +1250,51 @@ rm(._._env_._.)
                   localization_result_final <- list()
                   src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
                   prot <- file.path(subject$meta_path, "geometry_unsaved.json")
-                  if (file.exists(src)) {
-                    localization_result_final$electrode_table <- utils::read.csv(src)
-                  }
                   if (file.exists(prot)) {
                     localization_result_final$prototype_definitions <- raveio::load_json(prot)
                   }
+                  if (file.exists(src)) {
+                    localization_result_final$electrode_table <- utils::read.csv(src)
+                    try({
+                      if (isTRUE(localize_data$transform_space %in% 
+                        c("fsl", "ijk2ras", "resampled"))) {
+                        electrode_table <- localization_result_final$electrode_table
+                        scan_ras <- rbind(electrode_table$T1R, 
+                          electrode_table$T1A, electrode_table$T1S, 
+                          1)
+                        switch(localize_data$transform_space, 
+                          fsl = {
+                            ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
+                            ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                            mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
+                            mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
+                            ct_ijk_to_mr_ras <- mr_ijk2ras %*% 
+                              solve(mr_ijk2fsl) %*% localize_data$transform_matrix %*% 
+                              ct_ijk2fsl
+                            ct_ijk <- solve(ct_ijk_to_mr_ras) %*% 
+                              scan_ras
+                            ct_ras <- ct_ijk2ras %*% ct_ijk
+                          }, ijk2ras = {
+                            ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                            ct_ijk2mr_ras <- localize_data$transform_matrix
+                            ct_ijk <- solve(ct_ijk2mr_ras) %*% 
+                              scan_ras
+                            ct_ras <- ct_ijk2ras %*% ct_ijk
+                          }, {
+                            ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                            ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
+                            ct_ras <- scan_ras
+                          })
+                        localization_result_final$ct_table <- data.frame(Electrode = electrode_table$Electrode, 
+                          CTVoxel_I = ct_ijk[1, ], CTVoxel_J = ct_ijk[2, 
+                            ], CTVoxel_K = ct_ijk[3, ], CT_R = ct_ras[1, 
+                            ], CT_A = ct_ras[2, ], CT_S = ct_ras[3, 
+                            ])
+                      }
+                    })
+                  }
                 }
                 localization_result_final
-            }), target_depends = "subject"), deps = "subject", 
-        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"))
+            }), target_depends = c("subject", "localize_data"
+            )), deps = c("subject", "localize_data"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"))

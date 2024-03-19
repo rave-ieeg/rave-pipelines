@@ -559,6 +559,7 @@ re <- lapply(localization_list, function(item) {
     Coord_x = item$Coord_x, Coord_y = item$Coord_y, Coord_z = item$Coord_z,
     Label = item$Label, LabelPrefix = item$LabelPrefix,
     Prototype = item$Prototype,
+    ContactOrder = item$ContactOrder,
     Dimension = item$Dimension, 
     Interpolation = item$Interpolation,
     LocationType = item$LocationType, Radius = item$Radius, 
@@ -650,11 +651,54 @@ Make sure you run target `localization_result_initial` first
 localization_result_final <- list()
 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
 prot <- file.path(subject$meta_path, "geometry_unsaved.json")
-if(file.exists(src)) {
-  localization_result_final$electrode_table <- utils::read.csv(src)
-}
 if(file.exists(prot)) {
   localization_result_final$prototype_definitions <- raveio::load_json(prot)
+}
+if(file.exists(src)) {
+  localization_result_final$electrode_table <- utils::read.csv(src)
+  
+  try({
+    if( isTRUE(localize_data$transform_space %in% c('fsl', 'ijk2ras', 'resampled')) ) {
+      electrode_table <- localization_result_final$electrode_table
+      scan_ras <- rbind(electrode_table$T1R, electrode_table$T1A, electrode_table$T1S, 1)
+      
+      switch(
+        localize_data$transform_space,
+        'fsl' = {
+          ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
+          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+          mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
+          mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
+          
+          # CT vox -> CT fsl -> MR fsl -> MR vox -> MR ras
+          ct_ijk_to_mr_ras <- mr_ijk2ras %*% solve(mr_ijk2fsl) %*% localize_data$transform_matrix %*% ct_ijk2fsl
+          ct_ijk <- solve(ct_ijk_to_mr_ras) %*% scan_ras
+          ct_ras <- ct_ijk2ras %*% ct_ijk
+        },
+        'ijk2ras' = {
+          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+          ct_ijk2mr_ras <- localize_data$transform_matrix
+          ct_ijk <- solve(ct_ijk2mr_ras) %*% scan_ras
+          ct_ras <- ct_ijk2ras %*% ct_ijk
+        },
+        {
+          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+          ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
+          ct_ras <- scan_ras
+        }
+      )
+      
+      localization_result_final$ct_table <- data.frame(
+        Electrode = electrode_table$Electrode,
+        CTVoxel_I = ct_ijk[1, ],
+        CTVoxel_J = ct_ijk[2, ],
+        CTVoxel_K = ct_ijk[3, ],
+        CT_R = ct_ras[1, ],
+        CT_A = ct_ras[2, ],
+        CT_S = ct_ras[3, ]
+      )
+    }
+  })
 }
 ```
 

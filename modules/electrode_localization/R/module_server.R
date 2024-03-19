@@ -86,6 +86,7 @@ module_server <- function(input, output, session, ...){
     subject <- component_container$data$subject
     electrode_table <- final_results$electrode_table
     electrode_table$SubjectCode <- subject$subject_code
+    ct_table <- final_results$ct_table
 
     raveio::save_meta2(
       data = electrode_table,
@@ -100,6 +101,12 @@ module_server <- function(input, output, session, ...){
         target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
         writeLines(proto_defs[[nm]], target_path)
       }
+    }
+    ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
+    if(is.data.frame(ct_table) && nrow(ct_table)) {
+      utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE, col.names = TRUE)
+    } else if(file.exists(ct_tablepath)) {
+      unlink(ct_tablepath)
     }
 
     # backup unsaved.csv as it's not useful anymore
