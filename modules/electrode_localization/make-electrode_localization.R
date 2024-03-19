@@ -2,6 +2,7 @@ library(targets)
 library(raveio)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
+._._env_._.$pipeline <- pipeline_from_path(".")
 lapply(sort(list.files(
   "R/", ignore.case = TRUE,
   pattern = "^shared-.*\\.R", 
@@ -16,40 +17,36 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
-        "./data/localization_plan.json", format = "file"), input_localization_plan = targets::tar_target_raw("localization_plan", 
+    input_path_ct = targets::tar_target_raw("path_ct", quote({
+        settings[["path_ct"]]
+    }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
-            asNamespace("raveio")$pipeline_load_extdata(name = "localization_plan", 
-                format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
-                  class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_plan_"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
+            settings[["subject_code"]]
+        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
+        quote({
+            settings[["path_mri"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
+        quote({
+            settings[["path_transform"]]
+        }), deps = "settings"), input_transform_space = targets::tar_target_raw("transform_space", 
+        quote({
+            settings[["transform_space"]]
+        }), deps = "settings"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
         "./data/localization_list.json", format = "file"), input_localization_list = targets::tar_target_raw("localization_list", 
         quote({
             asNamespace("raveio")$pipeline_load_extdata(name = "localization_list", 
                 format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
                   class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_list_"), input_transform_space = targets::tar_target_raw("transform_space", 
+        }), deps = "settings_path._localization_list_"), `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
+        "./data/localization_plan.json", format = "file"), input_localization_plan = targets::tar_target_raw("localization_plan", 
         quote({
-            settings[["transform_space"]]
-        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
-        quote({
-            settings[["path_transform"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
-        quote({
-            settings[["path_mri"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
-        quote({
-            settings[["path_ct"]]
-        }), deps = "settings"), input_nonlinear_morphing = targets::tar_target_raw("nonlinear_morphing", 
-        quote({
-            settings[["nonlinear_morphing"]]
-        }), deps = "settings"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
+            asNamespace("raveio")$pipeline_load_extdata(name = "localization_plan", 
+                format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
+                  class = "key_missing"), pipe_dir = ".")
+        }), deps = "settings_path._localization_plan_"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
         command = quote({
             .__target_expr__. <- quote({
                 fslut_path <- system.file("palettes", "datacube2", 
@@ -156,59 +153,89 @@ rm(._._env_._.)
     check_localization_plan = targets::tar_target_raw(name = "plan_list", 
         command = quote({
             .__target_expr__. <- quote({
-                count <- fastmap2()
-                count$n <- 0
-                count$labels <- list()
-                plan_list <- NULL
-                plan_table <- lapply(localization_plan, function(item) {
-                  dim <- as.integer(parse_svec(item$dimension, 
-                    unique = FALSE, sep = "[,x]"))
-                  dim <- dim[!is.na(dim)]
-                  if (!length(dim) || any(dim <= 0)) {
-                    return(NULL)
+                plan_list <- list()
+                plans <- dipsaus::fastmap2()
+                electrodes <- sort(subject$preprocess_settings$electrodes)
+                lapply(summarize_plan_list(localization_plan), 
+                  function(item) {
+                    if (!length(item)) {
+                      return()
+                    }
+                    if (!isTRUE(item$n > 0)) {
+                      return()
+                    }
+                    label <- toupper(as.character(item$label))
+                    part1 <- plans[[label]]
+                    if (length(part1)) {
+                      if (!identical(part1$type, item$type)) {
+                        stop(sprintf("There exist multiple groups with the same group label [%s] (group labels are case-insensitive) but different electrode types [%s, %s]. I cannot determine which electrode prototype for the localization. Please check and correct.", 
+                          label, part1$type, item$type))
+                      }
+                      part1$channels <- sprintf("%s,%s", part1$channels, 
+                        item$channels)
+                      part1$n <- part1$n + item$n
+                      item <- part1
+                    }
+                    plans[[label]] <- list(n = item$n, channels = item$channels, 
+                      type = item$type, label = label, hemisphere = item$hemisphere, 
+                      dimension = item$dimension)
+                  })
+                plan_table <- lapply(names(plans), function(nm) {
+                  item <- plans[[nm]]
+                  proto <- get_prototype(item$type)
+                  channs <- parse_svec(item$channels, sort = FALSE, 
+                    unique = FALSE, na_rm = FALSE)
+                  unplug <- is.na(channs)
+                  n_unplug <- sum(unplug)
+                  n_chans <- length(channs)
+                  if (n_chans == n_unplug) {
+                    return()
                   }
-                  ne <- prod(dim)
-                  if (ne <= 0) {
-                    return(NULL)
+                  if (!is.null(proto)) {
+                    if (n_chans > proto$n_channels) {
+                      stop(sprintf("Electrode group [%s] (prototype: %s) has maximum of %d channels by design. However, you have entered %d channels (including %d unplugged channels). Please check & reduce the number of channels.", 
+                        item$label, item$type, proto$n_channels, 
+                        n_chans, n_unplug))
+                    }
                   }
-                  label <- as.character(item$label)
-                  if (length(label) != 1 || is.na(label) || trimws(label) == 
-                    "") {
-                    label <- "NoLabel"
+                  corder <- seq_along(channs)[!unplug]
+                  channs <- channs[!unplug]
+                  if (item$type %in% raveio::LOCATION_TYPES) {
+                    ltype <- item$type
+                    pname <- ""
+                  } else {
+                    ltype <- raveio::LOCATION_TYPES[[1]]
+                    pname <- item$type
                   }
-                  if (!label %in% names(count$labels)) {
-                    count$labels[[label]] <- 0
-                  }
-                  type <- item$type
-                  if (!isTRUE(type %in% raveio::LOCATION_TYPES)) {
-                    type <- raveio::LOCATION_TYPES[[1]]
-                  }
-                  hemisphere <- item$hemisphere
-                  if (!isTRUE(hemisphere %in% c("auto", "left", 
-                    "right"))) {
-                    hemisphere <- "auto"
-                  }
-                  re <- data.frame(Electrode = count$n + seq_len(ne), 
-                    Label = sprintf("%s%d", label, count$labels[[label]] + 
-                      seq_len(ne)), LabelPrefix = label, Dimension = paste(dim, 
-                      collapse = "x"), LocationType = type, Hemisphere = hemisphere)
-                  count$n <- count$n + ne
-                  count$labels[[label]] <- count$labels[[label]] + 
-                    ne
-                  re
+                  data.frame(Electrode = channs, Label = sprintf("%s%d", 
+                    item$label, corder), LabelPrefix = item$label, 
+                    Dimension = item$dimension, LocationType = ltype, 
+                    Hemisphere = item$hemisphere, Prototype = pname, 
+                    ContactOrder = corder)
                 })
                 plan_table <- drop_nulls(plan_table)
                 if (length(plan_table)) {
                   plan_table <- do.call("rbind", unname(plan_table))
-                  electrodes <- sort(subject$preprocess_settings$electrodes)
-                  if (length(electrodes) == 0) {
-                    electrodes <- plan_table$Electrode
+                  if (!nrow(plan_table)) {
+                    stop("No valid electrodes to localize.")
                   }
-                  if (length(electrodes) != length(plan_table$Electrode)) {
-                    stop(sprintf("The electrode planned (n=%d) has inconsistent length with registered channel size (n=%d).", 
-                      length(plan_table$Electrode), length(electrodes)))
+                  count <- table(plan_table$Electrode)
+                  count <- names(count)[count > 1]
+                  if (length(count)) {
+                    stop(sprintf("Electrode contact [%s] has duplicated entries. Please remove and continue.", 
+                      deparse_svec(as.integer(count))))
                   }
-                  plan_table$Electrode <- electrodes
+                  plan_table <- plan_table[order(plan_table$Electrode), 
+                    ]
+                  rownames(plan_table) <- NULL
+                  n_planned <- nrow(plan_table)
+                  if (length(electrodes) > 0) {
+                    if (length(electrodes) != n_planned) {
+                      stop(sprintf("The electrode planned (n=%d, for localization) has inconsistent length with registered channel size (n=%d) from the signal pipelines.", 
+                        n_planned, length(electrodes)))
+                    }
+                    plan_table$Electrode <- electrodes
+                  }
                   files <- file.path(subject$meta_path, c("electrodes_unsaved.csv", 
                     "electrodes.csv"))
                   files <- files[file.exists(files)]
@@ -246,6 +273,7 @@ rm(._._env_._.)
                   plan_table$Coord_y %?<-% 0
                   plan_table$Coord_z %?<-% 0
                   plan_table$Interpolation %?<-% "default"
+                  plan_table$Prototype %?<-% ""
                   plan_table$MNI305_x %?<-% 0
                   plan_table$MNI305_y %?<-% 0
                   plan_table$MNI305_z %?<-% 0
@@ -336,60 +364,89 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "plan_list", target_expr = quote({
                 {
-                  count <- fastmap2()
-                  count$n <- 0
-                  count$labels <- list()
-                  plan_list <- NULL
-                  plan_table <- lapply(localization_plan, function(item) {
-                    dim <- as.integer(parse_svec(item$dimension, 
-                      unique = FALSE, sep = "[,x]"))
-                    dim <- dim[!is.na(dim)]
-                    if (!length(dim) || any(dim <= 0)) {
-                      return(NULL)
+                  plan_list <- list()
+                  plans <- dipsaus::fastmap2()
+                  electrodes <- sort(subject$preprocess_settings$electrodes)
+                  lapply(summarize_plan_list(localization_plan), 
+                    function(item) {
+                      if (!length(item)) {
+                        return()
+                      }
+                      if (!isTRUE(item$n > 0)) {
+                        return()
+                      }
+                      label <- toupper(as.character(item$label))
+                      part1 <- plans[[label]]
+                      if (length(part1)) {
+                        if (!identical(part1$type, item$type)) {
+                          stop(sprintf("There exist multiple groups with the same group label [%s] (group labels are case-insensitive) but different electrode types [%s, %s]. I cannot determine which electrode prototype for the localization. Please check and correct.", 
+                            label, part1$type, item$type))
+                        }
+                        part1$channels <- sprintf("%s,%s", part1$channels, 
+                          item$channels)
+                        part1$n <- part1$n + item$n
+                        item <- part1
+                      }
+                      plans[[label]] <- list(n = item$n, channels = item$channels, 
+                        type = item$type, label = label, hemisphere = item$hemisphere, 
+                        dimension = item$dimension)
+                    })
+                  plan_table <- lapply(names(plans), function(nm) {
+                    item <- plans[[nm]]
+                    proto <- get_prototype(item$type)
+                    channs <- parse_svec(item$channels, sort = FALSE, 
+                      unique = FALSE, na_rm = FALSE)
+                    unplug <- is.na(channs)
+                    n_unplug <- sum(unplug)
+                    n_chans <- length(channs)
+                    if (n_chans == n_unplug) {
+                      return()
                     }
-                    ne <- prod(dim)
-                    if (ne <= 0) {
-                      return(NULL)
+                    if (!is.null(proto)) {
+                      if (n_chans > proto$n_channels) {
+                        stop(sprintf("Electrode group [%s] (prototype: %s) has maximum of %d channels by design. However, you have entered %d channels (including %d unplugged channels). Please check & reduce the number of channels.", 
+                          item$label, item$type, proto$n_channels, 
+                          n_chans, n_unplug))
+                      }
                     }
-                    label <- as.character(item$label)
-                    if (length(label) != 1 || is.na(label) || 
-                      trimws(label) == "") {
-                      label <- "NoLabel"
+                    corder <- seq_along(channs)[!unplug]
+                    channs <- channs[!unplug]
+                    if (item$type %in% raveio::LOCATION_TYPES) {
+                      ltype <- item$type
+                      pname <- ""
+                    } else {
+                      ltype <- raveio::LOCATION_TYPES[[1]]
+                      pname <- item$type
                     }
-                    if (!label %in% names(count$labels)) {
-                      count$labels[[label]] <- 0
-                    }
-                    type <- item$type
-                    if (!isTRUE(type %in% raveio::LOCATION_TYPES)) {
-                      type <- raveio::LOCATION_TYPES[[1]]
-                    }
-                    hemisphere <- item$hemisphere
-                    if (!isTRUE(hemisphere %in% c("auto", "left", 
-                      "right"))) {
-                      hemisphere <- "auto"
-                    }
-                    re <- data.frame(Electrode = count$n + seq_len(ne), 
-                      Label = sprintf("%s%d", label, count$labels[[label]] + 
-                        seq_len(ne)), LabelPrefix = label, Dimension = paste(dim, 
-                        collapse = "x"), LocationType = type, 
-                      Hemisphere = hemisphere)
-                    count$n <- count$n + ne
-                    count$labels[[label]] <- count$labels[[label]] + 
-                      ne
-                    re
+                    data.frame(Electrode = channs, Label = sprintf("%s%d", 
+                      item$label, corder), LabelPrefix = item$label, 
+                      Dimension = item$dimension, LocationType = ltype, 
+                      Hemisphere = item$hemisphere, Prototype = pname, 
+                      ContactOrder = corder)
                   })
                   plan_table <- drop_nulls(plan_table)
                   if (length(plan_table)) {
                     plan_table <- do.call("rbind", unname(plan_table))
-                    electrodes <- sort(subject$preprocess_settings$electrodes)
-                    if (length(electrodes) == 0) {
-                      electrodes <- plan_table$Electrode
+                    if (!nrow(plan_table)) {
+                      stop("No valid electrodes to localize.")
                     }
-                    if (length(electrodes) != length(plan_table$Electrode)) {
-                      stop(sprintf("The electrode planned (n=%d) has inconsistent length with registered channel size (n=%d).", 
-                        length(plan_table$Electrode), length(electrodes)))
+                    count <- table(plan_table$Electrode)
+                    count <- names(count)[count > 1]
+                    if (length(count)) {
+                      stop(sprintf("Electrode contact [%s] has duplicated entries. Please remove and continue.", 
+                        deparse_svec(as.integer(count))))
                     }
-                    plan_table$Electrode <- electrodes
+                    plan_table <- plan_table[order(plan_table$Electrode), 
+                      ]
+                    rownames(plan_table) <- NULL
+                    n_planned <- nrow(plan_table)
+                    if (length(electrodes) > 0) {
+                      if (length(electrodes) != n_planned) {
+                        stop(sprintf("The electrode planned (n=%d, for localization) has inconsistent length with registered channel size (n=%d) from the signal pipelines.", 
+                          n_planned, length(electrodes)))
+                      }
+                      plan_table$Electrode <- electrodes
+                    }
                     files <- file.path(subject$meta_path, c("electrodes_unsaved.csv", 
                       "electrodes.csv"))
                     files <- files[file.exists(files)]
@@ -428,6 +485,7 @@ rm(._._env_._.)
                     plan_table$Coord_y %?<-% 0
                     plan_table$Coord_z %?<-% 0
                     plan_table$Interpolation %?<-% "default"
+                    plan_table$Prototype %?<-% ""
                     plan_table$MNI305_x %?<-% 0
                     plan_table$MNI305_y %?<-% 0
                     plan_table$MNI305_z %?<-% 0
@@ -509,8 +567,8 @@ rm(._._env_._.)
                   }
                 }
                 plan_list
-            }), target_depends = c("localization_plan", "subject"
-            )), deps = c("localization_plan", "subject"), cue = targets::tar_cue("always"), 
+            }), target_depends = c("subject", "localization_plan"
+            )), deps = c("subject", "localization_plan"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), check_load_pial_envelop = targets::tar_target_raw(name = "pial_envelope", 
         command = quote({
             .__target_expr__. <- quote({
@@ -622,6 +680,32 @@ rm(._._env_._.)
                   threeBrain::freesurfer_brain2(fs_subject_folder = subject$freesurfer_path, 
                     subject_name = subject$subject_code, use_141 = FALSE)
                 })
+                geom_def_path <- file.path(subject$meta_path, 
+                  "geometry_unsaved.json")
+                geom_defs <- list()
+                if (file.exists(geom_def_path)) {
+                  tryCatch({
+                    geom_defs <- raveio::load_json(geom_def_path)
+                  }, error = function(e) {
+                  })
+                }
+                if (!is.null(brain)) {
+                  lapply(plan_list, function(sub) {
+                    if (is.data.frame(sub) && nrow(sub)) {
+                      proto <- brain$electrodes$add_geometry(label_prefix = sub$LabelPrefix[[1]], 
+                        prototype_name = sub$Prototype[[1]])
+                      if (!is.null(proto)) {
+                        unsaved_def <- geom_defs[[proto$name]]
+                        if (length(unsaved_def) == 1 && is.character(unsaved_def)) {
+                          proto$from_json(unsaved_def)
+                        }
+                        proto$set_contact_channels(sub$Electrode, 
+                          sub$ContactOrder)
+                      }
+                    }
+                  })
+                }
+                brain
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -641,11 +725,38 @@ rm(._._env_._.)
                     threeBrain::freesurfer_brain2(fs_subject_folder = subject$freesurfer_path, 
                       subject_name = subject$subject_code, use_141 = FALSE)
                   })
+                  geom_def_path <- file.path(subject$meta_path, 
+                    "geometry_unsaved.json")
+                  geom_defs <- list()
+                  if (file.exists(geom_def_path)) {
+                    tryCatch({
+                      geom_defs <- raveio::load_json(geom_def_path)
+                    }, error = function(e) {
+                    })
+                  }
+                  if (!is.null(brain)) {
+                    lapply(plan_list, function(sub) {
+                      if (is.data.frame(sub) && nrow(sub)) {
+                        proto <- brain$electrodes$add_geometry(label_prefix = sub$LabelPrefix[[1]], 
+                          prototype_name = sub$Prototype[[1]])
+                        if (!is.null(proto)) {
+                          unsaved_def <- geom_defs[[proto$name]]
+                          if (length(unsaved_def) == 1 && is.character(unsaved_def)) {
+                            proto$from_json(unsaved_def)
+                          }
+                          proto$set_contact_channels(sub$Electrode, 
+                            sub$ContactOrder)
+                        }
+                      }
+                    })
+                  }
+                  brain
                 }
                 brain
-            }), target_depends = c("pial_envelope", "subject"
-            )), deps = c("pial_envelope", "subject"), cue = targets::tar_cue("always"), 
-        pattern = NULL, iteration = "list"), Loading_brain_and_CT_if_exists = targets::tar_target_raw(name = "localize_data", 
+            }), target_depends = c("pial_envelope", "subject", 
+            "plan_list")), deps = c("pial_envelope", "subject", 
+        "plan_list"), cue = targets::tar_cue("always"), pattern = NULL, 
+        iteration = "list"), Loading_brain_and_CT_if_exists = targets::tar_target_raw(name = "localize_data", 
         command = quote({
             .__target_expr__. <- quote({
                 force(subject)
@@ -808,9 +919,6 @@ rm(._._env_._.)
                   transform_space = localize_data$transform_space, 
                   transform_matrix = localize_data$transform_matrix, 
                   mri_path = localize_data$mri_path)
-                if (interactive()) {
-                  print(viewer)
-                }
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -827,9 +935,6 @@ rm(._._env_._.)
                     transform_space = localize_data$transform_space, 
                     transform_matrix = localize_data$transform_matrix, 
                     mri_path = localize_data$mri_path)
-                  if (interactive()) {
-                    print(viewer)
-                  }
                 }
                 viewer
             }), target_depends = c("ct_exists", "brain", "localize_data"
@@ -839,7 +944,28 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 localization_result_initial <- NULL
+                prototype_list <- dipsaus::fastmap2()
                 re <- lapply(localization_list, function(item) {
+                  if (!is.data.frame(item) || !nrow(item)) {
+                    return()
+                  }
+                  prototype_def <- attr(item, "prototype")
+                  prototype <- NULL
+                  prototype_name <- ""
+                  label_prefix <- item$LabelPrefix[[1]]
+                  if (!is.null(prototype_def)) {
+                    if (!length(item$Prototype) && length(prototype_def$type)) {
+                      item$Prototype <- prototype_def$type
+                    }
+                    prototype <- brain$electrodes$add_geometry(label_prefix = label_prefix, 
+                      prototype_name = item$Prototype[[1]])
+                    prototype_name <- prototype$name
+                    prototype_def$name <- prototype$name
+                    prototype$from_list(prototype_def)
+                    prototype_list[[prototype_name]] <- prototype$as_json(flattern = TRUE)
+                  } else {
+                    item$Prototype %?<-% ""
+                  }
                   item$FSIndex %?<-% 0
                   item$FSLabel %?<-% "Unknown"
                   item$FSLabel_aparc_a2009s_aseg %?<-% "Unknown"
@@ -847,9 +973,6 @@ rm(._._env_._.)
                   item$FSLabel_aparc_DKTatlas_aseg %?<-% "Unknown"
                   item$FSLabel_aseg %?<-% "Unknown"
                   item$Radius %?<-% 1
-                  item$OrigCoord_x %?<-% item$Coord_x
-                  item$OrigCoord_y %?<-% item$Coord_y
-                  item$OrigCoord_z %?<-% item$Coord_z
                   item$Sphere_x %?<-% 0
                   item$Sphere_y %?<-% 0
                   item$Sphere_z %?<-% 0
@@ -857,10 +980,25 @@ rm(._._env_._.)
                   item$DistanceToPial %?<-% NA
                   item$SurfaceElectrode %?<-% FALSE
                   item$Interpolation %?<-% "default"
+                  if (!is.null(prototype)) {
+                    contact_tkrras <- t(prototype$get_contact_positions(channels = item$Electrode, 
+                      apply_transform = TRUE))
+                    contact_tkrras[is.na(contact_tkrras)] <- 0
+                    item$Coord_x <- contact_tkrras[1, ]
+                    item$Coord_y <- contact_tkrras[2, ]
+                    item$Coord_z <- contact_tkrras[3, ]
+                    item$OrigCoord_x <- contact_tkrras[1, ]
+                    item$OrigCoord_y <- contact_tkrras[2, ]
+                    item$OrigCoord_z <- contact_tkrras[3, ]
+                  }
+                  item$OrigCoord_x %?<-% item$Coord_x
+                  item$OrigCoord_y %?<-% item$Coord_y
+                  item$OrigCoord_z %?<-% item$Coord_z
                   tbl <- data.frame(Electrode = item$Electrode, 
                     Coord_x = item$Coord_x, Coord_y = item$Coord_y, 
                     Coord_z = item$Coord_z, Label = item$Label, 
-                    LabelPrefix = item$LabelPrefix, Dimension = item$Dimension, 
+                    LabelPrefix = item$LabelPrefix, Prototype = item$Prototype, 
+                    ContactOrder = item$ContactOrder, Dimension = item$Dimension, 
                     Interpolation = item$Interpolation, LocationType = item$LocationType, 
                     Radius = item$Radius, Hemisphere = item$Hemisphere, 
                     MNI305_x = item$MNI305_x, MNI305_y = item$MNI305_y, 
@@ -911,10 +1049,14 @@ rm(._._env_._.)
                   re$MRVoxel_I <- round(mr_voxel[1, ])
                   re$MRVoxel_J <- round(mr_voxel[2, ])
                   re$MRVoxel_K <- round(mr_voxel[3, ])
-                  save_path <- file.path(subject$meta_path, "electrodes_unsaved.csv")
-                  raveio::dir_create2(dirname(save_path))
-                  utils::write.csv(re, save_path, row.names = FALSE)
-                  localization_result_initial <- re
+                  raveio::dir_create2(subject$meta_path)
+                  utils::write.csv(x = re, file.path(subject$meta_path, 
+                    "electrodes_unsaved.csv"), row.names = FALSE)
+                  prototype_list <- as.list(prototype_list)
+                  raveio::save_json(x = prototype_list, con = file.path(subject$meta_path, 
+                    "geometry_unsaved.json"), serialize = TRUE)
+                  localization_result_initial <- list(electrode_table = re, 
+                    prototype_list = prototype_list)
                 }
             })
             tryCatch({
@@ -928,7 +1070,28 @@ rm(._._env_._.)
             target_export = "localization_result_initial", target_expr = quote({
                 {
                   localization_result_initial <- NULL
+                  prototype_list <- dipsaus::fastmap2()
                   re <- lapply(localization_list, function(item) {
+                    if (!is.data.frame(item) || !nrow(item)) {
+                      return()
+                    }
+                    prototype_def <- attr(item, "prototype")
+                    prototype <- NULL
+                    prototype_name <- ""
+                    label_prefix <- item$LabelPrefix[[1]]
+                    if (!is.null(prototype_def)) {
+                      if (!length(item$Prototype) && length(prototype_def$type)) {
+                        item$Prototype <- prototype_def$type
+                      }
+                      prototype <- brain$electrodes$add_geometry(label_prefix = label_prefix, 
+                        prototype_name = item$Prototype[[1]])
+                      prototype_name <- prototype$name
+                      prototype_def$name <- prototype$name
+                      prototype$from_list(prototype_def)
+                      prototype_list[[prototype_name]] <- prototype$as_json(flattern = TRUE)
+                    } else {
+                      item$Prototype %?<-% ""
+                    }
                     item$FSIndex %?<-% 0
                     item$FSLabel %?<-% "Unknown"
                     item$FSLabel_aparc_a2009s_aseg %?<-% "Unknown"
@@ -936,9 +1099,6 @@ rm(._._env_._.)
                     item$FSLabel_aparc_DKTatlas_aseg %?<-% "Unknown"
                     item$FSLabel_aseg %?<-% "Unknown"
                     item$Radius %?<-% 1
-                    item$OrigCoord_x %?<-% item$Coord_x
-                    item$OrigCoord_y %?<-% item$Coord_y
-                    item$OrigCoord_z %?<-% item$Coord_z
                     item$Sphere_x %?<-% 0
                     item$Sphere_y %?<-% 0
                     item$Sphere_z %?<-% 0
@@ -946,10 +1106,25 @@ rm(._._env_._.)
                     item$DistanceToPial %?<-% NA
                     item$SurfaceElectrode %?<-% FALSE
                     item$Interpolation %?<-% "default"
+                    if (!is.null(prototype)) {
+                      contact_tkrras <- t(prototype$get_contact_positions(channels = item$Electrode, 
+                        apply_transform = TRUE))
+                      contact_tkrras[is.na(contact_tkrras)] <- 0
+                      item$Coord_x <- contact_tkrras[1, ]
+                      item$Coord_y <- contact_tkrras[2, ]
+                      item$Coord_z <- contact_tkrras[3, ]
+                      item$OrigCoord_x <- contact_tkrras[1, ]
+                      item$OrigCoord_y <- contact_tkrras[2, ]
+                      item$OrigCoord_z <- contact_tkrras[3, ]
+                    }
+                    item$OrigCoord_x %?<-% item$Coord_x
+                    item$OrigCoord_y %?<-% item$Coord_y
+                    item$OrigCoord_z %?<-% item$Coord_z
                     tbl <- data.frame(Electrode = item$Electrode, 
                       Coord_x = item$Coord_x, Coord_y = item$Coord_y, 
                       Coord_z = item$Coord_z, Label = item$Label, 
-                      LabelPrefix = item$LabelPrefix, Dimension = item$Dimension, 
+                      LabelPrefix = item$LabelPrefix, Prototype = item$Prototype, 
+                      ContactOrder = item$ContactOrder, Dimension = item$Dimension, 
                       Interpolation = item$Interpolation, LocationType = item$LocationType, 
                       Radius = item$Radius, Hemisphere = item$Hemisphere, 
                       MNI305_x = item$MNI305_x, MNI305_y = item$MNI305_y, 
@@ -1000,123 +1175,66 @@ rm(._._env_._.)
                     re$MRVoxel_I <- round(mr_voxel[1, ])
                     re$MRVoxel_J <- round(mr_voxel[2, ])
                     re$MRVoxel_K <- round(mr_voxel[3, ])
-                    save_path <- file.path(subject$meta_path, 
-                      "electrodes_unsaved.csv")
-                    raveio::dir_create2(dirname(save_path))
-                    utils::write.csv(re, save_path, row.names = FALSE)
-                    localization_result_initial <- re
+                    raveio::dir_create2(subject$meta_path)
+                    utils::write.csv(x = re, file.path(subject$meta_path, 
+                      "electrodes_unsaved.csv"), row.names = FALSE)
+                    prototype_list <- as.list(prototype_list)
+                    raveio::save_json(x = prototype_list, con = file.path(subject$meta_path, 
+                      "geometry_unsaved.json"), serialize = TRUE)
+                    localization_result_initial <- list(electrode_table = re, 
+                      prototype_list = prototype_list)
                   }
                 }
                 localization_result_initial
             }), target_depends = c("localization_list", "brain", 
             "subject")), deps = c("localization_list", "brain", 
         "subject"), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), check_exist_MRI_to_template_nonlinear_transform = targets::tar_target_raw(name = "morph_mri_exists", 
+        iteration = "list"), get_finalized_table = targets::tar_target_raw(name = "localization_result_final", 
         command = quote({
             .__target_expr__. <- quote({
-                morph_mri_exists <- FALSE
-                morph_path <- file.path(subject$preprocess_settings$raw_path, 
-                  "rave-imaging", "morph-template")
-                conf_path <- file.path(morph_path, "transform.yaml")
-                if (file.exists(conf_path)) {
-                  conf <- raveio::load_yaml(conf_path)
-                  fwdtransforms <- conf$fwdtransforms
-                  if (length(fwdtransforms)) {
-                    transform_path <- file.path(morph_path, fwdtransforms)
-                    if (file.exists(transform_path)) {
-                      morph_mri_exists <- TRUE
-                    }
-                  }
-                }
-            })
-            tryCatch({
-                eval(.__target_expr__.)
-                return(morph_mri_exists)
-            }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "morph_mri_exists", 
-                  condition = e, expr = .__target_expr__.)
-            })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "morph_mri_exists", target_expr = quote({
-                {
-                  morph_mri_exists <- FALSE
-                  morph_path <- file.path(subject$preprocess_settings$raw_path, 
-                    "rave-imaging", "morph-template")
-                  conf_path <- file.path(morph_path, "transform.yaml")
-                  if (file.exists(conf_path)) {
-                    conf <- raveio::load_yaml(conf_path)
-                    fwdtransforms <- conf$fwdtransforms
-                    if (length(fwdtransforms)) {
-                      transform_path <- file.path(morph_path, 
-                        fwdtransforms)
-                      if (file.exists(transform_path)) {
-                        morph_mri_exists <- TRUE
-                      }
-                    }
-                  }
-                }
-                morph_mri_exists
-            }), target_depends = "subject"), deps = "subject", 
-        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
-    get_finalized_table = targets::tar_target_raw(name = "localization_result_final", 
-        command = quote({
-            .__target_expr__. <- quote({
+                localization_result_final <- list()
                 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
+                prot <- file.path(subject$meta_path, "geometry_unsaved.json")
+                if (file.exists(prot)) {
+                  localization_result_final$prototype_definitions <- raveio::load_json(prot)
+                }
                 if (file.exists(src)) {
-                  localization_result_final <- utils::read.csv(src)
-                  if (nonlinear_morphing && morph_mri_exists) {
-                    tryCatch({
-                      coords <- localization_result_final[, c("Coord_x", 
-                        "Coord_y", "Coord_z")]
-                      overhead <- FALSE
-                      if (nrow(coords) <= 1) {
-                        overhead <- TRUE
-                        coords <- rbind(coords, data.frame(Coord_x = c(0, 
-                          0), Coord_y = c(0, 0), Coord_z = c(0, 
-                          0)))
-                      }
-                      morph_path <- file.path(subject$preprocess_settings$raw_path, 
-                        "rave-imaging", "morph-template")
-                      if (!dir.exists(morph_path)) {
-                        stop("Cannot find morph path.")
-                      }
-                      coord_lps <- diag(c(-1, -1, 1, 1)) %*% 
-                        brain$xfm %*% brain$Norig %*% solve(brain$Torig) %*% 
-                        rbind(t(as.matrix(coords)), 1)
-                      coord_lps <- as.data.frame(t(coord_lps[1:3, 
-                        ]))
-                      names(coord_lps) <- c("x", "y", "z")
-                      config <- raveio::load_yaml(file.path(morph_path, 
-                        "transform.yaml"))
-                      transform_inv <- file.path(morph_path, 
-                        config$invtransforms)
-                      ants <- rpyANTs::load_ants()
-                      new_pos <- ants$apply_transforms_to_points(dim = 3L, 
-                        points = coord_lps, transformlist = transform_inv)
-                      new_pos <- rpyANTs::py_to_r(new_pos)
-                      new_pos[rowSums(coords^2) == 0, ] <- 0
-                      coord_lps[rowSums(coords^2) == 0, ] <- 0
-                      distance <- sqrt(rowSums(as.matrix(new_pos - 
-                        coord_lps)^2))
-                      new_pos$x <- -new_pos$x
-                      new_pos$y <- -new_pos$y
-                      if (overhead) {
-                        new_pos <- new_pos[seq_len(nrow(new_pos) - 
-                          2), ]
-                        coord_lps <- coord_lps[seq_len(nrow(coord_lps) - 
-                          2), ]
-                        distance <- distance[seq_len(length(distance) - 
-                          2)]
-                      }
-                      localization_result_final$MNI305_x <- new_pos$x
-                      localization_result_final$MNI305_y <- new_pos$y
-                      localization_result_final$MNI305_z <- new_pos$z
-                      localization_result_final$MNI305MorphDistance <- distance
-                    }, error = function(e) {
-                    })
-                  }
-                } else {
-                  localization_result_final <- NULL
+                  localization_result_final$electrode_table <- utils::read.csv(src)
+                  try({
+                    if (isTRUE(localize_data$transform_space %in% 
+                      c("fsl", "ijk2ras", "resampled"))) {
+                      electrode_table <- localization_result_final$electrode_table
+                      scan_ras <- rbind(electrode_table$T1R, 
+                        electrode_table$T1A, electrode_table$T1S, 
+                        1)
+                      switch(localize_data$transform_space, fsl = {
+                        ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
+                        ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                        mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
+                        mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
+                        ct_ijk_to_mr_ras <- mr_ijk2ras %*% solve(mr_ijk2fsl) %*% 
+                          localize_data$transform_matrix %*% 
+                          ct_ijk2fsl
+                        ct_ijk <- solve(ct_ijk_to_mr_ras) %*% 
+                          scan_ras
+                        ct_ras <- ct_ijk2ras %*% ct_ijk
+                      }, ijk2ras = {
+                        ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                        ct_ijk2mr_ras <- localize_data$transform_matrix
+                        ct_ijk <- solve(ct_ijk2mr_ras) %*% scan_ras
+                        ct_ras <- ct_ijk2ras %*% ct_ijk
+                      }, {
+                        ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                        ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
+                        ct_ras <- scan_ras
+                      })
+                      localization_result_final$ct_table <- data.frame(Electrode = electrode_table$Electrode, 
+                        CTVoxel_I = ct_ijk[1, ], CTVoxel_J = ct_ijk[2, 
+                          ], CTVoxel_K = ct_ijk[3, ], CT_R = ct_ras[1, 
+                          ], CT_A = ct_ras[2, ], CT_S = ct_ras[3, 
+                          ])
+                    }
+                  })
                 }
             })
             tryCatch({
@@ -1129,66 +1247,54 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "localization_result_final", target_expr = quote({
                 {
+                  localization_result_final <- list()
                   src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
+                  prot <- file.path(subject$meta_path, "geometry_unsaved.json")
+                  if (file.exists(prot)) {
+                    localization_result_final$prototype_definitions <- raveio::load_json(prot)
+                  }
                   if (file.exists(src)) {
-                    localization_result_final <- utils::read.csv(src)
-                    if (nonlinear_morphing && morph_mri_exists) {
-                      tryCatch({
-                        coords <- localization_result_final[, 
-                          c("Coord_x", "Coord_y", "Coord_z")]
-                        overhead <- FALSE
-                        if (nrow(coords) <= 1) {
-                          overhead <- TRUE
-                          coords <- rbind(coords, data.frame(Coord_x = c(0, 
-                            0), Coord_y = c(0, 0), Coord_z = c(0, 
-                            0)))
-                        }
-                        morph_path <- file.path(subject$preprocess_settings$raw_path, 
-                          "rave-imaging", "morph-template")
-                        if (!dir.exists(morph_path)) {
-                          stop("Cannot find morph path.")
-                        }
-                        coord_lps <- diag(c(-1, -1, 1, 1)) %*% 
-                          brain$xfm %*% brain$Norig %*% solve(brain$Torig) %*% 
-                          rbind(t(as.matrix(coords)), 1)
-                        coord_lps <- as.data.frame(t(coord_lps[1:3, 
-                          ]))
-                        names(coord_lps) <- c("x", "y", "z")
-                        config <- raveio::load_yaml(file.path(morph_path, 
-                          "transform.yaml"))
-                        transform_inv <- file.path(morph_path, 
-                          config$invtransforms)
-                        ants <- rpyANTs::load_ants()
-                        new_pos <- ants$apply_transforms_to_points(dim = 3L, 
-                          points = coord_lps, transformlist = transform_inv)
-                        new_pos <- rpyANTs::py_to_r(new_pos)
-                        new_pos[rowSums(coords^2) == 0, ] <- 0
-                        coord_lps[rowSums(coords^2) == 0, ] <- 0
-                        distance <- sqrt(rowSums(as.matrix(new_pos - 
-                          coord_lps)^2))
-                        new_pos$x <- -new_pos$x
-                        new_pos$y <- -new_pos$y
-                        if (overhead) {
-                          new_pos <- new_pos[seq_len(nrow(new_pos) - 
-                            2), ]
-                          coord_lps <- coord_lps[seq_len(nrow(coord_lps) - 
-                            2), ]
-                          distance <- distance[seq_len(length(distance) - 
-                            2)]
-                        }
-                        localization_result_final$MNI305_x <- new_pos$x
-                        localization_result_final$MNI305_y <- new_pos$y
-                        localization_result_final$MNI305_z <- new_pos$z
-                        localization_result_final$MNI305MorphDistance <- distance
-                      }, error = function(e) {
-                      })
-                    }
-                  } else {
-                    localization_result_final <- NULL
+                    localization_result_final$electrode_table <- utils::read.csv(src)
+                    try({
+                      if (isTRUE(localize_data$transform_space %in% 
+                        c("fsl", "ijk2ras", "resampled"))) {
+                        electrode_table <- localization_result_final$electrode_table
+                        scan_ras <- rbind(electrode_table$T1R, 
+                          electrode_table$T1A, electrode_table$T1S, 
+                          1)
+                        switch(localize_data$transform_space, 
+                          fsl = {
+                            ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
+                            ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                            mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
+                            mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
+                            ct_ijk_to_mr_ras <- mr_ijk2ras %*% 
+                              solve(mr_ijk2fsl) %*% localize_data$transform_matrix %*% 
+                              ct_ijk2fsl
+                            ct_ijk <- solve(ct_ijk_to_mr_ras) %*% 
+                              scan_ras
+                            ct_ras <- ct_ijk2ras %*% ct_ijk
+                          }, ijk2ras = {
+                            ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                            ct_ijk2mr_ras <- localize_data$transform_matrix
+                            ct_ijk <- solve(ct_ijk2mr_ras) %*% 
+                              scan_ras
+                            ct_ras <- ct_ijk2ras %*% ct_ijk
+                          }, {
+                            ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+                            ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
+                            ct_ras <- scan_ras
+                          })
+                        localization_result_final$ct_table <- data.frame(Electrode = electrode_table$Electrode, 
+                          CTVoxel_I = ct_ijk[1, ], CTVoxel_J = ct_ijk[2, 
+                            ], CTVoxel_K = ct_ijk[3, ], CT_R = ct_ras[1, 
+                            ], CT_A = ct_ras[2, ], CT_S = ct_ras[3, 
+                            ])
+                      }
+                    })
                   }
                 }
                 localization_result_final
-            }), target_depends = c("subject", "nonlinear_morphing", 
-            "morph_mri_exists", "brain")), deps = c("subject", 
-        "nonlinear_morphing", "morph_mri_exists", "brain"), cue = targets::tar_cue("always"), 
+            }), target_depends = c("subject", "localize_data"
+            )), deps = c("subject", "localize_data"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"))

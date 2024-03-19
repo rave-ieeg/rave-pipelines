@@ -171,12 +171,14 @@ loader_server <- function(input, output, session, ...){
 
     shiny::bindEvent(
       ravedash::safe_observe({
-        if( identical(input[[image_path_inputId]], "[Upload]")) {
+        input_choice <- input[[image_path_inputId]]
+        if(!length(input_choice)) { return() }
+        if( identical(input_choice, "[Upload]")) {
 
           subject_code <- loader_subject$get_sub_element_input()
           if(!length(subject_code)) {
             shiny::updateSelectInput(session = session, inputId = image_path_inputId,
-                                     selected = character())
+                                     selected = " ")
           }
 
           max_size <- getOption("shiny.maxRequestSize", 300 * 1024^2)
@@ -193,29 +195,36 @@ loader_server <- function(input, output, session, ...){
               dipsaus::fancyFileInput(
                 inputId = ns( image_path_upload_inputId ),
                 label = "Please upload a NIfTI file (.nii or .nii.gz)",
-                multiple = FALSE, accept = c(".nii", ".nii.gz"),
+                multiple = FALSE, accept = c(".nii,.gz"),
                 width = "100%", size = "m"
               )
             }, error = function(e) {
               shiny::fileInput(
                 inputId = ns( image_path_upload_inputId ),
                 label = "Please upload a NIfTI file (.nii or .nii.gz)",
-                multiple = FALSE, accept = c(".nii", ".nii.gz"),
+                multiple = FALSE, accept = c(".nii,.gz"),
                 width = "100%", placeholder = "Use button or drag & drop"
               )
             })
           ))
         } else {
-          local_data[[image_path_inputId]] <- input[[image_path_inputId]]
+          local_data[[image_path_inputId]] <- input_choice
         }
       }),
       input[[image_path_inputId]],
-      ignoreNULL = TRUE, ignoreInit = TRUE
+      ignoreNULL = TRUE, ignoreInit = FALSE
     )
     shiny::bindEvent(
       ravedash::safe_observe({
-        shiny::updateSelectInput(session = session, inputId = image_path_inputId,
-                                 selected = as.character(local_data[[ image_path_inputId ]]))
+        current_val <- as.character(local_data[[ image_path_inputId ]])
+        if(length(current_val)) {
+          shiny::updateSelectInput(session = session, inputId = image_path_inputId,
+                                   selected = current_val)
+        } else {
+          shiny::updateSelectInput(session = session, inputId = image_path_inputId,
+                                   selected = " ")
+        }
+
         shiny::removeModal()
       }),
       input[[ image_path_dismiss_btn ]],
@@ -248,7 +257,7 @@ loader_server <- function(input, output, session, ...){
 
         shiny::updateSelectInput(
           session = session, inputId = image_path_inputId, selected = selected,
-          choices = c("[Upload]", image_selector_choices)
+          choices = c("[Upload]", " ", image_selector_choices)
         )
         shiny::removeModal()
       }, error_wrapper = 'notification'),
@@ -431,7 +440,8 @@ loader_server <- function(input, output, session, ...){
         selected <- c(pipeline$get_settings("path_mri"), selected)
       }
       selected <- selected %OF% paths
-      shiny::updateSelectInput(session = session, inputId = "mri_path", choices = c("[Upload]", paths), selected = selected)
+      if(!length(selected)) { selected <- " " }
+      shiny::updateSelectInput(session = session, inputId = "mri_path", choices = c("[Upload]", " ", paths), selected = selected)
 
       selected <- NULL
       if(length(paths)) {
@@ -449,7 +459,8 @@ loader_server <- function(input, output, session, ...){
         selected <- c(pipeline$get_settings("path_ct"), selected)
       }
       selected <- selected %OF% paths
-      shiny::updateSelectInput(session = session, inputId = "ct_path", choices = c("[Upload]", paths), selected = selected)
+      if(!length(selected)) { selected <- " " }
+      shiny::updateSelectInput(session = session, inputId = "ct_path", choices = c("[Upload]", " ", paths), selected = selected)
 
       fs_reconstructed <- FALSE
       fs_path <- subject$freesurfer_path

@@ -2,10 +2,10 @@
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
   shiny::div(
-    class = "container",
+    class = "container-fluid", style = "max-width: 1440px",
     shiny::fluidRow(
       shiny::column(
-        width = 6L,
+        width = 5L,
         ravedash::input_card(
           title = "Data Selection",
           class_header = "",
@@ -102,7 +102,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
         )
       ),
       shiny::column(
-        width = 6L,
+        width = 7L,
         ravedash::input_card(
           title = "Electrode Plan",
           class_header = "",
@@ -116,9 +116,9 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             label_color = "#c8c9ca",
             components = shidashi::flex_container(
               class = "margin-m10",
-              shidashi::flex_item(shiny::textInput("label", "Group label")),
-              shidashi::flex_item(shiny::textInput("dimension", "Dimension")),
-              shidashi::flex_item(shiny::selectInput("type", "Type", choices = raveio::LOCATION_TYPES)),
+              shidashi::flex_item(shiny::textInput("label", "GroupLabel")),
+              shidashi::flex_item(shiny::textInput("dimension", "Channel")),
+              shidashi::flex_item(shiny::selectInput("type", "Type", choices = electrode_types)),
               shidashi::flex_item(shiny::selectInput("hemisphere", "Hemisphere",
                                                      choices = c("auto", "left", "right"))),
               shidashi::flex_break(),
@@ -152,40 +152,15 @@ loader_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      plan <- get_plan()
-      n <- 0
-      labels <- list()
-      for(ii in seq_along(plan)) {
+      plan <- summarize_plan_list( get_plan() )
+
+      lapply(seq_along(plan), function(ii) {
         item <- plan[[ii]]
-        dimension <- dipsaus::parse_svec(item$dimension, unique = FALSE, sep = "[,x]")
-        dimension <- dimension[!is.na(dimension)]
-        if(!length(dimension) || any(dimension <= 0)) {
-          ne <- 0
+        if(is.null(item)) {
+          msg <- "No channel in this group. This group will be skipped."
         } else {
-          ne <- prod(dimension)
+          msg <- item$msg
         }
-
-        label <- trimws(item$label)
-        if(!nchar(label)) {
-          label <- "NoLabel"
-        }
-        if(!label %in% names(labels)) {
-          labels[[label]] <- 0
-        }
-        type <- item$type
-
-        if(ne == 0) {
-          msg <- "No electrode in this group; please enter a valid electrode dimension."
-        } else if(ne == 1){
-          msg <- sprintf("Electrode %d (%s%.0f): total 1 %s electrode",
-                         n + 1, label, labels[[label]] + 1, type)
-        } else {
-          msg <- sprintf("Electrode %d (%s%.0f) - %d (%s%.0f): total %.0f %s electrodes",
-                         n + 1, label, labels[[label]] + 1, n + ne, label, labels[[label]] + ne, ne, type)
-        }
-        n <- n + ne
-        labels[[label]] <- labels[[label]] + ne
-
         session$sendCustomMessage(
           "shidashi.set_html",
           list(
@@ -193,7 +168,8 @@ loader_server <- function(input, output, session, ...){
             content = msg
           )
         )
-      }
+      })
+
     }),
     get_plan(),
     ignoreNULL = TRUE, ignoreInit = FALSE
@@ -376,106 +352,8 @@ loader_server <- function(input, output, session, ...){
       selected = coreg_params$transform_filename
     )
 
-    electrode_file <- file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv"))
-    electrode_file <- electrode_file[file.exists(electrode_file)]
+    plan <- read_plan_list( file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv")) )
 
-    plan <- list()
-    if(length(electrode_file)) {
-      electrode_file <- electrode_file[[1]]
-      table <- raveio::safe_read_csv(electrode_file)
-      if(all(c('Electrode', "Label") %in% names(table))) {
-        if(!"LocationType" %in% names(table)) {
-          table$LocationType <- raveio::LOCATION_TYPES[[1]]
-        } else {
-          table$LocationType[!table$LocationType %in% raveio::LOCATION_TYPES] <- raveio::LOCATION_TYPES[[1]]
-        }
-        if(!"Dimension" %in% names(table)) {
-          table$Dimension <- ""
-        }
-        if(!"Hemisphere" %in% names(table)) {
-          table$Hemisphere <- "auto"
-        }
-
-        table$LabelPrefix <- gsub("[0-9]+$", "", table$Label)
-        table <- table[order(table$Electrode),]
-
-        current_dim <- ""
-        current_prefix <- ""
-        current_type <- "iEEG"
-        current_hemisphere <- "auto"
-        current_e <- NULL
-
-        for(ii in seq_len(nrow(table))) {
-          sub <- table[ii,]
-          if(!length(current_e)) {
-            current_e <- c(current_e, sub$Electrode)
-            current_dim <- sub$Dimension
-            current_prefix <- sub$LabelPrefix
-            current_type <- sub$LocationType
-            current_hemisphere <- sub$Hemisphere
-          } else {
-            if(!identical(current_dim, sub$Dimension) ||
-               !identical(current_prefix, sub$LabelPrefix) ||
-               !identical(current_type, sub$LocationType) ||
-               !identical(current_hemisphere, sub$Hemisphere) ||
-               sub$Electrode != current_e[[length(current_e)]] + 1) {
-
-              # check dimension
-              dimension <- length(current_e)
-              if(current_dim != "") {
-                dm <- dipsaus::parse_svec(current_dim, unique = TRUE, sep = "[,x]")
-                dm <- dm[!is.na(dm)]
-                if(length(dm) && prod(dm) == dimension) {
-                  dimension <- current_dim
-                }
-              }
-              plan[[length(plan) + 1]] <- list(
-                label = current_prefix,
-                dimension = as.character(dimension),
-                type = current_type,
-                hemisphere = current_hemisphere
-              )
-              current_e <- sub$Electrode
-              current_dim <- sub$Dimension
-              current_prefix <- sub$LabelPrefix
-              current_type <- sub$LocationType
-              current_hemisphere <- sub$Hemisphere
-
-            } else {
-              current_e <- c(current_e, sub$Electrode)
-            }
-          }
-        }
-
-        if(length(current_e)) {
-          # check dimension
-          dimension <- length(current_e)
-          if(current_dim != "") {
-            dm <- dipsaus::parse_svec(current_dim, unique = TRUE, sep = "[,x]")
-            dm <- dm[!is.na(dm)]
-            if(length(dm) && prod(dm) == dimension) {
-              dimension <- current_dim
-            }
-          }
-          plan[[length(plan) + 1]] <- list(
-            label = current_prefix,
-            dimension = as.character(dimension),
-            type = current_type,
-            hemisphere = current_hemisphere
-          )
-        }
-
-      }
-    }
-
-    if(!length(plan)) {
-      plan <- list(list(
-        label = "NoLabel",
-        dimension = as.character(length(subject$preprocess_settings$electrodes)),
-        type = "iEEG",
-        hemisphere = "auto"
-      ))
-    }
     dipsaus::updateCompoundInput2(
       session = session,
       inputId = "loader_plan",

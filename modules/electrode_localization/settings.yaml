@@ -3,7 +3,6 @@ localization_list: ${EXTDATA-SETTINGS|localization_list|json}
 transform_space: ijk2ras
 path_transform: '{subject$freesurfer_path}/../coregistration/CT_IJK_to_MR_RAS.txt'
 project_name: YAEL
-path_mri: '{subject$freesurfer_path}/../coregistration/MRI_reference.nii'
-subject_code: yael_demo_001
-path_ct: '{subject$freesurfer_path}/../coregistration/CT_RAW.nii'
-nonlinear_morphing: yes
+path_mri: '{subject$freesurfer_path}/../coregistration/MRI_reference.nii.gz'
+subject_code: Precision001
+path_ct: '{subject$freesurfer_path}/../coregistration/CT_RAW.nii.gz'

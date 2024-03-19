@@ -58,58 +58,98 @@ ct_candidates <- structure(files, paths = list(
 The following code block only run once only when starting a new localization
 
 ```{rave check_localization_plan, export = "plan_list", cue = "always"}
-# check if number of electrodes is consistent with the plan
-count <- fastmap2()
-count$n <- 0
-count$labels <- list()
+plan_list <- list()
 
-plan_list <- NULL
-plan_table <- lapply(localization_plan, function(item) {
-  dim <- as.integer(parse_svec(item$dimension, unique = FALSE, sep = "[,x]"))
-  dim <- dim[!is.na(dim)]
-  if(!length(dim) || any(dim <= 0)) { return(NULL) }
-  ne <- prod(dim)
-  if(ne <= 0) { return(NULL) }
-  label <- as.character(item$label)
-  if(length(label) != 1 || is.na(label) || trimws(label) == '') {
-    label <- "NoLabel"
-  }
-  if(!label %in% names(count$labels)) {
-    count$labels[[label]] <- 0
-  }
-  type <- item$type
-  if(!isTRUE(type %in% raveio::LOCATION_TYPES)) {
-    type <- raveio::LOCATION_TYPES[[1]]
-  }
-  hemisphere <- item$hemisphere
-  if(!isTRUE(hemisphere %in% c("auto", "left", "right"))) {
-    hemisphere <- "auto"
-  }
-  re <- data.frame(
-    Electrode = count$n + seq_len(ne),
-    Label = sprintf("%s%d", label, count$labels[[label]] + seq_len(ne)),
-    LabelPrefix = label,
-    Dimension = paste(dim, collapse = "x"),
-    LocationType = type,
-    Hemisphere = hemisphere
+# check if number of electrodes is consistent with the plan
+plans <- dipsaus::fastmap2()
+electrodes <- sort(subject$preprocess_settings$electrodes)
+
+lapply(summarize_plan_list(localization_plan), function(item) {
+  if(!length(item)) { return() }
+  if(!isTRUE(item$n > 0)) { return() }
+  label <- toupper(as.character(item$label))
+  part1 <- plans[[label]]
+  if(length(part1)) {
+    if(!identical(part1$type, item$type)) {
+      stop(sprintf("There exist multiple groups with the same group label [%s] (group labels are case-insensitive) but different electrode types [%s, %s]. I cannot determine which electrode prototype for the localization. Please check and correct.", label, part1$type, item$type))
+    }
+    part1$channels <- sprintf("%s,%s", part1$channels, item$channels)
+    part1$n <- part1$n + item$n
+    item <- part1
+  } 
+  plans[[label]] <- list(
+    n = item$n,
+    channels = item$channels,
+    type = item$type,
+    label = label,
+    hemisphere = item$hemisphere,
+    dimension = item$dimension
   )
-  count$n <- count$n + ne
-  count$labels[[label]] <- count$labels[[label]] + ne
-  re
 })
+
+plan_table <- lapply(names(plans), function(nm) {
+  item <- plans[[nm]]
+  proto <- get_prototype(item$type)
+  channs <- parse_svec(item$channels, sort = FALSE, unique = FALSE, na_rm = FALSE)
+  
+  unplug <- is.na(channs)
+  n_unplug <- sum(unplug)
+  n_chans <- length(channs)
+  if(n_chans == n_unplug) { return() }
+  if(!is.null(proto)) {
+    if(n_chans > proto$n_channels) {
+      stop(sprintf("Electrode group [%s] (prototype: %s) has maximum of %d channels by design. However, you have entered %d channels (including %d unplugged channels). Please check & reduce the number of channels.", item$label, item$type, proto$n_channels, n_chans, n_unplug))
+    }
+  }
+  corder <- seq_along(channs)[!unplug]
+  channs <- channs[!unplug]
+  
+  if(item$type %in% raveio::LOCATION_TYPES) {
+    ltype <- item$type
+    pname <- ""
+  } else {
+    ltype <- raveio::LOCATION_TYPES[[1]]
+    pname <- item$type
+  }
+  data.frame(
+    Electrode = channs,
+    Label = sprintf("%s%d", item$label, corder),
+    LabelPrefix = item$label,
+    Dimension = item$dimension,
+    LocationType = ltype,
+    Hemisphere = item$hemisphere,
+    Prototype = pname,
+    ContactOrder = corder
+  )
+  
+})
+
+
 plan_table <- drop_nulls(plan_table)
 
 if(length(plan_table)) {
   plan_table <- do.call('rbind', unname(plan_table))
   
-  electrodes <- sort(subject$preprocess_settings$electrodes)
-  if(length(electrodes) == 0) {
-    electrodes <- plan_table$Electrode
+  if(!nrow(plan_table)) { stop("No valid electrodes to localize.") }
+  
+  count <- table(plan_table$Electrode)
+  count <- names(count)[ count > 1 ]
+  
+  if(length(count)) {
+    stop(sprintf("Electrode contact [%s] has duplicated entries. Please remove and continue.", deparse_svec(as.integer(count))))
   }
-  if(length(electrodes) != length(plan_table$Electrode)) {
-    stop(sprintf("The electrode planned (n=%d) has inconsistent length with registered channel size (n=%d).", length(plan_table$Electrode), length(electrodes)))
+  plan_table <- plan_table[order(plan_table$Electrode), ]
+  rownames(plan_table) <- NULL
+  
+  n_planned <- nrow(plan_table)
+  if( length(electrodes) > 0 ) {
+    if(length(electrodes) != n_planned ) {
+      stop(sprintf("The electrode planned (n=%d, for localization) has inconsistent length with registered channel size (n=%d) from the signal pipelines.", n_planned, length(electrodes)))
+    }
+    
+    plan_table$Electrode <- electrodes
   }
-  plan_table$Electrode <- electrodes
+  
   # Load existing electrodes_unsaved.csv or electrodes.csv, generate plan table
   files <- file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv"))
   files <- files[file.exists(files)]
@@ -157,6 +197,7 @@ if(length(plan_table)) {
   plan_table$Coord_z %?<-% 0
   
   plan_table$Interpolation %?<-% "default"
+  plan_table$Prototype %?<-% ""
   
   plan_table$MNI305_x %?<-% 0
   plan_table$MNI305_y %?<-% 0
@@ -257,8 +298,6 @@ if(length(plan_table)) {
     row.names = FALSE
   )
 }
-
-
 ```
 
 ```{rave check_load_pial_envelop, language = "R", export = "pial_envelope", cue = "always"}
@@ -316,6 +355,34 @@ brain <- tryCatch({
     use_141 = FALSE
   )
 })
+geom_def_path <- file.path(subject$meta_path, "geometry_unsaved.json")
+geom_defs <- list()
+if(file.exists(geom_def_path)) {
+  tryCatch({
+    geom_defs <- raveio::load_json(geom_def_path)
+  }, error = function(e) {})
+}
+
+if(!is.null(brain)) {
+  # Add electrode geometry prototypes
+  lapply(plan_list, function(sub) {
+    if(is.data.frame(sub) && nrow(sub)) {
+      proto <- brain$electrodes$add_geometry(
+        label_prefix = sub$LabelPrefix[[1]], 
+        prototype_name = sub$Prototype[[1]]
+      )
+      if(!is.null(proto)) {
+        unsaved_def <- geom_defs[[ proto$name ]]
+        if(length(unsaved_def) == 1 && is.character(unsaved_def)) {
+          proto$from_json( unsaved_def )
+        }
+        # set channel mapping
+        proto$set_contact_channels(sub$Electrode, sub$ContactOrder)
+      }
+    }
+  })
+}
+brain
 ```
 
 
@@ -390,8 +457,7 @@ localize_data <- list(
 ct_exists <- isTRUE(!is.null(localize_data$ct_header) && is.list(localize_data$ct_header))
 ```
 
-```{rave generate_localization_viewer, language = "R", export = "viewer", cue = "always", cue = "always"}
-
+```{rave generate_localization_viewer, language = "R", export = "viewer", cue = "always"}
 force(ct_exists)
 viewer <- brain$localize(
   ct_path = localize_data$ct_path, 
@@ -399,25 +465,40 @@ viewer <- brain$localize(
   transform_matrix = localize_data$transform_matrix,
   mri_path = localize_data$mri_path
 )
-
-# If running in interactive mode
-if(interactive()) {
-  print(viewer)
-}
-
 ```
 
-```
-# template_brain <- threeBrain::merge_brain(template_subject = "N27")
-# atlas <- template_brain$template_object$atlases$aparc_aseg$group
-# dim <- atlas$get_data("datacube_dim_Atlas - aparc_aseg (N27)")
-# cube <- atlas$get_data("datacube_value_Atlas - aparc_aseg (N27)")
-# dim(cube) <- dim
-```
 
 ```{rave merge_localization_list, export = "localization_result_initial"}
 localization_result_initial <- NULL
+
+prototype_list <- dipsaus::fastmap2()
+
 re <- lapply(localization_list, function(item) {
+  
+  if(!is.data.frame(item) || !nrow(item)) {
+    return()
+  }
+  prototype_def <- attr(item, "prototype")
+  prototype <- NULL
+  prototype_name <- ""
+  label_prefix <- item$LabelPrefix[[1]]
+  if(!is.null(prototype_def)) {
+    if(!length(item$Prototype) && length(prototype_def$type)) {
+      # when saved in pipeline, the prototype name is prototype's name
+      # itself, without postfix `_labelprefix`
+      item$Prototype <- prototype_def$type
+    }
+    prototype <- brain$electrodes$add_geometry(
+      label_prefix = label_prefix, 
+      prototype_name = item$Prototype[[1]]
+    )
+    prototype_name <- prototype$name
+    prototype_def$name <- prototype$name
+    prototype$from_list(prototype_def)
+    prototype_list[[ prototype_name ]] <- prototype$as_json(flattern = TRUE)
+  } else {
+    item$Prototype %?<-% ""
+  }
   
   item$FSIndex %?<-% 0
   item$FSLabel %?<-% "Unknown"
@@ -426,9 +507,6 @@ re <- lapply(localization_list, function(item) {
   item$FSLabel_aparc_DKTatlas_aseg %?<-% "Unknown"
   item$FSLabel_aseg %?<-% "Unknown"
   item$Radius %?<-% 1
-  item$OrigCoord_x %?<-% item$Coord_x
-  item$OrigCoord_y %?<-% item$Coord_y
-  item$OrigCoord_z %?<-% item$Coord_z
   item$Sphere_x %?<-% 0
   item$Sphere_y %?<-% 0
   item$Sphere_z %?<-% 0
@@ -437,10 +515,51 @@ re <- lapply(localization_list, function(item) {
   item$SurfaceElectrode %?<-% FALSE
   item$Interpolation %?<-% "default"
   
+  # check if the geometry exists
+  # proto_dir <- file.path(brain$base_path, "RAVE", "geometry")
+  if(!is.null(prototype)) {
+    # In the final step we save to subject folder
+    # prototype$as_json( file.path(proto_dir, sprintf("%s.json", prototype$name)) )
+    # get contact center positions
+    
+    contact_tkrras <- t(prototype$get_contact_positions(
+      channels = item$Electrode, apply_transform = TRUE))
+    # contact_vox <- solve(brain$Torig) %*% rbind(contact_tkrras, 1)
+    # contact_t1ras <- brain$Norig %*% contact_vox
+    # contact_mni305 <- brain$xfm %*% contact_t1ras
+    # contact_mni152 <- raveio::MNI305_to_MNI152 %*% contact_mni305
+    
+    contact_tkrras[is.na(contact_tkrras)] <- 0
+    # contact_vox[is.na(contact_vox)] <- 0
+    # contact_t1ras[is.na(contact_t1ras)] <- 0
+    # contact_mni305[is.na(contact_mni305)] <- 0
+    # contact_mni152[is.na(contact_mni152)] <- 0
+    
+    item$Coord_x <- contact_tkrras[1,]
+    item$Coord_y <- contact_tkrras[2,]
+    item$Coord_z <- contact_tkrras[3,]
+    
+    item$OrigCoord_x <- contact_tkrras[1,]
+    item$OrigCoord_y <- contact_tkrras[2,]
+    item$OrigCoord_z <- contact_tkrras[3,]
+    
+    # item$MNI305_x <- contact_mni305[1, ]
+    # item$MNI305_y <- contact_mni305[2, ]
+    # item$MNI305_z <- contact_mni305[3, ]
+    
+  }
+  
+  item$OrigCoord_x %?<-% item$Coord_x
+  item$OrigCoord_y %?<-% item$Coord_y
+  item$OrigCoord_z %?<-% item$Coord_z
+  
+  
   tbl <- data.frame(
     Electrode = item$Electrode,
     Coord_x = item$Coord_x, Coord_y = item$Coord_y, Coord_z = item$Coord_z,
     Label = item$Label, LabelPrefix = item$LabelPrefix,
+    Prototype = item$Prototype,
+    ContactOrder = item$ContactOrder,
     Dimension = item$Dimension, 
     Interpolation = item$Interpolation,
     LocationType = item$LocationType, Radius = item$Radius, 
@@ -504,97 +623,83 @@ if(length(re) && nrow(re)) {
   re$MRVoxel_K <- round(mr_voxel[3, ])
   
   # save to electrodes_unsaved.csv
-  save_path <- file.path(subject$meta_path, "electrodes_unsaved.csv")
-  raveio::dir_create2(dirname(save_path))
-  utils::write.csv(re, save_path, row.names = FALSE)
+  raveio::dir_create2(subject$meta_path)
+  utils::write.csv(
+    x = re,
+    file.path(subject$meta_path, "electrodes_unsaved.csv"),
+    row.names = FALSE
+  )
   
-  localization_result_initial <- re
+  # save to "geometry_unsaved.json"
+  prototype_list <- as.list(prototype_list)
+  raveio::save_json(
+    x = prototype_list,
+    con = file.path(subject$meta_path, "geometry_unsaved.json"),
+    serialize = TRUE
+  )
+  
+  localization_result_initial <- list(
+    electrode_table = re,
+    prototype_list = prototype_list
+  )
 }
 ```
 
 Make sure you run target `localization_result_initial` first
 
-```{rave check_exist_MRI_to_template_nonlinear_transform, export = "morph_mri_exists", cue="always"}
-morph_mri_exists <- FALSE
-# check if MRI morphing exists
-morph_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "morph-template")
-
-conf_path <- file.path(morph_path, "transform.yaml")
-if( file.exists(conf_path) ) {
-  conf <- raveio::load_yaml(conf_path)
-  fwdtransforms <- conf$fwdtransforms
-  if(length( fwdtransforms )) {
-    transform_path <- file.path(morph_path, fwdtransforms)
-    if(file.exists(transform_path)) {
-      morph_mri_exists <- TRUE
-    }
-  }
-}
-```
-
 ```{rave get_finalized_table, export = "localization_result_final", cue="always"}
+localization_result_final <- list()
 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
-if(file.exists(src)) {
-  localization_result_final <- utils::read.csv(src)
-  
-  if( nonlinear_morphing && morph_mri_exists ) {
-    
-    tryCatch({
-      coords <- localization_result_final[, c("Coord_x", "Coord_y", "Coord_z")]
-      # ANTs does not allow data frame with less than 2 rows
-      overhead <- FALSE
-      if(nrow(coords) <= 1 ) {
-        overhead <- TRUE
-        coords <- rbind(coords, data.frame(
-          Coord_x = c(0, 0), Coord_y = c(0, 0), Coord_z = c(0, 0)
-        ))
-      }
-      # check morph_path
-      morph_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "morph-template")
-      if( !dir.exists(morph_path) ) {
-        stop("Cannot find morph path.")
-      }
-      # get coords into scannerLPS
-      coord_lps <- diag(c(-1,-1,1,1)) %*% brain$xfm %*% brain$Norig %*% solve(brain$Torig) %*% rbind(t(as.matrix(coords)), 1)
-      coord_lps <- as.data.frame(t(coord_lps[1:3, ]))
-      names(coord_lps) <- c("x", "y", "z")
-    
-      # apply transform
-      config <- raveio::load_yaml(file.path(morph_path, "transform.yaml"))
-      # transform_initial <- file.path(morph_path, config$initial_transform)
-      # transform_fwd <- file.path(morph_path, config$fwdtransforms)
-      transform_inv <- file.path(morph_path, config$invtransforms)
-      ants <- rpyANTs::load_ants()
-      new_pos <- ants$apply_transforms_to_points(
-        dim = 3L,
-        points = coord_lps,
-        transformlist = transform_inv
-      )
-      new_pos <- rpyANTs::py_to_r(new_pos)
-      new_pos[rowSums(coords^2) == 0, ] <- 0
-      coord_lps[rowSums(coords^2) == 0, ] <- 0
-      distance <- sqrt(rowSums(as.matrix(new_pos - coord_lps)^2))
-      new_pos$x <- -new_pos$x
-      new_pos$y <- -new_pos$y
-      
-      if( overhead ) {
-        new_pos <- new_pos[seq_len(nrow(new_pos) - 2), ]
-        coord_lps <- coord_lps[seq_len(nrow(coord_lps) - 2), ]
-        distance <- distance[seq_len(length(distance) - 2)]
-      }
-      
-      localization_result_final$MNI305_x <- new_pos$x
-      localization_result_final$MNI305_y <- new_pos$y
-      localization_result_final$MNI305_z <- new_pos$z
-      localization_result_final$MNI305MorphDistance <- distance
-      
-    }, error = function(e) {})
-  }
-  
-} else {
-  localization_result_final <- NULL
+prot <- file.path(subject$meta_path, "geometry_unsaved.json")
+if(file.exists(prot)) {
+  localization_result_final$prototype_definitions <- raveio::load_json(prot)
 }
-
+if(file.exists(src)) {
+  localization_result_final$electrode_table <- utils::read.csv(src)
+  
+  try({
+    if( isTRUE(localize_data$transform_space %in% c('fsl', 'ijk2ras', 'resampled')) ) {
+      electrode_table <- localization_result_final$electrode_table
+      scan_ras <- rbind(electrode_table$T1R, electrode_table$T1A, electrode_table$T1S, 1)
+      
+      switch(
+        localize_data$transform_space,
+        'fsl' = {
+          ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
+          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+          mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
+          mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
+          
+          # CT vox -> CT fsl -> MR fsl -> MR vox -> MR ras
+          ct_ijk_to_mr_ras <- mr_ijk2ras %*% solve(mr_ijk2fsl) %*% localize_data$transform_matrix %*% ct_ijk2fsl
+          ct_ijk <- solve(ct_ijk_to_mr_ras) %*% scan_ras
+          ct_ras <- ct_ijk2ras %*% ct_ijk
+        },
+        'ijk2ras' = {
+          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+          ct_ijk2mr_ras <- localize_data$transform_matrix
+          ct_ijk <- solve(ct_ijk2mr_ras) %*% scan_ras
+          ct_ras <- ct_ijk2ras %*% ct_ijk
+        },
+        {
+          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
+          ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
+          ct_ras <- scan_ras
+        }
+      )
+      
+      localization_result_final$ct_table <- data.frame(
+        Electrode = electrode_table$Electrode,
+        CTVoxel_I = ct_ijk[1, ],
+        CTVoxel_J = ct_ijk[2, ],
+        CTVoxel_K = ct_ijk[3, ],
+        CT_R = ct_ras[1, ],
+        CT_A = ct_ras[2, ],
+        CT_S = ct_ras[3, ]
+      )
+    }
+  })
+}
 ```
 
 
