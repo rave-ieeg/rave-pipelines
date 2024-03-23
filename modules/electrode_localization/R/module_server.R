@@ -461,6 +461,9 @@ module_server <- function(input, output, session, ...){
       controllers[["Show Time"]] <- FALSE
       controllers[["Left Hemisphere"]] <- "hidden"
       controllers[["Right Hemisphere"]] <- "hidden"
+      controllers[["Left Opacity"]] <- 1.0
+      controllers[["Right Opacity"]] <- 1.0
+      controllers[["Electrode Shape"]] <- "prototype"
 
       dipsaus::shiny_alert2(
         title = "Finalizing...",
