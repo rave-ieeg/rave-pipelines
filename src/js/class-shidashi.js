@@ -53,7 +53,7 @@ class Shidashi {
 
   constructor (Shiny){
     // Insert build version here
-    this.build = { version: '1.0', date: '2023-09-15 13:54:39 EDT' };
+    this.build = { version: '1.0', date: '2024-03-23 14:21:58 EDT' };
     this._keep_alive = true;
     this._moduleId = undefined;
     this._raveId = undefined;
