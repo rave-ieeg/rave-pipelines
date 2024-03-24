@@ -39,6 +39,7 @@ function initShidashi() {
   if(initialized) {
     return( shidashi );
   }
+  initialized = true;
   ensureShidashi();
   const $iframeWrapper = $('.content-wrapper');
 
@@ -85,7 +86,6 @@ function initShidashi() {
       scrollOffset: 0
     });
   }
-  initialized = true;
   return( shidashi );
 }
 

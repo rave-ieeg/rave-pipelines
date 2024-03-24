@@ -4987,7 +4987,7 @@ class Shidashi {
 
   constructor (Shiny){
     // Insert build version here
-    this.build = { version: '1.0', date: '2024-03-23 14:21:58 EDT' };
+    this.build = { version: '1.0', date: '2024-03-23 22:45:32 EDT' };
     this._keep_alive = true;
     this._moduleId = undefined;
     this._raveId = undefined;
@@ -13643,6 +13643,7 @@ function initShidashi() {
   if(initialized) {
     return( shidashi );
   }
+  initialized = true;
   ensureShidashi();
   const $iframeWrapper = jquery__WEBPACK_IMPORTED_MODULE_0___default()('.content-wrapper');
 
@@ -13689,7 +13690,6 @@ function initShidashi() {
       scrollOffset: 0
     });
   }
-  initialized = true;
   return( shidashi );
 }
 
