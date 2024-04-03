@@ -378,6 +378,10 @@ summarize_plan_list <- function( plan ) {
       return(item)
     }
     proto <- get_prototype(item$type)
+    proto_specs <- "No details"
+    if(inherits(proto, "ElectrodePrototype")) {
+      proto_specs <- paste(utils::capture.output({ print(proto, details = FALSE) }), collapse = "\n")
+    }
     if(grepl("^[0-9]+$", dimension)) {
       n_channels <- as.integer(dimension)
       if( n_channels == 0 ) {
@@ -397,7 +401,7 @@ summarize_plan_list <- function( plan ) {
       if(is.null(proto)) {
         item$msg <- sprintf("%s channel [%s] (nchans=%d)", item$type, item$channels, n_channels)
       } else {
-        item$msg <- sprintf("%s channel [%s] (nchans=%d). This electrode prototype has %d channels in total.", item$type, item$channels, n_channels, proto$n_channels)
+        item$msg <- sprintf("<details><summary>%s channel [%s] (nchans=%d). This electrode prototype has %d channels in total.</summary><pre>%s</pre></details>", item$type, item$channels, n_channels, proto$n_channels, proto_specs)
       }
 
       return(item)
@@ -417,7 +421,7 @@ summarize_plan_list <- function( plan ) {
       if(is.null(proto)) {
         item$msg <- sprintf("%s channel [%s] (nchans=%d)", item$type, item$channels, n_channels)
       } else {
-        item$msg <- sprintf("%s channel [%s] (nchans=%d). This electrode prototype has %d channels in total.", item$type, item$channels, n_channels, proto$n_channels)
+        item$msg <- sprintf("<details><summary>%s channel [%s] (nchans=%d). This electrode prototype has %d channels in total.</summary><pre>%s</pre></details>", item$type, item$channels, n_channels, proto$n_channels, proto_specs)
       }
       return(item)
     }
@@ -430,7 +434,7 @@ summarize_plan_list <- function( plan ) {
     if(is.null(proto)) {
       item$msg <- sprintf("%s channel [%s] (nchans=%d, unplugged=%d)", item$type, dimension, plugged, item$n - plugged)
     } else {
-      item$msg <- sprintf("%s channel [%s] (nchans=%d, unplugged=%d). This electrode prototype has %d channels in total.", item$type, dimension, plugged, item$n - plugged, proto$n_channels)
+      item$msg <- sprintf("<details><summary>%s channel [%s] (nchans=%d, unplugged=%d). This electrode prototype has %d channels in total.</summary><pre>%s</pre></details>", item$type, dimension, plugged, item$n - plugged, proto$n_channels, proto_specs)
     }
 
     return(item)
