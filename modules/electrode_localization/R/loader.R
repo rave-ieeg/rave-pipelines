@@ -2,7 +2,7 @@
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
   shiny::div(
-    class = "container-fluid", style = "max-width: 1440px",
+    class = "container-fluid", style = "max-width: 1600px",
     shiny::fluidRow(
       shiny::column(
         width = 5L,
@@ -116,10 +116,10 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             label_color = "#c8c9ca",
             components = shidashi::flex_container(
               class = "margin-m10",
-              shidashi::flex_item(shiny::textInput("label", "GroupLabel")),
-              shidashi::flex_item(shiny::textInput("dimension", "Channel")),
-              shidashi::flex_item(shiny::selectInput("type", "Type", choices = electrode_types)),
-              shidashi::flex_item(shiny::selectInput("hemisphere", "Hemisphere",
+              shidashi::flex_item(size = 2, shiny::textInput("label", "GroupLabel")),
+              shidashi::flex_item(size = 2, shiny::textInput("dimension", "Channel")),
+              shidashi::flex_item(size = 4, shiny::selectInput("type", "Type", choices = electrode_types)),
+              shidashi::flex_item(size = 1, shiny::selectInput("hemisphere", "Hemisphere",
                                                      choices = c("auto", "left", "right"))),
               shidashi::flex_break(),
               shidashi::flex_item(shiny::tags$small(
