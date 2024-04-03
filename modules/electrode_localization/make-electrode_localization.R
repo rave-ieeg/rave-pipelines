@@ -962,6 +962,10 @@ rm(._._env_._.)
                     prototype_name <- prototype$name
                     prototype_def$name <- prototype$name
                     prototype$from_list(prototype_def)
+                    if (length(item$ContactOrder)) {
+                      prototype$set_contact_channels(item$Electrode, 
+                        item$ContactOrder)
+                    }
                     prototype_list[[prototype_name]] <- prototype$as_json(flattern = TRUE)
                   } else {
                     item$Prototype %?<-% ""
@@ -1088,6 +1092,10 @@ rm(._._env_._.)
                       prototype_name <- prototype$name
                       prototype_def$name <- prototype$name
                       prototype$from_list(prototype_def)
+                      if (length(item$ContactOrder)) {
+                        prototype$set_contact_channels(item$Electrode, 
+                          item$ContactOrder)
+                      }
                       prototype_list[[prototype_name]] <- prototype$as_json(flattern = TRUE)
                     } else {
                       item$Prototype %?<-% ""
@@ -1196,7 +1204,17 @@ rm(._._env_._.)
                 src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
                 prot <- file.path(subject$meta_path, "geometry_unsaved.json")
                 if (file.exists(prot)) {
-                  localization_result_final$prototype_definitions <- raveio::load_json(prot)
+                  proto_defs <- raveio::load_json(prot)
+                  localization_result_final$prototype_definitions <- proto_defs
+                  if (length(proto_defs)) {
+                    geometry_dir <- raveio::dir_create2(file.path(subject$freesurfer_path, 
+                      "RAVE", "geometry"))
+                    for (nm in names(proto_defs)) {
+                      target <- file.path(geometry_dir, sprintf("%s.json", 
+                        nm))
+                      writeLines(proto_defs[[nm]], target)
+                    }
+                  }
                 }
                 if (file.exists(src)) {
                   localization_result_final$electrode_table <- utils::read.csv(src)
@@ -1251,7 +1269,17 @@ rm(._._env_._.)
                   src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
                   prot <- file.path(subject$meta_path, "geometry_unsaved.json")
                   if (file.exists(prot)) {
-                    localization_result_final$prototype_definitions <- raveio::load_json(prot)
+                    proto_defs <- raveio::load_json(prot)
+                    localization_result_final$prototype_definitions <- proto_defs
+                    if (length(proto_defs)) {
+                      geometry_dir <- raveio::dir_create2(file.path(subject$freesurfer_path, 
+                        "RAVE", "geometry"))
+                      for (nm in names(proto_defs)) {
+                        target <- file.path(geometry_dir, sprintf("%s.json", 
+                          nm))
+                        writeLines(proto_defs[[nm]], target)
+                      }
+                    }
                   }
                   if (file.exists(src)) {
                     localization_result_final$electrode_table <- utils::read.csv(src)
