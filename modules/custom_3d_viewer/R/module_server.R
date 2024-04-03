@@ -104,15 +104,28 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       synced_controllers <- c(
-        "Display Coordinates", "Show Panels", "Coronal (P - A)",
-        "Axial (I - S)", "Sagittal (L - R)", "Overlay Coronal",
-        "Overlay Axial", "Overlay Sagittal", "Dist. Threshold",
-        "Surface Material", "Left Hemisphere", "Right Hemisphere",
-        "Left Opacity", "Right Opacity", "Surface Color", "Blend Factor",
-        "Sigma", "Decay", "Range Limit", "Visibility", "Voxel Label",
-        "Display Data", "Display Range", "Threshold Data", "Threshold Range",
-        "Threshold Method", "Video Mode", "Show Legend", "Show Time", "Time",
-        "Highlight Box", "Info Text"
+        "Display Coordinates", "Show Panels", "Slice Brightness", "Slice Mode",
+        "Coronal (P - A)", "Axial (I - S)", "Sagittal (L - R)",
+        "Overlay Coronal", "Overlay Axial", "Overlay Sagittal",
+        "Frustum Near", "Frustum Far",
+
+        # "Voxel Display", "Voxel Opacity",
+        "Voxel Min", "Voxel Max", "Voxel Label",
+
+        "Surface Material", "Surface Type", "Clipping Plane",
+        "Left Hemisphere", "Right Hemisphere",
+        "Left Opacity", "Right Opacity",
+        "Left Mesh Clipping", "Right Mesh Clipping",
+        "Surface Color", "Blend Factor", "Sigma", "Decay", "Range Limit",
+
+        "Surface Mapping", "Volume Mapping", "Visibility",
+        "Electrode Shape", "Outlines", "Text Scale", "Text Visibility",
+
+        "Display Data", "Display Range",
+        "Threshold Data", "Threshold Range", "Threshold Method",
+        "Additional Data",
+
+        "Show Legend", "Show Time", "Highlight Box", "Info Text", "Time"
       )
 
       controllers <- pipeline$get_settings("controllers", default = list())
@@ -123,7 +136,14 @@ module_server <- function(input, output, session, ...){
         theme <- shiny::isolate(ravedash::current_shiny_theme())
         background <- theme$background
       }
-      proxy_controllers[["Background Color"]] <- dipsaus::col2hexStr(background)
+      controllers[["Background Color"]] <- dipsaus::col2hexStr(background)
+
+      # voxel_type <- proxy_controllers[["Voxel Display"]]
+      # if(isTRUE(voxel_type %in% brain$atlas_types)) {
+      #   controllers[["Voxel Display"]] <- voxel_type
+      #   controllers[["Voxel Opacity"]] <- proxy_controllers[["Voxel Opacity"]]
+      # }
+
       proxy_controllers <- proxy_controllers[
         names(proxy_controllers) %in% synced_controllers]
 

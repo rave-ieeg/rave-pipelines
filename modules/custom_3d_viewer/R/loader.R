@@ -289,6 +289,8 @@ loader_server <- function(input, output, session, ...){
         surface_types = input$loader_surface_types,
         use_template = input$loader_use_template,
         uploaded_source = NULL,
+        controllers = list(),
+        main_camera = list(),
         shiny_outputId = ns("viewer_ready")
       )
 

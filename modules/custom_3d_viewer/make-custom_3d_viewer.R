@@ -2,6 +2,7 @@ library(targets)
 library(raveio)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
+._._env_._.$pipeline <- pipeline_from_path(".")
 lapply(sort(list.files(
   "R/", ignore.case = TRUE,
   pattern = "^shared-.*\\.R", 
@@ -52,6 +53,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_uploaded_source = targets::tar_target_raw("uploaded_source", 
         quote({
             settings[["uploaded_source"]]
+        }), deps = "settings"), input_enable_cache = targets::tar_target_raw("enable_cache", 
+        quote({
+            settings[["enable_cache"]]
         }), deps = "settings"), get_valid_project_name = targets::tar_target_raw(name = "loaded_brain", 
         command = quote({
             .__target_expr__. <- quote({
@@ -505,7 +509,7 @@ rm(._._env_._.)
                 }
                 brain_widget <- brain_with_data$brain$plot(show_modal = FALSE, 
                   background = background, controllers = controllers, 
-                  start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.start_animation(0);\n    ", 
+                  start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                     .open = "{{", .close = "}}"))
             })
             tryCatch({
@@ -558,7 +562,7 @@ rm(._._env_._.)
                   }
                   brain_widget <- brain_with_data$brain$plot(show_modal = FALSE, 
                     background = background, controllers = controllers, 
-                    start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.start_animation(0);\n    ", 
+                    start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                       .open = "{{", .close = "}}"))
                 }
                 brain_widget

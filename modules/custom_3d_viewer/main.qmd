@@ -5,6 +5,12 @@ output:
   pdf_document: default
 editor_options: 
   chunk_output_type: console
+format:
+  html: 
+    max-width: "1600px"
+    width: 1500
+    page-layout: full
+    embed-resources: true
 ---
 
 ```{r setup, include = FALSE}
@@ -44,8 +50,11 @@ To generate 3D viewer, first you need to create a RAVE brain object, then you ca
 -   Outputs: RAVE brain object `brain` and RAVE 3D viewer
 
 ``` {.r eval="FALSE"}
+# Subject
+subject <- sprintf("%s/%s", project_name, subject_code)
+
 # Brain object
-brain <- raveio::rave_brain(sprintf("%s/%s", project_name, subject_code))
+brain <- raveio::rave_brain(subject)
 
 # Generate 3D viewer
 brain$plot()
@@ -138,22 +147,8 @@ initial_brain_widget <- loaded_brain$brain$plot(
 
 ```
 
-```{r, echo=FALSE}
-invisible({
-  # Saving the brain
-  instructions <- threeBrain::save_brain(
-    initial_brain_widget,
-    directory = "./main_files/temp",
-    assetpath = "main_files/brainLibs", 
-    datapath = "main_files/brainLibs/threebrain_data-0/"
-  )
-  # move files
-  raveio::dir_create2("./main_files/brainLibs")
-  file.copy("./main_files/temp/main_files/brainLibs", "./main_files",
-            recursive = TRUE, overwrite = TRUE)
-})
-
-instructions$as_shiny(outputId = "viewer-3d-1", height = "400px")
+```{r, echo=FALSE, out.width="100%", out.height="500px"}
+loaded_brain$brain$plot()
 ```
 
 ## 2. Render electrodes with values and colors
@@ -370,7 +365,11 @@ loaded_datatable <- NULL
 if(identical(data_source, "Uploads")) {
   if(grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
     tbl <- fst::fst(path_datatable)
-    loaded_datatable <- tbl[1:1000, ]
+    if( nrow(tbl) > 1000 ) {
+      loaded_datatable <- tbl[1:1000, ]
+    } else {
+      loaded_datatable <- tbl[]
+    }
   }
 }
 
@@ -459,30 +458,12 @@ brain_widget <- brain_with_data$brain$plot(
     }
 
     // Force render one frame (update the canvas)
-    canvas.start_animation(0);
+    canvas.needsUpdate = true;
     ',
     .open = "{{", .close = "}}"
   )
 )
 
-```
-
-```{r, echo=FALSE, message=FALSE}
-invisible({
-  # Saving the brain
-  instructions <- threeBrain::save_brain(
-    brain_widget,
-    directory = "./main_files/temp2",
-    assetpath = "main_files/brainLibs2", 
-    datapath = "main_files/brainLibs2/threebrain_data-0/"
-  )
-  # move files
-  raveio::dir_create2("./main_files/brainLibs2")
-  file.copy("./main_files/temp2/main_files/brainLibs2/", "./main_files",
-            recursive = TRUE, overwrite = TRUE)
-})
-
-instructions$as_shiny(outputId = "viewer-3d-2", height = "400px")
 ```
 
 ## Build, Visualize, & Run
