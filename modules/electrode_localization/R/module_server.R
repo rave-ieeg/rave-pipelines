@@ -104,7 +104,7 @@ module_server <- function(input, output, session, ...){
     }
     ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
     if(is.data.frame(ct_table) && nrow(ct_table)) {
-      utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE, col.names = TRUE)
+      utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE)
     } else if(file.exists(ct_tablepath)) {
       unlink(ct_tablepath)
     }
@@ -192,14 +192,14 @@ module_server <- function(input, output, session, ...){
       local_reactives$table_preview <- NULL
 
       brain <- component_container$data$brain
-      geom_names <- names(brain$electrodes$geometries)
-      geometry_definitions <- structure(names = geom_names, lapply(geom_names, function(gname) {
-        geometry <- brain$electrodes$geometries[[gname]]
-        if(!inherits(geometry, "ElectrodePrototype")) {
-          return(NULL)
-        }
-        geometry$as_json(flattern = TRUE)
-      }))
+      # geom_names <- names(brain$electrodes$geometries)
+      # geometry_definitions <- structure(names = geom_names, lapply(geom_names, function(gname) {
+      #   geometry <- brain$electrodes$geometries[[gname]]
+      #   if(!inherits(geometry, "ElectrodePrototype")) {
+      #     return(NULL)
+      #   }
+      #   geometry$as_json(flattern = TRUE)
+      # }))
       localization_list <- lapply(local_data$plan_list, function(group_info) {
         group_table <- group_info$group_table
         prototype <- group_info$prototype
@@ -340,6 +340,7 @@ module_server <- function(input, output, session, ...){
       # Reset preset UI & data
       component_container$reset_data()
       local_data$plan_list <- NULL
+      local_data$last_group_id <- NULL
 
       component_container$data$subject <- subject
       component_container$data$ct_exists <- ct_exists
@@ -363,6 +364,7 @@ module_server <- function(input, output, session, ...){
 
 
       component_container$initialize_with_new_data()
+      local_reactives$table_output <- NULL
       local_reactives$refresh <- Sys.time()
 
     }, priority = 1001),
@@ -731,12 +733,20 @@ module_server <- function(input, output, session, ...){
         # TODO: display control points instead of the group table
         geometry_table <- ginfo$geometry_table
 
-        sel <- stats::complete.cases(geometry_table)
+        sel <- !(
+          is.na( geometry_table$tkr_R ) |
+            is.na( geometry_table$tkr_A ) |
+            is.na( geometry_table$tkr_S )
+        )
         tkrRAS_str <- sprintf("%.0f,%.0f,%.0f", geometry_table$tkr_R, geometry_table$tkr_A, geometry_table$tkr_S)
         tkrRAS_str[!sel] <- ""
+
+        chan_str <- sprintf("%.0f", geometry_table$Channel)
+        chan_str[ chan_str == "NA" ] <- "non-contact"
+
         if(is.data.frame(geometry_table)) {
           table_output <- data.frame(
-            Electrode = ginfo$prototype_name,
+            Electrode = chan_str,
             ModelXYZ = sprintf("%.0f,%.0f,%.0f", geometry_table$model_x, geometry_table$model_y, geometry_table$model_z),
             tkrRAS = tkrRAS_str
           )
@@ -903,7 +913,7 @@ module_server <- function(input, output, session, ...){
   output$group_table <- DT::renderDataTable({
     table_output <- local_reactives$table_output
     shiny::validate(
-      shiny::need(is.data.frame(table_output), message = "")
+      shiny::need(is.data.frame(table_output), message = "Please choose one electrode group first.")
     )
 
     DT::datatable(
@@ -1029,6 +1039,47 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       subject <- component_container$data$subject
+      quat <- brain_proxy$localization_add_quaternion
+      if(!length(quat)) { return() }
+      ginfo <- current_group()
+      if(!is.list(ginfo)) { return() }
+      prototype <- ginfo$prototype
+      if(!inherits(prototype, "ElectrodePrototype")) { return() }
+      geometry_table <- ginfo$geometry_table
+      if( !is.data.frame(geometry_table) ) { return() }
+
+      tryCatch({
+        q <- ravetools::new_quaternion()
+        s <- sin(quat$degreeRad)
+        q$set(
+          quat$direction[[1]] * s,
+          quat$direction[[2]] * s,
+          quat$direction[[3]] * s,
+          cos(quat$degreeRad)
+        )
+        v <- ravetools::new_vector3(x = c(1, 0, 0),
+                                    y = c(0, 1, 0),
+                                    z = c(0, 0, 1))
+        v$apply_quaternion(q)
+        trans <- prototype$transform
+        trans[1:3, 1:3] <- v[] %*% trans[1:3, 1:3]
+        prototype$set_transform( trans );
+        brain_proxy$set_matrix_world(
+          name = sprintf("%s, Prototype - %s", subject$subject_code, prototype$name),
+          m44 = prototype$transform
+        )
+      }, error = function(e) {
+        ravedash::logger("Geometry {prototype$name} up direction is not set. Reason: {paste(e$message, collapse = '\n')}",
+                         use_glue = TRUE, level = "debug")
+      })
+    }),
+    brain_proxy$localization_add_quaternion,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      subject <- component_container$data$subject
       table <- brain_proxy$localization_table
       if(!is.data.frame(table)) { return() }
 
@@ -1079,6 +1130,11 @@ module_server <- function(input, output, session, ...){
         idx2 <- flag_data$which
 
       } else {
+        if( has_geometry ) {
+          n <- min(nrow(geometry_table), n)
+        } else {
+          n <- min(nrow(group_table), n)
+        }
         idx1 <- seq_len(n)
 
         # which to update
@@ -1100,11 +1156,41 @@ module_server <- function(input, output, session, ...){
             name = sprintf("%s, Prototype - %s", subject$subject_code, prototype$name),
             m44 = prototype$transform
           )
+          constact_tkr <- prototype$get_contact_positions( apply_transform = TRUE )
+          nn <- min(nrow(group_table), nrow(constact_tkr))
+          if( nn > 0 ) {
+            group_table[1:nn, c("Coord_x", "Coord_y", "Coord_z")] <- constact_tkr[, 1:3]
+          }
         }, error = function(e) {
           ravedash::logger("Geometry {prototype$name} control point is not yet set. Reason: {paste(e$message, collapse = '\n')}",
                            use_glue = TRUE, level = "debug")
         })
-      } else {
+        if("Channel" %in% names(geometry_table)) {
+          channel_order <- lapply(seq_along(idx2), function( ii ) {
+            row_geom_ii <- idx2[[ ii ]]
+            row_table_ii <- idx1[[ ii ]]
+            chan <- geometry_table$Channel[[ row_geom_ii ]]
+            if( !length(chan) || is.na(chan) ) { return(NULL) }
+            jj <- which(group_table$Electrode == chan)
+            if(!length(jj)) { return(NULL) }
+            # new idx1, idx2
+            return(c(row_table_ii, jj))
+          })
+          channel_order <- do.call("rbind", channel_order)
+          if(length(channel_order)) {
+            idx1 <- channel_order[, 1]
+            idx2 <- channel_order[, 2]
+          } else {
+            idx2 <- integer(0L)
+            idx1 <- integer(0L)
+          }
+        } else {
+          idx2 <- integer(0L)
+          idx1 <- integer(0L)
+        }
+      }
+
+      if(length(idx1) > 0) {
         group_table$Coord_x[idx2] <- table$Coord_x[idx1]
         group_table$Coord_y[idx2] <- table$Coord_y[idx1]
         group_table$Coord_z[idx2] <- table$Coord_z[idx1]
@@ -1139,7 +1225,6 @@ module_server <- function(input, output, session, ...){
         group_table$Sphere_y[idx2] <- table$Sphere_y[idx1]
         group_table$Sphere_z[idx2] <- table$Sphere_z[idx1]
 
-        local_data$plan_list[[group_id]]$group_table <- group_table
       }
 
       # update interpolation settings
@@ -1174,6 +1259,7 @@ module_server <- function(input, output, session, ...){
       if(update_viewer) {
         show_group()
       } else {
+        local_data$plan_list[[group_id]]$group_table <- group_table
         local_reactives$refresh_table <- Sys.time()
       }
     }),
