@@ -9,7 +9,7 @@ module.exports = {
     libraryTarget: 'var',
     library: 'RAVEPipeline'
   },
-  devtool: 'source-map',
+  devtool: 'hidden-source-map',
   externals: {
     jquery: 'jQuery',
   },

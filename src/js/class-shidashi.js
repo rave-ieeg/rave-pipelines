@@ -12,6 +12,8 @@ OverlayScrollbars.plugin([
   ClickScrollPlugin
 ]);
 
+import 'bootstrap';
+
 const default_scroll_opt = {
   /*
   autoUpdate           : null,
@@ -53,7 +55,7 @@ class Shidashi {
 
   constructor (Shiny){
     // Insert build version here
-    this.build = { version: '1.0', date: '2024-04-03 12:39:20 EDT' };
+    this.build = { version: '1.0', date: '2024-04-03 14:27:44 EDT' };
     this._keep_alive = true;
     this._moduleId = undefined;
     this._raveId = undefined;
@@ -102,8 +104,8 @@ class Shidashi {
   }
 
   _mainScrollCallback(scrollers) {
+    /**
     // FIXME: Hide navbar when scrolled down to show more space. It's tricky
-    return;
     let isTop, param;
     if(Array.isArray(scrollers)) {
       isTop = scrollers
@@ -137,6 +139,7 @@ class Shidashi {
       );
       this.addClass("body", "scroller-not-top");
     }
+    */
   }
 
   openURL(url, target = "_blank") {
