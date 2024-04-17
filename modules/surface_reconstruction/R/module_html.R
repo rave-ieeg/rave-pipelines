@@ -207,8 +207,9 @@ module_html <- function(){
                           label = "Command",
                           choices = c(
                             "recon-all -all", "recon-all -autorecon1",
-                            "recon-all-clinical.sh", "ants-preprocessing",
-                            "ants+recon-all",
+                            "recon-all-clinical.sh",
+                            # "ants-preprocessing",
+                            "YAEL+recon-all",
                             "simple-import"
                           ),
                           selected = "recon-all"
@@ -238,7 +239,7 @@ module_html <- function(){
                         NULL
                       } else {
                         shiny::conditionalPanel(
-                          "!['recon-all-clinical.sh', 'recon-all -all'].includes( input.param_fs_prog )",
+                          "!['recon-all-clinical.sh', 'recon-all -all', 'YAEL+recon-all'].includes( input.param_fs_prog )",
                           shiny::actionButton(ns("btn_recon_run"), "Run from RAVE"),
                           ns = ns,
                           style = "display: inline"

@@ -2,6 +2,7 @@ library(targets)
 library(raveio)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
+._._env_._.$pipeline <- pipeline_from_path(".")
 lapply(sort(list.files(
   "R/", ignore.case = TRUE,
   pattern = "^shared-.*\\.R", 
@@ -514,11 +515,12 @@ rm(._._env_._.)
                       raveio::cmd_run_recon_all_clinical(subject = subject, 
                         mri_path = mri_path, overwrite = overwrite, 
                         dry_run = TRUE, verbose = FALSE, command_path = cmd_tools$freesurfer)
-                    }, `ants+recon-all` = {
-                      raveio::cmd_run_yael_preprocess_t1(subject = subject, 
-                        mri_path = mri_path, overwrite = overwrite, 
-                        command_path = cmd_tools$freesurfer, 
-                        dry_run = TRUE, verbose = FALSE)
+                    }, `YAEL+recon-all` = {
+                      raveio::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                        t1w_path = mri_path, normalize_template = c("mni_icbm152_nlin_asym_09b", 
+                          "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"), 
+                        run_recon_all = TRUE, dry_run = TRUE, 
+                        verbose = FALSE)
                     }, `ants-preprocessing` = {
                       raveio::cmd_run_r(dry_run = TRUE, verbose = FALSE, 
                         quoted = TRUE, expr = bquote({
@@ -607,11 +609,12 @@ rm(._._env_._.)
                       raveio::cmd_run_recon_all_clinical(subject = subject, 
                         mri_path = mri_path, overwrite = overwrite, 
                         dry_run = TRUE, verbose = FALSE, command_path = cmd_tools$freesurfer)
-                    }, `ants+recon-all` = {
-                      raveio::cmd_run_yael_preprocess_t1(subject = subject, 
-                        mri_path = mri_path, overwrite = overwrite, 
-                        command_path = cmd_tools$freesurfer, 
-                        dry_run = TRUE, verbose = FALSE)
+                    }, `YAEL+recon-all` = {
+                      raveio::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                        t1w_path = mri_path, normalize_template = c("mni_icbm152_nlin_asym_09b", 
+                          "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"), 
+                        run_recon_all = TRUE, dry_run = TRUE, 
+                        verbose = FALSE)
                     }, `ants-preprocessing` = {
                       raveio::cmd_run_r(dry_run = TRUE, verbose = FALSE, 
                         quoted = TRUE, expr = bquote({
