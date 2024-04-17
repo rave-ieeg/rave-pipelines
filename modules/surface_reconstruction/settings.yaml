@@ -5,6 +5,7 @@ project_name: devel
 path_mri: junk/MRI_reference.nii
 skip_recon: no
 afni_path: /Users/dipterix/abin
+acpc_infile: ~
 params:
   nii_t1: MRI_RAW.nii
   nii_ct: POST_IMPLANT_CT_1_STEALTH_20220824232445_2.nii
