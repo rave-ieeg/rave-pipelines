@@ -70,6 +70,12 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
       )
     )
   }
+
+  if(dipsaus::get_os() == "windows") {
+    wait <- TRUE
+    renderMsg("Detected operating system - Windows... \nDue to technical issues, the console messages will not be displayed here interactively. Don't panic, the program has been scheduled. Please grab a cup of coffee and wait...\n\n\nEstimated run time: 5 min")
+  }
+
   check <- dipsaus::rs_exec(bquote({
     script <- .(cmd$script)
     script_path <- .(cmd$script_path)
