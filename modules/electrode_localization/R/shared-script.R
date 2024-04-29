@@ -332,7 +332,11 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
       if( length(sub$Interpolation) && grepl("^[0-9x,. ]+$", sub$Interpolation[[1]] ) ) {
         interpolation_string <- sub$Interpolation[[1]]
       } else {
-        interpolation_string <- max(c(1L, re$batch_size - 2L))
+        if(!is.null(prototype) && isTRUE(is.character(prototype$default_interpolation))) {
+          interpolation_string <- prototype$default_interpolation
+        } else {
+          interpolation_string <- max(c(1L, re$batch_size - 2L))
+        }
       }
 
       re$interpolation_string <- interpolation_string
