@@ -713,6 +713,48 @@ if(file.exists(src)) {
       )
     }
   })
+  
+  # YAEL post process
+  try({
+    electrode_table <- localization_result_final$electrode_table
+    if(
+      nrow(electrode_table) > 1 &&
+      all(c("T1R", "T1A", "T1S") %in% names(electrode_table)) &&
+      rpyANTs::ants_available()
+    ) {
+      t1_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
+      valids <- rowSums(t1_ras^2) > 0
+      if(any(valids)) {
+        mni152 <- NULL
+        yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+        for(template_name in c(
+          "mni_icbm152_nlin_asym_09b",
+          "mni_icbm152_nlin_asym_09a",
+          "mni_icbm152_nlin_asym_09c"
+        )) {
+          mapping <- yael_process$get_template_mapping(template_name = template_name)
+          if(!is.null(mapping)) {
+            mni152 <- yael_process$transform_points_to_template(
+              native_ras = t1_ras, template_name = template_name
+            )
+            mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
+            mni152[!valids, ] <- 0
+            mni305[!valids, ] <- 0
+            electrode_table$MNI305_x <- mni305[, 1]
+            electrode_table$MNI305_y <- mni305[, 2]
+            electrode_table$MNI305_z <- mni305[, 3]
+            
+            electrode_table$MNI152_x <- mni152[, 1]
+            electrode_table$MNI152_y <- mni152[, 2]
+            electrode_table$MNI152_z <- mni152[, 3]
+            localization_result_final$electrode_table <- electrode_table
+            break
+          }
+        }
+        
+      }
+    }
+  })
 }
 ```
 

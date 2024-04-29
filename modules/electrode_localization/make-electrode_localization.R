@@ -17,36 +17,37 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_path_ct = targets::tar_target_raw("path_ct", quote({
-        settings[["path_ct"]]
-    }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
-        quote({
-            settings[["path_mri"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
-        quote({
-            settings[["path_transform"]]
-        }), deps = "settings"), input_transform_space = targets::tar_target_raw("transform_space", 
-        quote({
-            settings[["transform_space"]]
-        }), deps = "settings"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
-        "./data/localization_list.json", format = "file"), input_localization_list = targets::tar_target_raw("localization_list", 
-        quote({
-            asNamespace("raveio")$pipeline_load_extdata(name = "localization_list", 
-                format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
-                  class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_list_"), `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
+    `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
         "./data/localization_plan.json", format = "file"), input_localization_plan = targets::tar_target_raw("localization_plan", 
         quote({
             asNamespace("raveio")$pipeline_load_extdata(name = "localization_plan", 
                 format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
                   class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_plan_"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
+        }), deps = "settings_path._localization_plan_"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
+        "./data/localization_list.json", format = "file"), input_localization_list = targets::tar_target_raw("localization_list", 
+        quote({
+            asNamespace("raveio")$pipeline_load_extdata(name = "localization_list", 
+                format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
+                  class = "key_missing"), pipe_dir = ".")
+        }), deps = "settings_path._localization_list_"), input_transform_space = targets::tar_target_raw("transform_space", 
+        quote({
+            settings[["transform_space"]]
+        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
+        quote({
+            settings[["path_transform"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
+        quote({
+            settings[["path_mri"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
+        quote({
+            settings[["path_ct"]]
+        }), deps = "settings"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
         command = quote({
             .__target_expr__. <- quote({
                 fslut_path <- system.file("palettes", "datacube2", 
@@ -1253,6 +1254,45 @@ rm(._._env_._.)
                           ])
                     }
                   })
+                  try({
+                    electrode_table <- localization_result_final$electrode_table
+                    if (nrow(electrode_table) > 1 && all(c("T1R", 
+                      "T1A", "T1S") %in% names(electrode_table)) && 
+                      rpyANTs::ants_available()) {
+                      t1_ras <- as.matrix(electrode_table[, c("T1R", 
+                        "T1A", "T1S")])
+                      valids <- rowSums(t1_ras^2) > 0
+                      if (any(valids)) {
+                        mni152 <- NULL
+                        yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+                        for (template_name in c("mni_icbm152_nlin_asym_09b", 
+                          "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
+                          mapping <- yael_process$get_template_mapping(template_name = template_name)
+                          if (!is.null(mapping)) {
+                            mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
+                              template_name = template_name)
+                            mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
+                            mni152[!valids, ] <- 0
+                            mni305[!valids, ] <- 0
+                            electrode_table$MNI305_x <- mni305[, 
+                              1]
+                            electrode_table$MNI305_y <- mni305[, 
+                              2]
+                            electrode_table$MNI305_z <- mni305[, 
+                              3]
+                            electrode_table$MNI152_x <- mni152[, 
+                              1]
+                            electrode_table$MNI152_y <- mni152[, 
+                              2]
+                            electrode_table$MNI152_z <- mni152[, 
+                              3]
+                            localization_result_final$electrode_table <- electrode_table
+                            break
+                          }
+                        }
+                      }
+                    }
+                  })
                 }
             })
             tryCatch({
@@ -1318,6 +1358,46 @@ rm(._._env_._.)
                             ], CTVoxel_K = ct_ijk[3, ], CT_R = ct_ras[1, 
                             ], CT_A = ct_ras[2, ], CT_S = ct_ras[3, 
                             ])
+                      }
+                    })
+                    try({
+                      electrode_table <- localization_result_final$electrode_table
+                      if (nrow(electrode_table) > 1 && all(c("T1R", 
+                        "T1A", "T1S") %in% names(electrode_table)) && 
+                        rpyANTs::ants_available()) {
+                        t1_ras <- as.matrix(electrode_table[, 
+                          c("T1R", "T1A", "T1S")])
+                        valids <- rowSums(t1_ras^2) > 0
+                        if (any(valids)) {
+                          mni152 <- NULL
+                          yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+                          for (template_name in c("mni_icbm152_nlin_asym_09b", 
+                            "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
+                            mapping <- yael_process$get_template_mapping(template_name = template_name)
+                            if (!is.null(mapping)) {
+                              mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
+                                template_name = template_name)
+                              mni305 <- cbind(mni152, 1) %*% 
+                                t(solve(raveio::MNI305_to_MNI152))
+                              mni152[!valids, ] <- 0
+                              mni305[!valids, ] <- 0
+                              electrode_table$MNI305_x <- mni305[, 
+                                1]
+                              electrode_table$MNI305_y <- mni305[, 
+                                2]
+                              electrode_table$MNI305_z <- mni305[, 
+                                3]
+                              electrode_table$MNI152_x <- mni152[, 
+                                1]
+                              electrode_table$MNI152_y <- mni152[, 
+                                2]
+                              electrode_table$MNI152_z <- mni152[, 
+                                3]
+                              localization_result_final$electrode_table <- electrode_table
+                              break
+                            }
+                          }
+                        }
                       }
                     })
                   }
