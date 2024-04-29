@@ -1257,6 +1257,12 @@ module_server <- function(input, output, session, ...){
       }
 
       if(update_viewer) {
+        # Make sure the electrode table is updated, otherwise `show_group()`
+        # will reset it. For prototypes, the table is updated within the
+        # prototype so no need to change here
+        if( !has_geometry ) {
+          local_data$plan_list[[group_id]]$group_table <- group_table
+        }
         show_group()
       } else {
         local_data$plan_list[[group_id]]$group_table <- group_table
