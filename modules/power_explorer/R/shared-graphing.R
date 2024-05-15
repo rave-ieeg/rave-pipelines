@@ -106,7 +106,6 @@ draw_many_heat_maps <- function (hmaps,
   rave_cex.axis <- pe_graphics_settings_cache$get('rave_cex.axis', missing_default = 1.3)
   rave_cex.main <- pe_graphics_settings_cache$get('rave_cex.main', missing_default = 1.5)
 
-
   # how many of the maps actually have usable data (use the range argument)
   has_data <- which(!sapply(hmaps, function(x) {
     if(!is.null(x$range)) {
@@ -114,7 +113,6 @@ draw_many_heat_maps <- function (hmaps,
     }
     return(range(x$data))
   }))
-
   # ravedash::logger('has_data:', has_data, level='warning')
 
   if (do_layout) {
@@ -143,30 +141,45 @@ draw_many_heat_maps <- function (hmaps,
   # }
 
   actual_lim = rutabaga::get_data_range(hmaps)
+  needs_round = FALSE
   if (max_zlim <= 0) {
     max_zlim <- max(abs(actual_lim), na.rm = TRUE)
+    needs_round=TRUE
   } else if (percentile_range) {
+    needs_round=TRUE
+
     if (max_zlim >= 100) {
       max_zlim = (max_zlim/100) * max(abs(actual_lim),
                                       na.rm = TRUE)
     } else {
       if (!is.numeric(ignore_time_range)) {
-        max_zlim <- quantile(unlist(lapply(hmaps, getElement,
-                                           "data")), probs = max_zlim/100, na.rm = TRUE)
+        max_zlim <- quantile(abs(unlist(lapply(hmaps, getElement,
+                                               "data"))), probs = max_zlim/100, na.rm = TRUE)
       }
       else {
         ind <- !(hmaps[[1]]$x %within% ignore_time_range)
-        max_zlim <- quantile(unlist(lapply(hmaps, function(h) h$data[ind,
-        ])), probs = max_zlim/100, na.rm = TRUE)
+        max_zlim <- quantile(abs(unlist(lapply(hmaps, function(h) h$data[ind,
+        ]))), probs = max_zlim/100, na.rm = TRUE)
       }
     }
+  }
+
+  # we're rounding IFF the user didn't pick a plot max
+  if(needs_round) {
+    # Rounding may bother people if they like to report the range of the data
+    # (but we have the range printed above)
     if (max_zlim > 100) {
       max_zlim %<>% round(-1)
     }
     else if (max_zlim > 10) {
       max_zlim %<>% round_to_nearest(5)
+    } else if (max_zlim > 1) {
+      max_zlim %<>% round
+    } else {
+      max_zlim %<>% round(abs(floor(log10(max_zlim))))
     }
   }
+
   log_scale <- if (isTRUE(log_scale)) {
     "y"
   } else {
@@ -684,7 +697,12 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab, ylab.line=2,
     do.call(rave_axis_labels, ral.args)
   }
 
-  ra.args = list(side=2, at=0:1, labels=pretty_round(c(-zlim,zlim), allow_negative_round = TRUE), tcl=0)
+  ra.args = list(side=2, at=0:1,
+                 labels=#pretty_round(
+                   c(-zlim,zlim),
+                 # allow_negative_round = TRUE),
+                 tcl=0)
+
   if('cex.axis' %in% more) ra.args$cex.axis = more$cex.axis
 
   if(horizontal) ra.args$side = 1
@@ -1483,14 +1501,213 @@ plot_per_electrode_statistics <- function(stats, requested_stat, show0=c('smart'
   }
 }
 
+PE_COLLAPSE_METHODS <- c('mean', '+', '-', '*', '/', 'log ratio', 'overlay', 'split')
+build_collapse_function <- function(collapse_method) {
 
+  arg = match.arg(collapse_method, PE_COLLAPSE_METHODS)
+
+  if(arg %in% c('mean', 'log ratio', '+', '*')) {
+    COLL = switch(arg,
+                  'mean' = colMeans,
+                  '+' = colSums,
+                  '*' = {
+                    function(x) {apply(x, 2, prod)}
+                  },
+                  'log ratio' = {
+                    function(x) {
+                      log(apply(x, 2, function(x) {
+                        Reduce(`/`, x)
+                      }))
+                    }
+                  }
+    )
+  } else {
+    COLL = function(x) {
+      apply(x, 2, function(x) {
+        Reduce(match.fun(arg), x)
+      })
+    }
+  }
+  return (COLL)
+}
+
+PE_TRANSFORM_METHODS <- c()
+
+#
+# this function assumes the data have COL=Electrodes and ROW=variables.
+# xvars and yvars must be %OF% rownames(by_electrode_custom_plot_data)
+# colnames of by_electrode_custom_plot_data must be electrode numbers
+plot_by_electrode_custom_plot <- function(by_electrode_custom_plot_data, yvars, xvars='electrode', plot_options=NULL,
+                                          plot_decorations=list(),
+                                          collapse_xvars=PE_COLLAPSE_METHODS, collapse_yvars=PE_COLLAPSE_METHODS,
+                                          transfrom_xvar=PE_TRANSFORM_METHODS, transform_yvar=PE_TRANSFORM_METHODS,
+                                          xunit='', yunit='', do_layout=TRUE) {
+  apply_current_theme()
+
+  if(is.null(plot_options)) {
+    plot_options <- list()
+  }
+  plot_options$pch %?<-% 19
+  plot_options$pt.cex %?<-% 1
+  plot_options$x_axis_font_scale %?<-% 0.5
+  plot_options$pt.alpha %?<-% 100
+  plot_options$plot_width_scale %?<-% 1
+  plot_options$plot_height_scale %?<-% 1
+  plot_options$include0 %?<-% c('X', 'Y')
+  plot_options$matched_axes %?<-% FALSE
+
+
+  # centered, scalable layout
+  if(isTRUE(do_layout)) {
+    par(mar=c(6,6,3,3), oma=c(0,0,0,0))
+    k = plot_options$plot_width_scale
+    h = plot_options$plot_height_scale
+    layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(25*k), 1))
+  }
+
+  x.cex = pe_graphics_settings_cache$get('rave_cex.lab')*get_cex_for_multifigure()*plot_options$x_axis_font_scale
+
+  ## create Y first, as X may depend on Y
+  if(nzchar(yunit)) {
+    prfx = paste0(yunit, '(')
+    yvars <- paste0(prfx, yvars, ')')
+  }
+  yvars = yvars[yvars %in% rownames(by_electrode_custom_plot_data)]
+  .Y = by_electrode_custom_plot_data[yvars[1],]
+  if(length(yvars) > 1) {
+    collapse_yvars=match.arg(collapse_yvars)
+    .Y <- build_collapse_function(collapse_yvars) (by_electrode_custom_plot_data[yvars,])
+  }
+
+  if(any(xvars == 'electrode')) {
+    .X = seq_along(.Y)
+  } else {
+    if(nzchar(xunit)) {
+      prfx = paste0(xunit, '(')
+      xvars <- paste0(prfx, xvars, ')')
+    }
+
+    xvars = xvars[xvars %in% rownames(by_electrode_custom_plot_data)]
+    .X = by_electrode_custom_plot_data[xvars[1],]
+
+    if(length(xvars) > 1) {
+      collapse_xvars=match.arg(collapse_xvars)
+      .X <- build_collapse_function(collapse_xvars) (by_electrode_custom_plot_data[xvars,])
+    }
+  }
+
+  # create a pretty axis label
+  build_str <- function(vars, coll) {
+    if(length(vars) == 1) return (vars)
+
+    if(any(vars == 'electrode')) return ('Electrode')
+
+    res <- switch(coll,
+                  'mean' = paste0('mean (', paste(vars, collapse=','),')'),
+                  'log ratio' = paste0('log (', paste(vars, collapse=' / '),')'),
+                  paste0(vars, collapse=sprintf(' %s ', coll))
+    )
+
+    return(res)
+  }
+
+  xlim = pretty(.X)
+  ylim = pretty(.Y)
+  if ('X' %in% plot_options$include0) xlim %<>% c(0,.X)
+  if ('Y' %in% plot_options$include0) ylim %<>% c(0,.Y)
+  if (plot_options$matched_axes) {
+    xlim = ylim = range(xlim,ylim)
+  }
+  rutabaga::plot_clean(xlim,ylim)
+
+  if(is.matrix(.Y)) {
+    apply_ii(.Y, 2, function(yy, ii) {
+      points(.X, yy, pch=plot_options$pch, cex=plot_options$pt.cex*get_cex_for_multifigure(),
+             col=adjustcolor(ii, alpha.f = plot_options$pt.alpha/100), xpd=TRUE)
+    })
+  } else {
+    points(.X, .Y, pch=plot_options$pch, cex=plot_options$pt.cex*get_cex_for_multifigure(),
+           col=adjustcolor(1, alpha.f = plot_options$pt.alpha/100), xpd=TRUE)
+  }
+
+  rave_axis_labels(build_str(xvars, collapse_xvars), build_str(yvars, collapse_yvars), push_X = 2, push_Y = 1)
+
+  ## X axis is electrode, so we need to be careful how we plot
+  if(any(xvars == 'electrode')) {
+    # rave_axis(1, axTicks(1), labels = colnames(by_electrode_custom_plot_data)[axTicks(1)])
+    ee = as.integer(colnames(by_electrode_custom_plot_data))
+
+    str = dipsaus::deparse_svec(ee)
+    tcks <- stringr::str_split(str, ',', simplify = TRUE)
+    unlist(apply(tcks, 2, function(tck) {
+      begin_end <- as.integer(stringr::str_split(tck, '-', simplify = TRUE))
+
+      if(length(begin_end) > 1 && diff(begin_end) > 5) {
+        begin_end = sort(c(begin_end, ceiling(median(begin_end))))
+      }
+
+      rave_axis(1, which(ee %in% begin_end), labels=NA)
+      begin_end
+    })) -> all_ticks
+
+    mtext(all_ticks, side=1, at=which(ee %in% all_ticks), line=1.5,
+          cex=x.cex)
+  } else {
+
+    rave_axis(1, axTicks(1), line = 1.75, cex.axis=x.cex)
+  }
+
+  rave_axis(2, axTicks(2))
+
+  if(length(plot_decorations) > 0) {
+    dec <- get_plot_decorators()
+    sapply(dec[plot_decorations], function(FUN) {
+      FUN(x=.X, y=.Y)
+    })
+  }
+
+}
+
+get_plot_decorators <- function(names_only=FALSE) {
+  pds <- list(
+    'href' = function(x, ..., h=0, col=par('fg'), lty=1, lwd=1) {
+      # abline(h=h, lty=lty, col=col, lwd=1)
+      # sometimes abline goes too far for categorical-esque x axes, reign it in
+      # to only go to the max X value or the largest x-tick
+      segments(x0=par('usr')[1], x1=max(x, axTicks(1)), y0=0, col=col, lty=lty, lwd=1)
+    },
+    'vref' = function(..., v=0, col=par('fg'), lty=1, lwd=1) {
+      abline(v=v, lty=lty, col=col, lwd=1)
+    },
+    'reg' = function(x, y, ..., col=par('fg'), lty=2, lwd=2) {
+      if(is.matrix(y)) {
+        apply_ii(y, 2, function(yy, ii) {
+          abline(lm(yy ~ x),
+                 lty=lty, col=qq, lwd=2)
+        })
+      } else {
+        abline(lm(y ~ x),
+               lty=lty, col=col, lwd=2)
+      }
+    },
+    'equality' = function(..., col=par('fg'), lwd=2, lty=1) {
+      abline(0, 1, col=col, lwd=lwd, lty=lty)
+    }
+
+  )
+
+  if(names_only) return (names(pds))
+
+  return (pds)
+}
 
 plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
                               types = c('jitter points', 'means', 'ebar polygons'),
                               layout=c('grouped', 'overlay'), draw0=TRUE, draw0.col=NULL,
                               ylim=NULL, col=NULL, do_axes=TRUE,
                               names.pos = c('none', 'bottom', 'top'),
-                              plot_options = NULL, jitter_seed=NULL, cex_multifigure_scale=TRUE) {
+                              plot_options = NULL, jitter_seed=NULL, cex_multifigure_scale=TRUE,
+                              just_get_ylim = FALSE) {
 
   apply_current_theme()
 
@@ -1622,6 +1839,10 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   # giving barplot data with the same dimension of means but with the appropriate
   # range
   ylim %?<-% range(tmp_y, pretty(tmp_y))
+
+  if(isTRUE(just_get_ylim)) {
+    return(ylim)
+  }
 
   # NB: heights could end up a 1x1 matrix w/o the appropriate range
   bars.x <- bp_clean(array(tmp_y, dim=dim(means)), col=par('bg'), names.arg=names.arg, ylim=ylim, ...)
@@ -2132,20 +2353,36 @@ plot_by_frequency_correlation <- function(by_frequency_correlation_data) {
   )
 }
 
-plot_by_frequency_over_time <- function(by_frequency_over_time_data) {
+plot_by_frequency_over_time <- function(by_frequency_over_time_data, plot_args=list()) {
   decorators <- stack_decorators(
     build_heatmap_analysis_window_decorator(type = 'box'),
     build_axis_label_decorator(push_X = 3),
     build_title_decorator()
   )
 
-  draw_many_heat_maps(
-    by_frequency_over_time_data,
-    PANEL.LAST = decorators
+  args <- list(
+    hmaps = by_frequency_over_time_data,
+    PANEL.LAST = decorators,
+    PANEL.COLOR_BAR = color_bar_title_decorator
   )
+
+  if(length(plot_args) > 0) {
+    args[names(plot_args)] = plot_args[names(plot_args)]
+  }
+
+  do.call(draw_many_heat_maps, args)
 }
 
-plot_by_trial_by_condition <- function(by_trial_by_condition_data,
+color_bar_title_decorator <- function(m, cex = 1){#rave_cex.lab * 0.8) {
+  rave_title(paste0('Range\n[',
+                    paste0(pretty_round(rutabaga::get_data_range(m)), collapse = ':'),
+                    ']'),
+             font = 1,
+             cex = cex, adj = .9)
+}
+
+
+plot_by_condition_by_trial <- function(by_condition_by_trial_data,
                                        grouped_plot_options, ylab='') {
   apply_current_theme()
   po <- grouped_plot_options
@@ -2156,15 +2393,36 @@ plot_by_trial_by_condition <- function(by_trial_by_condition_data,
     length(unique(x))
   }
 
-  k = 10 + 2.5*(count(by_trial_by_condition_data$Factor1)*count(by_trial_by_condition_data$AnalysisLabel)-1)
-  if(!is.null(by_trial_by_condition_data$Factor2)) {
-    k = k + 2.5 * (count(by_trial_by_condition_data$Factor2)-1)
+  # fix the names of xvar and gvar
+  for(nm in c('xvar', 'gvar', 'panelvar')) {
+    if(po[[nm]] == 'First Factor') po[[nm]] = 'Factor1'
+    if(po[[nm]] == 'Second Factor') po[[nm]] = 'Factor2'
+    if(po[[nm]] == 'First:Second') po[[nm]] = 'Factor1Factor2'
+    if(po[[nm]] == 'Analysis Group') po[[nm]] = 'AnalysisLabel'
+  }
+
+
+  ### setup plot size
+  k = 10 + 2.5*(count(by_condition_by_trial_data$Factor1)*count(by_condition_by_trial_data$AnalysisLabel)-1)
+  if(!is.null(by_condition_by_trial_data$Factor2)) {
+    k = k + 2.5 * (count(by_condition_by_trial_data$Factor2)-1)
   }
 
   MAX = 30
-  ravedash::logger(po$plot_width_scale)
-  layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(po$plot_width_scale*min(k, MAX)),1))
-  oom <- get_order_of_magnitude(median(abs(pretty(by_trial_by_condition_data$y))))
+  ct= count(by_condition_by_trial_data[[po$panelvar]])
+
+  nr = ct %/% 4  + 1
+  m = matrix(seq_len(ct), nrow=nr, byrow = TRUE)
+  layout(cbind(0,m,0),
+         widths = c(1,
+                    rep(lcm(po$plot_width_scale*min(k, MAX)/ct), ncol(m))
+                    ,1))
+
+  oom <- get_order_of_magnitude(median(abs(pretty(by_condition_by_trial_data$y))))
+  #
+  #   ravedash::logger(
+  #     'OOM', oom
+  #   )
 
   # remove plot_width scale so it doesn't mes things up later
   po$plot_width_scale = NULL
@@ -2174,37 +2432,94 @@ plot_by_trial_by_condition <- function(by_trial_by_condition_data,
   #read in group label posision
   label_position = 'top' #c('none', 'bottom', 'top')
 
-  ### if there is a panel var, split the data and do multiple plots
-  po$panelvar = NULL
-
-  # fix the names of xvar and gvar
-  for(nm in c('xvar', 'gvar')) {
-    if(po[[nm]] == 'First Factor') po[[nm]] = 'Factor1'
-    if(po[[nm]] == 'Second Factor') po[[nm]] = 'Factor2'
-    if(po[[nm]] == 'First:Second') po[[nm]] = 'Factor1Factor2'
-    if(po[[nm]] == 'Analysis Group') po[[nm]] = 'AnalysisLabel'
-  }
-
   # we need to collapse over electrode, but first
   # select out the electrodes that are requested for analysis.
-  # by default, omnibus has all (omni) of the data
-  nms <- names(by_trial_by_condition_data)
-  nms <- nms[!(nms %in% c('y', 'Electrode'))]
-  mat = data.table::data.table(by_trial_by_condition_data)
-  mat = mat[by_trial_by_condition_data$currently_selected, list(y=mean(get('y'))), keyby=nms]
+  # by default, omnibus has all of the data
+  nms <- names(by_condition_by_trial_data)
+
+  # are we collapsing to trials or electrodes?
+  # REMOVE the names you want to collapse over
+  # if('Trials' == po$basic_unit) {
+  #   nms <- nms[!(nms %in% c('y', 'Electrode', 'currently_selected', 'Block'))]
+  # } else if ('Electrodes' == po$basic_unit) {
+  #   nms <- nms[!(nms %in% c('y', 'Trial', 'currently_selected', 'Block'))]
+  # }
+
+
+  keys = unique(c(po$xvar, po$gvar, po$panelvar,
+                  ifelse(po$basic_unit=='Trials', 'Trial', 'Electrode')))
+
+  keys = keys[keys!='none']
+
+
+  po$basic_unit = NULL
+
+  mat = data.table::data.table(by_condition_by_trial_data)
+  mat = mat[by_condition_by_trial_data$currently_selected, list(y=mean(get('y'))), keyby=keys]
 
   par('mar'=c(4, 4.5+oom, ifelse(label_position=='top',3.5,2), 2)+.1)
-  do.call(plot_grouped_data,
-          append(po, list(mat=as.data.frame(mat),
-                          do_axes=TRUE, names.pos=label_position))
-  )
+
+  # we are panelling
+  if(ct > 1) {
+  par(oma=c(1,1,0,0))
+    ravedash::logger('Trying to make panels')
+    pvar <- po$panelvar
+    by_panel <- split(mat, mat[[pvar]], drop = TRUE)
+
+    ## refactor the panelling var so we don't get extra rows?
+    by_panel %<>% lapply(function(p) {
+      p[[pvar]] %<>% factor
+      p
+    })
+
+    # we need to avoid passing in the panel var to the plot function
+    po$panelvar = NULL
+
+    # before we plot, we need to figure out the ylim of the plot
+    # this is non-trivial (depends on plot options) so just use the function
+    # to get the limits
+    ylim <- sapply(by_panel, function(m) {
+      do.call(plot_grouped_data,
+              append(po, list(mat=as.data.frame(m),
+                              do_axes=TRUE, names.pos=label_position, just_get_ylim=TRUE))
+      )
+    }) %>% range
+
+
+    qq <- 1
+    lapply(by_panel, function(m) {
+      # m = by_panel[[1]]
+      # text(ylab, outer=TRUE, line = 1, side = 2, xpd=TRUE,
+      #       cex=get_cex_for_multifigure()*pe_graphics_settings_cache$get('rave_cex.axis'))
+
+      do.call(plot_grouped_data,
+              append(po, list(mat=as.data.frame(m),
+                              do_axes=TRUE, names.pos=label_position, ylim=ylim))
+      )
+
+      if(0 == ((qq-1) %%  3)) {
+        rave_axis_labels(ylab = ylab, yline=line+.5)
+        qq <<- qq + 1
+      }
+
+      mtext(unique(m[[pvar]]), outer=FALSE, line = 3.5, side = 1, xpd=TRUE,
+            cex=get_cex_for_multifigure()*pe_graphics_settings_cache$get('rave_cex.axis'))
+    })
+
+  } else {
+    po$panelvar = NULL
+    do.call(plot_grouped_data,
+            append(po, list(mat=as.data.frame(mat),
+                            do_axes=TRUE, names.pos=label_position))
+    )
+
+    if(nzchar(ylab)) {
+      rave_axis_labels(ylab=ylab, outer=FALSE, yline=line, xpd=TRUE)
+    }
+  }
 
   # uoa = local_data$results$baseline_settings$unit_of_analysis
-  if(nzchar(ylab)) {
-    rave_axis_labels(ylab=ylab, outer=FALSE, yline=line, xpd=TRUE)
-  }
 }
-
 
 plot_over_time_by_trial <- function(over_time_by_trial_data) {
   apply_current_theme()
@@ -2216,13 +2531,11 @@ plot_over_time_by_trial <- function(over_time_by_trial_data) {
   )
 
   draw_many_heat_maps(hmaps = over_time_by_trial_data,
-                      axes = c(T,F), max_zlim = 95, percentile_range = TRUE,
+                      axes = c(T,F), max_zlim = 99, percentile_range = TRUE,
                       PANEL.LAST = decorators
   )
 
 }
-
-
 
 plot_by_trial_look_for_outliers <- function(by_trial_look_for_outliers_data) {
 
@@ -2293,5 +2606,225 @@ nm <- names(default_pegs) [!pe_graphics_settings_cache$has(names(default_pegs))]
 if(length(nm)) {
   pe_graphics_settings_cache$mset(.list = default_pegs[nm])
 }
+
+
+as_html <- function(obj, ...) {
+  UseMethod('as_html')
+}
+
+as_html.emmGrid <- function(obj, ..., caption='') {
+  # obj <- em$contrasts
+  # obj <- em$emmeans
+
+  df <- as.data.frame(obj)
+
+  names(df) = stringr::str_replace_all(
+    names(df),
+    c('t.ratio' = 't', 'p.value' = 'p', 'emmean' = 'Est_marginal_mean')
+  )
+  df_plain <- data.frame(df)
+
+  df_plain$p %<>% format.pval(digits=2)
+
+  df_plain %<>% lapply(function(v) {
+    if (!is.numeric(v)) {
+      return(v)
+    }
+
+    format(v, digits=3)
+  }) %>% data.frame
+
+
+  re <- list()
+  tags = shiny::tags
+
+  # if('contrast' %in% names(obj@levels)) {
+  #   'Contrast from emmeans'
+  # } else {
+  #   'Est. marginal means from emmeans'
+  # }
+
+  re$table = tags$div(
+    class = 'table-responsive',
+    tags$table(
+      class = 'table table-striped table-sm',
+      tags$caption(caption, ' | ', paste0(collapse='. ', attributes(df)$mesg)),
+      tags$thead(
+        tags$tr(
+          lapply(c(colnames(df_plain)), tags$th)
+        )
+      ),
+      tags$tbody(
+        lapply(seq_len(nrow(df_plain)), function(ii){
+          v = df_plain[ii,]
+          tags$tr(lapply(v, tags$td))
+        })
+      )
+    )
+  )
+
+  re
+}
+
+
+htmltable_coefmat <- function(
+    x, caption = NULL, digits = max(3L, getOption("digits") - 2L),
+    signif.stars = getOption("show.signif.stars"),
+    signif.legend = signif.stars,
+    dig.tst = max(1L, min(5L, digits - 1L)),
+    k = 3,
+    cs.ind = 1:k, tst.ind = k + 1,
+    zap.ind = integer(),
+    nc = ncol(x),
+    P.values = NULL,
+    has.Pvalue = nc >= 4L && length(cn <- colnames(x)) &&
+      substr(cn[nc], 1L, 3L) %in% c("Pr(", "p-v"),
+    eps.Pvalue = .Machine$double.eps,
+    na.print = "NA", quote = FALSE, right = TRUE, ...
+){
+  if (is.null(d <- dim(x)) || length(d) != 2L)
+    stop("'x' must be coefficient matrix/data frame")
+  nc <- d[2L]
+  if (is.null(P.values)) {
+    scp <- getOption("show.coef.Pvalues")
+    if (!is.logical(scp) || is.na(scp)) {
+      warning("option \"show.coef.Pvalues\" is invalid: assuming TRUE")
+      scp <- TRUE
+    }
+    P.values <- has.Pvalue && scp
+  } else if (P.values && !has.Pvalue) {
+    stop("'P.values' is TRUE, but 'has.Pvalue' is not")
+  }
+
+  if (has.Pvalue && !P.values) {
+    d <- dim(xm <- data.matrix(x[, -nc, drop = FALSE]))
+    nc <- nc - 1
+    has.Pvalue <- FALSE
+  } else {
+    xm <- data.matrix(x)
+  }
+  k <- nc - has.Pvalue - ifelse (missing(tst.ind), 1, length(tst.ind))
+  if (!missing(cs.ind) && length(cs.ind) > k) {
+    stop("wrong k / cs.ind")
+  }
+  Cf <- array("", dim = d, dimnames = dimnames(xm))
+  ok <- !(ina <- is.na(xm))
+  for (i in zap.ind) xm[, i] <- zapsmall(xm[, i], digits)
+  if (length(cs.ind)) {
+    acs <- abs(coef.se <- xm[, cs.ind, drop = FALSE])
+    if (any(ia <- is.finite(acs))) {
+      digmin <- 1 + if (length(acs <- acs[ia & acs != 0]))
+        floor(log10(range(acs[acs != 0], finite = TRUE)))
+      else 0
+      Cf[, cs.ind] <- format(round(coef.se, max(1L, digits -
+                                                  digmin)), digits = digits)
+    }
+  }
+  if (length(tst.ind))
+    Cf[, tst.ind] <- format(round(xm[, tst.ind], digits = dig.tst),
+                            digits = digits)
+  if (any(r.ind <- !((1L:nc) %in% c(cs.ind, tst.ind, if (has.Pvalue) nc))))
+    for (i in which(r.ind)) Cf[, i] <- format(xm[, i], digits = digits)
+  ok[, tst.ind] <- FALSE
+  okP <- if (has.Pvalue) ok[, -nc] else ok
+  x1 <- Cf[okP]
+  dec <- getOption("OutDec")
+  if (dec != ".") x1 <- chartr(dec, ".", x1)
+  x0 <- (xm[okP] == 0) != (as.numeric(x1) == 0)
+  if (length(not.both.0 <- which(x0 & !is.na(x0)))) {
+    Cf[okP][not.both.0] <- format(xm[okP][not.both.0], digits = max(1L,
+                                                                    digits - 1L))
+  }
+  if (any(ina)) Cf[ina] <- na.print
+  if (P.values) {
+    if (!is.logical(signif.stars) || is.na(signif.stars)) {
+      warning("option \"show.signif.stars\" is invalid: assuming TRUE")
+      signif.stars <- TRUE
+    }
+    if (any(okP <- ok[, nc])) {
+      pv <- as.vector(xm[, nc])
+      Cf[okP, nc] <- format.pval(pv[okP], digits = dig.tst,
+                                 eps = eps.Pvalue)
+      signif.stars <- signif.stars && any(pv[okP] < 0.1)
+      if (signif.stars) {
+        Signif <- symnum(pv, corr = FALSE, na = FALSE,
+                         cutpoints = c(0, 0.001, 0.01, 0.05, 0.1, 1),
+                         symbols = c("***", "**", "*", ".", " "))
+        Cf <- cbind(Cf, format(Signif))
+      }
+    } else signif.stars <- FALSE
+  } else signif.stars <- FALSE
+
+  # Make Cf a table
+  # print.default(Cf, quote = quote, right = right, na.print = na.print, ...)
+  re = list()
+  tags = shiny::tags
+  rnames = rownames(Cf)
+
+  if(length(caption) != 1){
+    caption = NULL
+  }
+  sleg = ''
+  if (signif.stars && signif.legend) {
+    if ((w <- getOption("width")) < nchar(sleg <- attr(Signif, "legend"))){
+      sleg <- strwrap(sleg, width = w - 2, prefix = "  ")
+    }
+    # cat("---\nSignif. codes:  ", sleg, sep = "", fill = w + 4 + max(nchar(sleg, "bytes") - nchar(sleg)))
+    re$signif = sleg
+    sleg = tagList(
+      br(),
+      sprintf(' - Signif. codes: %s', sleg)
+    )
+  }
+
+  re$table = tags$div(
+    class = 'table-responsive',
+    tags$table(
+      class = 'table table-striped table-sm',
+      tags$caption(caption, ' ', tags$small(sleg)),
+      tags$thead(
+        tags$tr(
+          lapply(c('', colnames(Cf)), tags$th)
+        )
+      ),
+      tags$tbody(
+        lapply(seq_len(nrow(Cf)), function(ii){
+          v = c(rnames[ii], Cf[ii,]); names(v) = NULL
+          tags$tr(lapply(v, tags$td))
+        })
+      )
+    )
+  )
+
+  re
+}
+
+htmltable_mat <- function(mat, ...) {
+  re = list()
+  tags = shiny::tags
+
+  re$table = tags$div(
+    class = 'table-responsive',
+    tags$table(
+      class = 'table table-striped table-sm',
+      tags$thead(
+        tags$tr(
+          lapply(colnames(mat), tags$th)
+        )
+      ),
+      tags$tbody(
+
+        apply(mat, 1, function(m) {
+          tags$tr(
+            lapply(m, tags$td)
+          )
+        })
+      )
+    )
+  )
+  return(re)
+}
+
+
 
 

@@ -17,90 +17,90 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
+    input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
         quote({
-            settings[["electrodes_to_export_roi_categories"]]
-        }), deps = "settings"), input_electrodes_to_export_roi_name = targets::tar_target_raw("electrodes_to_export_roi_name", 
-        quote({
-            settings[["electrodes_to_export_roi_name"]]
-        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
-        quote({
-            settings[["analysis_settings"]]
-        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
-        quote({
-            settings[["custom_roi_groupings"]]
-        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
-        quote({
-            settings[["custom_roi_variable"]]
-        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
-        quote({
-            settings[["custom_roi_type"]]
-        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
-        quote({
-            settings[["enable_custom_ROI"]]
-        }), deps = "settings"), input_condition_variable = targets::tar_target_raw("condition_variable", 
-        quote({
-            settings[["condition_variable"]]
-        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
-        quote({
-            settings[["enable_second_condition_groupings"]]
-        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
-        quote({
-            settings[["second_condition_groupings"]]
-        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
-        quote({
-            settings[["first_condition_groupings"]]
-        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
-        quote({
-            settings[["analysis_electrodes"]]
-        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
-        quote({
-            settings[["baseline_settings"]]
-        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
-        quote({
-            settings[["reference_name"]]
-        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
-        quote({
-            settings[["epoch_choice__trial_ends"]]
-        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
-        quote({
-            settings[["epoch_choice__trial_starts"]]
-        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
-        quote({
-            settings[["epoch_choice"]]
-        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
-        quote({
-            settings[["loaded_electrodes"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
-        quote({
-            settings[["time_censor"]]
-        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
-        quote({
-            settings[["trial_outliers_list"]]
-        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
-        quote({
-            settings[["electrode_export_file_type"]]
-        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
-        quote({
-            settings[["frequencies_to_export"]]
-        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
-        quote({
-            settings[["times_to_export"]]
-        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
-        quote({
-            settings[["trials_to_export"]]
+            settings[["electrode_export_data_type"]]
         }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
         quote({
             settings[["electrodes_to_export"]]
-        }), deps = "settings"), input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
         quote({
-            settings[["electrode_export_data_type"]]
+            settings[["trials_to_export"]]
+        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
+        quote({
+            settings[["times_to_export"]]
+        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
+        quote({
+            settings[["frequencies_to_export"]]
+        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
+        quote({
+            settings[["electrode_export_file_type"]]
+        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
+        quote({
+            settings[["trial_outliers_list"]]
+        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
+        quote({
+            settings[["time_censor"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
+        quote({
+            settings[["loaded_electrodes"]]
+        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
+        quote({
+            settings[["epoch_choice"]]
+        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
+        quote({
+            settings[["epoch_choice__trial_starts"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
+        quote({
+            settings[["epoch_choice__trial_ends"]]
+        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
+        quote({
+            settings[["reference_name"]]
+        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
+        quote({
+            settings[["baseline_settings"]]
+        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
+        quote({
+            settings[["analysis_electrodes"]]
+        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
+        quote({
+            settings[["first_condition_groupings"]]
+        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
+        quote({
+            settings[["second_condition_groupings"]]
+        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
+        quote({
+            settings[["enable_second_condition_groupings"]]
+        }), deps = "settings"), input_condition_variable = targets::tar_target_raw("condition_variable", 
+        quote({
+            settings[["condition_variable"]]
+        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
+        quote({
+            settings[["enable_custom_ROI"]]
+        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
+        quote({
+            settings[["custom_roi_type"]]
+        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
+        quote({
+            settings[["custom_roi_variable"]]
+        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
+        quote({
+            settings[["custom_roi_groupings"]]
+        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
+        quote({
+            settings[["analysis_settings"]]
+        }), deps = "settings"), input_electrodes_to_export_roi_name = targets::tar_target_raw("electrodes_to_export_roi_name", 
+        quote({
+            settings[["electrodes_to_export_roi_name"]]
+        }), deps = "settings"), input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
+        quote({
+            settings[["electrodes_to_export_roi_categories"]]
         }), deps = "settings"), check_load_power = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
@@ -574,12 +574,14 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), build_pluriform_power = targets::tar_target_raw(name = "pluriform_power", 
         command = quote({
             .__target_expr__. <- quote({
+                options(future.globals.maxSize = 4 * 1024^3)
                 epoch_event_types = get_available_events(repository$epoch$columns)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
                 pluriform_power <- raveio::lapply_async(analysis_groups, 
                   callback = function(x) {
-                    paste("working on:", x$label, "data")
+                    paste("[build_pluriform_power] working on:", 
+                      x$label, "data")
                   }, FUN = function(ag) {
                     sapply(analysis_settings_clean, function(as) {
                       p <- get_pluriform_power(baselined_data = baselined_power_data, 
@@ -611,12 +613,14 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = "user-defined-r", 
             target_export = "pluriform_power", target_expr = quote({
                 {
+                  options(future.globals.maxSize = 4 * 1024^3)
                   epoch_event_types = get_available_events(repository$epoch$columns)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                   pluriform_power <- raveio::lapply_async(analysis_groups, 
                     callback = function(x) {
-                      paste("working on:", x$label, "data")
+                      paste("[build_pluriform_power] working on:", 
+                        x$label, "data")
                     }, FUN = function(ag) {
                       sapply(analysis_settings_clean, function(as) {
                         p <- get_pluriform_power(baselined_data = baselined_power_data, 
@@ -1176,29 +1180,10 @@ rm(._._env_._.)
                   signal_type = "LFP", electrodes = repository$electrode_list)
                 non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 
                   "has_trials"))
-                combine_if_equal <- function(ll, nms = c("Electrode", 
-                  "Time")) {
-                  if (length(ll) == 1) {
-                    return(ll[[1]])
-                  }
-                  r1 <- ll[[1]]
-                  for (jj in seq_along(ll)[-1]) {
-                    stopifnot(all(dim(r1) == dim(ll[[jj]]), sapply(nms, 
-                      function(nm) {
-                        all.equal(r1[[nm]], ll[[jj]][[nm]])
-                      })))
-                  }
-                  r1
-                  for (jj in seq_along(ll)[-1]) {
-                    cn <- names(ll[[jj]])
-                    to_move = setdiff(cn, nms)
-                    r1[to_move] = ll[[jj]][to_move]
-                  }
-                  return(r1)
-                }
                 by_condition_group <- raveio::lapply_async(analysis_groups, 
                   callback = function(x) {
-                    paste("working on:", x$label, "data")
+                    paste("[build_over_time_by_electrode_dataframe] working on:", 
+                      x$label, "data")
                   }, FUN = function(ag) {
                     res <- lapply(analysis_settings_clean, function(as) {
                       fi <- repository$frequency %within% as$frequency
@@ -1257,29 +1242,10 @@ rm(._._env_._.)
                     signal_type = "LFP", electrodes = repository$electrode_list)
                   non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 
                     "has_trials"))
-                  combine_if_equal <- function(ll, nms = c("Electrode", 
-                    "Time")) {
-                    if (length(ll) == 1) {
-                      return(ll[[1]])
-                    }
-                    r1 <- ll[[1]]
-                    for (jj in seq_along(ll)[-1]) {
-                      stopifnot(all(dim(r1) == dim(ll[[jj]]), 
-                        sapply(nms, function(nm) {
-                          all.equal(r1[[nm]], ll[[jj]][[nm]])
-                        })))
-                    }
-                    r1
-                    for (jj in seq_along(ll)[-1]) {
-                      cn <- names(ll[[jj]])
-                      to_move = setdiff(cn, nms)
-                      r1[to_move] = ll[[jj]][to_move]
-                    }
-                    return(r1)
-                  }
                   by_condition_group <- raveio::lapply_async(analysis_groups, 
                     callback = function(x) {
-                      paste("working on:", x$label, "data")
+                      paste("[build_over_time_by_electrode_dataframe] working on:", 
+                        x$label, "data")
                     }, FUN = function(ag) {
                       res <- lapply(analysis_settings_clean, 
                         function(as) {
@@ -1395,9 +1361,10 @@ rm(._._env_._.)
             )), deps = c("trial_details", "condition_variable", 
         "pluriform_power", "analysis_groups", "baseline_settings"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_omnibus_results = targets::tar_target_raw(name = "omnibus_results", 
+        iteration = "list"), build_internal_omnibus_results = targets::tar_target_raw(name = "internal_omnibus_results", 
         command = quote({
             .__target_expr__. <- quote({
+                options(future.globals.maxSize = 4 * 1024^3)
                 raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
                   method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                   units = get_baseline_scope(baseline_settings$scope), 
@@ -1455,11 +1422,6 @@ rm(._._env_._.)
                 if (!is.null(all_data$AnalysisLabel)) {
                   all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
                 }
-                rn <- "currently_selected"
-                while (rn %in% names(all_data)) {
-                  rn <- "PWR_EXPLR_" %&% rn
-                }
-                all_data[[rn]] = all_data$Electrode %in% requested_electrodes
                 get_factor_length <- function(x) length(unique(all_data[[x]]))
                 repeated_factors <- "AnalysisLabel"
                 unrepeated_factors <- c("Factor1", "Factor2")
@@ -1476,8 +1438,9 @@ rm(._._env_._.)
                   formula_str %<>% paste("+ (1|Trial)")
                   stat_fun <- lmerTest::lmer
                 }
+                formula_frm = as.formula(formula_str)
                 run_stats <- function(el) {
-                  mod <- stat_fun(as.formula(formula_str), data = el)
+                  mod <- stat_fun(formula_frm, data = el)
                   if (length(coef(mod)) == 1 && class(mod) != 
                     "lmerModLmerTest") {
                     lsm <- emmeans::emmeans(mod, specs = "1")
@@ -1517,33 +1480,30 @@ rm(._._env_._.)
                   return(res)
                 }
                 stats <- all_data %>% split((.)$Electrode) %>% 
-                  raveio::lapply_async(function(el) {
+                  lapply(function(el) {
                     tryCatch({
                       return(suppressMessages(run_stats(el)))
                     }, error = function(...) {
                       NULL
                     })
                   }) %>% rutabaga::cbind_list()
-                rn <- "currently_selected"
-                while (rn %in% rownames(stats)) {
-                  rn = "RAVE_" %&% rn
-                }
-                val = matrix(nrow = 1, as.integer(colnames(stats) %in% 
-                  as.character(requested_electrodes)), dimnames = list(rn))
-                stats %<>% rbind(val)
                 attr(stats, "electrode_labels") = repository$electrode_table$Label
-                omnibus_results = list(data = all_data, stats = stats)
+                all_data %<>% merge(repository$epoch$table[, 
+                  c("Block", "Trial")], sort = FALSE)
+                internal_omnibus_results = list(data = all_data, 
+                  stats = stats)
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(omnibus_results)
+                return(internal_omnibus_results)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "omnibus_results", 
+                asNamespace("raveio")$resolve_pipeline_error(name = "internal_omnibus_results", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
-            target_export = "omnibus_results", target_expr = quote({
+            target_export = "internal_omnibus_results", target_expr = quote({
                 {
+                  options(future.globals.maxSize = 4 * 1024^3)
                   raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
                     method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                     units = get_baseline_scope(baseline_settings$scope), 
@@ -1601,11 +1561,6 @@ rm(._._env_._.)
                   if (!is.null(all_data$AnalysisLabel)) {
                     all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
                   }
-                  rn <- "currently_selected"
-                  while (rn %in% names(all_data)) {
-                    rn <- "PWR_EXPLR_" %&% rn
-                  }
-                  all_data[[rn]] = all_data$Electrode %in% requested_electrodes
                   get_factor_length <- function(x) length(unique(all_data[[x]]))
                   repeated_factors <- "AnalysisLabel"
                   unrepeated_factors <- c("Factor1", "Factor2")
@@ -1622,9 +1577,9 @@ rm(._._env_._.)
                     formula_str %<>% paste("+ (1|Trial)")
                     stat_fun <- lmerTest::lmer
                   }
+                  formula_frm = as.formula(formula_str)
                   run_stats <- function(el) {
-                    mod <- stat_fun(as.formula(formula_str), 
-                      data = el)
+                    mod <- stat_fun(formula_frm, data = el)
                     if (length(coef(mod)) == 1 && class(mod) != 
                       "lmerModLmerTest") {
                       lsm <- emmeans::emmeans(mod, specs = "1")
@@ -1664,31 +1619,222 @@ rm(._._env_._.)
                     return(res)
                   }
                   stats <- all_data %>% split((.)$Electrode) %>% 
-                    raveio::lapply_async(function(el) {
+                    lapply(function(el) {
                       tryCatch({
                         return(suppressMessages(run_stats(el)))
                       }, error = function(...) {
                         NULL
                       })
                     }) %>% rutabaga::cbind_list()
-                  rn <- "currently_selected"
-                  while (rn %in% rownames(stats)) {
-                    rn = "RAVE_" %&% rn
-                  }
-                  val = matrix(nrow = 1, as.integer(colnames(stats) %in% 
-                    as.character(requested_electrodes)), dimnames = list(rn))
-                  stats %<>% rbind(val)
                   attr(stats, "electrode_labels") = repository$electrode_table$Label
-                  omnibus_results = list(data = all_data, stats = stats)
+                  all_data %<>% merge(repository$epoch$table[, 
+                    c("Block", "Trial")], sort = FALSE)
+                  internal_omnibus_results = list(data = all_data, 
+                    stats = stats)
                 }
-                omnibus_results
+                internal_omnibus_results
             }), target_depends = c("repository", "baseline_settings", 
             "analysis_groups", "analysis_settings_clean", "trial_outliers_list", 
-            "enable_second_condition_groupings", "requested_electrodes"
-            )), deps = c("repository", "baseline_settings", "analysis_groups", 
-        "analysis_settings_clean", "trial_outliers_list", "enable_second_condition_groupings", 
+            "enable_second_condition_groupings")), deps = c("repository", 
+        "baseline_settings", "analysis_groups", "analysis_settings_clean", 
+        "trial_outliers_list", "enable_second_condition_groupings"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), build_omnibus_results = targets::tar_target_raw(name = "omnibus_results", 
+        command = quote({
+            .__target_expr__. <- quote({
+                omnibus_results = internal_omnibus_results
+                rn <- "currently_selected"
+                while (rn %in% names(omnibus_results$data)) {
+                  rn <- "PWR_EXPLR_" %&% rn
+                }
+                omnibus_results$data[[rn]] = omnibus_results$data$Electrode %in% 
+                  requested_electrodes
+                rn <- "currently_selected"
+                while (rn %in% rownames(omnibus_results$stats)) {
+                  rn = "RAVE_" %&% rn
+                }
+                val = matrix(nrow = 1, as.integer(colnames(omnibus_results$stats) %in% 
+                  as.character(requested_electrodes)), dimnames = list(rn))
+                omnibus_results$stats %<>% rbind(val)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(omnibus_results)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "omnibus_results", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+            target_export = "omnibus_results", target_expr = quote({
+                {
+                  omnibus_results = internal_omnibus_results
+                  rn <- "currently_selected"
+                  while (rn %in% names(omnibus_results$data)) {
+                    rn <- "PWR_EXPLR_" %&% rn
+                  }
+                  omnibus_results$data[[rn]] = omnibus_results$data$Electrode %in% 
+                    requested_electrodes
+                  rn <- "currently_selected"
+                  while (rn %in% rownames(omnibus_results$stats)) {
+                    rn = "RAVE_" %&% rn
+                  }
+                  val = matrix(nrow = 1, as.integer(colnames(omnibus_results$stats) %in% 
+                    as.character(requested_electrodes)), dimnames = list(rn))
+                  omnibus_results$stats %<>% rbind(val)
+                }
+                omnibus_results
+            }), target_depends = c("internal_omnibus_results", 
+            "requested_electrodes")), deps = c("internal_omnibus_results", 
         "requested_electrodes"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), build_by_trial_electrode_similarity_data = targets::tar_target_raw(name = "by_trial_electrode_similarity_data", 
+        pattern = NULL, iteration = "list"), build_across_electrode_statistics = targets::tar_target_raw(name = "across_electrode_statistics", 
+        command = quote({
+            .__target_expr__. <- quote({
+                dd <- subset(omnibus_results$data, currently_selected)
+                rand_effects <- c("Block", "Electrode") %>% intersect(names(dd))
+                fixed_effects <- c("Factor1", "Factor2", "Freq", 
+                  "Event", "AnalysisLabel") %>% intersect(names(dd))
+                for (ff in c(rand_effects, fixed_effects)) {
+                  dd[[ff]] %<>% as.factor
+                }
+                fe <- names(which(sapply(dd[fixed_effects], nlevels) > 
+                  1))
+                re <- names(which(sapply(dd[rand_effects], nlevels) > 
+                  1))
+                if ("AnalysisLabel" %in% fe) {
+                  if ("Block" %in% re) {
+                    re[which(re == "Block")] = "Block/Trial"
+                  } else {
+                    re %<>% c("Trial")
+                  }
+                }
+                re_str = NULL
+                if (length(re) > 0) {
+                  re_str <- paste(collapse = "+", sapply(re, 
+                    function(x) sprintf("(1|%s)", x)))
+                }
+                .datatable.aware = TRUE
+                condition_means <- data.table::as.data.table(dd)[, 
+                  list(y = mean(y), se = rutabaga:::se(y), n = .N), 
+                  keyby = fe]
+                if (is.null(re_str)) {
+                  frm <- as.formula(sprintf("y ~ %s", paste0(fe, 
+                    collapse = "*")))
+                  mod <- lm(frm, data = dd)
+                } else {
+                  f_string <- paste(paste(fe, collapse = "*"), 
+                    re_str, sep = " + ")
+                  frm <- as.formula(paste("y ~", f_string))
+                  mod <- lme4::lmer(frm, data = dd)
+                }
+                em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
+                  paste(fe, collapse = "*"))), infer = c(F, T))
+                pairwise <- emmeans::contrast(em, "pairwise")
+                stratified_contrasts <- NULL
+                if (length(fe) > 1) {
+                  stratified_contrasts <- get_stratified_contrasts(em)
+                }
+                itx_contrasts <- NULL
+                if (length(fe) == 2) {
+                  nm <- paste0(fe, collapse = "_")
+                  itx_contrasts <- list(emmeans::contrast(em, 
+                    interaction = c("pairwise", "pairwise"))) %>% 
+                    setNames(nm)
+                }
+                if (length(fe) > 2) {
+                  fe_combn <- combn(fe, 2, simplify = FALSE)
+                  itx_contrasts <- sapply(fe_combn, function(groups) {
+                    emmeans::contrast(em, interaction = c("pairwise", 
+                      "pairwise"), by = fe[!fe %in% groups])
+                  }) %>% setNames(sapply(fe_combn, paste0, collapse = "."))
+                }
+                across_electrode_statistics <- list(condition_means = condition_means, 
+                  model = mod, model_type = class(mod)[1], aov = car::Anova(mod), 
+                  emmeans = em, pairwise_contrasts = pairwise, 
+                  fixed_effects = fe, random_effects = re, stratified_contrasts = stratified_contrasts, 
+                  itx_contrasts = itx_contrasts)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(across_electrode_statistics)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "across_electrode_statistics", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+            target_export = "across_electrode_statistics", target_expr = quote({
+                {
+                  dd <- subset(omnibus_results$data, currently_selected)
+                  rand_effects <- c("Block", "Electrode") %>% 
+                    intersect(names(dd))
+                  fixed_effects <- c("Factor1", "Factor2", "Freq", 
+                    "Event", "AnalysisLabel") %>% intersect(names(dd))
+                  for (ff in c(rand_effects, fixed_effects)) {
+                    dd[[ff]] %<>% as.factor
+                  }
+                  fe <- names(which(sapply(dd[fixed_effects], 
+                    nlevels) > 1))
+                  re <- names(which(sapply(dd[rand_effects], 
+                    nlevels) > 1))
+                  if ("AnalysisLabel" %in% fe) {
+                    if ("Block" %in% re) {
+                      re[which(re == "Block")] = "Block/Trial"
+                    } else {
+                      re %<>% c("Trial")
+                    }
+                  }
+                  re_str = NULL
+                  if (length(re) > 0) {
+                    re_str <- paste(collapse = "+", sapply(re, 
+                      function(x) sprintf("(1|%s)", x)))
+                  }
+                  .datatable.aware = TRUE
+                  condition_means <- data.table::as.data.table(dd)[, 
+                    list(y = mean(y), se = rutabaga:::se(y), 
+                      n = .N), keyby = fe]
+                  if (is.null(re_str)) {
+                    frm <- as.formula(sprintf("y ~ %s", paste0(fe, 
+                      collapse = "*")))
+                    mod <- lm(frm, data = dd)
+                  } else {
+                    f_string <- paste(paste(fe, collapse = "*"), 
+                      re_str, sep = " + ")
+                    frm <- as.formula(paste("y ~", f_string))
+                    mod <- lme4::lmer(frm, data = dd)
+                  }
+                  em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
+                    paste(fe, collapse = "*"))), infer = c(F, 
+                    T))
+                  pairwise <- emmeans::contrast(em, "pairwise")
+                  stratified_contrasts <- NULL
+                  if (length(fe) > 1) {
+                    stratified_contrasts <- get_stratified_contrasts(em)
+                  }
+                  itx_contrasts <- NULL
+                  if (length(fe) == 2) {
+                    nm <- paste0(fe, collapse = "_")
+                    itx_contrasts <- list(emmeans::contrast(em, 
+                      interaction = c("pairwise", "pairwise"))) %>% 
+                      setNames(nm)
+                  }
+                  if (length(fe) > 2) {
+                    fe_combn <- combn(fe, 2, simplify = FALSE)
+                    itx_contrasts <- sapply(fe_combn, function(groups) {
+                      emmeans::contrast(em, interaction = c("pairwise", 
+                        "pairwise"), by = fe[!fe %in% groups])
+                    }) %>% setNames(sapply(fe_combn, paste0, 
+                      collapse = "."))
+                  }
+                  across_electrode_statistics <- list(condition_means = condition_means, 
+                    model = mod, model_type = class(mod)[1], 
+                    aov = car::Anova(mod), emmeans = em, pairwise_contrasts = pairwise, 
+                    fixed_effects = fe, random_effects = re, 
+                    stratified_contrasts = stratified_contrasts, 
+                    itx_contrasts = itx_contrasts)
+                }
+                across_electrode_statistics
+            }), target_depends = "omnibus_results"), deps = "omnibus_results", 
+        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
+    build_by_trial_electrode_similarity_data = targets::tar_target_raw(name = "by_trial_electrode_similarity_data", 
         command = quote({
             .__target_expr__. <- quote({
                 dd <- omnibus_results$data
@@ -1742,8 +1888,6 @@ rm(._._env_._.)
                     envir = environment())
                 } else {
                 }
-                ravedash::logger("1024::Electrodes to export:[", 
-                  electrodes_to_export, "]", level = "warning")
                 prog <- shidashi::shiny_progress("Building export data", 
                   max = 4, shiny_auto_close = TRUE)
                 data_for_export = FALSE
@@ -1882,19 +2026,10 @@ rm(._._env_._.)
                       value.name = uoa))
                     tbl$AnalysisGroup = asc$label
                     if (!is.null(attributes(tensor)[["TrialLabel"]])) {
-                      trials <- as.numeric(dimnames(tensor)$Trial)
-                      lbls <- attributes(tensor)[["TrialLabel"]]
-                      og_lbls <- attributes(tensor)[["OrigTrialLabel"]]
-                      tbl$TrialLabel = paste0(tbl$Trial)
-                      for (tt in unique(tbl$Trial)) {
-                        if (!paste0(tt) %in% lbls) {
-                          ind = which(tbl$Trial == tt)
-                          tbl$TrialLabel[ind] = lbls[which(tt == 
-                            trials)]
-                          tbl$OrigTrialLabel[ind] = og_lbls[which(tt == 
-                            trials)]
-                        }
-                      }
+                      df <- data.table::data.table(Trial = as.numeric(dimnames(tensor)$Trial), 
+                        TrialLabel = attributes(tensor)[["TrialLabel"]], 
+                        OrigTrialLabel = attributes(tensor)[["OrigTrialLabel"]])
+                      tbl %<>% merge(df, all.y = FALSE, all.x = TRUE)
                     }
                     return(tbl)
                   }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
@@ -1934,8 +2069,6 @@ rm(._._env_._.)
                       envir = environment())
                   } else {
                   }
-                  ravedash::logger("1024::Electrodes to export:[", 
-                    electrodes_to_export, "]", level = "warning")
                   prog <- shidashi::shiny_progress("Building export data", 
                     max = 4, shiny_auto_close = TRUE)
                   data_for_export = FALSE
@@ -2080,19 +2213,10 @@ rm(._._env_._.)
                         value.name = uoa))
                       tbl$AnalysisGroup = asc$label
                       if (!is.null(attributes(tensor)[["TrialLabel"]])) {
-                        trials <- as.numeric(dimnames(tensor)$Trial)
-                        lbls <- attributes(tensor)[["TrialLabel"]]
-                        og_lbls <- attributes(tensor)[["OrigTrialLabel"]]
-                        tbl$TrialLabel = paste0(tbl$Trial)
-                        for (tt in unique(tbl$Trial)) {
-                          if (!paste0(tt) %in% lbls) {
-                            ind = which(tbl$Trial == tt)
-                            tbl$TrialLabel[ind] = lbls[which(tt == 
-                              trials)]
-                            tbl$OrigTrialLabel[ind] = og_lbls[which(tt == 
-                              trials)]
-                          }
-                        }
+                        df <- data.table::data.table(Trial = as.numeric(dimnames(tensor)$Trial), 
+                          TrialLabel = attributes(tensor)[["TrialLabel"]], 
+                          OrigTrialLabel = attributes(tensor)[["OrigTrialLabel"]])
+                        tbl %<>% merge(df, all.y = FALSE, all.x = TRUE)
                       }
                       return(tbl)
                     }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)

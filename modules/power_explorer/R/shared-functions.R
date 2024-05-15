@@ -7,6 +7,7 @@
 # require(data.table)
 # require(ravedash)
 # require(lmtest)
+
 `%$%` <- magrittr::`%$%`
 `%<>%` <- magrittr::`%<>%`
 `%>%` <- magrittr::`%>%`
@@ -22,6 +23,7 @@ rand_string <- raveio:::rand_string
 
 stopifnot2 <- raveio:::stopifnot2
 
+temp_file <- ravedash::temp_file
 
 
 get_recursive_summary <- function(ll, nm, FUN=range) {
@@ -206,7 +208,7 @@ get_pluriform_power <- function(
     # ravedash::logger('updating events file')
     nms <- paste0('Event_', epoch_event_types[-1])
     events[nms] <- events[nms] - events[[event_of_interest]]
-    ravedash::logger('done with shifting', level='debug')
+    # ravedash::logger('done with shifting', level='debug')
   }
 
   # handle outliers
@@ -880,7 +882,6 @@ new_shift_array <- function() {
   dimnames(shifted_array) <- dnames
 }
 
-
 count_elements <- function (x)  {
   if (is.null(x))
     return(1)
@@ -928,6 +929,50 @@ build_modal_plot_download <- function(download_plot_info, outputId='do_download_
 
 get_order_of_magnitude <- function(x) {
   floor(log10(abs(x)))
+}
+
+# helper to allow passing in the index of a column/row alongside the data
+apply_ii <- function (X, MARGIN, FUN, ..., simplify = TRUE) {
+  apply(X, MARGIN, FUN, ii=1, ..., simplify = simplify)
+}
+
+# from an emmGrid, get all possible pairwise comparisons
+# for all possible 1- and 2-way slices
+get_stratified_contrasts <- function(emmGrid) {
+  fe = names(emmGrid@levels)
+
+  holdouts = fe;
+  if(length(fe) > 2) {
+    holdouts = append(fe, combn(fe,2,simplify=FALSE))
+  }
+
+  lapply(holdouts, function(out) {
+    suppressMessages(emmeans::emmeans(
+      emmGrid,
+      as.formula(
+        sprintf("pairwise ~ %s", paste0(collapse='*',fe[! fe %in% out]))
+      ),
+      by = out
+    ))}) %>% setNames(sapply(holdouts, paste0, collapse='.'))
+}
+
+make_plot_conditional_panel <- function(prefix = 'bfot',
+    config_button='by_frequency_tabset_config', ...) {
+  shiny::conditionalPanel(
+    condition = sprintf("input['%s']%%2 == 1", config_button),
+    ns = ns,
+    shiny::div(
+      class = "container-fluid",
+      shiny::fluidRow(
+        shiny::column(width = 2L,
+                      shiny::numericInput(ns(paste0(prefix, '_range')), label = 'Plot Max',
+                                                      value = 99, min = 0, max = 1e7)),
+        shiny::column(width = 2L, style='text-align: left; margin-top:37px; margin-left:0px',
+                      shiny::checkboxInput(ns(paste0(prefix, '_range_is_percentile')),
+                                           label = 'Max is %', value = TRUE))
+      )
+    )
+  )
 }
 
 

@@ -1,22 +1,24 @@
-analysis_block: block006
-analysis_electrodes: 1-116
-analysis_time:
-- 222.1877056
-- 229.8033456
-block: block006
-filter_bandpass:
-  enabled: no
-filter_notch:
-  enabled: no
-hide_electrodes: ''
-highlight_electrodes: ''
-loaded_electrodes: 1-116
-project_name: devel
-pwelch_frequency_limit:
-- 0
-- 300
+vertical_spacing: ~
+subject_code: DemoSubject
 pwelch_params:
   window_size: 4000
   noverlap: 2000.0
-subject_code: PAV006
-vertical_spacing: ~
+pwelch_frequency_limit:
+- 0
+- 300
+project_name: demo
+loaded_electrodes: 13-16,24
+highlight_electrodes: ''
+hide_electrodes: ''
+filter_notch:
+  enabled: no
+filter_bandpass:
+  enabled: no
+block:
+- 008
+- '010'
+- '011'
+- '012'
+analysis_time: ~
+analysis_electrodes: 13-16,24
+analysis_block: 008
