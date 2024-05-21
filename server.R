@@ -16,6 +16,10 @@ if(system.file(package = 'raveio') != ""){
   }
 }
 
+if(file.exists("prelaunch.R")) {
+  source("prelaunch.R")
+}
+
 server <- function(input, output, session){
 
   # Sync input ID
