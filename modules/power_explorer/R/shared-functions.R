@@ -928,7 +928,12 @@ build_modal_plot_download <- function(download_plot_info, outputId='do_download_
 }
 
 get_order_of_magnitude <- function(x) {
-  floor(log10(abs(x)))
+  x = abs(x)
+
+  if(x<1) return (0)
+
+
+  floor(log10(x))
 }
 
 # helper to allow passing in the index of a column/row alongside the data
@@ -956,24 +961,6 @@ get_stratified_contrasts <- function(emmGrid) {
     ))}) %>% setNames(sapply(holdouts, paste0, collapse='.'))
 }
 
-make_plot_conditional_panel <- function(prefix = 'bfot',
-    config_button='by_frequency_tabset_config', ...) {
-  shiny::conditionalPanel(
-    condition = sprintf("input['%s']%%2 == 1", config_button),
-    ns = ns,
-    shiny::div(
-      class = "container-fluid",
-      shiny::fluidRow(
-        shiny::column(width = 2L,
-                      shiny::numericInput(ns(paste0(prefix, '_range')), label = 'Plot Max',
-                                                      value = 99, min = 0, max = 1e7)),
-        shiny::column(width = 2L, style='text-align: left; margin-top:37px; margin-left:0px',
-                      shiny::checkboxInput(ns(paste0(prefix, '_range_is_percentile')),
-                                           label = 'Max is %', value = TRUE))
-      )
-    )
-  )
-}
 
 
 

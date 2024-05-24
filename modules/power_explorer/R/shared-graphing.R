@@ -95,11 +95,11 @@ draw_many_heat_maps <- function (hmaps,
                                  show_color_bar = TRUE, useRaster = TRUE, PANEL.FIRST = NULL,
                                  PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL,
                                  axes = c(TRUE, TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
-                                 max_columns = 3, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
+                                 ncol = 3, byrow=TRUE, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
                                  ignore_time_range = NULL,
                                  #marginal_text_fields = c("Subject", "Electrodes"),
                                  extra_plot_parameters = NULL,
-                                 do_layout = TRUE, byrow=TRUE, ...)
+                                 do_layout = TRUE, ...)
 {
 
   #pe_graphics_settings_cache is defined above
@@ -116,7 +116,7 @@ draw_many_heat_maps <- function (hmaps,
   # ravedash::logger('has_data:', has_data, level='warning')
 
   if (do_layout) {
-    orig.pars <- layout_heat_maps(length(has_data), max_col = max_columns,
+    orig.pars <- layout_heat_maps(length(has_data), max_col = ncol,
                                   layout_color_bar = show_color_bar, byrow = byrow)
 
     ## if you want us to do layout, then I assume you want us to setup colors too
@@ -152,6 +152,12 @@ draw_many_heat_maps <- function (hmaps,
       max_zlim = (max_zlim/100) * max(abs(actual_lim),
                                       na.rm = TRUE)
     } else {
+
+      # if we have a zlim < 1, multiply by 100
+      if(max_zlim < 1) {
+        max_zlim = abs(100*max_zlim)
+      }
+
       if (!is.numeric(ignore_time_range)) {
         max_zlim <- quantile(abs(unlist(lapply(hmaps, getElement,
                                                "data"))), probs = max_zlim/100, na.rm = TRUE)
@@ -286,13 +292,18 @@ draw_many_heat_maps <- function (hmaps,
   }
 
   if (show_color_bar) {
-    .mar <- c(par("mar")[1], 5.1, 5, 1)
+    yline = 2.5 + get_order_of_magnitude(max_zlim)
+
+    .mar <- c(par("mar")[1], max(5.1, yline+3.6), 5, 1)
+
     if (is.function(PANEL.COLOR_BAR)) {
       .mar[3] = 5
     }
     .ylab = ""
     .ylab <- hmaps[[has_data[1]]]$zlab
-    rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar)
+    rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar,
+                   ylab.line = yline
+    )
     if (is.function(PANEL.COLOR_BAR)) {
       PANEL.COLOR_BAR(hmaps)
     }
@@ -329,8 +340,8 @@ draw_many_heat_maps <- function (hmaps,
   invisible(hmaps)
 }
 
-layout_heat_maps <- function(k, max_col, ratio=4, byrow=TRUE,
-                             layout_color_bar=TRUE, colorbar_cm=3.5) {
+layout_heat_maps <- function(k, max_col, ratio=3.5, byrow=TRUE,
+                             layout_color_bar=TRUE, colorbar_cm=4) {
   opars <- par(no.readonly = TRUE)
 
   # colorbar_cm <- 3.5
@@ -2338,7 +2349,7 @@ build_title_decorator <- function(to_include=c('analysis_group',
   return (btd)
 }
 
-plot_by_frequency_correlation <- function(by_frequency_correlation_data) {
+plot_by_frequency_correlation <- function(by_frequency_correlation_data, plot_options) {
 
   decorators <- stack_decorators(
     build_axis_label_decorator(push_X = 1.5),
@@ -2347,10 +2358,18 @@ plot_by_frequency_correlation <- function(by_frequency_correlation_data) {
 
   par(pty='s')
 
-  draw_many_heat_maps(
-    by_frequency_correlation_data,
-    PANEL.LAST = decorators
+  args <- list(
+    hmaps = by_frequency_correlation_data,
+    PANEL.LAST = decorators,
+    PANEL.COLOR_BAR = color_bar_title_decorator
   )
+
+  if(length(plot_options) > 0) {
+    args[names(plot_options)] = plot_options[names(plot_options)]
+  }
+
+  do.call(draw_many_heat_maps, args)
+
 }
 
 plot_by_frequency_over_time <- function(by_frequency_over_time_data, plot_args=list()) {
@@ -2521,7 +2540,7 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
   # uoa = local_data$results$baseline_settings$unit_of_analysis
 }
 
-plot_over_time_by_trial <- function(over_time_by_trial_data) {
+plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options) {
   apply_current_theme()
 
   decorators <- stack_decorators(
@@ -2530,10 +2549,18 @@ plot_over_time_by_trial <- function(over_time_by_trial_data) {
     build_heatmap_condition_label_decorator(over_time_by_trial_data)
   )
 
-  draw_many_heat_maps(hmaps = over_time_by_trial_data,
-                      axes = c(T,F), max_zlim = 99, percentile_range = TRUE,
-                      PANEL.LAST = decorators
+  args <- list(
+    hmaps = over_time_by_trial_data,
+    PANEL.LAST = decorators,
+    PANEL.COLOR_BAR = color_bar_title_decorator,
+    axes=c(T,F)
   )
+
+  if(length(plot_options) > 0) {
+    args[names(plot_options)] = plot_options[names(plot_options)]
+  }
+
+  do.call(draw_many_heat_maps, args)
 
 }
 

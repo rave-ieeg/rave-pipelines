@@ -489,40 +489,7 @@ module_html <- function(){
             ),
 
             # ---- Output tab-set: By Frequency --------------------------------
-            ravedash::output_cardset(
-              inputId = ns('by_frequency_tabset'),
-              title='By Frequency',
-              class_body = "no-padding position-relative fill height-400 min-height-400 resize-vertical",
-              tools = list(
-                shidashi::card_tool(
-                  widget = "custom", icon = ravedash::shiny_icons$puzzle,
-                  inputId = ns("by_frequency_tabset_config")
-                ),
-                shidashi::card_tool(
-                  widget = "custom", icon = ravedash::shiny_icons$camera,
-                  inputId = ns("by_frequency_tabset_camera")
-                )
-              ),
-              append_tools = FALSE,
-              `Over time` =
-                shiny::div(
-                  class = "min-height-400 resize-vertical position-relative fill",
-                  make_plot_conditional_panel(),
-
-                  ravedash::output_gadget_container(
-                    ravedash::plotOutput2(
-                      outputId = ns("by_frequency_over_time"),
-                      width = '100%', height='100%'
-                    )
-                  )
-                ),
-              `Correlation` = ravedash::output_gadget_container(
-                ravedash::plotOutput2(
-                  outputId = ns("by_frequency_correlation"),
-                  width = '100%', height='100%'
-                )
-              )
-            ),
+            make_by_frequency_tabset(),
 
             # ---- Output tab-set: Over Time -----------------------------------
             ravedash::output_cardset(
@@ -592,6 +559,7 @@ module_html <- function(){
               `By Trial` = shiny::tagList(
                 shiny::div(
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
+                  make_heatmap_control_panel(prefix = 'otbt', config = 'over_time_tabset_config'),
                   ravedash::output_gadget_container(
                     ravedash::plotOutput2(
                       outputId = ns('over_time_by_trial'),

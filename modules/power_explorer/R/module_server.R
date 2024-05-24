@@ -6,6 +6,8 @@ module_server <- function(input, output, session, ...){
     update_line_plots = NULL,
     update_heatmap_plots = NULL,
     update_by_frequency_over_time_plot = NULL,
+    update_over_time_by_trial_plot = NULL,
+    update_by_frequency_correlation_plot = NULL,
     update_3dviewer = NULL,
     update_by_condition_plot = NULL,
     update_pairwise_contrasts = NULL,
@@ -61,9 +63,22 @@ module_server <- function(input, output, session, ...){
     'plot_decorations' = list()
   )
 
+  local_data$by_frequency_correlation_plot_options <- list(
+    max_zlim = 1,
+    percentile_range = FALSE,
+    ncol = 3, byrow=TRUE
+  )
+
   local_data$by_frequency_over_time_plot_options <- list(
     max_zlim = 99,
-    percentile_range = TRUE
+    percentile_range = TRUE,
+    ncol = 3, byrow=TRUE
+  )
+
+  local_data$over_time_by_trial_plot_options <- list(
+    max_zlim = 99,
+    percentile_range = TRUE,
+    ncol = 3, byrow=TRUE
   )
 
   # this is used to get ROI variables
@@ -919,6 +934,10 @@ module_server <- function(input, output, session, ...){
       local_reactives$update_by_condition_plot <- NULL
       local_reactives$update_over_time_plot <- NULL
 
+      local_reactives$update_by_frequency_over_time_plot <- NULL
+      local_reactives$update_over_time_by_trial_plot <- NULL
+      local_reactives$update_by_frequency_correlation_plot <- NULL
+
 
       #TODO update UI selectors to possibly cached values
     }, priority = 1001),
@@ -1201,7 +1220,6 @@ module_server <- function(input, output, session, ...){
     ignoreNULL=TRUE, ignoreInit = TRUE
   )
 
-
   shiny::bindEvent(
     ravedash::safe_observe({
 
@@ -1211,25 +1229,63 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  update_heatmap_controls <- function(prefix, po_name) {
+    optname = po_name %&% '_options'
+    upname = 'update_' %&% po_name
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+    ravedash::logger(level='warning', optname, upname)
 
-      new_lim = abs(as.numeric(input$bfot_range))
+    new_lim = abs(as.numeric(input[[prefix %&% '_range']]))
 
-      # ignore the change if they've just (say) deleted the previous value
-      if(any(is.na(new_lim), length(new_lim) == 0, !is.numeric(new_lim))) {
-        local_data$by_frequency_over_time_plot_options$max_zlim = 0
-      } else {
-        local_data$by_frequency_over_time_plot_options$max_zlim = new_lim
-      }
+    # ignore the change if they've just (say) deleted the previous value
+    if(any(is.na(new_lim), length(new_lim) == 0, !is.numeric(new_lim))) {
+      local_data[[optname]]$max_zlim = 0
+    } else {
+      local_data[[optname]]$max_zlim = new_lim
+    }
 
-      local_data$by_frequency_over_time_plot_options$percentile_range = isTRUE(input$bfot_range_is_percentile)
+    local_data[[optname]]$percentile_range =
+      isTRUE(input[[prefix %&% '_range_is_percentile']])
 
-      local_reactives$update_by_frequency_over_time_plot = Sys.time()
+    local_data[[optname]]$ncol = input[[prefix %&% '_ncol']]
 
-    }), input$bfot_range_is_percentile, input$bfot_range, ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    local_data[[optname]]$byrow = input[[prefix %&% '_byrow']]
+
+    local_reactives[[upname]] = Sys.time()
+  }
+
+  # controls for heatmaps
+
+  pnames = c('bfot' = 'by_frequency_over_time_plot',
+             'bfc' = 'by_frequency_correlation_plot',
+             'otbt' = 'over_time_by_trial_plot')
+
+  mapply(function(prf, po) {
+    shiny::bindEvent(
+      ravedash::safe_observe({
+        update_heatmap_controls(prf, po_name = po)
+      }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_range']],
+      input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
+      ignoreNULL = TRUE, ignoreInit = TRUE
+    )
+  }, names(pnames), pnames, SIMPLIFY = FALSE)
+
+
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     update_heatmap_controls('otbt', po_name = pnames['otbt'])
+  #   }), input[['otbt' %&% '_range_is_percentile']], input[['otbt' %&% '_range']],
+  #   input[['otbt' %&% '_ncol']], input[['otbt' %&% '_byrow']],
+  #   ignoreNULL = TRUE, ignoreInit = TRUE
+  # )
+  #
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     update_heatmap_controls('bfc', po_name = pnames['bfc'])
+  #   }), input[['bfc' %&% '_range_is_percentile']], input[['bfc' %&% '_range']],
+  #   input[['bfc' %&% '_ncol']], input[['bfc' %&% '_byrow']],
+  #   ignoreNULL = TRUE, ignoreInit = TRUE
+  # )
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -2155,6 +2211,8 @@ module_server <- function(input, output, session, ...){
         }
       }
 
+      ravedash::logger(level='info', "plot_by_frequency_over_time")
+
       plot_by_frequency_over_time(
         by_frequency_over_time_data,
         plot_args = local_data$by_frequency_over_time_plot_options
@@ -2168,9 +2226,11 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
       force(local_reactives$update_heatmap_plots)
+      force(local_reactives$update_by_frequency_correlation_plot)
 
       plot_by_frequency_correlation(
-        local_data$results$by_frequency_correlation_data
+        local_data$results$by_frequency_correlation_data,
+        plot_options = local_data$by_frequency_correlation_plot_options
       )
     })
   )
@@ -2304,11 +2364,14 @@ module_server <- function(input, output, session, ...){
     outputId = "over_time_by_trial",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+
       force(local_reactives$update_heatmap_plots)
+      force(local_reactives$update_over_time_by_trial_plot)
 
       # check if we are in a multiple event situation
       plot_over_time_by_trial(
-        local_data$results$over_time_by_trial_data
+        local_data$results$over_time_by_trial_data,
+        local_data$over_time_by_trial_plot_options
       )
     })
   )
