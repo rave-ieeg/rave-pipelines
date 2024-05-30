@@ -342,7 +342,7 @@ module_server <- function(input, output, session, ...){
     function(value) {
       if(isTRUE(input$use_preset == "Upload preset")) {
         if(!is.data.frame(local_reactives$wavelet_param_tbl)) {
-          return("Please upload a preset kernel table in csv format. The table should contain two columns: `Frequency` and `Cycle`")
+          return("Please upload a preset kernel table in csv format. The table should contain two columns: `Frequency` and `Cycles`")
         }
       }
 
@@ -422,8 +422,8 @@ module_server <- function(input, output, session, ...){
           stop("The uploaded csv table must contain the following two columns: 'Frequency', 'Cycles' (case-sensitive)")
         }
         tbl <- tbl[
-          !is.na(tbl$Frequency) && tbl$Frequency != "" &&
-            !is.na(tbl$Cycles) && tbl$Cycles != "",
+          !is.na(tbl$Frequency) & tbl$Frequency != "" &
+            !is.na(tbl$Cycles) & tbl$Cycles != "",
         ]
         freqs <- as.numeric(tbl$Frequency)
         cycle <- as.numeric(tbl$Cycles)
