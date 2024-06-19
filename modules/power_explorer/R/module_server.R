@@ -1659,6 +1659,7 @@ module_server <- function(input, output, session, ...){
     rfloat <- runif(1)
     dt <- DT::datatable(
       df, caption =
+
         shiny::tags$caption(
           style='caption-side:top; text-align:center; color:black; margin-top:-15px; margin-bottom:-10px; font-size:110%',
           shiny::p('Click Details',
@@ -1666,13 +1667,13 @@ module_server <- function(input, output, session, ...){
                                shiny::actionLink(inputId = ns('clear_rows'),
                                                  onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('clear_rows'), rfloat),
                                                  label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
-
-                               shiny::actionLink(inputId = ns('nominate_outliers'),
-                                                 onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('nominate_outliers'), rfloat),
-                                                 label = 'Flag Selected (requires re-RAVE)', icon = ravedash::shiny_icons$magic)
-                   )
+                               label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
+                   shiny::actionLink(inputId = ns('nominate_outliers'),
+                                     onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('nominate_outliers'), rfloat),
+                                     label = 'Flag Selected (requires re-RAVE)', icon = ravedash::shiny_icons$magic)
           )
         ),
+
       colnames=names(df), rownames = FALSE, extensions='Buttons',
       options=list(autoWidth=FALSE, scroller=TRUE, scrollX=TRUE, scrollY='300px',
                    server=FALSE, paging=FALSE,

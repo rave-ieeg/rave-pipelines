@@ -1113,6 +1113,9 @@ if(is.null(re_str)) {
 
 # est. marg means initial object, used by other
 # functions to get all the contrasts
+if(!isTRUE(nzchar(fe))) {
+  fe = '1'
+}
 em <- emmeans::emmeans(
   mod, as.formula(sprintf(" ~ %s", paste(fe, collapse='*'))), infer=c(F,T)
 )

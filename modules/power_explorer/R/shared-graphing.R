@@ -293,7 +293,7 @@ draw_many_heat_maps <- function (hmaps,
 
   if (show_color_bar) {
     yline = 2.5 + get_order_of_magnitude(max_zlim)
-
+    max_zlim = 100
     .mar <- c(par("mar")[1], max(5.1, yline+3.6), 5, 1)
 
     if (is.function(PANEL.COLOR_BAR)) {
@@ -301,9 +301,8 @@ draw_many_heat_maps <- function (hmaps,
     }
     .ylab = ""
     .ylab <- hmaps[[has_data[1]]]$zlab
-
     # par(mar=rep(2.5,4))
-    par(.mar)
+    par('mar'=.mar)
     rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar,
                    ylab.line = yline
     )
