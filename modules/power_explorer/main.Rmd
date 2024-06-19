@@ -137,6 +137,7 @@ if(is.list(trial_outliers_list)) {
 ## add in the subejct code to the analysis settings
 for(ii in seq_along(analysis_settings_clean)) {
   analysis_settings_clean[[ii]]$subject_code = subject_code
+  analysis_settings_clean[[ii]]$project_name = project_name
 }
 
 analysis_checks_passed=TRUE
@@ -274,8 +275,7 @@ names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
 # set 4 GiB export size? // set this based on RAM?
-options(future.globals.maxSize =  4 * 1024^3)
-
+options(future.globals.maxSize =  6 * 1024^3)
 
 # Depends on baselined_power, 
 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -775,6 +775,10 @@ build_data <- function(data, analysis_settings, condition_group, baseline_settin
   # sort the trial labels
   res$y <- res$y[ord]
   
+  # now add in trial nunber and outlier status, using the sorted order
+  res$trial_number = tt[ord]
+  res$is_outlier = tt[ord] %in% trial_outliers_list
+  
   # NB: the condition data are stored in the COLUMNS of the data, so sort appropriately
   # this may feel odd, but this is because of how image(...) function works
   res$data <- res$data[,ord]
@@ -786,14 +790,16 @@ over_time_by_trial_data <- data_builder(
   pluriform_power, condition_groups = analysis_groups,
   baseline_settings = baseline_settings,
   BUILDER_FUN = build_data, 
-  data_type = 'shifted_clean_data_Fsub'
+  data_type = 'shifted_data_Fsub'
+  # we want the uncleaned data so we can highlight outliers on this plot
+  # data_type = 'shifted_clean_data_Fsub'
 )
 
 ```
 
 ```{rave build_internal_omnibus_results, language="R", export="internal_omnibus_results"}
 # set 4 GiB export size? // set this based on RAM?
-options(future.globals.maxSize =  4 * 1024^3)
+options(future.globals.maxSize =  6 * 1024^3)
 
 # first baseline all the electrodes
 raveio::power_baseline(
@@ -812,23 +818,29 @@ by_condition_group <- raveio::lapply_async(
   x = analysis_groups[non_empty_groups],
   function(ag) {
     lapply(analysis_settings_clean, function(as) {
+      # as <- analysis_settings_clean[[1]]
       # freq needed
       fi <- repository$frequency %within% as$frequency
       
       # ei <- repository$electrode_list %in% ag$electrodes
       
       # shift the data and subset on trials/freq
-      p <- get_pluriform_power(
+      # Note: we're subsetting frequency in the call
+      all_p <- get_pluriform_power(
         baselined_data=repository$power$baselined[fi,,,,drop=FALSE],
         trial_indices = ag$trials, events = repository$epoch$table,
-        epoch_event_types = get_available_events(repository$epoch$columns), trial_outliers_list=unlist(trial_outliers_list),
-        event_of_interest = as$event, final_data_only=TRUE,
+        epoch_event_types = get_available_events(repository$epoch$columns),
+        trial_outliers_list=unlist(trial_outliers_list),
+        event_of_interest = as$event, 
+        # final_data_only=TRUE,
         sample_rate = repository$subject$power_sample_rate
       )
       
+      p <- all_p$shifted_data
       ti = as.numeric(dimnames(p)$Time) %within% as$time
       stopifnot(names(dimnames(p))[2] == 'Time')
       
+      # average within Time and Freq windows. Freq has already been subsetted
       m <- ravetools::collapse(p[,ti,,,drop=FALSE], keep = 3:4)
       
       mse <- apply(m, 2, rutabaga::m_se)
@@ -841,10 +853,15 @@ by_condition_group <- raveio::lapply_async(
       rownames(collapsed) = enames
       colnames(collapsed) = paste0(c('m', 't', 'p'), '(', ag$label,   '; ', as$label, ')')
       
+      trial_column <- rep(dimnames(p)$Trial, times=ncol(m))
+      
       by_trial <- data.frame(
         'y' = c(m),
         'Electrode' = rep(as.numeric(enames), each=nrow(m)),
-        'Trial' = rep(ag$trials, times=ncol(m)),
+        
+        # use dimnames(p) here rather than ag$Trials because of potential outliers
+        'Trial' = trial_column,
+        'is_clean' = !(trial_column %in% trial_outliers_list),
         'Factor1' = ag$label,
         'Time' =  't' %&% str_collapse(as$time, '-'),
         'Freq' =  'f' %&% str_collapse(as$frequency, '-'),
@@ -885,6 +902,9 @@ if(!is.null(all_data$AnalysisLabel)) {
   all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
 }
 
+# copy of the data with the outliers removed (for stats etc)
+all_data_clean <- subset(all_data, is_clean)
+
 # collapsed_data <- cbind_list(sapply(by_condition_group, 
 # get_list_elements, 'collapsed', use_sapply=FALSE))
 
@@ -892,7 +912,7 @@ if(!is.null(all_data$AnalysisLabel)) {
 # the appropriate model
 # for the post hocs, just get all pairwise for now. we'll need to have some
 # kind of chooser for specific contrasts in the future (duplicate with group module)
-get_factor_length <- function(x) length(unique(all_data[[x]]))
+get_factor_length <- function(x) length(unique(all_data_clean[[x]]))
 repeated_factors <- 'AnalysisLabel' #c('Time', 'Freq', 'Event')
 unrepeated_factors <- c('Factor1', 'Factor2')
 factor_lengths <- sapply(c(repeated_factors, unrepeated_factors), get_factor_length)
@@ -950,18 +970,18 @@ run_stats <- function(el) {
 }
 
 # now we want to calculate the stats for each electrode
-stats <- all_data %>% split((.)$Electrode) %>% 
-  # raveio::lapply_async
-  lapply(function(el) {
-    tryCatch({
-      return(suppressMessages(
+stats <- all_data_clean %>% split((.)$Electrode) %>% 
+  raveio::lapply_async(function(el){
+  # lapply(function(el) {
+    # tryCatch({
+      # return(suppressMessages(
         run_stats(el)
-      )
-      )
-    }, error = function(...) {
+      # )
+      # )
+    # }, error = function(...) {
       # The data contains NA/NaN
-      NULL
-    })
+      # NULL
+    # })
   }) %>%
   rutabaga::cbind_list()
 
@@ -976,7 +996,8 @@ all_data %<>% merge(repository$epoch$table[,c('Block', 'Trial')], sort=FALSE)
 #combine into large list for exporting
 internal_omnibus_results = list(
   # 'collapsed' = collapsed_data,
-  'data' = all_data,
+  'data_with_outliers' = all_data,
+  'data' = all_data_clean,
   'stats' = stats
 )
 ```
@@ -994,7 +1015,10 @@ rn <- 'currently_selected'
 while(rn %in% names(omnibus_results$data)) {
   rn <- 'PWR_EXPLR_' %&% rn
 }
+
 omnibus_results$data[[rn]] = omnibus_results$data$Electrode %in% requested_electrodes
+omnibus_results$data_with_outliers[[rn]] = omnibus_results$data_with_outliers$Electrode %in% requested_electrodes
+
 
 # add in "currently active" electrodes so users can filter
 rn <- 'currently_selected'
@@ -1011,12 +1035,17 @@ omnibus_results$stats %<>% rbind(val)
 ```{rave build_across_electrode_statistics, language="R", export="across_electrode_statistics"}
 dd <- subset(omnibus_results$data, currently_selected)
 
+emmeans::emm_options(lmerTest.limit = 10290*10)
+emmeans::emm_options(pbkrtest.limit = 10290*10)
 
 # Need to think about how to handle very low trial counts for a given level of a factor
 
-# the intersect handles variables that don't exist
+# the intersect handles variables that don't exist. We'll add Trial to RE later if possible
 rand_effects <- c('Block', 'Electrode') %>% intersect(names(dd))
-fixed_effects <- c('Factor1', 'Factor2', 'Freq', 'Event', 'AnalysisLabel') %>% intersect(names(dd))
+
+# we don't need "Freq" because that is part of AnalysisLabel
+fixed_effects <- c('Factor1', 'Factor2', #'Freq',
+                   'Event', 'AnalysisLabel') %>% intersect(names(dd))
 
 for(ff in c(rand_effects, fixed_effects)) {
   dd[[ff]] %<>% as.factor
@@ -1030,7 +1059,11 @@ re <- names(which(sapply(dd[rand_effects], nlevels) > 1))
 # fixed effect because that means a trial is used twice
 if('AnalysisLabel' %in% fe) {
   if('Block' %in% re) {
-    re[which(re == 'Block')] = 'Block/Trial'
+    # if we have multiple electrodes, then we can have a block/trial, 
+    # otherwise we can only have 'Block'
+    if('Electrode' %in% re) {
+      re[which(re == 'Block')] = 'Block/Trial'
+    }
   } else {
     re %<>% c('Trial')
   }
@@ -1045,7 +1078,8 @@ if(length(re) > 0) {
 
 ## get means and trial counts. data.table is way faster than aggregate
 .datatable.aware=TRUE
-    condition_means <- data.table::as.data.table(dd)[ ,list('y'=mean(y), 'se'=rutabaga:::se(y),'n'=.N), keyby=fe]
+condition_means <- data.table::as.data.table(dd)[ ,list('y'=mean(y), 'sd' = sd(y),
+                                                        'se'=rutabaga:::se(y),'n'=.N), keyby=fe]
 
 ## single electrode in a single block
 if(is.null(re_str)) {
@@ -1073,6 +1107,9 @@ if(is.null(re_str)) {
 
 # est. marg means initial object, used by other
 # functions to get all the contrasts
+if(!isTRUE(nzchar(fe))) {
+  fe = '1'
+}
 em <- emmeans::emmeans(
   mod, as.formula(sprintf(" ~ %s", paste(fe, collapse='*'))), infer=c(F,T)
 )
@@ -1109,17 +1146,22 @@ if (length(fe) > 2) {
   }) %>% setNames(sapply(fe_combn, paste0, collapse='.'))
 }
 
+.aov <- car::Anova(mod, type=ifelse(
+  fe[1] == "1", 'III', 'II')
+)
+
 across_electrode_statistics <- list(
   condition_means = condition_means,
   model = mod,
   model_type = class(mod)[1],
-  aov = car::Anova(mod),
+  aov = .aov,
   emmeans = em,
   pairwise_contrasts = pairwise,
   fixed_effects = fe,
   random_effects = re,
   stratified_contrasts = stratified_contrasts,
-  itx_contrasts = itx_contrasts
+  itx_contrasts = itx_contrasts,
+  trials_not_included = sort(trial_outliers_list)
 )
 
 ```

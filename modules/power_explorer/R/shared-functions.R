@@ -7,7 +7,6 @@
 # require(data.table)
 # require(ravedash)
 # require(lmtest)
-
 `%$%` <- magrittr::`%$%`
 `%<>%` <- magrittr::`%<>%`
 `%>%` <- magrittr::`%>%`
@@ -17,13 +16,11 @@
 `%?<-%` <- dipsaus::`%?<-%`
 str_collapse <- rutabaga::str_collapse
 which.equal <- rutabaga::which.equal
-
-
+fast_median <- ravetools::fast_median
+rbind_list <- rutabaga::rbind_list
 rand_string <- raveio:::rand_string
-
 stopifnot2 <- raveio:::stopifnot2
 
-temp_file <- ravedash::temp_file
 
 
 get_recursive_summary <- function(ll, nm, FUN=range) {
@@ -184,7 +181,8 @@ get_pluriform_power <- function(
 
     # ravedash::logger('dispaus::shift')
 
-    stopifnot('Trial' == names(dimnames(res$data))[3])
+    # this is checked above
+    # stopifnot('Trial' == names(dimnames(res$data))[3])
     stopifnot('Time' == names(dimnames(res$data))[2])
 
     if(length(shift_amount) != dim(res$data)[3L]) {
@@ -222,8 +220,10 @@ get_pluriform_power <- function(
     #res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
     #res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
 
-    res$clean_data = subset(res$data, !(Trial %in% trial_outliers_list))
-    res$shifted_clean_data = subset(res$shifted_data, !(Trial %in% trial_outliers_list))
+    ti = ! (dimnames(res$data)$Trial %in% trial_outliers_list)
+
+    res$clean_data = res$data[,,ti,,drop=FALSE]
+    res$shifted_clean_data = res$shifted_data[,,ti,,drop=FALSE]
   }
 
   # make sure to save out the updated time stamps to be used later
@@ -882,12 +882,14 @@ new_shift_array <- function() {
   dimnames(shifted_array) <- dnames
 }
 
-count_elements <- function (x)  {
-  if (is.null(x))
-    return(1)
 
+count = function(x) {
+  if(is.null(x)) return (1)
   length(unique(x))
 }
+
+#
+count_elements <- count
 
 ### UI impl to share the exporting code where possible
 customDownloadButton <- function(outputId, label='Export', class=NULL, icon_lbl="download", ...) {
@@ -928,18 +930,14 @@ build_modal_plot_download <- function(download_plot_info, outputId='do_download_
 }
 
 get_order_of_magnitude <- function(x) {
-  x = abs(x)
-
-  if(x<1) return (0)
-
-
-  floor(log10(x))
+  floor(log10(abs(x)))
 }
 
 # helper to allow passing in the index of a column/row alongside the data
 apply_ii <- function (X, MARGIN, FUN, ..., simplify = TRUE) {
   apply(X, MARGIN, FUN, ii=1, ..., simplify = simplify)
 }
+
 
 # from an emmGrid, get all possible pairwise comparisons
 # for all possible 1- and 2-way slices
@@ -960,9 +958,3 @@ get_stratified_contrasts <- function(emmGrid) {
       by = out
     ))}) %>% setNames(sapply(holdouts, paste0, collapse='.'))
 }
-
-
-
-
-
-

@@ -1,86 +1,71 @@
-electrodes_to_export_roi_categories: ~
-electrodes_to_export_roi_name: none
-analysis_settings:
-  '1':
-    label: Early
-    event: Trial Onset
-    time:
-    - 0
-    - 0.5
-    frequency:
-    - 70
-    - 150
-  '2':
-    label: Late
-    event: Trial Onset
-    time:
-    - 0.5
-    - 1
-    frequency:
-    - 70
-    - 150
-custom_roi_groupings:
-  '1':
-    label: ''
-    conditions: []
-custom_roi_variable: none
-custom_roi_type: Filter only
-enable_custom_ROI: no
-condition_variable: Condition
-enable_second_condition_groupings: no
-second_condition_groupings:
-  '1':
-    label: ML
-    conditions:
-    - drive_a
-    - last_a
-    - drive_av
-    - last_av
-  '2':
-    label: VL
-    conditions:
-    - known_a
-    - meant_a
-    - known_av
-    - meant_av
-first_condition_groupings:
-  '1':
-    label: A
-    conditions:
-    - last_a
-    - drive_a
-    - known_a
-    - meant_a
-  '2':
-    label: AV
-    conditions:
-    - last_av
-    - drive_av
-    - known_av
-    - meant_av
-analysis_electrodes: '13 '
+electrode_export_data_type: tensor
+electrodes_to_export: ''
+trials_to_export: Raw, Only trials used in grouping factors
+times_to_export: Raw, All available times
+frequencies_to_export: Collapsed, Analysis window(s) only
+electrode_export_file_type: HDF5
+trial_outliers_list: ~
+time_censor:
+  enabled: no
+  window:
+  - 0.0
+  - 1.0
+project_name: mTurkWords
+subject_code: YEU
+loaded_electrodes: 1-215
+epoch_choice: Acc_UTO_YEU_intelligibility_ALL_voao
+epoch_choice__trial_starts: -0.55
+epoch_choice__trial_ends: 2
+reference_name: _unsaved
 baseline_settings:
   window:
   - - -0.55
     - 0.0
   scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
-reference_name: default
-epoch_choice__trial_ends: 2
-epoch_choice__trial_starts: -0.55
-epoch_choice: auditory_onset
-loaded_electrodes: 13-16,24
-subject_code: DemoSubject
-project_name: demo
-time_censor:
-  enabled: no
-  window:
-  - 0.0
-  - 1.0
-trial_outliers_list: ~
-electrode_export_file_type: HDF5
-frequencies_to_export: Collapsed, Analysis window(s) only
-times_to_export: Raw, All available times
-trials_to_export: Raw, Only trials used in grouping factors
-electrodes_to_export: ''
-electrode_export_data_type: tensor
+analysis_electrodes: 1,4,18-19,21,23-24,33-35,39-49,67-68,73,75-77,80,83-90,92,94-104,134-139,141-142,150,158-160,162,170-174,176-178,182-183
+first_condition_groupings:
+  '1':
+    label: Aonly
+    conditions:
+    - Ac_c0_2
+    - Ac_c2_4
+    - Ac_c4_6
+    - Ac_c6_8
+    - Ac_c8_1
+  '2':
+    label: AV clear
+    conditions:
+    - AcV_c0_2
+    - AcV_c2_4
+    - AcV_c4_6
+    - AcV_c6_8
+    - AcV_c8_1
+second_condition_groupings:
+  '1':
+    label: ML
+    conditions: []
+  '2':
+    label: VL
+    conditions: []
+enable_second_condition_groupings: no
+condition_variable: Condition
+enable_custom_ROI: no
+custom_roi_type: Filter only
+custom_roi_variable: none
+custom_roi_groupings:
+  '1':
+    label: ''
+    conditions: []
+analysis_settings:
+  '1':
+    label: BHA
+    event: AudStart
+    time:
+    - 0
+    - 0.55
+    frequency:
+    - 70
+    - 150
+electrodes_to_export_roi_name: none
+electrodes_to_export_roi_categories: ~
