@@ -259,6 +259,7 @@ rm(._._env_._.)
                 }
                 for (ii in seq_along(analysis_settings_clean)) {
                   analysis_settings_clean[[ii]]$subject_code = subject_code
+                  analysis_settings_clean[[ii]]$project_name = project_name
                 }
                 analysis_checks_passed = TRUE
             })
@@ -358,6 +359,7 @@ rm(._._env_._.)
                   }
                   for (ii in seq_along(analysis_settings_clean)) {
                     analysis_settings_clean[[ii]]$subject_code = subject_code
+                    analysis_settings_clean[[ii]]$project_name = project_name
                   }
                   analysis_checks_passed = TRUE
                 }
@@ -365,11 +367,11 @@ rm(._._env_._.)
             }), target_depends = c("repository", "analysis_settings", 
             "baseline_settings", "time_censor", "first_condition_groupings", 
             "enable_second_condition_groupings", "second_condition_groupings", 
-            "trial_outliers_list", "subject_code")), deps = c("repository", 
-        "analysis_settings", "baseline_settings", "time_censor", 
-        "first_condition_groupings", "enable_second_condition_groupings", 
+            "trial_outliers_list", "subject_code", "project_name"
+            )), deps = c("repository", "analysis_settings", "baseline_settings", 
+        "time_censor", "first_condition_groupings", "enable_second_condition_groupings", 
         "second_condition_groupings", "trial_outliers_list", 
-        "subject_code"), cue = targets::tar_cue("thorough"), 
+        "subject_code", "project_name"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), calculate_baseline = targets::tar_target_raw(name = "baselined_power", 
         command = quote({
             .__target_expr__. <- quote({
@@ -574,7 +576,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), build_pluriform_power = targets::tar_target_raw(name = "pluriform_power", 
         command = quote({
             .__target_expr__. <- quote({
-                options(future.globals.maxSize = 4 * 1024^3)
+                options(future.globals.maxSize = 6 * 1024^3)
                 epoch_event_types = get_available_events(repository$epoch$columns)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
@@ -613,7 +615,7 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = "user-defined-r", 
             target_export = "pluriform_power", target_expr = quote({
                 {
-                  options(future.globals.maxSize = 4 * 1024^3)
+                  options(future.globals.maxSize = 6 * 1024^3)
                   epoch_event_types = get_available_events(repository$epoch$columns)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
@@ -1314,12 +1316,14 @@ rm(._._env_._.)
                   cf <- factor(res$y, levels = cnds)
                   ord = order(cf, tt)
                   res$y <- res$y[ord]
+                  res$trial_number = tt[ord]
+                  res$is_outlier = tt[ord] %in% trial_outliers_list
                   res$data <- res$data[, ord]
                   return(res)
                 }
                 over_time_by_trial_data <- data_builder(pluriform_power, 
                   condition_groups = analysis_groups, baseline_settings = baseline_settings, 
-                  BUILDER_FUN = build_data, data_type = "shifted_clean_data_Fsub")
+                  BUILDER_FUN = build_data, data_type = "shifted_data_Fsub")
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1348,23 +1352,25 @@ rm(._._env_._.)
                     cf <- factor(res$y, levels = cnds)
                     ord = order(cf, tt)
                     res$y <- res$y[ord]
+                    res$trial_number = tt[ord]
+                    res$is_outlier = tt[ord] %in% trial_outliers_list
                     res$data <- res$data[, ord]
                     return(res)
                   }
                   over_time_by_trial_data <- data_builder(pluriform_power, 
                     condition_groups = analysis_groups, baseline_settings = baseline_settings, 
-                    BUILDER_FUN = build_data, data_type = "shifted_clean_data_Fsub")
+                    BUILDER_FUN = build_data, data_type = "shifted_data_Fsub")
                 }
                 over_time_by_trial_data
             }), target_depends = c("trial_details", "condition_variable", 
-            "pluriform_power", "analysis_groups", "baseline_settings"
-            )), deps = c("trial_details", "condition_variable", 
-        "pluriform_power", "analysis_groups", "baseline_settings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_internal_omnibus_results = targets::tar_target_raw(name = "internal_omnibus_results", 
+            "trial_outliers_list", "pluriform_power", "analysis_groups", 
+            "baseline_settings")), deps = c("trial_details", 
+        "condition_variable", "trial_outliers_list", "pluriform_power", 
+        "analysis_groups", "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_internal_omnibus_results = targets::tar_target_raw(name = "internal_omnibus_results", 
         command = quote({
             .__target_expr__. <- quote({
-                options(future.globals.maxSize = 4 * 1024^3)
+                options(future.globals.maxSize = 6 * 1024^3)
                 raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
                   method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                   units = get_baseline_scope(baseline_settings$scope), 
@@ -1375,12 +1381,12 @@ rm(._._env_._.)
                   function(ag) {
                     lapply(analysis_settings_clean, function(as) {
                       fi <- repository$frequency %within% as$frequency
-                      p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
+                      all_p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
                         , , , drop = FALSE], trial_indices = ag$trials, 
                         events = repository$epoch$table, epoch_event_types = get_available_events(repository$epoch$columns), 
                         trial_outliers_list = unlist(trial_outliers_list), 
-                        event_of_interest = as$event, final_data_only = TRUE, 
-                        sample_rate = repository$subject$power_sample_rate)
+                        event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
+                      p <- all_p$shifted_data
                       ti = as.numeric(dimnames(p)$Time) %within% 
                         as$time
                       stopifnot(names(dimnames(p))[2] == "Time")
@@ -1395,10 +1401,12 @@ rm(._._env_._.)
                       colnames(collapsed) = paste0(c("m", "t", 
                         "p"), "(", ag$label, "; ", as$label, 
                         ")")
+                      trial_column <- rep(dimnames(p)$Trial, 
+                        times = ncol(m))
                       by_trial <- data.frame(y = c(m), Electrode = rep(as.numeric(enames), 
-                        each = nrow(m)), Trial = rep(ag$trials, 
-                        times = ncol(m)), Factor1 = ag$label, 
-                        Time = "t" %&% str_collapse(as$time, 
+                        each = nrow(m)), Trial = trial_column, 
+                        is_clean = !(trial_column %in% trial_outliers_list), 
+                        Factor1 = ag$label, Time = "t" %&% str_collapse(as$time, 
                           "-"), Freq = "f" %&% str_collapse(as$frequency, 
                           "-"), Event = as$event, AnalysisLabel = as$label)
                       return(list(df = by_trial, collapsed = collapsed))
@@ -1422,7 +1430,8 @@ rm(._._env_._.)
                 if (!is.null(all_data$AnalysisLabel)) {
                   all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
                 }
-                get_factor_length <- function(x) length(unique(all_data[[x]]))
+                all_data_clean <- subset(all_data, is_clean)
+                get_factor_length <- function(x) length(unique(all_data_clean[[x]]))
                 repeated_factors <- "AnalysisLabel"
                 unrepeated_factors <- c("Factor1", "Factor2")
                 factor_lengths <- sapply(c(repeated_factors, 
@@ -1479,19 +1488,15 @@ rm(._._env_._.)
                   colnames(res) = el$Electrode[1]
                   return(res)
                 }
-                stats <- all_data %>% split((.)$Electrode) %>% 
-                  lapply(function(el) {
-                    tryCatch({
-                      return(suppressMessages(run_stats(el)))
-                    }, error = function(...) {
-                      NULL
-                    })
+                stats <- all_data_clean %>% split((.)$Electrode) %>% 
+                  raveio::lapply_async(function(el) {
+                    run_stats(el)
                   }) %>% rutabaga::cbind_list()
                 attr(stats, "electrode_labels") = repository$electrode_table$Label
                 all_data %<>% merge(repository$epoch$table[, 
                   c("Block", "Trial")], sort = FALSE)
-                internal_omnibus_results = list(data = all_data, 
-                  stats = stats)
+                internal_omnibus_results = list(data_with_outliers = all_data, 
+                  data = all_data_clean, stats = stats)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1503,7 +1508,7 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "internal_omnibus_results", target_expr = quote({
                 {
-                  options(future.globals.maxSize = 4 * 1024^3)
+                  options(future.globals.maxSize = 6 * 1024^3)
                   raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
                     method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
                     units = get_baseline_scope(baseline_settings$scope), 
@@ -1514,12 +1519,12 @@ rm(._._env_._.)
                     function(ag) {
                       lapply(analysis_settings_clean, function(as) {
                         fi <- repository$frequency %within% as$frequency
-                        p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
+                        all_p <- get_pluriform_power(baselined_data = repository$power$baselined[fi, 
                           , , , drop = FALSE], trial_indices = ag$trials, 
                           events = repository$epoch$table, epoch_event_types = get_available_events(repository$epoch$columns), 
                           trial_outliers_list = unlist(trial_outliers_list), 
-                          event_of_interest = as$event, final_data_only = TRUE, 
-                          sample_rate = repository$subject$power_sample_rate)
+                          event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
+                        p <- all_p$shifted_data
                         ti = as.numeric(dimnames(p)$Time) %within% 
                           as$time
                         stopifnot(names(dimnames(p))[2] == "Time")
@@ -1534,12 +1539,15 @@ rm(._._env_._.)
                         colnames(collapsed) = paste0(c("m", "t", 
                           "p"), "(", ag$label, "; ", as$label, 
                           ")")
+                        trial_column <- rep(dimnames(p)$Trial, 
+                          times = ncol(m))
                         by_trial <- data.frame(y = c(m), Electrode = rep(as.numeric(enames), 
-                          each = nrow(m)), Trial = rep(ag$trials, 
-                          times = ncol(m)), Factor1 = ag$label, 
-                          Time = "t" %&% str_collapse(as$time, 
-                            "-"), Freq = "f" %&% str_collapse(as$frequency, 
-                            "-"), Event = as$event, AnalysisLabel = as$label)
+                          each = nrow(m)), Trial = trial_column, 
+                          is_clean = !(trial_column %in% trial_outliers_list), 
+                          Factor1 = ag$label, Time = "t" %&% 
+                            str_collapse(as$time, "-"), Freq = "f" %&% 
+                            str_collapse(as$frequency, "-"), 
+                          Event = as$event, AnalysisLabel = as$label)
                         return(list(df = by_trial, collapsed = collapsed))
                       })
                     })
@@ -1561,7 +1569,8 @@ rm(._._env_._.)
                   if (!is.null(all_data$AnalysisLabel)) {
                     all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
                   }
-                  get_factor_length <- function(x) length(unique(all_data[[x]]))
+                  all_data_clean <- subset(all_data, is_clean)
+                  get_factor_length <- function(x) length(unique(all_data_clean[[x]]))
                   repeated_factors <- "AnalysisLabel"
                   unrepeated_factors <- c("Factor1", "Factor2")
                   factor_lengths <- sapply(c(repeated_factors, 
@@ -1618,19 +1627,15 @@ rm(._._env_._.)
                     colnames(res) = el$Electrode[1]
                     return(res)
                   }
-                  stats <- all_data %>% split((.)$Electrode) %>% 
-                    lapply(function(el) {
-                      tryCatch({
-                        return(suppressMessages(run_stats(el)))
-                      }, error = function(...) {
-                        NULL
-                      })
+                  stats <- all_data_clean %>% split((.)$Electrode) %>% 
+                    raveio::lapply_async(function(el) {
+                      run_stats(el)
                     }) %>% rutabaga::cbind_list()
                   attr(stats, "electrode_labels") = repository$electrode_table$Label
                   all_data %<>% merge(repository$epoch$table[, 
                     c("Block", "Trial")], sort = FALSE)
-                  internal_omnibus_results = list(data = all_data, 
-                    stats = stats)
+                  internal_omnibus_results = list(data_with_outliers = all_data, 
+                    data = all_data_clean, stats = stats)
                 }
                 internal_omnibus_results
             }), target_depends = c("repository", "baseline_settings", 
@@ -1648,6 +1653,8 @@ rm(._._env_._.)
                   rn <- "PWR_EXPLR_" %&% rn
                 }
                 omnibus_results$data[[rn]] = omnibus_results$data$Electrode %in% 
+                  requested_electrodes
+                omnibus_results$data_with_outliers[[rn]] = omnibus_results$data_with_outliers$Electrode %in% 
                   requested_electrodes
                 rn <- "currently_selected"
                 while (rn %in% rownames(omnibus_results$stats)) {
@@ -1674,6 +1681,8 @@ rm(._._env_._.)
                   }
                   omnibus_results$data[[rn]] = omnibus_results$data$Electrode %in% 
                     requested_electrodes
+                  omnibus_results$data_with_outliers[[rn]] = omnibus_results$data_with_outliers$Electrode %in% 
+                    requested_electrodes
                   rn <- "currently_selected"
                   while (rn %in% rownames(omnibus_results$stats)) {
                     rn = "RAVE_" %&% rn
@@ -1690,9 +1699,13 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 dd <- subset(omnibus_results$data, currently_selected)
+                emmeans::emm_options(lmerTest.limit = 10290 * 
+                  10)
+                emmeans::emm_options(pbkrtest.limit = 10290 * 
+                  10)
                 rand_effects <- c("Block", "Electrode") %>% intersect(names(dd))
-                fixed_effects <- c("Factor1", "Factor2", "Freq", 
-                  "Event", "AnalysisLabel") %>% intersect(names(dd))
+                fixed_effects <- c("Factor1", "Factor2", "Event", 
+                  "AnalysisLabel") %>% intersect(names(dd))
                 for (ff in c(rand_effects, fixed_effects)) {
                   dd[[ff]] %<>% as.factor
                 }
@@ -1702,7 +1715,9 @@ rm(._._env_._.)
                   1))
                 if ("AnalysisLabel" %in% fe) {
                   if ("Block" %in% re) {
-                    re[which(re == "Block")] = "Block/Trial"
+                    if ("Electrode" %in% re) {
+                      re[which(re == "Block")] = "Block/Trial"
+                    }
                   } else {
                     re %<>% c("Trial")
                   }
@@ -1714,8 +1729,11 @@ rm(._._env_._.)
                 }
                 .datatable.aware = TRUE
                 condition_means <- data.table::as.data.table(dd)[, 
-                  list(y = mean(y), se = rutabaga:::se(y), n = .N), 
-                  keyby = fe]
+                  list(y = mean(y), sd = sd(y), se = rutabaga:::se(y), 
+                    n = .N), keyby = fe]
+                if (!isTRUE(nzchar(fe))) {
+                  fe = "1"
+                }
                 if (is.null(re_str)) {
                   frm <- as.formula(sprintf("y ~ %s", paste0(fe, 
                     collapse = "*")))
@@ -1747,11 +1765,13 @@ rm(._._env_._.)
                       "pairwise"), by = fe[!fe %in% groups])
                   }) %>% setNames(sapply(fe_combn, paste0, collapse = "."))
                 }
+                .aov <- car::Anova(mod, type = ifelse(fe[1] == 
+                  "1", "III", "II"))
                 across_electrode_statistics <- list(condition_means = condition_means, 
-                  model = mod, model_type = class(mod)[1], aov = car::Anova(mod), 
+                  model = mod, model_type = class(mod)[1], aov = .aov, 
                   emmeans = em, pairwise_contrasts = pairwise, 
                   fixed_effects = fe, random_effects = re, stratified_contrasts = stratified_contrasts, 
-                  itx_contrasts = itx_contrasts)
+                  itx_contrasts = itx_contrasts, trials_not_included = sort(trial_outliers_list))
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1764,10 +1784,14 @@ rm(._._env_._.)
             target_export = "across_electrode_statistics", target_expr = quote({
                 {
                   dd <- subset(omnibus_results$data, currently_selected)
+                  emmeans::emm_options(lmerTest.limit = 10290 * 
+                    10)
+                  emmeans::emm_options(pbkrtest.limit = 10290 * 
+                    10)
                   rand_effects <- c("Block", "Electrode") %>% 
                     intersect(names(dd))
-                  fixed_effects <- c("Factor1", "Factor2", "Freq", 
-                    "Event", "AnalysisLabel") %>% intersect(names(dd))
+                  fixed_effects <- c("Factor1", "Factor2", "Event", 
+                    "AnalysisLabel") %>% intersect(names(dd))
                   for (ff in c(rand_effects, fixed_effects)) {
                     dd[[ff]] %<>% as.factor
                   }
@@ -1777,7 +1801,9 @@ rm(._._env_._.)
                     nlevels) > 1))
                   if ("AnalysisLabel" %in% fe) {
                     if ("Block" %in% re) {
-                      re[which(re == "Block")] = "Block/Trial"
+                      if ("Electrode" %in% re) {
+                        re[which(re == "Block")] = "Block/Trial"
+                      }
                     } else {
                       re %<>% c("Trial")
                     }
@@ -1789,8 +1815,11 @@ rm(._._env_._.)
                   }
                   .datatable.aware = TRUE
                   condition_means <- data.table::as.data.table(dd)[, 
-                    list(y = mean(y), se = rutabaga:::se(y), 
+                    list(y = mean(y), sd = sd(y), se = rutabaga:::se(y), 
                       n = .N), keyby = fe]
+                  if (!isTRUE(nzchar(fe))) {
+                    fe = "1"
+                  }
                   if (is.null(re_str)) {
                     frm <- as.formula(sprintf("y ~ %s", paste0(fe, 
                       collapse = "*")))
@@ -1824,17 +1853,20 @@ rm(._._env_._.)
                     }) %>% setNames(sapply(fe_combn, paste0, 
                       collapse = "."))
                   }
+                  .aov <- car::Anova(mod, type = ifelse(fe[1] == 
+                    "1", "III", "II"))
                   across_electrode_statistics <- list(condition_means = condition_means, 
                     model = mod, model_type = class(mod)[1], 
-                    aov = car::Anova(mod), emmeans = em, pairwise_contrasts = pairwise, 
+                    aov = .aov, emmeans = em, pairwise_contrasts = pairwise, 
                     fixed_effects = fe, random_effects = re, 
                     stratified_contrasts = stratified_contrasts, 
-                    itx_contrasts = itx_contrasts)
+                    itx_contrasts = itx_contrasts, trials_not_included = sort(trial_outliers_list))
                 }
                 across_electrode_statistics
-            }), target_depends = "omnibus_results"), deps = "omnibus_results", 
-        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
-    build_by_trial_electrode_similarity_data = targets::tar_target_raw(name = "by_trial_electrode_similarity_data", 
+            }), target_depends = c("omnibus_results", "trial_outliers_list"
+            )), deps = c("omnibus_results", "trial_outliers_list"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), build_by_trial_electrode_similarity_data = targets::tar_target_raw(name = "by_trial_electrode_similarity_data", 
         command = quote({
             .__target_expr__. <- quote({
                 dd <- omnibus_results$data

@@ -2,20 +2,20 @@ electrodes_to_export_roi_categories: ~
 electrodes_to_export_roi_name: none
 analysis_settings:
   '1':
-    label: Early
-    event: Trial Onset
+    label: Astart
+    event: AudStart
     time:
     - 0
-    - 0.5
+    - 0.55
     frequency:
     - 70
     - 150
   '2':
-    label: Late
+    label: Vstart
     event: Trial Onset
     time:
-    - 0.5
-    - 1
+    - 0
+    - 0.55
     frequency:
     - 70
     - 150
@@ -31,47 +31,33 @@ enable_second_condition_groupings: no
 second_condition_groupings:
   '1':
     label: ML
-    conditions:
-    - drive_a
-    - last_a
-    - drive_av
-    - last_av
+    conditions: []
   '2':
     label: VL
-    conditions:
-    - known_a
-    - meant_a
-    - known_av
-    - meant_av
+    conditions: []
 first_condition_groupings:
   '1':
-    label: A
+    label: Ac
     conditions:
-    - last_a
-    - drive_a
-    - known_a
-    - meant_a
+    - Ac
   '2':
-    label: AV
+    label: Vo
     conditions:
-    - last_av
-    - drive_av
-    - known_av
-    - meant_av
-analysis_electrodes: '13 '
+    - V
+analysis_electrodes: '91-92 '
 baseline_settings:
   window:
-  - - -0.55
+  - - -0.5
     - 0.0
   scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
-reference_name: default
+reference_name: bipolar
 epoch_choice__trial_ends: 2
-epoch_choice__trial_starts: -0.55
-epoch_choice: auditory_onset
-loaded_electrodes: 13-16,24
-subject_code: DemoSubject
-project_name: demo
+epoch_choice__trial_starts: -1
+epoch_choice: 5modalities
+loaded_electrodes: 75-106
+subject_code: YEU
+project_name: mTurkWords
 time_censor:
   enabled: no
   window:

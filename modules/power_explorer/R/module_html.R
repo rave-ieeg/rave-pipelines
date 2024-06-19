@@ -247,7 +247,27 @@ module_html <- function(){
                 label = "Export",
                 icon = ravedash::shiny_icons$export
               )
+            ),
+
+            # ---- Input tab: Export Power Point --------------------------------
+
+            ravedash::input_card(
+              class_header='shidashi-anchor', title='Export PowerPoint',
+              shiny::selectInput(ns('epp_ppt_template'), label = 'PPT Template',
+                                 choices='RAVE 16:9 White Background'),
+              shiny::selectInput(ns('epp_markdown_template'),
+                                 label = 'Markdown Template', choices='All Plots'),
+
+              shiny::downloadButton(
+                outputId = ns('btn_export_powerpoint'),
+                label = "Generate Report",
+                class='btn-primary',
+                icon = ravedash::shiny_icons$export
+              )
             )
+
+
+
             # baseline_choices$ui_func(),
             # comp_analysis_ranges$ui_func()
           )
@@ -401,6 +421,25 @@ module_html <- function(){
               # ---- Output tab: By Electrode > Tabular Results -------
               `Tabular Results` = shiny::div(
                 class = "fill-width min-height-400",
+                shiny::conditionalPanel(
+                  condition = "input['by_electrode_tabset_config']%2 == 1",
+                  ns = ns,
+                  shiny::div(
+                    class = "container-fluid",
+                    shiny::fluidRow(
+                      shiny::column(width=6, shiny::selectInput(
+                        inputId = ns('bet_variables_to_hide'),
+                        label = 'Variables to remove',
+                        choices = character(0), multiple = TRUE),
+                        ),
+                      shiny::column(width=3, shiny::selectInput(
+                        inputId = ns('bet_metrics_to_show'),
+                        label = 'Metrics to include',choices = c('m', 't', 'p'),
+                        selected = c('m', 't', 'p'), multiple = TRUE),
+                      )
+                    )
+                  )
+                ),
                 DT::dataTableOutput(outputId = ns('per_electrode_results_table'))
               ),
 
@@ -547,7 +586,7 @@ module_html <- function(){
               ),
               `By Electrode` = shiny::tagList(
                 shiny::div(
-                  class = "fill-width no-padding min-height-400 height-400 resize-vertical",
+                  class = "fill-width no-padding min-height-400 resize-vertical",
                   ravedash::output_gadget_container(
                     ravedash::plotOutput2(
                       outputId = ns('over_time_by_electrode'),
@@ -558,7 +597,7 @@ module_html <- function(){
               ),
               `By Trial` = shiny::tagList(
                 shiny::div(
-                  class = "fill-width no-padding min-height-400 height-400 resize-vertical",
+                  class = "fill-width no-padding min-height-400 resize-vertical",
                   make_heatmap_control_panel(prefix = 'otbt', config = 'over_time_tabset_config'),
                   ravedash::output_gadget_container(
                     ravedash::plotOutput2(
@@ -569,11 +608,11 @@ module_html <- function(){
               )
             ),
 
-            # ---- Output tab-set: By Trial ------------------------------------
+            # ---- Output tab-set: By Condition ------------------------------------
             ravedash::output_cardset(
               inputId = ns('by_condition_tabset'),
               title='By Condition',
-              class_body='no-padding fill-width resize-vertical',
+              class_body='',
               append_tools = FALSE,
               tools = list(
                 shidashi::card_tool(
@@ -585,11 +624,11 @@ module_html <- function(){
                   inputId = ns("by_condition_tabset_camera")
                 )
               ),
-              `By Trial` = shiny::tagList(
+              `By Trial` = #shiny::tagList(
                 shiny::div(
-                  id='makeinline',
-                  # class='',
-                  class = "fill-width no-padding min-height-400 height-400 resize-vertical",
+                  # id='makeinline',
+                  # class='height-400 fill-width container-fluid',
+                  # class = "no-padding",
                   {shiny::conditionalPanel(
                     "input['power_explorer-by_condition_tabset_config'] %2 == 1",
                     shiny::fluidRow(
@@ -598,8 +637,11 @@ module_html <- function(){
                                                     label = 'Points are: ',
                                                     choices=c('Trials', 'Electrodes'))
                       ),
+                      shiny::column(width=1, style='text-align: left; margin-top:37px; margin-left:0px',
+                                    shiny::checkboxInput(ns('bcbt_show_outliers'), "Show Outliers", value = TRUE)
+                      ),
                       shiny::column(
-                        width=4,
+                        width=3,
                         shiny::selectInput(ns("btp_types"), label = 'Plot types',
                                            multiple = TRUE,
                                            choices = c('jitter points', 'means', 'ebar polygons', 'sd polygons',
@@ -621,7 +663,7 @@ module_html <- function(){
                                     shiny::selectInput(ns("btp_panelvar"),
                                                        "Panel by", choices=c('none', 'Analysis Group',
                                                                              'First Factor'))
-                      ),
+                      )
                     ),
                     shiny::fluidRow(
                       shiny::column(width=3,
@@ -632,29 +674,44 @@ module_html <- function(){
                       ),
                       shiny::column(width=3,
                                     shiny::numericInput(ns('scale_pbtbc'), 'Plot width scaling', value = 1, min=0.1, max=10, step = .1)
+                      ),
+                      shiny::column(width=2,
+                                    shiny::selectInput(ns("btp_highlight_clicks"), selected='labels',
+                                                       "Highlight Clicks", choices=c('points', 'lines',
+                                                                                     'labels'), multiple = TRUE)
+                      ),
+                      shiny::column(width=1,
+                                    shiny::selectInput(ns("btp_highlight_text_location"), selected='top',
+                                                       "Highlight pos", choices=c('center', 'bottom', 'left', 'top', 'right'))
                       )
                     )
                   )},
-
-                  shiny::div(
-                    class = "fill-width no-padding min-height-400 height-400 resize-vertical",
-                    ravedash::output_gadget_container(
-                      ravedash::plotOutput2(outputId = ns('by_condition_by_trial'),
-                                            min_height = 400,
-                                            click = ns('btbc_click'),
-                                            dblclick =ns('btbc_dblclick')
-                                            # hover=ns('btbc_hover')
-                      )
+                  shiny::fluidRow(
+                    shiny::column(width=7,
+                                  # shiny::div(class='col-sm-8',
+                                  # ravedash::output_gadget_container(
+                                  ravedash::plotOutput2(outputId = ns('by_condition_by_trial'),
+                                                        click = shiny::clickOpts(ns('btbc_click'), clip=TRUE),
+                                                        dblclick =ns('btbc_dblclick')
+                                                        # hover=ns('btbc_hover')
+                                  ),
+                    ),
+                    #),
+                    shiny::column(width=5,
+                                  # shiny::div(class='col-sm-4',
+                                  # ravedash::output_gadget_container(
+                                  DT::dataTableOutput(outputId = ns('by_condition_by_trial_clicks'))
+                                  # )
                     )
-
+                    # )
                   )
-                )
-              ), # end of By Condition div
-              `Overall model test` = shiny::div(style='margin:20px', class="min-height-400 height-400 resize-vertical",
+                ),
+              # ), # end of By trial tag list
+              `Overall model test` = shiny::div(style='margin:20px', class="",
                                                 shiny::htmlOutput(ns('by_condition_statistics'))
               ),
               `Conditions vs. Baseline` = shiny::div(style='margin:20px',
-                                                     class="min-height-400 height-400 resize-vertical",
+                                                     class="",
                                                      shiny::fluidRow(
                                                        shiny::column(width = 4,
                                                                      shiny::selectInput(ns('bcs_choose_emmeans'),
@@ -664,7 +721,7 @@ module_html <- function(){
                                                      shiny::htmlOutput(ns('by_condition_statistics_emmeans'))
               ),
               `Pairwise comparisons` = shiny::div(style='margin:20px',
-                                                  class="min-height-400 height-400 resize-vertical",
+                                                  class="",
                                                   shiny::fluidRow(
                                                     shiny::column(width = 5,
                                                                   shiny::selectInput(ns('bcs_choose_contrasts'),

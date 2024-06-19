@@ -301,6 +301,9 @@ draw_many_heat_maps <- function (hmaps,
     }
     .ylab = ""
     .ylab <- hmaps[[has_data[1]]]$zlab
+
+    # par(mar=rep(2.5,4))
+    par(.mar)
     rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar,
                    ylab.line = yline
     )
@@ -586,7 +589,8 @@ rave_axis <- function(side, at, tcl, labels=at, las=1, cex.axis,
     mgpy = c(3,.5,0)
     mgpx = c(3,.4,0)
 
-    dipsaus::cat2("detected plotting to file")
+    # this messes up Rmarkdown
+    # dipsaus::cat2("detected plotting to file")
   }
 
   rutabaga::ruta_axis(
@@ -622,7 +626,7 @@ rave_title <- function(main, cex.main, col, font=1, adj=0.5, ...) {
 }
 
 rave_axis_labels <- function(xlab=NULL, ylab=NULL, col=NULL, cex.lab,
-                             xline=1.5, yline=2.75, push_X=0, push_Y=0, ...) {
+                             xline=1.5, yline=2.75, push_X=0, push_Y=0, hint=0, ...) {
   col %?<-% par('col')
 
   cex.lab %?<-% pe_graphics_settings_cache$get('rave_cex.lab')
@@ -691,7 +695,7 @@ rave_color_bar <- function(zlim, actual_lim, clrs, ylab, ylab.line=2,
   orig.pty <- par('pty')
   on.exit(par(pty=orig.pty))
 
-  par(mar=mar, pty='m')
+  # par(mar=mar, pty='m')
   image(cbar, useRaster = FALSE, ylim=ylim,
         col=clrs, axes=F, ylab='', main='',
         col.lab = par('fg'))
@@ -1718,7 +1722,7 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
                               ylim=NULL, col=NULL, do_axes=TRUE,
                               names.pos = c('none', 'bottom', 'top'),
                               plot_options = NULL, jitter_seed=NULL, cex_multifigure_scale=TRUE,
-                              just_get_ylim = FALSE) {
+                              just_get_ylim = FALSE, repeated_index='Trial') {
 
   apply_current_theme()
 
@@ -1766,6 +1770,7 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   if(!is.null(gvar)) {
     keys <- c(gvar, keys)
   }
+
   raw <- data.table::data.table(mat)
 
   if(!is.null(raw$is_clean) && any(!raw$is_clean)) {
@@ -1774,6 +1779,7 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
     agg <- clean[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), sd=sd(get(yvar)), n=.N), keyby=keys]
 
   } else {
+    # print('no is_clean')
     # if is_clean is null, we need to create it and set them to TRUE.
     raw$is_clean = TRUE
 
@@ -1785,8 +1791,6 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   if(is.null(gvar)) {
     means <- matrix(agg$y, ncol=1)
     names.arg = levels(as.factor(agg[[xvar]]))
-
-    # assign('cc', list('a'=agg, 'x'=xvar), envir = globalenv())
 
     if('overlay' == layout) {
       names.arg=NA
@@ -1905,9 +1909,10 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   # helper function to determine location of x-position for points
   .get_x <- if('jitter points' %in% types) {
     # here we shrink r so that the points stay w/n r after plotting (non-zero point size)
-    function(pl, bx) density_jitter(pl$y, around = bx, max.r = 0.7*r, seed = jitter_seed)
+    function(pl, bx) density_jitter(pl[[yvar]], around = bx,
+                                    max.r = 0.7*r, seed = jitter_seed)
   } else {
-    function(pl, bx) rep(bx, length(pl$y))
+    function(pl, bx) rep(bx, length(pl[[yvar]]))
   }
 
   points_list.x <- mapply(.get_x, points_list, bars.x, SIMPLIFY = FALSE)
@@ -1960,61 +1965,44 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
 
   if('density polygons' %in% types) {
     for(ii in seq_along(points_list)) {
-      dx <- density(points_list[[ii]]$y, n=64)
-      dx$y <- r*(dx$y/max(dx$y))
-      polygon(x = c(bars.x[ii] + dx$y, rev(bars.x[ii] -dx$y), bars.x[ii]+ dx$y[1]),
-              c(dx$x, rev(dx$x), dx$x[1]),
-              border = NA, col=adjustcolor(long_col[ii], .3), lwd=1.5)
+      if(length(points_list[[ii]][[yvar]]) > 1) {
+        dx <- density(points_list[[ii]][[yvar]], n=64)
+        dx$y <- r*(dx$y/max(dx$y))
+        polygon(x = c(bars.x[ii] + dx$y, rev(bars.x[ii] -dx$y), bars.x[ii]+ dx$y[1]),
+                c(dx$x, rev(dx$x), dx$x[1]),
+                border = NA, col=adjustcolor(long_col[ii], .3), lwd=1.5)
+      }
     }
   }
 
   if('densities' %in% types) {
     for(ii in seq_along(points_list)) {
-      dx <- density(points_list[[ii]]$y, n=64)
-      dx$y <- r*(dx$y/max(dx$y))
-      for(k in c(-1,1)) lines(bars.x[ii] + k*dx$y, dx$x,
-                              col=adjustcolor(long_col[ii], .8), lwd=1.5)
+      if(length(points_list[[ii]][[yvar]]) > 1) {
+        dx <- density(points_list[[ii]][[yvar]], n=64)
+        dx$y <- r*(dx$y/max(dx$y))
+        for(k in c(-1,1)) lines(bars.x[ii] + k*dx$y, dx$x,
+                                col=adjustcolor(long_col[ii], .8), lwd=1.5)
+      }
     }
   }
 
-  if('connect points' %in% types) {
+  if('connect points' %in% types && anyDuplicated(raw[[repeated_index]])) {
     # need to determine which points to connect.
 
-    # connect points based on how many
+    # connect points based on trial column
     if(layout=='grouped') {
+      # repeated_index = 'Trial'
 
-      ymat <- do.call(cbind, points_list)
-      xmat <- do.call(cbind, points_list.x)
+      by_trial <- mapply(function(x,y) {
+        cbind('x'=x, y)
+      }, points_list.x, points_list, SIMPLIFY = FALSE) %>% rbind_list %>% split((.)$Trial)
 
-      col_ind <- matrix(seq_along(points_list), nrow=nrow(means))
-
-      apply(col_ind, 2, function(ci) {
-        for(ii in seq_len(nrow(col_ind)-1)) {
-          segments(
-            xmat[,ci[ii]], ymat[,ci[ii]],
-            xmat[,ci[ii+1]], ymat[,ci[ii+1]],
-            lwd=0.75, col=adjustcolor('lightgray', .7)
-          )
-        }
+      sapply(by_trial, function(tt) {
+        col = ifelse(length(unique(tt[[xvar]]))==1, as.integer(tt[[xvar]][1]), 'gray70')
+        lines(tt$x, tt[[yvar]], col=adjustcolor(col, alpha.f = plot_options$pt.alpha))
       })
-    } else {
-      # when we're overlaying, we connect by gvar (assuming there is one?)
-      ymat <- do.call(cbind, points_list)
-      xmat <- do.call(cbind, points_list.x)
 
-      ind <- matrix(seq_along(points_list), nrow=nrow(means))
 
-      # as with connecting means, if there is not a grouping variable, just connect what you can
-      # transpose the indices so it's like we're going over groups
-      if(ncol(ind) == 1) {
-        ind %<>% t
-      }
-
-      apply(ind, 1, function(ri) {
-        for(ii in 1:nrow(xmat)) {
-          lines(xmat[ii,ri], ymat[ii,ri], col='lightgray', lwd=0.75)
-        }
-      })
     }
   }
 
@@ -2040,9 +2028,9 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
       points_list.x %?<-% mapply(.get_x, points_list, bars.x, SIMPLIFY = FALSE)
 
       mapply(function(x, pl, clr) {
-        points(x, pl$y, col=adjustcolor(clr, alpha.f = plot_options$pt.alpha),
+        points(x, pl[[yvar]], col=adjustcolor(clr, alpha.f = plot_options$pt.alpha),
                pch=ifelse(pl$is_clean, plot_options$pch, plot_options$outlier_pch),
-               cex = plot_options$pt.cex)
+               cex = plot_options$pt.cex, xpd=TRUE)
       }, points_list.x, points_list, long_col)
 
     } else {
@@ -2139,6 +2127,9 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
 }
 
 density_jitter <- function(x, around=0, max.r=.2, n=length(x), seed=NULL) {
+  if(n < 2) {
+    return(around)
+  }
   dx <- density(x, from=min(x), to=max(x), n=n)
 
   # careful here, switching from x to y (i.e., y = f(x))
@@ -2226,8 +2217,8 @@ build_axis_label_decorator <- function(..., doX=TRUE, doY=TRUE, push_X=0, push_Y
   par('mar' = o.mar)
 
   ald <- function(data, ...) {
-    print(push_X)
-    print(push_Y)
+    # print(push_X)
+    # print(push_Y)
     if(doX)
       rave_axis_labels(xlab=data$xlab, push_X = push_X)
 
@@ -2237,7 +2228,6 @@ build_axis_label_decorator <- function(..., doX=TRUE, doY=TRUE, push_X=0, push_Y
 
   return(ald)
 }
-
 
 stack_decorators <- function(...) {
   decorators <- lapply(list(...), match.fun)
@@ -2258,7 +2248,7 @@ build_heatmap_condition_label_decorator <- function(all_maps, ...) {
     nchar(unique(as.character(m$y)))
   }) %>% unlist %>% max
 
-  mar2 <- 5.1 + max(0, (max_char_count - 5) * 0.75)
+  mar2 <- 5.1 + max(0, (max_char_count - 5) * 0.8)
   new_mar <- o.mar
   new_mar[2] = max(mar2, o.mar[2])
 
@@ -2281,7 +2271,7 @@ build_heatmap_condition_label_decorator <- function(all_maps, ...) {
 
     mtext(diff_cond$values, side = 2,
           at = midpoints,
-          cex = 0.8*get_cex_for_multifigure(), las=1, line = 0.5)
+          cex = 0.8*get_cex_for_multifigure(), las=1, line = 0.25)
 
   }
 
@@ -2402,16 +2392,12 @@ color_bar_title_decorator <- function(m, cex = 1){#rave_cex.lab * 0.8) {
 
 
 plot_by_condition_by_trial <- function(by_condition_by_trial_data,
-                                       grouped_plot_options, ylab='') {
+                                       grouped_plot_options, ylab='',
+                                       highlight_trials=NULL) {
   apply_current_theme()
   po <- grouped_plot_options
 
   # based on shiny input, change xvar/yvar
-  count=function(x) {
-    if(is.null(x)) return (1)
-    length(unique(x))
-  }
-
   # fix the names of xvar and gvar
   for(nm in c('xvar', 'gvar', 'panelvar')) {
     if(po[[nm]] == 'First Factor') po[[nm]] = 'Factor1'
@@ -2420,9 +2406,8 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
     if(po[[nm]] == 'Analysis Group') po[[nm]] = 'AnalysisLabel'
   }
 
-
   ### setup plot size
-  k = 10 + 2.5*(count(by_condition_by_trial_data$Factor1)*count(by_condition_by_trial_data$AnalysisLabel)-1)
+  k = 8 + 2.5*(count(by_condition_by_trial_data$Factor1)*count(by_condition_by_trial_data$AnalysisLabel)-1)
   if(!is.null(by_condition_by_trial_data$Factor2)) {
     k = k + 2.5 * (count(by_condition_by_trial_data$Factor2)-1)
   }
@@ -2437,18 +2422,10 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
                     rep(lcm(po$plot_width_scale*min(k, MAX)/ct), ncol(m))
                     ,1))
 
-  oom <- get_order_of_magnitude(median(abs(pretty(by_condition_by_trial_data$y))))
-  #
-  #   ravedash::logger(
-  #     'OOM', oom
-  #   )
-
   # remove plot_width scale so it doesn't mes things up later
   po$plot_width_scale = NULL
 
-  line = 2.75 + oom
-
-  #read in group label posision
+  #group label position
   label_position = 'top' #c('none', 'bottom', 'top')
 
   # we need to collapse over electrode, but first
@@ -2464,23 +2441,39 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
   #   nms <- nms[!(nms %in% c('y', 'Trial', 'currently_selected', 'Block'))]
   # }
 
-
-  keys = unique(c(po$xvar, po$gvar, po$panelvar,
+  keys = unique(c(po$xvar, po$gvar, po$panelvar, 'is_clean',
                   ifelse(po$basic_unit=='Trials', 'Trial', 'Electrode')))
 
   keys = keys[keys!='none']
 
-
+  # save a copy, but then delete the one in the list. we need this to know
+  # whether we can flag particular points later
+  basic_unit <- po$basic_unit
   po$basic_unit = NULL
+
+  oom <- get_order_of_magnitude(median(abs(pretty(by_condition_by_trial_data$y))))
+  line = 2.75 + oom
+  par('mar'= .1 + c(4, 5+oom, ifelse(label_position=='top',3.5,2), 2))
 
   mat = data.table::data.table(by_condition_by_trial_data)
   mat = mat[by_condition_by_trial_data$currently_selected, list(y=mean(get('y'))), keyby=keys]
 
-  par('mar'=c(4, 4.5+oom, ifelse(label_position=='top',3.5,2), 2)+.1)
+  # grab the highlight variables from the plot options var
+  highlight_options <- po$highlight_clicks
+
+  htl_map = list('center' = NULL, 'bottom'=1, 'left' = 2, 'top' = 3, 'right'=4)
+  if(isTRUE(po$highlight_text_location %in% names(htl_map))) {
+    highlight_text_location <- htl_map[[po$highlight_text_location]]
+  } else {
+    highlight_text_location <- NULL
+  }
+
+  po$highlight_clicks <- NULL
+  po$highlight_text_location <- NULL
 
   # we are panelling
   if(ct > 1) {
-  par(oma=c(1,1,0,0))
+    par(oma=c(1,1,0,0))
     ravedash::logger('Trying to make panels')
     pvar <- po$panelvar
     by_panel <- split(mat, mat[[pvar]], drop = TRUE)
@@ -2506,14 +2499,14 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
 
 
     qq <- 1
-    lapply(by_panel, function(m) {
+    res <- lapply(by_panel, function(m) {
       # m = by_panel[[1]]
       # text(ylab, outer=TRUE, line = 1, side = 2, xpd=TRUE,
       #       cex=get_cex_for_multifigure()*pe_graphics_settings_cache$get('rave_cex.axis'))
 
-      do.call(plot_grouped_data,
-              append(po, list(mat=as.data.frame(m),
-                              do_axes=TRUE, names.pos=label_position, ylim=ylim))
+      res <- do.call(plot_grouped_data,
+                     append(po, list(mat=as.data.frame(m),
+                                     do_axes=TRUE, names.pos=label_position, ylim=ylim))
       )
 
       if(0 == ((qq-1) %%  3)) {
@@ -2523,21 +2516,101 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
 
       mtext(unique(m[[pvar]]), outer=FALSE, line = 3.5, side = 1, xpd=TRUE,
             cex=get_cex_for_multifigure()*pe_graphics_settings_cache$get('rave_cex.axis'))
+
+      return(res)
     })
 
   } else {
     po$panelvar = NULL
-    do.call(plot_grouped_data,
-            append(po, list(mat=as.data.frame(mat),
-                            do_axes=TRUE, names.pos=label_position))
+    res <- do.call(plot_grouped_data,
+                   append(po, list(mat=as.data.frame(mat),
+                                   do_axes=TRUE, names.pos=label_position))
     )
 
     if(nzchar(ylab)) {
       rave_axis_labels(ylab=ylab, outer=FALSE, yline=line, xpd=TRUE)
     }
+
+    if(length(highlight_trials) > 0 && basic_unit == 'Trials') {
+      # unlist(res$x)
+      # rbind_list(res$y)
+
+      by_trial <- mapply(function(x,y) {
+        cbind(x,y)
+      }, res$x, res$y, SIMPLIFY = FALSE) %>% rbind_list %>% subset(Trial %in% highlight_trials) %>% split((.)$Trial)
+
+      sapply(by_trial, function(trial) {
+
+        col = ifelse(count(trial[[po$xvar]])==1, as.integer(trial[[po$xvar]])[1], 'gray70')
+
+        if('lines' %in% highlight_options) {
+          lines(trial$x, trial$y, col=col, lwd=1.5)
+        }
+        if('points' %in% highlight_options) {
+          points(trial$x, trial$y, bg='white', col=col, lwd=1.5, pch=21, cex=1.5)
+        }
+        if('labels' %in% highlight_options) {
+          text(trial$x, trial$y, trial$Trial, cex=2, pos = highlight_text_location)
+        }
+
+      })
+
+    }
+
   }
 
-  # uoa = local_data$results$baseline_settings$unit_of_analysis
+  # here we want to return the data alongside xy positions of each point to make them
+  # easy to locate later. this won't work correctly with paneled data
+  return(res)
+
+}
+
+build_outlier_decorator <- function(all_data) {
+
+  # create a short-circuit option so we don't mess with the
+  # margins unless we really need to. Putting this here instead of
+  # in the calling function because it needs to be done for every plot
+  any_outliers <- sapply(all_data, function(ad) {
+    any(ad$is_outlier)
+  }) %>% any
+
+  if(!any_outliers) {
+    return (function(...) {1})
+  }
+
+  mar = par('mar')
+  if(mar[4] < 3) mar[4] = 3
+  par('mar' = mar)
+
+  od <- function(data, Xmap, Ymap, ...) {
+
+    do_box <- function(x, y) {
+
+      .seg <- function(...) {
+        segments(..., lwd=2, col=par('fg'), lty=3, xpd=TRUE)
+      }
+      .seg(x0=x[1], y0=y[1], x1 = x[2])
+      # .seg(x0=x[2], y0=y[1], y1=y[2])
+      .seg(x0=x[1], y0=y[2], x1 = x[2])
+      # .seg(x0=x[1], y0=y[1], y1=y[2])
+    }
+
+    if(any(data$is_outlier)) {
+      xlim = c(0,length(data$x))
+
+      odd <- which(data$is_outlier)
+
+      sapply(odd, function(oddity) {
+        do_box(xlim, c(oddity-0.5, oddity+0.5))
+
+        # text(par('usr')[2]*1.1, oddity, , cex=1.2*get_cex_for_multifigure(), font=2, adj=c(1,0.5))
+      })
+
+      mtext(side=4, data$trial_number[odd], at=odd,
+            font=2, line=-1, cex=.9*get_cex_for_multifigure(), las=1)
+    }
+  }
+  return(od)
 }
 
 plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options) {
@@ -2546,7 +2619,8 @@ plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options) {
   decorators <- stack_decorators(
     build_title_decorator(),
     build_heatmap_analysis_window_decorator(),
-    build_heatmap_condition_label_decorator(over_time_by_trial_data)
+    build_heatmap_condition_label_decorator(over_time_by_trial_data),
+    build_outlier_decorator(over_time_by_trial_data)
   )
 
   args <- list(
