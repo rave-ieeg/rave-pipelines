@@ -1035,8 +1035,8 @@ omnibus_results$stats %<>% rbind(val)
 ```{rave build_across_electrode_statistics, language="R", export="across_electrode_statistics"}
 dd <- subset(omnibus_results$data, currently_selected)
 
-emmeans::emm_options(lmerTest.limit = 10290*10)
-emmeans::emm_options(pbkrtest.limit = 10290*10)
+# emmeans::emm_options(lmerTest.limit = 10290*10)
+# emmeans::emm_options(pbkrtest.limit = 10290*10)
 
 # Need to think about how to handle very low trial counts for a given level of a factor
 
