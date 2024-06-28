@@ -33,10 +33,11 @@ repository
 requested_electrodes <- dipsaus::parse_svec(analysis_electrodes, sep=',|;', connect  = ':-')
 requested_electrodes <- requested_electrodes[requested_electrodes %in% repository$power$dimnames$Electrode]
 if(!length(requested_electrodes)){ stop("No electrode selected") }
+
+# requested_electrodes = dipsaus::parse_svec('10-11,14-15,27-28,32,37,39,47,59,91-93,102-104,113,118-120
 ```
 
 ```{rave check_analysis_settings, language = "R", export = "analysis_settings_clean"}
-
 check_range <- function(x, lim, lbl) {
   if(!all(x %within% lim)) stop(sprintf('Requested %s [%s] not within available range [%s]', lbl, str_collapse(range(x), ':'), str_collapse(range(lim), ':')), call. = FALSE)
 }
@@ -972,15 +973,15 @@ run_stats <- function(el) {
 # now we want to calculate the stats for each electrode
 stats <- all_data_clean %>% split((.)$Electrode) %>% 
   raveio::lapply_async(function(el){
-  # lapply(function(el) {
+    # lapply(function(el) {
     # tryCatch({
-      # return(suppressMessages(
-        run_stats(el)
-      # )
-      # )
+    # return(suppressMessages(
+    run_stats(el)
+    # )
+    # )
     # }, error = function(...) {
-      # The data contains NA/NaN
-      # NULL
+    # The data contains NA/NaN
+    # NULL
     # })
   }) %>%
   rutabaga::cbind_list()
@@ -1035,17 +1036,21 @@ omnibus_results$stats %<>% rbind(val)
 ```{rave build_across_electrode_statistics, language="R", export="across_electrode_statistics"}
 dd <- subset(omnibus_results$data, currently_selected)
 
-# emmeans::emm_options(lmerTest.limit = 10290*10)
-# emmeans::emm_options(pbkrtest.limit = 10290*10)
+# emmeans::emm_options(lmerTest.limit = 1000)
+# emmeans::emm_options(pbkrtest.limit = 1000)
+
+# seems to be faster for large models
+emmeans::emm_options(lmer.df = "satterthwaite")
 
 # Need to think about how to handle very low trial counts for a given level of a factor
-
+ravedash::logger('top of BAES', calc_delta = TRUE)
 # the intersect handles variables that don't exist. We'll add Trial to RE later if possible
 rand_effects <- c('Block', 'Electrode') %>% intersect(names(dd))
 
-# we don't need "Freq" because that is part of AnalysisLabel
-fixed_effects <- c('Factor1', 'Factor2', #'Freq',
-                   'Event', 'AnalysisLabel') %>% intersect(names(dd))
+# we don't need "Freq" or "Event" because that is part of AnalysisLabel
+fixed_effects <- c('Factor1', 'Factor2', 
+                   #'Freq', 'Event', 
+                   'AnalysisLabel') %>% intersect(names(dd))
 
 for(ff in c(rand_effects, fixed_effects)) {
   dd[[ff]] %<>% as.factor
@@ -1080,49 +1085,37 @@ if(length(re) > 0) {
 .datatable.aware=TRUE
 condition_means <- data.table::as.data.table(dd)[ ,list('y'=mean(y), 'sd' = sd(y),
                                                         'se'=rutabaga:::se(y),'n'=.N), keyby=fe]
+ravedash::logger('got condition means', calc_delta = TRUE)
 
 # set fe to "1" (intercept only model) if there are no fixed effects. Do this 
 # after obtaining experimental means because you can't key on the number 1
-if(!isTRUE(nzchar(fe))) {
-  fe = '1'
-}
+fe <- paste0(fe, collapse='*')
+if(!nzchar(fe)) { fe <- "1" }
 
-## single electrode in a single block
-if(is.null(re_str)) {
-  
-  frm <- as.formula(
-    sprintf('y ~ %s', paste0(fe, collapse='*'))
-  )
-  
-  mod <- lm(
-    frm, data=dd
-  )
-  
-} else {
-  # here we have some kind of repeated measure
-  f_string <- paste(paste(fe, collapse='*'), re_str, sep=' + ')
-  
-  frm <- as.formula(
-    paste('y ~', f_string)
-  )
-  
-  mod <- lme4::lmer(
-    frm, data=dd
-  )
-}
+frm <- as.formula(
+  paste('y ~', paste(c(fe, re_str), collapse=' + '))
+)
 
+FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
+
+mod <- do.call(FUN, list(formula=frm, data=dd))
+
+
+ravedash::logger('built linear model, starting post hoc tests', calc_delta = TRUE)
 # est. marg means initial object, used by other
 # functions to get all the contrasts
-if(!isTRUE(nzchar(fe))) {
-  fe = '1'
-}
+
 em <- emmeans::emmeans(
-  mod, as.formula(sprintf(" ~ %s", paste(fe, collapse='*'))), infer=c(F,T)
+  mod, as.formula(sprintf(" ~ %s", fe)), infer=c(F,T)
 )
+
+ravedash::logger('Got emm', calc_delta = TRUE)
 
 pairwise <- emmeans::contrast(
   em, 'pairwise'
 )
+
+ravedash::logger('Got pairwise contrasts', calc_delta = TRUE)
 
 # here we have a chance to stratify rather than do
 # all-possible pairwise comparisons (save your alpha!)
@@ -1152,9 +1145,13 @@ if (length(fe) > 2) {
   }) %>% setNames(sapply(fe_combn, paste0, collapse='.'))
 }
 
+ravedash::logger('Got other contrasts', calc_delta = TRUE)
+
 .aov <- car::Anova(mod, type=ifelse(
   fe[1] == "1", 'III', 'II')
 )
+
+ravedash::logger('Got ANOVA', calc_delta = TRUE)
 
 across_electrode_statistics <- list(
   condition_means = condition_means,

@@ -1,38 +1,33 @@
-electrode_export_data_type: tensor
-electrodes_to_export: ''
-trials_to_export: Raw, Only trials used in grouping factors
-times_to_export: Raw, All available times
-frequencies_to_export: Collapsed, Analysis window(s) only
-electrode_export_file_type: HDF5
-trial_outliers_list: ~
-time_censor:
-  enabled: no
-  window:
-  - 0.0
-  - 1.0
-project_name: mTurkWords
-subject_code: YEU
-loaded_electrodes: 75-106
-epoch_choice: 5modalities
-epoch_choice__trial_starts: -1
-epoch_choice__trial_ends: 2
-reference_name: bipolar
-baseline_settings:
-  window:
-  - - -0.5
-    - 0.0
-  scope: Per frequency, trial, and electrode
-  unit_of_analysis: '% Change Power'
-analysis_electrodes: '91-92 '
-first_condition_groupings:
+electrodes_to_export_roi_categories: ~
+electrodes_to_export_roi_name: none
+analysis_settings:
   '1':
-    label: Ac
-    conditions:
-    - Ac
+    label: AS
+    event: AudStart
+    time:
+    - 0
+    - 0.8
+    frequency:
+    - 70
+    - 150
   '2':
-    label: Vo
-    conditions:
-    - V
+    label: TS
+    event: Trial Onset
+    time:
+    - 0
+    - 0.8
+    frequency:
+    - 70
+    - 150
+custom_roi_groupings:
+  '1':
+    label: ''
+    conditions: []
+custom_roi_variable: none
+custom_roi_type: Filter only
+enable_custom_ROI: no
+condition_variable: Condition
+enable_second_condition_groupings: no
 second_condition_groupings:
   '1':
     label: ML
@@ -40,33 +35,46 @@ second_condition_groupings:
   '2':
     label: VL
     conditions: []
-enable_second_condition_groupings: no
-condition_variable: Condition
-enable_custom_ROI: no
-custom_roi_type: Filter only
-custom_roi_variable: none
-custom_roi_groupings:
+first_condition_groupings:
   '1':
-    label: ''
-    conditions: []
-analysis_settings:
-  '1':
-    label: Astart
-    event: AudStart
-    time:
-    - 0
-    - 0.55
-    frequency:
-    - 70
-    - 150
+    label: Ac
+    conditions:
+    - Ac
   '2':
-    label: Vstart
-    event: Trial Onset
-    time:
-    - 0
-    - 0.55
-    frequency:
-    - 70
-    - 150
-electrodes_to_export_roi_name: none
-electrodes_to_export_roi_categories: ~
+    label: V
+    conditions:
+    - V
+  '3':
+    label: An
+    conditions:
+    - An
+  '4':
+    label: AcV
+    conditions:
+    - AcV
+analysis_electrodes: '4'
+baseline_settings:
+  window:
+  - - -0.8
+    - 0.0
+  scope: Per frequency, trial, and electrode
+  unit_of_analysis: '% Change Power'
+reference_name: bipolar
+epoch_choice__trial_ends: 3
+epoch_choice__trial_starts: -1
+epoch_choice: YDX_5modalities_seq
+loaded_electrodes: 4-6
+subject_code: YDX
+project_name: EMU_NoisyWords
+time_censor:
+  enabled: no
+  window:
+  - 0.0
+  - 1.0
+trial_outliers_list: ~
+electrode_export_file_type: HDF5
+frequencies_to_export: Collapsed, Analysis window(s) only
+times_to_export: Raw, All available times
+trials_to_export: Raw, Only trials used in grouping factors
+electrodes_to_export: ''
+electrode_export_data_type: tensor

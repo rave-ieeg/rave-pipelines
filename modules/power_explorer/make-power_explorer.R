@@ -1699,13 +1699,11 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 dd <- subset(omnibus_results$data, currently_selected)
-                emmeans::emm_options(lmerTest.limit = 10290 * 
-                  10)
-                emmeans::emm_options(pbkrtest.limit = 10290 * 
-                  10)
+                emmeans::emm_options(lmer.df = "satterthwaite")
+                ravedash::logger("top of BAES", calc_delta = TRUE)
                 rand_effects <- c("Block", "Electrode") %>% intersect(names(dd))
-                fixed_effects <- c("Factor1", "Factor2", "Event", 
-                  "AnalysisLabel") %>% intersect(names(dd))
+                fixed_effects <- c("Factor1", "Factor2", "AnalysisLabel") %>% 
+                  intersect(names(dd))
                 for (ff in c(rand_effects, fixed_effects)) {
                   dd[[ff]] %<>% as.factor
                 }
@@ -1731,25 +1729,22 @@ rm(._._env_._.)
                 condition_means <- data.table::as.data.table(dd)[, 
                   list(y = mean(y), sd = sd(y), se = rutabaga:::se(y), 
                     n = .N), keyby = fe]
-                if (!isTRUE(nzchar(fe))) {
-                  fe = "1"
+                ravedash::logger("got condition means", calc_delta = TRUE)
+                fe <- paste0(fe, collapse = "*")
+                if (!nzchar(fe)) {
+                  fe <- "1"
                 }
-                if (is.null(re_str)) {
-                  frm <- as.formula(sprintf("y ~ %s", paste0(fe, 
-                    collapse = "*")))
-                  mod <- lm(frm, data = dd)
-                } else {
-                  f_string <- paste(paste(fe, collapse = "*"), 
-                    re_str, sep = " + ")
-                  frm <- as.formula(paste("y ~", f_string))
-                  mod <- lme4::lmer(frm, data = dd)
-                }
-                if (!isTRUE(nzchar(fe))) {
-                  fe = "1"
-                }
+                frm <- as.formula(paste("y ~", paste(c(fe, re_str), 
+                  collapse = " + ")))
+                FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
+                mod <- do.call(FUN, list(formula = frm, data = dd))
+                ravedash::logger("built linear model, starting post hoc tests", 
+                  calc_delta = TRUE)
                 em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
-                  paste(fe, collapse = "*"))), infer = c(F, T))
+                  fe)), infer = c(F, T))
+                ravedash::logger("Got emm", calc_delta = TRUE)
                 pairwise <- emmeans::contrast(em, "pairwise")
+                ravedash::logger("Got pairwise contrasts", calc_delta = TRUE)
                 stratified_contrasts <- NULL
                 if (length(fe) > 1) {
                   stratified_contrasts <- get_stratified_contrasts(em)
@@ -1768,8 +1763,10 @@ rm(._._env_._.)
                       "pairwise"), by = fe[!fe %in% groups])
                   }) %>% setNames(sapply(fe_combn, paste0, collapse = "."))
                 }
+                ravedash::logger("Got other contrasts", calc_delta = TRUE)
                 .aov <- car::Anova(mod, type = ifelse(fe[1] == 
                   "1", "III", "II"))
+                ravedash::logger("Got ANOVA", calc_delta = TRUE)
                 across_electrode_statistics <- list(condition_means = condition_means, 
                   model = mod, model_type = class(mod)[1], aov = .aov, 
                   emmeans = em, pairwise_contrasts = pairwise, 
@@ -1787,14 +1784,12 @@ rm(._._env_._.)
             target_export = "across_electrode_statistics", target_expr = quote({
                 {
                   dd <- subset(omnibus_results$data, currently_selected)
-                  emmeans::emm_options(lmerTest.limit = 10290 * 
-                    10)
-                  emmeans::emm_options(pbkrtest.limit = 10290 * 
-                    10)
+                  emmeans::emm_options(lmer.df = "satterthwaite")
+                  ravedash::logger("top of BAES", calc_delta = TRUE)
                   rand_effects <- c("Block", "Electrode") %>% 
                     intersect(names(dd))
-                  fixed_effects <- c("Factor1", "Factor2", "Event", 
-                    "AnalysisLabel") %>% intersect(names(dd))
+                  fixed_effects <- c("Factor1", "Factor2", "AnalysisLabel") %>% 
+                    intersect(names(dd))
                   for (ff in c(rand_effects, fixed_effects)) {
                     dd[[ff]] %<>% as.factor
                   }
@@ -1820,26 +1815,23 @@ rm(._._env_._.)
                   condition_means <- data.table::as.data.table(dd)[, 
                     list(y = mean(y), sd = sd(y), se = rutabaga:::se(y), 
                       n = .N), keyby = fe]
-                  if (!isTRUE(nzchar(fe))) {
-                    fe = "1"
+                  ravedash::logger("got condition means", calc_delta = TRUE)
+                  fe <- paste0(fe, collapse = "*")
+                  if (!nzchar(fe)) {
+                    fe <- "1"
                   }
-                  if (is.null(re_str)) {
-                    frm <- as.formula(sprintf("y ~ %s", paste0(fe, 
-                      collapse = "*")))
-                    mod <- lm(frm, data = dd)
-                  } else {
-                    f_string <- paste(paste(fe, collapse = "*"), 
-                      re_str, sep = " + ")
-                    frm <- as.formula(paste("y ~", f_string))
-                    mod <- lme4::lmer(frm, data = dd)
-                  }
-                  if (!isTRUE(nzchar(fe))) {
-                    fe = "1"
-                  }
+                  frm <- as.formula(paste("y ~", paste(c(fe, 
+                    re_str), collapse = " + ")))
+                  FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
+                  mod <- do.call(FUN, list(formula = frm, data = dd))
+                  ravedash::logger("built linear model, starting post hoc tests", 
+                    calc_delta = TRUE)
                   em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
-                    paste(fe, collapse = "*"))), infer = c(F, 
-                    T))
+                    fe)), infer = c(F, T))
+                  ravedash::logger("Got emm", calc_delta = TRUE)
                   pairwise <- emmeans::contrast(em, "pairwise")
+                  ravedash::logger("Got pairwise contrasts", 
+                    calc_delta = TRUE)
                   stratified_contrasts <- NULL
                   if (length(fe) > 1) {
                     stratified_contrasts <- get_stratified_contrasts(em)
@@ -1859,8 +1851,10 @@ rm(._._env_._.)
                     }) %>% setNames(sapply(fe_combn, paste0, 
                       collapse = "."))
                   }
+                  ravedash::logger("Got other contrasts", calc_delta = TRUE)
                   .aov <- car::Anova(mod, type = ifelse(fe[1] == 
                     "1", "III", "II"))
+                  ravedash::logger("Got ANOVA", calc_delta = TRUE)
                   across_electrode_statistics <- list(condition_means = condition_means, 
                     model = mod, model_type = class(mod)[1], 
                     aov = .aov, emmeans = em, pairwise_contrasts = pairwise, 
