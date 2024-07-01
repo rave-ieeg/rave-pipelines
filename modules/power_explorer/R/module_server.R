@@ -77,6 +77,9 @@ module_server <- function(input, output, session, ...){
     'plot_decorations' = list()
   )
 
+  # this is used to get ROI variables and provide extra columns for table
+  local_data$electrode_meta_data <- NULL
+
   local_data$by_frequency_correlation_plot_options <- list(
     max_zlim = 1,
     percentile_range = FALSE,
@@ -95,8 +98,6 @@ module_server <- function(input, output, session, ...){
     ncol = 3, byrow=TRUE
   )
 
-  # this is used to get ROI variables
-  local_data$electrode_meta_data <- NULL
 
   # get server tools to tweak
   server_tools <- ravedash::get_default_handlers(session = session)
@@ -368,6 +369,18 @@ module_server <- function(input, output, session, ...){
     shiny::updateSelectInput(inputId = 'bet_variables_to_hide',
                              choices = choices_list[choices_list!='electrode'],
                              selected = bet_vts)
+
+
+    # add in electrode meta data chooser
+    bet_md <- input$bet_meta_data
+    md_choices <- c('Subject', 'MNI152_x', 'MNI152_y', 'MNI152_z', 'Label', 'FSLabel') %>%
+      intersect(names(local_data$electrode_meta_data))
+    bet_md <- bet_md[bet_md %in% md_choices]
+    if(length(bet_md) < 1) bet_md = character(0)
+
+    shiny::updateSelectInput(inputId = 'bet_meta_data',
+                             choices = md_choices,
+                             selected = bet_md)
 
     #### this is where we add Factor 2 to the analysis
     if(is.null(local_data$results$omnibus_results$data$Factor2)) {
@@ -921,8 +934,10 @@ module_server <- function(input, output, session, ...){
       ## update ROI variable choices
       # any variable with between 2 and 20 unique values can be an ROI
       tbl <- new_repository$electrode_table
-
       local_data$electrode_meta_data = tbl[tbl$Electrode %in% new_repository$power$dimnames$Electrode,]
+
+      # let the Subject column be added
+      local_data$electrode_meta_data$Subject = new_repository$subject$subject_code
 
       roi_vars <- names(which(sapply(local_data$electrode_meta_data, count_elements) %within% c(2, nrow(local_data$electrode_meta_data)-1)))
       roi_vars = roi_vars[!(roi_vars %in% c('isLoaded'))]
@@ -2326,6 +2341,12 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_reactives$update_per_electrode_results_table = Sys.time()
+    }), input$bet_meta_data, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
   output$per_electrode_results_table <- DT::renderDataTable({
     basic_checks(local_reactives$update_outputs)
 
@@ -2342,6 +2363,15 @@ module_server <- function(input, output, session, ...){
 
     df <- data.frame(mat)
     cnames <- colnames(mat)
+
+    # add in meta data
+    if(length(input$bet_meta_data) > 0) {
+      bmd <- local_data$electrode_meta_data[,input$bet_meta_data,drop=FALSE]
+      if(!is.null(bmd)) {
+        df %<>% merge(bmd)
+        cnames %<>% c(names(bmd))
+      }
+    }
 
     # remove columns the user doesn't want (this is exclusion rule)
     vars_to_hide <- input$bet_variables_to_hide
@@ -2398,7 +2428,9 @@ module_server <- function(input, output, session, ...){
       )
     )
 
-    to_round <- df[!pcols] %>% sapply(get_pretty_digits)
+    char = sapply(df, function(x) any(!is.numeric(x)))
+    to_round <- df[!(pcols|char)] %>% sapply(get_pretty_digits)
+
     for(ur in unique(to_round)) {
       nms <- names(which(to_round == ur))
       dt %<>% DT::formatRound(nms, digits=ur+1)

@@ -427,7 +427,7 @@ module_html <- function(){
                   shiny::div(
                     class = "container-fluid",
                     shiny::fluidRow(
-                      shiny::column(width=6, shiny::selectInput(
+                      shiny::column(width=5, shiny::selectInput(
                         inputId = ns('bet_variables_to_hide'),
                         label = 'Variables to remove',
                         choices = character(0), multiple = TRUE),
@@ -436,6 +436,11 @@ module_html <- function(){
                         inputId = ns('bet_metrics_to_show'),
                         label = 'Metrics to include',choices = c('m', 't', 'p'),
                         selected = c('m', 't', 'p'), multiple = TRUE),
+                      ),
+                      shiny::column(width=4, shiny::selectInput(
+                        inputId = ns('bet_meta_data'),
+                        label = 'Meta data to include',
+                        choices = character(0), multiple = TRUE),
                       )
                     )
                   )
