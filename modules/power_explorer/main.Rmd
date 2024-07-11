@@ -1083,6 +1083,7 @@ if(length(re) > 0) {
 
 ## get means and trial counts. data.table is way faster than aggregate
 .datatable.aware=TRUE
+# saveRDS('~/Desktop/v.RDS', object=list('dd'=dd, 'fe'=fe, 're_str'=re_str))
 condition_means <- data.table::as.data.table(dd)[ ,list('y'=mean(y), 'sd' = sd(y),
                                                         'se'=rutabaga:::se(y),'n'=.N), keyby=fe]
 ravedash::logger('got condition means', calc_delta = TRUE)

@@ -427,16 +427,21 @@ module_html <- function(){
                   shiny::div(
                     class = "container-fluid",
                     shiny::fluidRow(
-                      shiny::column(width=5, shiny::selectInput(
+                      shiny::column(width=4, shiny::selectInput(
                         inputId = ns('bet_variables_to_hide'),
                         label = 'Variables to remove',
                         choices = character(0), multiple = TRUE),
                         ),
-                      shiny::column(width=3, shiny::selectInput(
+                      shiny::column(width=2, shiny::selectInput(
                         inputId = ns('bet_metrics_to_show'),
                         label = 'Metrics to include',choices = c('m', 't', 'p'),
                         selected = c('m', 't', 'p'), multiple = TRUE),
                       ),
+                      shiny::column(width=2, style='text-align: left; margin-top:37px; margin-left:0px',
+                                    shiny::checkboxInput(
+                        inputId = ns('bet_show_contrasts'), label = 'Show Contrasts',
+                        value = TRUE
+                      )),
                       shiny::column(width=4, shiny::selectInput(
                         inputId = ns('bet_meta_data'),
                         label = 'Meta data to include',

@@ -2333,20 +2333,6 @@ module_server <- function(input, output, session, ...){
   )
 
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      local_reactives$update_per_electrode_results_table = Sys.time()
-    }),
-    input$bet_variables_to_hide, input$bet_metrics_to_show,
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
-
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      local_reactives$update_per_electrode_results_table = Sys.time()
-    }), input$bet_meta_data, ignoreNULL = TRUE, ignoreInit = TRUE
-  )
-
   output$per_electrode_results_table <- DT::renderDataTable({
     basic_checks(local_reactives$update_outputs)
 
@@ -2366,11 +2352,13 @@ module_server <- function(input, output, session, ...){
 
     # add in meta data
     if(length(input$bet_meta_data) > 0) {
-      bmd <- local_data$electrode_meta_data[,input$bet_meta_data,drop=FALSE]
+      bmd <- local_data$electrode_meta_data[,c('Electrode',input$bet_meta_data),drop=FALSE]
+      bmd.names <- names(bmd)[names(bmd)!='Electrode']
       if(!is.null(bmd)) {
-        df %<>% merge(bmd)
-        cnames %<>% c(names(bmd))
+        df %<>% merge(bmd, by='Electrode', all.y=FALSE)
+        cnames %<>% c(bmd.names)
       }
+      ravedash::logger('done adding vars', level='trace')
     }
 
     # remove columns the user doesn't want (this is exclusion rule)
@@ -2378,11 +2366,19 @@ module_server <- function(input, output, session, ...){
     col_to_hide <- rep(FALSE, length(cnames))
 
     if(length(vars_to_hide) > 0) {
-      print('HIDING VARS!')
       col_to_hide = sapply(cnames, function(x) {
         any(stringr::str_detect(x, vars_to_hide))
       })
-      print(col_to_hide)
+    }
+
+    if(! input$bet_show_contrasts) {
+      # first find columns with p_fdr, as those are definitely contrasts
+      ind <- stringr::str_detect(cnames, stringr::fixed('p_fdr('))
+      # now find the contrast label
+      contr <- unique(stringr::str_remove_all(cnames[ind], '(p_fdr|\\(|\\))'))
+      # now detect these strings
+      is_contr <- sapply(cnames, function(str) any(stringr::str_detect(str, contr)))
+      col_to_hide = col_to_hide | is_contr
     }
 
     ## remove metrics that aren't wanted (this is inclusion rule)
@@ -2419,7 +2415,7 @@ module_server <- function(input, output, session, ...){
       extensions = c("Buttons"),
       options=list(autoWidth=TRUE, scroller=TRUE, scrollX=TRUE, scrollY='500px',
                    buttons = list(list(extend = 'copy', text='Copy', title = NULL)),
-                   # fixedColumns = list(leftColumns = 1),
+                   fixedColumns = list(leftColumns = 1),
                    server=FALSE, #order=TRUE,
                    # columnDefs = list(
                    # list(width = '50px', targets = "_all")

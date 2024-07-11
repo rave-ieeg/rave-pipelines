@@ -10,35 +10,31 @@ time_censor:
   window:
   - 0.0
   - 1.0
-project_name: demo
-subject_code: DemoSubject
-loaded_electrodes: 13-16,24
-epoch_choice: auditory_onset
+project_name: mTurkWords
+subject_code: YEU
+loaded_electrodes: 20-21
+epoch_choice: 5modalities
 epoch_choice__trial_starts: -1
 epoch_choice__trial_ends: 3
-reference_name: default
+reference_name: bipolar
 baseline_settings:
   window:
   - - -0.8
     - 0.0
-  scope: Across trials (aka global baseline)
+  scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
-analysis_electrodes: '16,24'
+analysis_electrodes: '20'
 first_condition_groupings:
   '1':
-    label: Ao
+    label: All Conditions
     conditions:
-    - last_a
-    - drive_a
-    - known_a
-    - meant_a
+    - Ac
+    - AcV
   '2':
-    label: V
+    label: Noise
     conditions:
-    - drive_v
-    - known_v
-    - last_v
-    - meant_v
+    - An
+    - AnV
 second_condition_groupings:
   '1':
     label: ML
