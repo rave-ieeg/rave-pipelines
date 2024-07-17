@@ -21,7 +21,8 @@ rbind_list <- rutabaga::rbind_list
 rand_string <- raveio:::rand_string
 stopifnot2 <- raveio:::stopifnot2
 
-
+# require(data.table)
+.datatable.aware = TRUE
 
 get_recursive_summary <- function(ll, nm, FUN=range) {
   if(is.null(ll[[nm]])) {

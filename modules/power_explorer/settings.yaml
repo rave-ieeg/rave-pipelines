@@ -10,31 +10,42 @@ time_censor:
   window:
   - 0.0
   - 1.0
-project_name: mTurkWords
-subject_code: YEU
-loaded_electrodes: 20-21
-epoch_choice: 5modalities
-epoch_choice__trial_starts: -1
-epoch_choice__trial_ends: 3
-reference_name: bipolar
+project_name: congruency
+subject_code: YAF
+loaded_electrodes: 41-42,47,52-55
+epoch_choice: YAF_aayushi
+epoch_choice__trial_starts: -1.0
+epoch_choice__trial_ends: 2.0
+reference_name: yafcar
 baseline_settings:
   window:
-  - - -0.8
+  - - -0.5
     - 0.0
   scope: Per frequency, trial, and electrode
-  unit_of_analysis: '% Change Power'
-analysis_electrodes: '20'
+  unit_of_analysis: z-score Amplitude
+analysis_electrodes: 41-42,47,52-55
 first_condition_groupings:
   '1':
-    label: All Conditions
+    label: AV
     conditions:
-    - Ac
-    - AcV
+    - last_av
+    - drive_av
+    - known_av
+    - meant_av
   '2':
-    label: Noise
+    label: Vo
     conditions:
-    - An
-    - AnV
+    - last_v
+    - drive_v
+    - known_v
+    - meant_v
+  '3':
+    label: Ac
+    conditions:
+    - last_a
+    - drive_a
+    - known_a
+    - meant_a
 second_condition_groupings:
   '1':
     label: ML
@@ -53,10 +64,19 @@ custom_roi_groupings:
     conditions: []
 analysis_settings:
   '1':
-    label: AS
-    event: Trial Onset
+    label: AudStart
+    event: AuditoryStart
     time:
     - 0
+    - 0.6
+    frequency:
+    - 70
+    - 150
+  '2':
+    label: VisStart
+    event: VisualStart
+    time:
+    - 0.0
     - 0.8
     frequency:
     - 70

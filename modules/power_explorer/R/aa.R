@@ -1,4 +1,3 @@
-
 # global variables for the module
 
 # Stores global variables

@@ -1059,7 +1059,7 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
                                         combine_conditions=FALSE,
                                         combine_events=FALSE,
                                         condition_switch=NULL,
-                                        plot_range=c(-Inf,Inf)) {
+                                        plot_range=c(-Inf,Inf), ylim) {
 
   if(is.character(condition_switch)){
     if (condition_switch=='Separate all')  {
@@ -1109,15 +1109,15 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
           over_time_by_condition_data[[ii]][[jj]]$data[ind,,drop=FALSE]
       }
     }
-
-
   }
 
-  ylim <- sapply(over_time_by_condition_data, function(otd) {
-    range(sapply(otd, function(dd) {
-      rutabaga::plus_minus(dd$data)
-    }))
-  }) %>% pretty %>% range
+  if(missing(ylim)) {
+    ylim <- sapply(over_time_by_condition_data, function(otd) {
+      range(sapply(otd, function(dd) {
+        rutabaga::plus_minus(dd$data)
+      }))
+    }) %>% pretty %>% range
+  }
 
   draw_axis_labels <- function() {
     nr = par('mfrow')[1]
@@ -2392,8 +2392,30 @@ color_bar_title_decorator <- function(m, cex = 1){#rave_cex.lab * 0.8) {
 
 plot_by_condition_by_trial <- function(by_condition_by_trial_data,
                                        grouped_plot_options, ylab='',
-                                       highlight_trials=NULL) {
+                                       highlight_trials=NULL, do_layout=TRUE, do_axes=TRUE, ...) {
   apply_current_theme()
+
+  # help people out if they're not in shiny
+  if(missing(grouped_plot_options)) {
+    grouped_plot_options <- list(
+      'xvar' = 'Factor1',
+      'gvar' = 'AnalysisLabel',
+      'yvar' = 'y',
+      'basic_unit' = 'Trials',
+      'panelvar' = 'none',
+      'plot_options' = list('pt.alpha' = 100, 'pt.cex' = 1),
+      'types' = c('jitter points', 'means', 'ebar polygons'),
+      'jitter_seed' = Sys.time(),
+      'plot_width_scale' = 1,
+      'highlight_clicks' = c('labels'),
+      'highlight_text_location' = 'top'
+    )
+
+    ll = list(...)
+
+    grouped_plot_options[names(ll)] <- ll
+  }
+
   po <- grouped_plot_options
 
   # based on shiny input, change xvar/yvar
@@ -2416,10 +2438,13 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
 
   nr = ct %/% 4  + 1
   m = matrix(seq_len(ct), nrow=nr, byrow = TRUE)
+  if(do_layout) {
+
   layout(cbind(0,m,0),
          widths = c(1,
                     rep(lcm(po$plot_width_scale*min(k, MAX)/ct), ncol(m))
                     ,1))
+  }
 
   # remove plot_width scale so it doesn't mes things up later
   po$plot_width_scale = NULL
@@ -2455,6 +2480,11 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
   par('mar'= .1 + c(4, 5+oom, ifelse(label_position=='top',3.5,2), 2))
 
   mat = data.table::data.table(by_condition_by_trial_data)
+
+  # here we're relying is_clean existing, which may not be the case if people give us weird data
+  if(is.null(mat$is_clean)) {
+    mat$is_clean = TRUE
+  }
   mat = mat[by_condition_by_trial_data$currently_selected, list(y=mean(get('y'))), keyby=keys]
 
   # grab the highlight variables from the plot options var
@@ -2505,7 +2535,7 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
 
       res <- do.call(plot_grouped_data,
                      append(po, list(mat=as.data.frame(m),
-                                     do_axes=TRUE, names.pos=label_position, ylim=ylim))
+                                     do_axes=do_axes, names.pos=label_position, ylim=ylim))
       )
 
       if(0 == ((qq-1) %%  3)) {
@@ -2523,7 +2553,7 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
     po$panelvar = NULL
     res <- do.call(plot_grouped_data,
                    append(po, list(mat=as.data.frame(mat),
-                                   do_axes=TRUE, names.pos=label_position))
+                                   do_axes=do_axes, names.pos=label_position))
     )
 
     if(nzchar(ylab)) {
