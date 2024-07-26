@@ -10,42 +10,32 @@ time_censor:
   window:
   - 0.0
   - 1.0
-project_name: congruency
-subject_code: YAF
-loaded_electrodes: 41-42,47,52-55
-epoch_choice: YAF_aayushi
-epoch_choice__trial_starts: -1.0
-epoch_choice__trial_ends: 2.0
-reference_name: yafcar
+project_name: EMU_NoisyWords
+subject_code: YDP
+loaded_electrodes: 36-40,65-67,76,78-79,93-96,129-131,137-140,153-156,178-181,193-194
+epoch_choice: UTO_YDP_ALL_voao
+epoch_choice__trial_starts: -0.55
+epoch_choice__trial_ends: 3.0
+reference_name: bipolar
 baseline_settings:
   window:
   - - -0.5
     - 0.0
   scope: Per frequency, trial, and electrode
   unit_of_analysis: z-score Amplitude
-analysis_electrodes: 41-42,47,52-55
+analysis_electrodes: 36-40,65-67,76,78-79,93-96,129-131,137-140,153-156,178-181,193-194
 first_condition_groupings:
   '1':
-    label: AV
-    conditions:
-    - last_av
-    - drive_av
-    - known_av
-    - meant_av
-  '2':
     label: Vo
     conditions:
-    - last_v
-    - drive_v
-    - known_v
-    - meant_v
+    - V0
+    - V1
+  '2':
+    label: AV
+    conditions: AcV
   '3':
     label: Ac
-    conditions:
-    - last_a
-    - drive_a
-    - known_a
-    - meant_a
+    conditions: Ac
 second_condition_groupings:
   '1':
     label: ML
@@ -64,17 +54,17 @@ custom_roi_groupings:
     conditions: []
 analysis_settings:
   '1':
-    label: AudStart
-    event: AuditoryStart
+    label: VisStart
+    event: newVisStart
     time:
-    - 0
-    - 0.6
+    - 0.0
+    - 0.8
     frequency:
     - 70
     - 150
   '2':
-    label: VisStart
-    event: VisualStart
+    label: AudStart
+    event: newAudStart
     time:
     - 0.0
     - 0.8

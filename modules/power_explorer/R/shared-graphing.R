@@ -1770,6 +1770,9 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
     keys <- c(gvar, keys)
   }
 
+  ## make sure all the keys are factors
+  mat[keys] %<>% lapply(as.factor)
+
   raw <- data.table::data.table(mat)
 
   if(!is.null(raw$is_clean) && any(!raw$is_clean)) {
@@ -1786,8 +1789,11 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
     agg <- raw[ , list(y=mean(get(yvar)), se=rutabaga:::se(get(yvar)), sd=sd(get(yvar)), n=.N), keyby=keys]
   }
 
+  # make sure the xvar is a factor so that the order of the variables is preserved correctly
   # convert y into a matrix for plotting
   if(is.null(gvar)) {
+    agg[[xvar]] %<>% as.factor
+
     means <- matrix(agg$y, ncol=1)
     names.arg = levels(as.factor(agg[[xvar]]))
 
@@ -1795,6 +1801,8 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
       names.arg=NA
     }
   } else {
+    agg[[gvar]] %<>% as.factor
+
     means <- matrix(agg$y, ncol=nlevels(as.factor(agg[[gvar]])))
     names.arg = levels(as.factor(agg[[gvar]]))
   }

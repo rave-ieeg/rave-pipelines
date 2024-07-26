@@ -272,8 +272,8 @@ names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 
 
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
-# set 4 GiB export size? // set this based on RAM?
-options(future.globals.maxSize =  6 * 1024^3)
+# set 12 GiB export size? // set this based on RAM?
+options(future.globals.maxSize =  12 * 1024^3)
 
 # Depends on baselined_power, 
 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -797,8 +797,8 @@ over_time_by_trial_data <- data_builder(
 ```
 
 ```{rave build_internal_omnibus_results, language="R", export="internal_omnibus_results"}
-# set 4 GiB export size? // set this based on RAM?
-options(future.globals.maxSize =  6 * 1024^3)
+# set 16 GiB export size? // set this based on RAM?
+options(future.globals.maxSize =  16 * 1024^3)
 
 # first baseline all the electrodes
 raveio::power_baseline(
@@ -972,6 +972,10 @@ run_stats <- function(el) {
 stats <- all_data_clean %>% split((.)$Electrode) %>% 
   raveio::lapply_async(function(el){
     # lapply(function(el) {
+      # print(el$Electrode[1])
+      if(var(el$y) < 1e-12) {
+        return(NULL)
+      }
     # tryCatch({
     # return(suppressMessages(
     run_stats(el)
