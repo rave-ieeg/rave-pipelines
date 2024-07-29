@@ -116,9 +116,14 @@ draw_many_heat_maps <- function (hmaps,
   # ravedash::logger('has_data:', has_data, level='warning')
 
   if (do_layout) {
+    # has_data <- TRUE
+    # ncol=3
+    # show_color_bar = TRUE
+    # byrow=TRUE
     orig.pars <- layout_heat_maps(length(has_data), max_col = ncol,
                                   layout_color_bar = show_color_bar, byrow = byrow)
-
+    # par('mar')
+    # layout.show(2)
     ## if you want us to do layout, then I assume you want us to setup colors too
     apply_current_theme()
   }
@@ -294,7 +299,7 @@ draw_many_heat_maps <- function (hmaps,
   if (show_color_bar) {
     yline = 2.5 + get_order_of_magnitude(max_zlim)
     max_zlim = 100
-    .mar <- c(par("mar")[1], max(5.1, yline+3.6), 5, 1)
+    .mar <- c(par("mar")[1], max(3, yline+2), 5, 1)
 
     if (is.function(PANEL.COLOR_BAR)) {
       .mar[3] = 5
@@ -303,6 +308,8 @@ draw_many_heat_maps <- function (hmaps,
     .ylab <- hmaps[[has_data[1]]]$zlab
     # par(mar=rep(2.5,4))
     par('mar'=.mar)
+    print(paste("using mar: ", paste0(collapse=',', .mar)))
+
     rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar,
                    ylab.line = yline
     )
@@ -343,7 +350,7 @@ draw_many_heat_maps <- function (hmaps,
 }
 
 layout_heat_maps <- function(k, max_col, ratio=3.5, byrow=TRUE,
-                             layout_color_bar=TRUE, colorbar_cm=4) {
+                             layout_color_bar=TRUE, colorbar_cm=5) {
   opars <- par(no.readonly = TRUE)
 
   # colorbar_cm <- 3.5
@@ -357,10 +364,18 @@ layout_heat_maps <- function(k, max_col, ratio=3.5, byrow=TRUE,
   mat <- matrix(c(m, rep.int(0, nr*max_col - k)), byrow = byrow,
                 nrow=nr, ncol = max_col)
   widths <- rep(ratio, max_col)
+
+  if(k==1) {
+    widths = 1
+  }
+
+
   if(layout_color_bar) {
     mat <- cbind(mat, k+1)
     widths <- c(widths, lcm(colorbar_cm))
   }
+
+
 
   if(k > 1) {
     newmar = par('mar')
