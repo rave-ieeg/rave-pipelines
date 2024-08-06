@@ -1753,11 +1753,17 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
 
   plot_options$outlier_pch %?<-% 1
   plot_options$pt.alpha %?<-% 100
+  plot_options$line.alpha %?<-% 100
+
 
   draw0.col %?<-% par('fg')
 
   # treat like percent for UI, but alpha.f wants proportion
-  plot_options$pt.alpha = plot_options$pt.alpha / 100
+  for(v in c('pt.alpha', 'line.alpha')) {
+    if( plot_options[[v]] > 1)
+      plot_options[[v]] = plot_options[[v]] / 100
+  }
+
 
   types %?<-% c('jitter points', 'means', 'ebar polygons')
 
@@ -2032,11 +2038,12 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
             } else {
               ind = (cumsum(.rle$lengths)[rr-1] + 1) : cumsum(.rle$lengths)[rr]
             }
-            lines(tt$x[ind], tt[[yvar]][ind], col=adjustcolor(col, alpha.f = plot_options$pt.alpha))
+            lines(tt$x[ind], tt[[yvar]][ind], col=adjustcolor(col, alpha.f = plot_options$line.alpha))
+
           }
 
         } else {
-          lines(tt$x, tt[[yvar]], col=adjustcolor(col, alpha.f = plot_options$pt.alpha))
+          lines(tt$x, tt[[yvar]], col=adjustcolor(col, alpha.f = plot_options$line.alpha))
         }
 
       })
