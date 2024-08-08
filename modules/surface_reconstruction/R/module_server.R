@@ -1246,6 +1246,8 @@ module_server <- function(input, output, session, ...){
       # New sform: IJK to ACPC
       sform <- acpc$ras2acpc %*% sform
       RNifti::sform(orig) <- sform
+      # save qform as well to avoid confusing ITK-base programs
+      RNifti::qform(orig) <- sform
 
       # save
       path_acpc_img <- file.path(path_acpc_mri, "brain_acpc.nii.gz")

@@ -14,3 +14,4 @@ modules_\[backup_*\].yaml
 modules/*/main.html
 README.html
 shared
+adhoc
