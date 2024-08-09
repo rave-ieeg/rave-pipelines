@@ -298,7 +298,7 @@ draw_many_heat_maps <- function (hmaps,
 
   if (show_color_bar) {
     yline = 2.5 + get_order_of_magnitude(max_zlim)
-    max_zlim = 100
+    # max_zlim = 100
     .mar <- c(par("mar")[1], max(3, yline+2), 5, 1)
 
     if (is.function(PANEL.COLOR_BAR)) {
