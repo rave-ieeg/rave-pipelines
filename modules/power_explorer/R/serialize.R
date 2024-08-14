@@ -111,7 +111,7 @@ unserialize_pluriform_power <- function(data_path) {
 
           )
 
-          if(length(item$outliers)) {
+          if(length(item$outliers) && nzchar(item$outliers[[1]])) {
             ravedash::logger('Handling outliers...')
             item$data$clean_data <- subset(item$data$data, drop = FALSE, Trial ~ !(Trial %in% item$outliers))
             item$data$shifted_clean_data <- subset(item$data$shifted_data, drop = FALSE, Trial ~ !(Trial %in% item$outliers))
