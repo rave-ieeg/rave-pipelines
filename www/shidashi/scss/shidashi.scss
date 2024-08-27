@@ -412,20 +412,20 @@ input:checked + .slider::before {
 .opacity-10 { opacity: 1; }
 
 /** Syntax highlight for R code **/
-pre {
+pre, .code {
   @include code-font-family;
   @include overflow(auto, x);
   @include fill-max-width;
   background-color: $code-background;
 
-  & .operator { color: $code-color-operator; }
-  & .paren { color: $code-color-parenthesis; }
-  & .literal { color: $code-color-literal; }
-  & .number { color: $code-color-number; }
-  & .comment { color: $code-color-comment; font-style: italic; }
-  & .keyword { color: $code-color-keyword; font-weight: bold; }
-  & .identifier { color: $code-color-identifier; }
-  & .string { color: $code-color-string; }
+  & .operator, &.operator{ color: $code-color-operator; }
+  & .paren, &.paren { color: $code-color-parenthesis; }
+  & .literal, &.literal { color: $code-color-literal; }
+  & .number, &.number { color: $code-color-number; }
+  & .comment, &.comment { color: $code-color-comment; font-style: italic; }
+  & .keyword, &.keyword { color: $code-color-keyword; font-weight: bold; }
+  & .identifier, &.identifier { color: $code-color-identifier; }
+  & .string, &.string { color: $code-color-string; }
 
   &.pre-compact {
     white-space: normal;

@@ -12,7 +12,7 @@ component_container <- ravedash::new_rave_shiny_component_container(
 
 # Define components
 loader_project <- ravedash::presets_loader_project()
-loader_subject <- ravedash::presets_loader_subject()
+loader_subject <- ravedash::presets_loader_subject(checks = NULL)
 loader_epoch <- ravedash::presets_loader_epoch()
 loader_electrodes <- ravedash::presets_loader_electrodes()
 loader_reference <- ravedash::presets_loader_reference()

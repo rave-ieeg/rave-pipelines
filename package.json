@@ -4,7 +4,7 @@
     "bootstrap": "^4.6.1",
     "clipboard": "^2.0.11",
     "highlight.js": "^11.5.1",
-    "overlayscrollbars": "^1.13.2"
+    "overlayscrollbars": "~2.1.1"
   },
   "devDependencies": {
     "css-loader": "^6.7.1",
@@ -21,7 +21,7 @@
   "description": "Pipeline Template for 'RAVE' Modules",
   "private": true,
   "scripts": {
-    "build": "npx webpack",
+    "build": "Rscript --vanilla './src/build.R'",
     "test": "Rscript -e 'ravedash::debug_modules(\".\")'"
   },
   "repository": {
@@ -37,7 +37,7 @@
   "author": "Zhengjia Wang",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/dipterix/rave-pipelines/issues"
+    "url": "https://github.com/rave-ieeg/rave-pipelines/issues"
   },
   "homepage": "https://github.com/dipterix/rave-pipelines#readme"
 }

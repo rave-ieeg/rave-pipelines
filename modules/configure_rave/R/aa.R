@@ -20,7 +20,7 @@ debug <- TRUE
 #' @return Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE){
   # Always use loading screen
-  TRUE
+  FALSE
 }
 
 

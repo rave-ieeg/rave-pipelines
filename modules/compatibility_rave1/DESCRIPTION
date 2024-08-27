@@ -1,13 +1,21 @@
 Package: compatibility_rave1
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: Check Data Integrity, Backward Compatibility, and Export Data
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 License: MIT
 Authors@R: c(
-    person("your first name", "last/family name", email = your.email@edu", role = c("aut", "cre"))
+    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: 
+    Check for potential data issues such as broken files, invalid epoch files,
+    reference files, or malicious editing. Allows data to convert back into
+    'RAVE' 1.0 format so the old modules used on the subject. Users can
+    also export the data into 'HDF5' formats for further analyses in 'Matlab',
+    'Python', and 'R'. Please see 'URL' for the functions used in this module.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+URL: 
+    https://beauchamplab.github.io/raveio/reference/validate_subject.html,
+    https://beauchamplab.github.io/raveio/reference/rave_subject_format_conversion.html,
+    https://beauchamplab.github.io/raveio/reference/rave_export.html

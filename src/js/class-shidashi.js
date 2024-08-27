@@ -1,8 +1,21 @@
 import $ from 'jquery';
-// import 'overlayscrollbars/js/jquery.overlayScrollbars.js';
-import "./scrollbars.min.js";
+import {
+  OverlayScrollbars,
+  ScrollbarsHidingPlugin,
+  SizeObserverPlugin,
+  ClickScrollPlugin
+} from 'overlayscrollbars';
+
+OverlayScrollbars.plugin([
+  SizeObserverPlugin,
+  ScrollbarsHidingPlugin,
+  ClickScrollPlugin
+]);
+
+import 'bootstrap';
 
 const default_scroll_opt = {
+  /*
   autoUpdate           : null,
   autoUpdateInterval   : 330,
   sizeAutoCapable      : true,
@@ -18,12 +31,31 @@ const default_scroll_opt = {
     dynWidth       : false,
     dynHeight      : true,
     inheritedAttrs : ["style", "class"]
-  }
+  }*/
+  paddingAbsolute             : true,
+  showNativeOverlaidScrollbars: false,
+  update: {
+    elementEvents     : [['img', 'load']],
+    debounce          : [0, 330],
+    attributes        : null,
+    ignoreMutation    : null,
+  },
+  scrollbars: {
+    theme             : 'os-theme-dark',
+    visibility        : 'auto',
+    autoHide          : 'move',
+    autoHideDelay     : 800,
+    dragScroll        : true,
+    clickScroll       : true,
+    pointers          : ['mouse', 'touch', 'pen'],
+  },
 };
 
 class Shidashi {
 
   constructor (Shiny){
+    // Insert build version here
+    this.build = { version: '1.0', date: '2024-08-17 10:41:54 EDT' };
     this._keep_alive = true;
     this._moduleId = undefined;
     this._raveId = undefined;
@@ -58,22 +90,22 @@ class Shidashi {
     this.scroller = this.makeFancyScroll(
       "body:not(.overflow-hidden)",
       {
-        overflowBehavior : {
+        overflow : {
             x : "hidden",
             y : "scroll"
         },
-        callbacks : {
-          onScroll : () => {
-            this._mainScrollCallback(this.scroller);
-          },
-        },
+      },
+      {
+        scroll: ( instance, event ) => {
+          this._mainScrollCallback( instance );
+        }
       }
     );
   }
 
   _mainScrollCallback(scrollers) {
+    /**
     // FIXME: Hide navbar when scrolled down to show more space. It's tricky
-    return;
     let isTop, param;
     if(Array.isArray(scrollers)) {
       isTop = scrollers
@@ -107,12 +139,26 @@ class Shidashi {
       );
       this.addClass("body", "scroller-not-top");
     }
+    */
   }
 
   openURL(url, target = "_blank") {
+    console.debug(`Opening ${url}`);
     this._dummyLink.setAttribute("target", target);
     this._dummyLink.setAttribute("href", url);
     this._dummyLink.click();
+    this._dummyLink.innerHTML = "A new window with given link has been opened. If you haven't seen it, please click here. (This notification automatically closes in 10 seconds.)"
+    this.createNotification({
+      title: 'Opening the link',
+      fixed: true,
+      autoremove: true,
+      autohide: true,
+      delay: 10000,
+      icon: "fas fa-link",
+      subtitle: "Link created",
+      close: true,
+      body: this._dummyLink
+    })
   }
 
   openIFrameTab(url, title, more = {}, target = "_blank") {
@@ -129,7 +175,7 @@ class Shidashi {
       return;
     }
     const $title = document.createElement("p");
-    $title.innerText = title;
+    $title.text( title );
 
     const $link = document.createElement("a");
     $link.setAttribute("href", url);
@@ -143,7 +189,7 @@ class Shidashi {
   }
 
   launchStandaloneViewer(outputId) {
-    const url = `/?output_id=${ outputId }&rave_id=${ this._raveId }&module=standalone_viewer`;
+    const url = `?output_id=${ outputId }&rave_id=${ this._raveId }&module=standalone_viewer`;
     this.openURL(url);
   }
 
@@ -157,7 +203,7 @@ class Shidashi {
     if(document.readyState && document.readyState === "complete" &&
       this._shiny && this.shiny_connected) {
 
-      while(this._shiny_callstacks.length) {
+      while(this._shiny_callstacks.length > 0) {
         const f = this._shiny_callstacks.shift();
         try{
           f(this._shiny);
@@ -166,7 +212,37 @@ class Shidashi {
         }
       }
     } else {
-      console.debug(`Shiny is not connected, defering request... ($(this._shiny_callstacks.length))`);
+      console.debug(`Shiny is not connected, defering (${ this._shiny_callstacks.length }) requests...`);
+    }
+  }
+
+  bindAll( el, ensure = true ) {
+    const b = (shiny) => {
+      shiny.bindAll( el );
+      // also check tabsets
+      const $tabLists = $( el ).find('.card-tabs [role="tablist"]')
+      for( let ii = 0; ii < $tabLists.length; ii++ ) {
+        const pa = $tabLists[ ii ];
+        if(pa && pa.id) {
+          const activeTab = pa.querySelector("li.nav-item > .nav-link.active");
+          if( activeTab ) {
+            shiny.setInputValue( pa.id, $(activeTab).text() );
+          }
+        }
+      }
+
+    };
+
+    if( ensure || this._shiny ) {
+      this.ensureShiny(b);
+    }
+  }
+  unbindAll( el, ensure = true ) {
+    const ub = (shiny) => {
+      shiny.unbindAll( el );
+    };
+    if( ensure || this._shiny ) {
+      this.ensureShiny( ub );
     }
   }
 
@@ -442,7 +518,7 @@ class Shidashi {
       }, timeout);
     } else {
       this.$window.trigger("resize");
-      this._shiny.unbindAll(this._dummy2);
+      this.unbindAll( this._dummy2 );
     }
 
   }
@@ -461,7 +537,7 @@ class Shidashi {
     if(existing_items.length){
       const existing_title = existing_items.children(".nav-link")
         .toArray()
-        .map((v) => {return(v.innerText);});
+        .map((v) => {return( $(v).text() );});
       if(existing_title.includes(title)){
         return("A tab with title '" + title + "' already exists.");
       }
@@ -478,11 +554,12 @@ class Shidashi {
     header_a.className = "nav-link";
     header_a.setAttribute("href", `#${ inputId }-${tabId}`);
     header_a.setAttribute("id", `${ inputId }-${tabId}-tab`);
-    header_a.setAttribute("data-toggle", "pill");
+    header_a.setAttribute("data-toggle", "tab");
     header_a.setAttribute("role", "tab");
     header_a.setAttribute("aria-controls", `${ inputId }-${tabId}`);
     header_a.setAttribute("aria-selected", "false");
-    header_a.innerText = title;
+    // header_a.innerText = title;
+    $(header_a).text( title );
 
     header_item.appendChild(header_a);
 
@@ -497,15 +574,13 @@ class Shidashi {
     body_el.className = "tab-pane fade";
     body_el.setAttribute("id", `${ inputId }-${tabId}`);
     body_el.setAttribute("role", "tabpanel");
-    body_el.setAttribute("tab-index", tabId);
+    // body_el.setAttribute("tab-index", tabId);
     body_el.setAttribute("aria-labelledby", `${ inputId }-${tabId}-tab`);
     body_el.innerHTML = body;
     elbody.appendChild(body_el);
 
 
-    this.ensureShiny((shiny) => {
-      shiny.bindAll($(elbody));
-    });
+    this.bindAll( $(elbody) );
 
     if(active){
       return(this.tabsetActivate(inputId, title));
@@ -533,23 +608,21 @@ class Shidashi {
     let remove_idx = 0;
     const existing_title = el.toArray()
       .map((v, i) => {
-        if(v.innerText === title) {
+        if( $(v).text() === title ) {
           // remove this tab
           remove_idx = i;
           const rem = $(el[i]);
           const tabid = rem.attr("aria-controls");
           const tab = $("#" + tabid);
           const is_active = rem.attr("aria-selected");
-          this.ensureShiny((shiny) => {
-            shiny.unbindAll(tab);
-          });
+          this.unbindAll( tab );
           rem.parent().remove();
           tab.remove();
           if(is_active === "true"){
             activate = true;
           }
         }
-        return(v.innerText);
+        return( $(v).text() );
       });
     if(!existing_title.includes(title)){
       return("A tab with title '" + title + "' cannot be found.");
@@ -614,6 +687,29 @@ class Shidashi {
     $(selector).DirectChat("toggle");
   }
 
+  accordion(args) {
+    // method: expand, collapse, toggle
+    let $accordionItem;
+    if( args.inputId && args.title ){
+      $accordionItem = $(`.card-accordion#${ args.inputId } .card-accordion-header[data-title='${args.title}']`);
+    } else if (args.selector) {
+      $accordionItem = $(`.card-accordion${args.selector}`);
+    }
+    if(!$accordionItem || !$accordionItem.length){ return; }
+
+    if( args.method === "expand" ) {
+      if( $accordionItem.hasClass("collapsed") ) {
+        $accordionItem.click();
+      }
+    } else if ( args.method === "collapse" ) {
+      if( !$accordionItem.hasClass("collapsed") ) {
+        $accordionItem.click();
+      }
+    } else {
+      $accordionItem.click();
+    }
+  }
+
   flipBox(inputId){
     let el = document.getElementById(inputId);
     if(el && el.classList.contains("flip-box")) {
@@ -643,15 +739,11 @@ class Shidashi {
     const $el = $(selector);
     if(!$el.length) { return; }
 
-    if( this._shiny ) {
-      this._shiny.unbindAll($el);
-    }
+    this.unbindAll( $el, false );
 
     $el.html(content);
 
-    if( this._shiny ) {
-      this._shiny.bindAll($el);
-    }
+    this.bindAll( $el, false );
   }
 
   // notification
@@ -687,7 +779,7 @@ class Shidashi {
   }
 
   // scroller
-  makeFancyScroll(selector, options = {}) {
+  makeFancyScroll(selector, options = {}, callbacks = {}) {
     // https://kingsora.github.io/OverlayScrollbars/#!documentation/options
     const dark_mode = this.isDarkMode();
 
@@ -696,16 +788,32 @@ class Shidashi {
     options.className = className;
 
     const elems = document.querySelectorAll(selector);
-    const instance = $(selector)
-      .overlayScrollbars($.extend(default_scroll_opt, options))
-      .overlayScrollbars();
 
-    return(instance);
+    let instances = [];
+
+    const scrollOptions = $.extend(default_scroll_opt, options);
+
+    elems.forEach( el => {
+      const instance = OverlayScrollbars({
+        target: el,
+      }, scrollOptions, callbacks);
+      instances.push( instance );
+    })
+    // const instance = $(selector)
+    //   .overlayScrollbars($.extend(default_scroll_opt, options))
+    //   .overlayScrollbars();
+
+    if( instances.length === 1 ) {
+      instances = instances[0];
+    }
+
+    return(instances);
   }
 
   scrollTop(duration = 200) {
     if(this.scroller){
-      this.scroller.scroll({ y : "0%" }, duration);
+      // FIXME
+      // this.scroller.scroll({ y : "0%" }, duration);
     }
   }
 
@@ -744,6 +852,22 @@ class Shidashi {
     }
     this._shiny.addCustomMessageHandler("shidashi." + action, callback);
   }
+
+  shinyOn( eventType, callback ) {
+    if(!this._shiny){
+      if( window.Shiny ){
+        this._shiny = window.Shiny;
+      } else {
+        console.error("Cannot find window.Shiny object. Is R-shiny running?");
+        return false;
+      }
+    }
+
+    this.$document.on( eventType, ( event ) => {
+      callback( event );
+    })
+  }
+
   shinySetInput(inputId, value, add_timestamp = true, children = false) {
     this.ensureShiny((shiny) => {
       if( add_timestamp ){
@@ -878,9 +1002,9 @@ class Shidashi {
         if(card.length > 0){
 
           setTimeout(() => {
-            this.ensureShiny(() => { this._shiny.unbindAll(card); });
+            this.unbindAll( card );
             card.removeClass("start-collapsed");
-            this.ensureShiny(() => { this._shiny.bindAll(card); });
+            this.bindAll( card );
           }, 200);
 
         }
@@ -906,69 +1030,137 @@ class Shidashi {
       const pa = el.parentNode.closest('.card-tabs [role="tablist"]');
 
       if(!pa || !pa.id) { return; }
-      const tabname = el.innerText;
+      const tabname = $(el).text();
 
       this.ensureShiny(() => {
         this._shiny.setInputValue(pa.id, tabname);
       });
     })
-    // --------------- Notification system -----------
-    this.$body.on('show.bs.toast', (evt)=>{
-      this.ensureShiny(() => {
-        this._shiny.bindAll($(evt.target));
+
+
+    // -------------- Documentation ready hook !!! ------------
+    this.$document.ready(() => {
+      this.ensureShiny((shiny) => {
+
+        // report active tab to shiny
+        const $tabLists = $( '.card-tabs [role="tablist"]' );
+        for( let ii = 0; ii < $tabLists.length; ii++ ) {
+          const pa = $tabLists[ ii ];
+          if(pa && pa.id) {
+            const activeTab = pa.querySelector("li.nav-item > .nav-link.active");
+            if( activeTab ) {
+              shiny.setInputValue(pa.id, $(activeTab).text());
+            }
+          }
+        }
+
+
       });
     });
+
+    this._dummy2.addEventListener("shidashi-internal-event", (evt) => {
+      window.eeevt = evt;
+      if( !evt.detail || typeof evt.detail !== "object" || !evt.detail.type ) { return; }
+
+      switch (evt.detail.type) {
+        case "set this._raveId":
+          const $output_widgets = $( '.ravedash-output-widget[data-type="standalone"]' );
+          for( let ii = 0 ; ii < $output_widgets.length ; ii++ ) {
+            const el = $output_widgets[ ii ];
+            let outputId = el.getAttribute("data-target");
+            if( typeof outputId === "string" ) {
+              if( outputId.startsWith(this._moduleId + "-") ) {
+                outputId = outputId.replace(this._moduleId + "-", "");
+              }
+              if( outputId.length > 0 ) {
+                const url = `?output_id=${ outputId }&rave_id=${ this._raveId }&module=standalone_viewer`;
+                el.setAttribute("href", url);
+                el.setAttribute("target", "_blank");
+              }
+            }
+          }
+          break;
+        default:
+      }
+    });
+
+    // --------------- Notification system -----------
+    this.$body.on('show.bs.toast', (evt)=>{
+      this.bindAll( $(evt.target) );
+    });
     this.$body.on('hide.bs.toast', (evt)=>{
-      this.ensureShiny(() => {
-        this._shiny.unbindAll($(evt.target));
-      });
+      this.unbindAll( $(evt.target) );
     });
 
     // --------------- Fancy scroll ---------------
     this.makeFancyScroll(".fancy-scroll-y:not(.overflow-hidden,.screen-height), .overflow-y-auto", {
-        overflowBehavior : {
+        overflow : {
             x : "hidden",
             y : "scroll"
         }
       });
 
-    const screenScrollers = this.makeFancyScroll(".screen-height.overflow-y-scroll", {
-      overflowBehavior : {
-          x : "hidden",
-          y : "scroll"
+    this.makeFancyScroll(
+      ".screen-height.overflow-y-scroll",
+      {
+        overflow : {
+            x : "hidden",
+            y : "scroll"
+        }
       },
-      callbacks : {
-        onScroll : () => {
-          this._mainScrollCallback(screenScrollers);
-        },
-      },
-    });
+      {
+        scroll: ( instance, event ) => {
+          this._mainScrollCallback( instance );
+        }
+      }
+    );
 
 
-    this.makeFancyScroll(".resize-vertical", {
+    this.makeFancyScroll(
+      ".resize-vertical",
+      {
         resize: "vertical",
-        overflowBehavior : {
+        overflow : {
             x : "hidden",
             y : "scroll"
         },
-        callbacks : {
-          onHostSizeChanged : () => {
-            this.triggerResize( 200 );
-          }
-        }
-      });
-    this.makeFancyScroll(".fancy-scroll-x", {
-        overflowBehavior : {
+      },
+      {
+        updated: (() => {
+          let sizeChanged = 0;
+          return ( instance, args ) => {
+            if( args && args.updateHints.sizeChanged ) {
+              let sizeChanged_ = sizeChanged + 1;
+              sizeChanged = sizeChanged_;
+              setTimeout(() => {
+                if( sizeChanged === sizeChanged_ ) {
+                  sizeChanged = 0;
+                  this.triggerResize();
+                }
+              }, 300);
+            }
+          };
+        })()
+      }
+    );
+    this.makeFancyScroll(
+      ".fancy-scroll-x",
+      {
+        overflow : {
           x : "scroll",
           y : "hidden"
         }
-      });
-    this.makeFancyScroll(".fancy-scroll, .overflow-auto", {
-        overflowBehavior : {
+      }
+    );
+    this.makeFancyScroll(
+      ".fancy-scroll, .overflow-auto",
+      {
+        overflow : {
           x : "scroll",
           y : "scroll"
         }
-      });
+      }
+    );
 
     // register listener
     window.addEventListener('storage', (evt) => {
@@ -1018,6 +1210,10 @@ class Shidashi {
 
     $('.rave-button').click(function(evt){
       let el = this;
+      try {
+        // If the rave-button is removed from classlist, then do nothing
+        if( !el.classList.contains("rave-button") ) { return; }
+      } catch (e) {}
       let action = el.getAttribute("rave-action");
       if(typeof action === "string"){
         try {
@@ -1050,15 +1246,18 @@ class Shidashi {
         }
       );
 
+
       this.matchSelector(
         evt.target,
         '.ravedash-output-widget[data-type="standalone"]',
         (el) => {
-          let outputId = el.getAttribute("data-target");
-          if( outputId.startsWith(this._moduleId + "-") ) {
-            outputId = outputId.replace(this._moduleId + "-", "");
+          if( el.getAttribute("href") === "#" ) {
+            let outputId = el.getAttribute("data-target");
+            if( outputId.startsWith(this._moduleId + "-") ) {
+              outputId = outputId.replace(this._moduleId + "-", "");
+            }
+            this.launchStandaloneViewer(outputId);
           }
-          this.launchStandaloneViewer(outputId);
         }
       );
 
@@ -1128,6 +1327,12 @@ class Shidashi {
     this.shinyHandler("set_current_module", (params) => {
       this._moduleId = params.module_id;
       this._raveId = params.rave_id;
+      this._dummy2.dispatchEvent(new CustomEvent("shidashi-internal-event", {
+        "detail": {
+          "type" : "set this._raveId",
+          "value": params.rave_id
+        }
+      }))
     });
 
     this.shinyHandler("click", (params) => {
@@ -1180,6 +1385,9 @@ class Shidashi {
     });
     this.shinyHandler("card2widget", (params) => {
       this.toggleCard2(params.selector);
+    });
+    this.shinyHandler("accordion", (params) => {
+      this.accordion(params);
     });
 
     this.shinyHandler("add_class", (params) => {
@@ -1267,6 +1475,10 @@ class Shidashi {
 
     });
 
+
+    this.shinyOn("shiny:idle", (e) => {
+      $(".toast.hide-on-shiny-idle").toast("hide");
+    })
 
 
 

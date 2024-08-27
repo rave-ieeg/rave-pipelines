@@ -9,7 +9,7 @@ module_html <- function(){
         width = 4L,
         shiny::div(
           # class = "row fancy-scroll-y stretch-inner-height",
-          class = "row screen-height overflow-y-scroll padding-bottom-70",
+          class = "row screen-height overflow-y-scroll",
           shiny::column(
             width = 12L,
 
@@ -45,11 +45,11 @@ module_html <- function(){
       shiny::column(
         width = 8L,
         shiny::div(
-          class = "row screen-height overflow-y-scroll padding-bottom-70 output-wrapper",
+          class = "row screen-height overflow-y-scroll output-wrapper",
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'Interactive 3D Viewer',
+              'YAEL 3D Viewer',
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
                 class = 'position-relative fill',

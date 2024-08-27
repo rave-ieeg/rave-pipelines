@@ -1,6 +1,6 @@
 Package: reference_module
 Type: rave-pipeline
-Title: Remove Common Noises From 'iEEG' Signals
+Title: Remove Noises From 'iEEG' Signals by Re-Referencing
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
@@ -9,6 +9,9 @@ Authors@R: c(
     person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
     )
 Description: Provides flexible ways to group electrodes, and apply each group
-    with their own reference scheme. Supports common average reference, 
-    white-matter reference, and bi-polar reference.
-BugReports: https://github.com/dipterix/rave-pipelines/issues
+    with individual reference scheme. Supports common average reference, 
+    white-matter reference, and bi-polar reference. This module can run prior
+    or posterior to wavelet. 
+    This module is part of 'RAVE preprocessing pipelines' and is only available
+    interactively.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues

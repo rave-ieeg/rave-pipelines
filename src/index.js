@@ -3,7 +3,8 @@ import $ from 'jquery';
 // import 'admin-lte/dist/js/adminlte.js';
 import './js/AdminLTE/AdminLTE.js'
 // import "admin-lte/dist/css/adminlte.css";
-import "./css/OverlayScrollbars.css";
+// import "./css/OverlayScrollbars.css";
+import 'overlayscrollbars/overlayscrollbars.css';
 import "./scss/shidashi.scss";
 import { registerProgressOutput } from './js/shiny-progress.js';
 import { registerClipboardOutput } from './js/shiny-clipboard.js';
@@ -38,6 +39,7 @@ function initShidashi() {
   if(initialized) {
     return( shidashi );
   }
+  initialized = true;
   ensureShidashi();
   const $iframeWrapper = $('.content-wrapper');
 
@@ -50,7 +52,7 @@ function initShidashi() {
     const data = {
       type: "active_module",
       id : module_id,
-      label : item[0].innerText.trim()
+      label : $(item[0]).text().trim()
     };
     shidashi.shinySetInput("@rave_action@", data, true, true);
     // shidashi.notifyIframes("shinySetInput", ["@rave_action@", data, true, true]);
@@ -84,7 +86,6 @@ function initShidashi() {
       scrollOffset: 0
     });
   }
-  initialized = true;
   return( shidashi );
 }
 
@@ -95,9 +96,9 @@ function registerShidashi(shiny) {
   initShidashi();
   shidashi._shiny = shiny;
   shidashi._register_shiny();
-  shidashi._finalize_initialization();
   shidashi.shiny_connected = true;
   shidashi.ensureShiny();
+  shidashi._finalize_initialization();
 
   registerProgressOutput(shiny);
   registerClipboardOutput(shiny, shidashi);

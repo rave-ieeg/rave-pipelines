@@ -267,6 +267,13 @@ input:checked + .slider::before {
   overflow: hidden!important;
 }
 
+.visibility-visible {
+  @include visibility(visible, true);
+}
+.visibility-none {
+  @include visibility(hidden, true);
+}
+
 @each $type in block, inline, inline-block, flex, inline-flex, none {
 
   .display-#{$type} {
@@ -336,6 +343,15 @@ input:checked + .slider::before {
   width: 28px;
 }
 
+.os-theme-dark, .os-theme-light {
+  --os-size: 6px;
+
+  & > .os-scrollbar-corner {
+    height: 28px;
+    width: 28px;
+  }
+}
+
 .overflow-visible-on-hover {
   @include overflow(hidden);
 
@@ -346,6 +362,10 @@ input:checked + .slider::before {
     min-width: 100%;
     z-index: 1061;
   }
+}
+
+.threejs-control {
+  scrollbar-width: thin;
 }
 
 /** General rules: dimensions **/
@@ -417,6 +437,7 @@ input:checked + .slider::before {
   }
 }
 
+
 .no-padding { padding: 0!important; }
 .no-margin { margin: 0!important; }
 
@@ -450,6 +471,19 @@ input:checked + .slider::before {
 
   & .os-content {
     min-height: 100%;
+  }
+
+  & .os-viewport {
+    height: 100%;
+
+    & .tab-content {
+      display: flex;
+      height: 100%;
+
+      & .tab-pane {
+        width: 100%;
+      }
+    }
   }
 }
 
@@ -596,6 +630,13 @@ section.module_main_ui .screen-height {
       }
     }
   }
+
+  &.row.output-wrapper {
+    & > .col-sm-12:last-child,
+    & > .os-viewport > .col-sm-12:last-child {
+      padding-bottom: 70px;
+    }
+  }
 }
 
 body.iframe-mode section.module_main_ui .screen-height {
@@ -630,7 +671,23 @@ body.navbar-iframe-hidden .content-wrapper.iframe-mode {
 }
 
 body.navbar-hidden:not(.iframe-mode-fullscreen) nav.main-header {
-  display: none!important;
+  @include visibility(collapse, true);
+  @include pointer-events(none, false);
+
+  & .push-menu {
+    @include pointer-events(all, false);
+    @include visibility(visible, true);
+
+    width: 35px;
+    height: 30px;
+    background-color: $gray-dark;
+
+    & .nav-link[data-widget="pushmenu"] {
+      padding: 3px 10px;
+      width: 35px;
+      height: 30px;
+    }
+  }
 }
 
 body.scroller-not-top:not(.iframe-mode-fullscreen),
@@ -640,7 +697,7 @@ body.navbar-hidden:not(.iframe-mode-fullscreen) {
   }
 
   & nav.main-header {
-    opacity: 0.3;
+    // opacity: 0.3;
     margin-bottom: -40px;
 
     &:hover {
@@ -858,6 +915,12 @@ body.dark-mode .nav-sidebar .nav-header.nav-divider {
   z-index: 1040;
 }
 
+
+.card-expanded .os-viewport {
+  /* Fix safari card not on top issue */
+  z-index: unset!important;
+}
+
 .card-footer.code-display .info-box {
   @include border-radius(0);
 }
@@ -879,6 +942,19 @@ body.dark-mode .nav-sidebar .nav-header.nav-divider {
 
     & [data-toggle="collapse"] {
       cursor: pointer;
+    }
+  }
+}
+
+.card-header > .card-title {
+  & > .form-group {
+    display: inline-block;
+    margin: 0;
+
+    & label,
+    & label > span {
+      font-size: 1.1rem;
+      font-weight: 400 !important;
     }
   }
 }
@@ -955,6 +1031,7 @@ body.dark-mode .nav-sidebar .nav-header.nav-divider {
 
   & .flip-box-inner {
     position: relative;
+    height: 100%;
     width: 100%;
     margin: 0 !important;
     padding: 0 !important;
@@ -979,6 +1056,16 @@ body.dark-mode .nav-sidebar .nav-header.nav-divider {
       z-index: 1038;
       transform: rotateY(180deg);
     }
+  }
+
+  &.resize-vertical {
+    min-height: 1px;
+
+    & .flip-box-inner {
+      position: absolute;
+      @include fill-height();
+    }
+
   }
 
   &.fill .flip-box-inner,
@@ -1092,18 +1179,34 @@ body.dark-mode #shiny-notification-panel .shiny-notification {
 /* Table, datatable, especially in dark-mode */
 .dark-mode table.dataTable {
 
-  color: $white;
-
-  & thead {
-    background-color: $light-dark;
+  & ,
+  & button.dt-button,
+  & div.dt-button,
+  & a.dt-button,
+  & input.dt-button {
+    color: $white;
   }
 
-  & tbody tr {
-    background-color: $light-dark;
+
+  & thead,
+  & tfoot {
+    &, & th {
+      background-color: $light-dark;
+    }
+  }
+
+  & tbody {
+    &, & tr, & tr.even {
+      &, & td {
+        background-color: $light-dark;
+      }
+    }
   }
 
   &.stripe tbody tr.odd {
-    background-color: $dark;
+    &, & td {
+      background-color: $dark;
+    }
   }
 
   &.cell-border tbody,
@@ -1156,6 +1259,30 @@ fieldset,
 }
 .form-group {
   margin-bottom: 0.8rem;
+}
+
+.shiny-bound-output {
+  &::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 15px;
+    height: 15px;
+    border: 2px solid $info;
+    border-top: none;
+    /*padding: 10px; */
+    border-radius: 8px;
+    transform: translate(-50%, -50%) rotate(0deg);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    transition: transform 20s linear;
+  }
+
+  &.recalculating::before {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-36000deg);
+  }
 }
 
 .dipsaus-compound-input {
@@ -1244,3 +1371,5 @@ fieldset,
 .swal-text {
   white-space: break-spaces;
 }
+
+

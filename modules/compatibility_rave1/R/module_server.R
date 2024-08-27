@@ -350,7 +350,7 @@ module_server <- function(input, output, session, ...){
       text = "Please do not close this alert while exporting data. This pop-up will be closed when data is ready...",
       icon = "info",
       auto_close = FALSE,
-      buttons = "Close (will not stop)"
+      buttons = "Close (will not stop exporting)"
     )
 
     on.exit({
@@ -406,16 +406,14 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       path <- export_repository(zip = FALSE)
-      ravedash::show_notification(
-        message = shiny::tagList(
-          shiny::p("Data has been exported to the following path: "),
-          shiny::pre(.noWS = TRUE, path)
-        ),
-        title = "Export repository",
-        icon = ravedash::shiny_icons$export,
-        type = "success",
-        delay = 1000,
-        class = "notif_export"
+
+      dipsaus::close_alert2()
+      Sys.sleep(0.5)
+      dipsaus::shiny_alert2(
+        title = "Success!",
+        text = sprintf("Data has been exported to the following path: \n\n%s", path),
+        icon = "success",
+        buttons = "Confirm"
       )
 
     }, error_wrapper = "notification"),

@@ -1,19 +1,19 @@
-baseline:
-- - -1
-  - -0.2
-baseline_method: decibel
-electrodes: '14'
-epoch: default
-epoch_choice: auditory_onset
-epoch_choice__trial_ends: 2
-epoch_choice__trial_starts: -1
+type: power
+subject_code: PAV020
+save_pipeline: yes
+reference_name: default
+reference: default
+project_name: YAEL
+loaded_electrodes: 13-16,24
 intervals:
 - - -1.0
   - 2.0
-loaded_electrodes: 13-16,24
-project_name: devel
-reference: default
-reference_name: default
-save_pipeline: yes
-subject_code: YAB
-type: power
+epoch_choice__trial_starts: -1
+epoch_choice__trial_ends: 2
+epoch_choice: auditory_onset
+epoch: default
+electrodes: '14'
+baseline_method: decibel
+baseline:
+- - -1
+  - -0.2

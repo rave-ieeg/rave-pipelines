@@ -8,13 +8,8 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-build_pipeline <- raveio::configure_knitr()
-
-# Used to develop modules
-if(FALSE){
-  list2env(as.list(raveio::load_yaml(file.path(rstudioapi::getActiveProject(), "modules", "reference_module", "settings.yaml"))), envir = environment())
-}
+raveio::pipeline_setup_rmd("reference_module")
+options("raveio.debug" = TRUE)
 ```
 
 
@@ -23,6 +18,59 @@ if(FALSE){
 subject <- raveio::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code
+)
+if(!all(subject$preprocess_settings$notch_filtered)) {
+  stop("Please run Notch filter module first.")
+}
+```
+
+```{rave obtain_previous_preprocessing, export = "preprocessing_history", cue = "always"}
+# try to get previous reference pipeline
+previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
+previous_data <- NULL
+if(dir.exists(previous_pipeline_path)) {
+  try(silent = TRUE, {
+    previous_pipeline <- raveio::pipeline(pipeline_name = "reference_module", paths = subject$pipeline_path, temporary = TRUE)
+    previous_data <- previous_pipeline$read("preprocessing_history")
+    if(is.list(previous_data)) {
+      previous_data <- previous_data$current
+    }
+  })
+}
+current <- list(
+  notch_filtered = subject$notch_filtered,
+  notch_params = subject$preprocess_settings$notch_params,
+  has_wavelet = subject$has_wavelet,
+  wavelet_params = subject$preprocess_settings$wavelet_params
+)
+use_cache <- TRUE
+if(length(previous_data) != length(current)) {
+  use_cache <- FALSE
+} else {
+  for(nm in names(current)) {
+    a <- previous_data[[nm]]
+    b <- current[[nm]]
+    a <- unlist(a)
+    b <- unlist(b)
+    if(length(a) != length(b)) {
+      use_cache <- FALSE
+      break
+    }
+    tryCatch({
+      if(length(a) > 0 && any(a != b)) {
+        use_cache <- FALSE
+      }
+    }, error = function(e) {
+      use_cache <<- FALSE
+    })
+    if(!use_cache) { break }
+  }
+}
+
+preprocessing_history <- list(
+  current = current,
+  previous = previous_data,
+  use_cache = use_cache
 )
 ```
 
@@ -101,9 +149,12 @@ utils::write.csv(reference_table_initial, unsaved_meta)
 ```
 
 ```{rave load_voltage_data, language = "R", export = "voltage_data", cue = "always"}
+# need to 
 
 electrodes <- subject$electrodes
 blocks <- subject$blocks
+use_cache <- preprocessing_history$use_cache
+has_wavelet <- all(preprocessing_history$current$has_wavelet)
 
 cache_root <- file.path(subject$cache_path, "rave2", "voltage")
 raveio::dir_create2(cache_root)
@@ -112,7 +163,7 @@ notch_params <- subject$preprocess_settings$notch_params
 
 first_e <- electrodes[[1]]
 first_inst <- raveio::new_electrode(subject = subject, 
-                                number = first_e)
+                                    number = first_e)
 
 progress <- dipsaus::progress2("Check cache data", max = length(blocks), shiny_auto_close = TRUE)
 
@@ -120,13 +171,20 @@ voltage_signals <- lapply(blocks, function(block) {
   
   progress$inc(sprintf("%s", block))
   
-  sample_signal <- raveio::load_h5(first_inst$voltage_file, name = sprintf("/raw/voltage/%s", block), ram = FALSE)
+  if( has_wavelet ) {
+    sample_signal <- raveio::load_h5(first_inst$voltage_file, name = sprintf("/raw/voltage/%s", block), ram = FALSE)
+  } else {
+    sample_signal <- raveio::load_h5(first_inst$preprocess_file, name = sprintf("/notch/%s", block), ram = FALSE)
+  }
+  
+  
   signal_length <- length(sample_signal)
   
   block_path <- file.path(cache_root, block)
   exists <- TRUE
   
   arr <- tryCatch({
+    if( !use_cache ) { stop("Do not use cache") }
     filearray::filearray_checkload(
       filebase = block_path,
       mode = "readwrite", 
@@ -173,15 +231,23 @@ subject_id <- subject$subject_id
 
 if(length(missing_blocks)) {
   
-  dipsaus::lapply_async2(seq_along(electrodes), function(ii){
+  raveio::lapply_async(seq_along(electrodes), function(ii){
     e <- electrodes[[ii]]
     inst <- raveio::new_electrode(subject = subject_id, number = e)
-    voltage_file <- inst$voltage_file
-    for(block in missing_blocks) {
-      s <- raveio::load_h5(voltage_file, sprintf("/raw/voltage/%s", block), ram = TRUE)
-      voltage_signals[[block]]$array[, ii] <- s
+    if( has_wavelet ) {
+      voltage_file <- inst$voltage_file
+      for(block in missing_blocks) {
+        s <- raveio::load_h5(voltage_file, sprintf("/raw/voltage/%s", block), ram = TRUE)
+        voltage_signals[[block]]$array[, ii] <- s
+      }
+    } else {
+      voltage_file <- inst$preprocess_file
+      for(block in missing_blocks) {
+        s <- raveio::load_h5(voltage_file, sprintf("/notch/%s", block), ram = TRUE)
+        voltage_signals[[block]]$array[, ii] <- s
+      }
     }
-  }, plan = FALSE, callback = function(ii){
+  }, callback = function(ii){
     sprintf("Creating cache|Electrode %s", electrodes[[ii]])
   })
   
@@ -198,6 +264,16 @@ voltage_data <- list(
   electrodes = electrodes
 )
 
+# save pipeline
+if( !isTRUE(getOption("raveio.debug", FALSE)) ) {
+  previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
+  raveio::pipeline_fork(
+    dest = previous_pipeline_path, 
+    filter_pattern = "(^shared|data|R|\\.R|\\.yaml|\\.txt|\\.csv|\\.fst|\\.conf|\\.json|\\.rds)$",
+    activate = FALSE
+  )
+}
+voltage_data
 ```
 
 

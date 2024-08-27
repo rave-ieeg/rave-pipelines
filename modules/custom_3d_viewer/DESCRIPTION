@@ -1,13 +1,18 @@
 Package: custom_3d_viewer
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: 3D Brain Viewer
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 License: MIT
 Authors@R: c(
-    person("your first name", "last/family name", email = your.email@edu", role = c("aut", "cre"))
+    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: 
+    Views subject brain with surface overlaid by 'MRI' slices and electrodes.
+    The electrode can be colored by data table, which can be generated
+    from a 'CSV' file (opened by Excel). Please check the 'URL' for manual.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+URL: 
+    https://beauchamplab.github.io/raveio/reference/rave_brain.html, 
+    https://dipterix.org/threeBrain/

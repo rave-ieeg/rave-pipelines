@@ -6,36 +6,112 @@
 #'   - import packages that will be used via `library()`, or `targets::tar_option_set` (see below)
 NULL
 
-# Set pipeline options
-targets::tar_option_set(
+library(raveio)
+loadNamespace("reticulate")
 
-  # R libraries to load
-  packages = c("raveio")
+get_basic_info <- function() {
+  session_info <- utils::sessionInfo()
 
-  # memory strategy.
-  # "persistent": the target stays in memory until the end of the pipeline
-  #   unless storage is "worker", in which case targets unloads the value
-  #   from memory right after storing it in order to avoid sending copious
-  #   data over a network.
-  # "transient": the target gets unloaded after every new target completes.
-  # The former conserves bandwidth, and the latter conserves local storage.
+  blas <- session_info$BLAS
+  if (is.null(blas)) { blas <- "" }
+  lapack <- session_info$LAPACK
+  if (is.null(lapack)) { lapack <- "" }
 
-  # memory = 'persistent'
+  raw_dir <- raveio::raveio_getopt("raw_data_dir", default = "<Missing>")
+  data_dir <- raveio::raveio_getopt("data_dir", default = "<Missing>")
+  cache_dir <- raveio::cache_root()
 
-  # When `scheduler` is "future" or "clustermq":
-  # "main": the target's return value is sent back to the host machine and
-  #   saved/uploaded locally.
-  # "worker": the worker saves/uploads the value.
-  #
-  # Set to worker if your nodes might generate large amount of data
+  healthy_directory <- function(path){
+    ifelse(dir.exists(path), "[healthy]", "[unable to reach]")
+  }
 
-  # storage = 'worker'
+  package_ver <- function(name, version_only = FALSE) {
+    suppressWarnings({
+      if(name %in% names(session_info$otherPkgs)) {
+        desc <- session_info$otherPkgs[[name]]
+      } else if(name %in% names(session_info$loadedOnly)) {
+        desc <- session_info$loadedOnly[[name]]
+      } else {
+        desc <- utils::packageDescription(name, drop = TRUE)
+      }
+    })
 
-  # When `scheduler` is "future" or "clustermq":
-  # "main": the target's dependencies are loaded on the host machine and sent
-  #   to the worker before the target builds.
-  # "worker": the worker loads the targets dependencies.
+    if(!inherits(desc, "packageDescription")) { return(NULL) }
 
-  # retrieval = "worker"
+    if(version_only) {
+      return(desc$Version)
+    }
+    sprintf("%s [%s]", desc$Package, desc$Version)
 
-)
+  }
+
+
+  # get basic information
+  cat(
+    sep = "",
+    "Operating system:\n",
+    "  OS type:         ", session_info$platform, "\n",
+    "  OS name:         ", session_info$running, "\n",
+    "  File separator:  ", .Platform$file.sep, "\n",
+    "  Endianess:       ", .Platform$endian, "\n",
+
+    "\nR information\n",
+    "  Version:         ", session_info$R.version$version.string, "\n",
+    "  Architecture:    ", session_info$R.version$arch, "\n",
+    "  Matrix products: ", session_info$matprod, "\n",
+    local({
+      if (blas == lapack && nzchar(blas))
+        c("  BLAS/LAPACK:     ", blas, "\n", sep = "")
+      else {
+        if (nzchar(blas)) {
+          c("  BLAS:            ", blas, "\n", sep = "")
+        }
+        if (nzchar(lapack)) {
+          c("  LAPACK:          ", lapack, "\n", sep = "")
+        }
+      }
+    }),
+
+    "\nRAVE status\n",
+    "  Version:        ", package_ver("rave", version_only = TRUE), "\n",
+    "  Template brain: ", raveio::raveio_getopt('threeBrain_template_subject', default = "N27"), "\n",
+    "  Directories:    ",
+    "Raw ", healthy_directory(raw_dir), ", ",
+    "Main ", healthy_directory(data_dir), ", ",
+    "Session ", healthy_directory(cache_dir), "\n",
+
+    "  Core dependencies (for developer debug purposes): \n",
+    "    ",
+    package_ver("ravemanager"), ",\t",
+    package_ver("rave"), ",\t\t",
+    package_ver("raveio"), ",\t",
+    package_ver("ravedash"), ",\t\t",
+
+    "\n    ",
+    package_ver("dipsaus"), ",\t\t",
+    package_ver("ravetools"), ",\t",
+    package_ver("threeBrain"), ",\t",
+    package_ver("filearray"), ",\t",
+
+    "\n    ",
+    package_ver("shidashi"), ",\t",
+    package_ver("rpymat"), ",\t\t",
+    package_ver("readNSx"), ",\t",
+    package_ver("rpyANTs"), ",\t",
+
+    "\n    ",
+    package_ver("rutabaga"), ",\t\t",
+    package_ver("ravebuiltins"),
+
+    "\n  Third-party dependencies: \n",
+
+    "    ",
+    package_ver("future"), ",\t\t",
+    package_ver("shiny"), ",\t\t",
+    package_ver("targets"), ",\t",
+    package_ver("freesurferformats"), "\t",
+
+    ""
+  )
+
+}

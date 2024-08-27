@@ -104,15 +104,28 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       synced_controllers <- c(
-        "Display Coordinates", "Show Panels", "Coronal (P - A)",
-        "Axial (I - S)", "Sagittal (L - R)", "Overlay Coronal",
-        "Overlay Axial", "Overlay Sagittal", "Dist. Threshold",
-        "Surface Material", "Left Hemisphere", "Right Hemisphere",
-        "Left Opacity", "Right Opacity", "Surface Color", "Blend Factor",
-        "Sigma", "Decay", "Range Limit", "Visibility", "Voxel Label",
-        "Display Data", "Display Range", "Threshold Data", "Threshold Range",
-        "Threshold Method", "Video Mode", "Show Legend", "Show Time",
-        "Highlight Box", "Info Text"
+        "Display Coordinates", "Show Panels", "Slice Brightness", "Slice Mode",
+        "Coronal (P - A)", "Axial (I - S)", "Sagittal (L - R)",
+        "Overlay Coronal", "Overlay Axial", "Overlay Sagittal",
+        "Frustum Near", "Frustum Far",
+
+        # "Voxel Display", "Voxel Opacity",
+        "Voxel Min", "Voxel Max", "Voxel Label",
+
+        "Surface Material", "Surface Type", "Clipping Plane",
+        "Left Hemisphere", "Right Hemisphere",
+        "Left Opacity", "Right Opacity",
+        "Left Mesh Clipping", "Right Mesh Clipping",
+        "Surface Color", "Blend Factor", "Sigma", "Decay", "Range Limit",
+
+        "Surface Mapping", "Volume Mapping", "Visibility",
+        "Electrode Shape", "Outlines", "Text Scale", "Text Visibility",
+
+        "Display Data", "Display Range",
+        "Threshold Data", "Threshold Range", "Threshold Method",
+        "Additional Data",
+
+        "Show Legend", "Show Time", "Highlight Box", "Info Text", "Time"
       )
 
       controllers <- pipeline$get_settings("controllers", default = list())
@@ -123,7 +136,14 @@ module_server <- function(input, output, session, ...){
         theme <- shiny::isolate(ravedash::current_shiny_theme())
         background <- theme$background
       }
-      proxy_controllers[["Background Color"]] <- dipsaus::col2hexStr(background)
+      controllers[["Background Color"]] <- dipsaus::col2hexStr(background)
+
+      # voxel_type <- proxy_controllers[["Voxel Display"]]
+      # if(isTRUE(voxel_type %in% brain$atlas_types)) {
+      #   controllers[["Voxel Display"]] <- voxel_type
+      #   controllers[["Voxel Opacity"]] <- proxy_controllers[["Voxel Opacity"]]
+      # }
+
       proxy_controllers <- proxy_controllers[
         names(proxy_controllers) %in% synced_controllers]
 
@@ -199,7 +219,10 @@ module_server <- function(input, output, session, ...){
 
       }
 
+
       # TODO: reset UIs to default
+      shidashi::clear_notifications()
+      shiny::removeModal()
 
       # Reset preset UI & data
       component_container$reset_data()
@@ -211,6 +234,7 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$update_outputs <- Sys.time()
       local_reactives$viewer_selection <- NULL
+
 
     }, priority = 1001),
     ravedash::watch_data_loaded(),
@@ -265,15 +289,13 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-
-
       loaded_brain <- component_container$data$loaded_brain
       if(length(loaded_brain$subject_code) != 1) {
         return()
       }
 
       info <- input$uploaded_file
-      if(!grepl("\\.(csv|fst)$", info$name, ignore.case = TRUE)) {
+      if(!grepl("\\.(csv|fst|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
         ravedash::error_notification(list(message = "Unsupported file format: only [.csv] and [.fst] files are supported."))
         return()
       }
@@ -281,6 +303,8 @@ module_server <- function(input, output, session, ...){
       format <- "csv"
       if( grepl("\\.fst$", info$name, ignore.case = TRUE) ) {
         format <- "fst"
+      } else if ( grepl("\\.xls[x]{0,1}$", info$name, ignore.case = TRUE) ) {
+        format <- "xlsx"
       }
 
       res <- ravedash::with_error_notification({
@@ -291,6 +315,9 @@ module_server <- function(input, output, session, ...){
           },
           "fst" = {
             raveio::load_fst(info$datapath, to = 1)
+          },
+          "xlsx" = {
+            read_xlsx(info$datapath)
           }
         )
         if(!"Electrode" %in% names(header)) {
@@ -302,21 +329,181 @@ module_server <- function(input, output, session, ...){
         root_path <- get_subject_imaging_datapath(subject_code = loaded_brain$subject_code, type = "uploads")
 
         raveio::dir_create2(root_path)
-        new_name <- gsub("\\.csv$", ".fst", info$name)
+        new_name <- gsub("\\.(csv|xls[x]{0,1})$", ".fst", info$name)
         fpath <- file.path(root_path, new_name)
 
-        if(format == "csv") {
+        if(format != "fst") {
           raveio::save_fst(header, path = fpath)
         } else {
           file.copy(from = info$datapath, to = fpath, overwrite = TRUE)
         }
         update_upload_source(selected = new_name)
+
+        ravedash::show_notification(
+          title = "Upload done!",
+          type = "success",
+          message = shiny::p(
+            'Please make sure you click on "Re-generate the viewer" link or ',
+            shiny::actionLink(
+              inputId = ns("run_analysis_from_notification"),
+              label = "here",
+              icon = ravedash::shiny_icons$refresh,
+              style = "color: #f0f0f0"
+            ),
+            " to update viewer."
+          ),
+          autohide = FALSE, close = TRUE,
+          icon = ravedash::shiny_icons$upload
+        )
       })
 
     }),
     input$uploaded_file,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      regenerate_viewer()
+    }),
+    input$run_analysis_from_notification,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      loaded_flag <- ravedash::watch_data_loaded()
+      if(!loaded_flag){ return() }
+
+      selected <- shiny::isolate(input$download_template_type) %OF% TEMPLATE_CHOICES
+
+      shiny::showModal(shiny::modalDialog(
+        title = "Example: electrode value table",
+        size = "l",
+        easyClose = FALSE,
+        footer = shiny::modalButton("Dismiss"),
+        shiny::fluidRow(
+          shiny::column(
+            width = 12L,
+            shiny::selectInput(
+              inputId = ns("download_template_type"),
+              label = shiny::tagList(
+                shiny::span("Select a template type "),
+                shiny::downloadLink(
+                  outputId = ns("download_template_do"),
+                  label = "(download this template)",
+                )
+              ),
+              choices = TEMPLATE_CHOICES,
+              selected = selected
+            )
+          ),
+          shiny::column(
+            width = 12L,
+            DT::DTOutput(outputId = ns("download_template_example_output"))
+          )
+        )
+      ))
+    }),
+    input$download_template_btn,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  template_example <- shiny::reactive({
+    tryCatch({
+      loaded_flag <- ravedash::watch_data_loaded()
+      if(!loaded_flag){ return() }
+      if(!isTRUE(input$download_template_type %in% TEMPLATE_CHOICES)) {
+        return()
+      }
+
+      # loaded_data <- pipeline$read("loaded_brain")
+      loaded_data <- component_container$data$loaded_brain
+      subject_code <- loaded_data$subject_code
+      electrode_table <- loaded_data$electrode_table
+      if(!is.data.frame(electrode_table)) { return(NULL) }
+      if(length(subject_code) != 1) {
+        subject_code <- "N27"
+      }
+
+      electrodes <- electrode_table$Electrode
+      nelec <- length(electrodes)
+      if(nelec == 0) { return() }
+      tbl <- switch(
+        input$download_template_type,
+        "Simple property" = {
+          data.frame(
+            Subject = subject_code,
+            Electrode = electrodes,
+            tValue = round(rnorm(nelec), 2)
+          )
+        },
+        "Multiple properties" = {
+          re <- data.frame(
+            Subject = subject_code,
+            Electrode = electrodes,
+            MyDiscreteValue = sample(LETTERS, size = nelec, replace = TRUE),
+            MyContinuousValue = round(rnorm(nelec), 2)
+          )
+          re$MyContinuousValue[sample(nelec, min(5, max(nelec - 4, 1)))] <- NA
+          re
+        },
+        "Animation" = {
+          data.frame(
+            Subject = subject_code,
+            Electrode = rep(electrodes, each = 3),
+            Time = rep(c(0.1, 0.2, 0.5), nelec),
+            Amplitude = round(rnorm(nelec * 3), 2)
+          )
+        },
+        { NULL }
+      )
+    }, error = function(e) { NULL })
+  })
+
+  output$download_template_do <- shiny::downloadHandler(
+    filename = "electrode_value.csv",
+    content = function(con) {
+      template <- template_example()
+      if(!is.data.frame(template)) {
+        stop("No template is available. Electrode table is not detected.")
+      }
+      utils::write.csv(x = template, file = con, row.names = FALSE)
+    }
+  )
+
+  output$download_template_example_output <- DT::renderDT({
+    template <- template_example()
+    shiny::validate(
+      shiny::need(
+        is.data.frame(template),
+        message = "No example is available. Electrode table is not detected..."
+      )
+    )
+    caption <- switch(
+      input$download_template_type,
+      "Simple property" = "Example with a single value property: column names must contain 'Electrode' (electrode channel) and the variable name.",
+      "Multiple properties" = {
+        template$MyContinuousValue <- sprintf("%.2f", template$MyContinuousValue)
+        "Example with continuous and discrete variables. Use NA to represent missing values. Column names must contain 'Electrode' (electrode channel) and the variable names."
+      },
+      "Animation" = "Example for animation. Column names must contain 'Electrode' (electrode channel), Time (time in seconds), and at least one variable name.",
+      { NULL }
+    )
+
+    DT::datatable(
+      template,
+      class = "stripe compact",
+      selection = "none",
+      filter = "none",
+      caption = caption,
+      options = list(
+        columnDefs = list(
+          list(className = 'dt-right', targets = "_all")
+        )
+      )
+    )
+  })
 
   update_pipeline_source <- function(selected = NULL) {
     loaded_flag <- ravedash::watch_data_loaded()
@@ -500,7 +687,7 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$brain_widget
     }),
-    export_type = "3dviewer"
+    output_type = "threeBrain"
   )
 
 

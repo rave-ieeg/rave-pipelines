@@ -10,6 +10,8 @@ Authors@R: c(
 Description: Imports 'LFP' electrode voltage signals to 'RAVE', supported
     formats are 'Matlab', 'HDF5', 'EDF', 'BIDS'. This pipeline creates subject
     folders within the 'RAVE' directory and set up initial states for
-    other pipelines
-BugReports: https://github.com/dipterix/rave-pipelines/issues
+    other pipelines. This module is part of
+    'RAVE preprocessing pipeline' and can run offline as a pipeline instance;
+    see 'raveio::pipeline("import_lfp_native")'.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
 License: MIT

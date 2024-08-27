@@ -1,11 +1,43 @@
 Package: electrode_localization
 Type: rave-pipeline
-Title: Interactive 'RAVE' Module to Localize Electrode
+Title: 'YAEL': Your (Yet) Advanced (Another) Electrode Localizer
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 Authors@R: c(
-    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
+    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre")),
+    person("John F.", "Magnotti", role = c("aut")),
+    person("Xiang", "Zhang", role = c("aut")),
+    person("Michael S.", "Beauchamp", role = c("aut"))
     )
 License: MIT
-BugReports: https://github.com/dipterix/rave-pipelines/issues
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+URL: https://yael.wiki
+Description: 
+    Abstract: Intracranial electroencephalography (iEEG) provides a unique 
+    opportunity to measure human brain function with implanted electrodes. 
+    We describe the YAEL (Your Advanced Electrode Localization) software package 
+    for accurately determining electrode locations, a key step in neuroscience 
+    inference. Existing workflows require manually selecting each electrode 
+    from the patient's computed tomography (CT) scan, a time consuming and 
+    error-prone process. YAEL expedites this process with automated electrode 
+    localization. In modern clinical practice, iEEG patients are implanted with 
+    stereotactic (sEEG) electrode shafts, each containing many contacts. YAEL 
+    users may click on only two contacts on a given shaft and YAEL will 
+    automatically select all remaining contacts, accounting for any bends in 
+    the shaft introduced during the surgical insertion process. 
+    After identifying the approximate location of each electrode, YAEL applies 
+    a refinement process. Electrode locations are automatically adjusted using 
+    nearby CT densities. While some workflows downsample the CT to match the 
+    resolution of the pre-surgical MRI, YAEL uses the original CT for more 
+    accurate localization. This is important for identifying the location of 
+    the electrode relative to cortical lamina or small subcortical structures.
+    A common source of error is the confusion of contacts on nearby sEEG shafts. 
+    To ensure that electrodes are mapped correctly, YAEL provides simultaneous 
+    viewing of 3D cortical surface models and 2D MRI slices, together with all 
+    electrode positions. Both penetrating sEEG electrodes and grids and strips 
+    of surface electrocorticographic (ECoG) electrodes are supported, along
+    with the brain shift compensation sometimes required for accurate ECoG 
+    localization. Viewer parameters, such as CT threshold, can be adjusted 
+    on-the-fly for quick troubleshooting. 
+

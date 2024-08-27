@@ -8,287 +8,40 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-build_pipeline <- raveio::configure_knitr()
-
-# For debug use, try to mimic the environment of pipeline
-# Load R scripts starting with `shared-` in R/ folder
-.project_path <- rstudioapi::getActiveProject()
-.module_id <- "configure_rave"
-lapply(
-  list.files(
-    file.path(.project_path, "modules", .module_id, "R"),
-    pattern = "^shared-.*\\.R$",
-    ignore.case = TRUE,
-    full.names = TRUE
-  ), 
-  function(f){
-    source(f, local = FALSE, chdir = TRUE)
-    invisible()
-  })
-
-# Load variables in `settings.yaml` and expose them to the current environment
-.settings <- raveio::load_yaml(file.path(
-  .project_path, "modules", 
-  .module_id, "settings.yaml"))
-list2env(as.list(.settings), envir = environment())
+raveio::pipeline_setup_rmd("configure_rave")
 ```
+
+This pipeline does nothing. Please
 
 ## System summary
 
 ```{rave get_system_summary, language = "R", export = "system_summary", cue = "always"}
-session_info <- utils::sessionInfo()
-
-# Get math libraries
-blas <- session_info$BLAS
-if (is.null(blas)) { blas <- "" }
-lapack <- session_info$LAPACK
-if (is.null(lapack)) { lapack <- "" }
-
-# Get current path
-raw_dir <- raveio::raveio_getopt("raw_data_dir", default = "<Missing>")
-data_dir <- raveio::raveio_getopt("data_dir", default = "<Missing>")
-cache_dir <- raveio::cache_root()
-
-    healthy_directory <- function(path){
-      ifelse(dir.exists(path), "[healthy]", "[unable to reach]")
-    }
-
-    package_ver <- function(name, version_only = FALSE) {
-      suppressWarnings({
-        if(name %in% names(session_info$otherPkgs)) {
-          desc <- session_info$otherPkgs[[name]]
-        } else if(name %in% names(session_info$loadedOnly)) {
-          desc <- session_info$loadedOnly[[name]]
-        } else {
-          desc <- utils::packageDescription(name, drop = TRUE)
-        }
-      })
-
-      if(!inherits(desc, "packageDescription")) { return(NULL) }
-
-      if(version_only) {
-        return(desc$Version)
-      }
-      sprintf("%s [%s]", desc$Package, desc$Version)
-
-    }
-
-
-    # get basic information
-    cat(
-      sep = "",
-      "Operating system:\n",
-      "  OS type:         ", session_info$platform, "\n",
-      "  OS name:         ", session_info$running, "\n",
-      "  File separator:  ", .Platform$file.sep, "\n",
-      "  Endianess:       ", .Platform$endian, "\n",
-
-      "\nR information\n",
-      "  Version:         ", session_info$R.version$version.string, "\n",
-      "  Architecture:    ", session_info$R.version$arch, "\n",
-      "  Matrix products: ", session_info$matprod, "\n",
-      local({
-        if (blas == lapack && nzchar(blas))
-          c("  BLAS/LAPACK:     ", blas, "\n", sep = "")
-        else {
-          if (nzchar(blas)) {
-            c("  BLAS:            ", blas, "\n", sep = "")
-          }
-          if (nzchar(lapack)) {
-            c("  LAPACK:          ", lapack, "\n", sep = "")
-          }
-        }
-      }),
-
-      "\nRAVE status\n",
-      "  Version:        ", package_ver("rave", version_only = TRUE), "\n",
-      "  Template brain: ", raveio::raveio_getopt('threeBrain_template_subject', default = "N27"), "\n",
-      "  Directories:    ",
-      "Raw ", healthy_directory(raw_dir), ", ",
-      "Main ", healthy_directory(data_dir), ", ",
-      "Session ", healthy_directory(cache_dir), "\n",
-
-      "  Core dependencies: \n",
-      "    ", package_ver("dipsaus"), ", ",
-      package_ver("filearray"), ", ",
-      package_ver("future"), ", ",
-
-      "\n    ",
-      package_ver("ravedash"), ", ",
-      package_ver("raveio"), ", ",
-      package_ver("ravetools"), ", ",
-
-      "\n    ", package_ver("shiny"), ", ",
-      package_ver("targets"), ", ",
-      package_ver("threeBrain"), ", ",
-
-
-
-```
-
-With `export="subject"`, the subject variable will be registered for the following chunks to use. Be aware that all other variables created in this block will not be exposed.
-
-#### Step 2: Load epoch and reference information
-
-```{rave load_epoch, language = "R", export = "epoch_instance"}
-epoch_instance <- raveio::RAVEEpoch$new(subject, epoch)
-head(epoch_instance$update_table())
-```
-
-```{rave load_reference, language = "R", export = "reference_table"}
-reference_table <- subject$meta_data(
-  meta_type = "reference", reference)
-head(reference_table)
-```
-
-#### Step 3: Initialize and load power data
-
-Initialize the electrode instances and register the epoch, reference information
-
-```{rave load_electrodes, language = "R", export = "electrode_instances"}
-requested_electrodes <- dipsaus::parse_svec(electrodes)
-requested_electrodes <- requested_electrodes[
-  requested_electrodes %in% subject$electrodes]
-electrode_instances <- lapply(requested_electrodes, function(ei){
-  e <- raveio::new_electrode(subject, number = ei, signal_type = "LFP")
-  
-  # set epoch
-  e$set_epoch(epoch_instance)
-
-  # set epoch range (-1 to 2 seconds relative to onset)
-  e$trial_intervals <- intervals
-
-  # set reference
-  ref_name <- subset(reference_table, Electrode == ei)[["Reference"]]
-  e$set_reference(ref_name)
-  e
+tryCatch({
+  library(filearray)
+  library(ravetools)
+  library(dipsaus)
+  library(threeBrain)
+  library(raveio)
+  library(ravedash)
+  library(rpyANTs)
 })
-names(electrode_instances) <- requested_electrodes
+system_summary <- sessionInfo()
+ravemanager::version_info()
 ```
 
 
-Start to load power. Here also create cache to the `RAVE` cache directory.
-
-```{rave load_and_cache_power, language = "R", export = "power"}
-power_list <- lapply(electrode_instances, function(e){
-  e$load_data("power")
-})
-target <- normalizePath(file.path("shared", "cache", "power"),
-                        mustWork = FALSE)
-  
-if(dir.exists(target)){
-  unlink(target, recursive = TRUE, force = TRUE)
-} else {
-  raveio::dir_create2(dirname(target))
-}
-power <- filearray::filearray_bind(
-  .list = power_list, symlink = TRUE, 
-  filebase = target)
-
-if(length(power_list)){
-  dnames <- dimnames(power_list[[1]])
-  dnames[[4]] <- as.integer(names(electrode_instances))
-  dimnames(power) <- dnames
-} else {
-  stop("No power data not loaded")
-}
-```
-
-#### Step 4: Baseline correction
-
-```{rave calculate_baseline, language = "R", export = "baseline_data"}
-dim <- dim(power)
-dim[length(dim)] <- 1
-plen <- prod(dim)
-target <- file.path(electrode_instances[[1]]$cache_root, "..")
-raveio::dir_create2(target)
-target <- normalizePath(target, mustWork = TRUE)
-target <- file.path(target, "_baseline")
-if(dir.exists(target)){
-  output <- filearray::filearray_load(target, "readwrite")
-  if(!all(dim(output) == dim(power))){
-    output$delete()
+```{rave get_python_information, language = "R", export = "python_summary", cue = "always"}
+python_summary <- FALSE
+try({
+  if(dir.exists(rpymat::env_path())) {
+    summary <- rpymat::ensure_rpymat(verbose = FALSE)
+    packages <- reticulate::py_list_packages(rpymat::env_path())
+    python_summary <- list(
+      summary = summary,
+      packages = packages
+    )
   }
-  if(!identical(dimnames(output), dimnames(power))){
-    dimnames(output) <- dimnames(power)
-  }
-}
-if(!dir.exists(target)){
-  output <- filearray::filearray_create(
-    filebase = target,
-    dimension = dim(power),
-    type = "float",
-    partition_size = 1L
-  )
-}
-
-bl_range <- unlist(baseline)
-dnames <- dimnames(power)
-baseline_indexpoints <- which(
-  dnames$Time >= bl_range[[1]] & dnames$Time <= bl_range[[2]])
-
-filearray::fmap(power, function(input){
-  x <- input[[1]]
-  dim(x) <- dim
-  bl <- dipsaus::baseline_array(
-    x, along_dim = 2L,
-    baseline_indexpoints = baseline_indexpoints,
-    method = baseline_method
-  )
-  bl
-}, .y = output, .input_size = plen)
-
-baseline_data <- output
-```
-
-
-#### Step 5: Collapse baseline data
-
-```{rave collapse_by_trial_and_electrodes, language = "R", export = "collapsed"}
-
-dim <- dim(baseline_data)
-dim[length(dim)] <- 1
-plen <- prod(dim)
-collase_by_trial <- filearray::fmap2(baseline_data, function(input){
-  x <- input[[1]]
-  dim(x) <- dim
-  dipsaus::collapse(x, keep = c(2,1), average = TRUE)
-}, .input_size = plen, .simplify = TRUE)
-
-collapsed <- list(
-  collase_by_trial = collase_by_trial,
-  collase_by_trial_electrodes = dipsaus::collapse(
-    collase_by_trial, keep = c(1, 2), average = TRUE)
-)
-```
-
-```{r}
-brain <- threeBrain::freesurfer_brain2(
-  fs_subject_folder = subject$freesurfer_path, subject_name = subject$subject_code
-)
-brain$plot()
-```
-
-#### Step 6: Visualize
-
-```{rave plot_heatmap_collase_by_trial_electrodes, export = "collase_by_trial_timestamp", cue="always"}
-
-# Timestamp of when the plot is created
-collase_by_trial_timestamp <- Sys.time()
-
-# visualize
-dnames <- power$dimnames()
-
-image(
-  collapsed$collase_by_trial_electrodes,
-  y = dnames$Frequency,
-  ylab = "Frequency (Hz)",
-  x = dnames$Time, 
-  xlab = "Time (s)",
-  main = "Mean power across trial and electrodes"
-)
-
+}, silent = TRUE)
 ```
 
 ## Build, Visualize, & Run

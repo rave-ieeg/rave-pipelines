@@ -1,0 +1,175 @@
+---
+title: "RAVE Pipeline Markdown Template"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+raveio::pipeline_setup_rmd("voltage_explorer")
+```
+
+
+```{rave load_subject, language = "R", export = "subject"}
+subject <- raveio::RAVESubject$new(
+  project_name = project_name, 
+  subject_code = subject_code
+)
+print(subject)
+
+# List subject details
+subject$epoch_names
+subject$reference_names
+subject$blocks
+subject$electrodes
+```
+
+
+```{rave prepare_data_repository, language = "R", export = "repository", cue = "always", format = "rave_prepare_subject_voltage_with_epoch"}
+repository <- raveio::prepare_subject_voltage_with_epoch(
+  subject = subject,
+  electrodes = loaded_electrodes,
+  epoch_name = epoch_choice,
+  time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends),
+  reference_name = reference_name
+)
+```
+
+```{rave clean_analysis_channels, language = "R", export = "analysis_channels_clean"}
+available_channels <- repository$electrode_list
+analysis_channels_clean <- dipsaus::parse_svec(unlist(analysis_channels))
+analysis_channels_clean <- analysis_channels_clean[analysis_channels_clean %in% available_channels]
+if(!length(analysis_channels_clean)) {
+  stop("No channels selected for analysis. Please specify the electrode channels from the following loaded: ",
+       dipsaus::deparse_svec(available_channels))
+}
+analysis_channels_clean <- sort(analysis_channels_clean)
+```
+
+```{rave prepare_pre_analysis_filters, language = "R", export = "pre_analysis_filter_array", format = "filearray", cue = "always"}
+pre_analysis_filter_array <- prepare_filtered_data(
+  data_path = "data/pre_analysis_filtered_voltage",
+  repository = repository,
+  filter_configurations = filter_configurations
+)
+```
+
+
+```{rave filter_data_for_analysis, language = "R", export = "filtered_array", format = "filearray", cue = "always"}
+filtered_channels <- pre_analysis_filter_array$get_header("filtered_channels")
+sel <- (
+  # User want channels to be analyzed
+  repository$electrode_list %in% analysis_channels_clean
+) & (
+  # Skip cached
+  !repository$electrode_list %in% filtered_channels
+)
+
+if(any(sel)) {
+  # To save time, use filearray's builtin loader to avoid serializing the large arrays
+  array_path <- pre_analysis_filter_array$.filebase
+  file_info_list <- lapply(repository$voltage$data_list[sel], function(arr) {
+    channel <- as.integer(dimnames(arr)$Electrode)
+    list(
+      channel = channel,
+      path = arr$.filebase
+    )
+  })
+  
+  raveio::lapply_async(
+    x = file_info_list, 
+    FUN = function(file_info) {
+      # voltage data comes from here
+      source_array <- filearray::filearray_load(file_info$path, mode = "readonly")
+      
+      # save filtered signals to
+      target_array <- filearray::filearray_load(array_path, mode = "readwrite")
+      
+      # filters
+      configs <- target_array$get_header("filter_configurations")
+      
+      # where to save
+      channel <- file_info$channel
+      idx <- dimnames(target_array)$Electrode == channel
+      
+      # source dimension
+      slice_dim <- dim(source_array)[c(1, 2)]
+      
+      # source signals
+      signals <- source_array[reshape = slice_dim]
+      
+      # filtered signals
+      filtered <- apply_filters_to_signals(
+        signals = signals,
+        filter_configs = configs
+      )
+      
+      target_array[, , idx] <- filtered
+      return(NULL)
+    }, 
+    callback = function(file_info) {
+      sprintf("Applying filter|Channel %s", file_info$channel)
+    }
+  )
+  filtered_channels <- sort(unique(unlist(c(repository$electrode_list[sel], filtered_channels))))
+  pre_analysis_filter_array$.mode <- "readwrite"
+  pre_analysis_filter_array$set_header("filtered_channels", filtered_channels)
+  pre_analysis_filter_array$.mode <- "readonly"
+}
+
+filtered_array <- pre_analysis_filter_array
+```
+
+
+```{rave analyze_data, language = "R", export = "analysis_results"}
+parameter_grid <- build_parameter_grid(
+  repository = repository,
+  condition_groupings = condition_groupings,
+  analysis_settings = analysis_settings
+)
+```
+
+```{r}
+lapply(parameter_grid$condition_groups, function(condition_group) {
+  # condition_group <- parameter_grid$condition_groups[[1]]
+  voltage_over_time_per_channel <-
+    prepare_voltage_over_time_per_channel(
+      filtered_array = filtered_array,
+      condition_group = condition_group,
+      channels = analysis_channels_clean
+    )
+  
+  prepare_voltage_over_time_per_cond_channel(filtered_array = ,condition_groups = ,channels = ,hilbert = ,baseline_unit = )
+  prepare_voltage_over_time_per_trial(filtered_array = ,condition_group = ,channels = )
+  
+  list(
+    voltage_over_time_per_channel = voltage_over_time_per_channel
+  )
+})
+
+
+```
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-voltage_explorer.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-voltage_explorer.R")
+```
+
+
+Once the pipeline script `make-voltage_explorer.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("raveio")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+

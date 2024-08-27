@@ -349,6 +349,15 @@ module_server <- function(input, output, session, ...){
 
       res$promise$then(
         onFulfilled = function(...) {
+
+          # copy the pipeline to subject's path
+          try({
+            subject <- pipeline$read("subject")
+            fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
+            raveio::backup_file(fork_path, remove = TRUE)
+            pipeline$fork(fork_path)
+          })
+
           dipsaus::close_alert2()
           shiny::removeModal()
           shidashi::card_operate(title = "Filter settings", method = "collapse")
@@ -413,8 +422,7 @@ module_server <- function(input, output, session, ...){
 
 
     }),
-    outputId = "signal_plot",
-    export_type = "pdf"
+    outputId = "signal_plot"
   )
 
   output$download_as_pdf <- shiny::downloadHandler(

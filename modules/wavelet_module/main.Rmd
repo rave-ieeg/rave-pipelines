@@ -8,13 +8,7 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-build_pipeline <- raveio::configure_knitr()
-if(FALSE){
-  settings <- raveio::load_yaml(file.path(rstudioapi::getActiveProject(), "modules", "wavelet_module", "settings.yaml"))
-  list2env(as.list(settings), envir = environment())
-}
-
+raveio::pipeline_setup_rmd(module_id = "wavelet_module")
 ```
 
 ```{rave load_subject, language = "R", export = "subject", cue = "always", format = "rave-subject"}

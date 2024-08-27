@@ -79,8 +79,8 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             shidashi::flex_break(),
             shidashi::flex_item(
               shiny::checkboxInput(
-                inputId = ns("loader_template_ok"),
-                label = "Load template if 3D models not found",
+                inputId = ns("loader_use_template"),
+                label = "Use template brain",
                 value = FALSE
               )
             )
@@ -287,8 +287,10 @@ loader_server <- function(input, output, session, ...){
         subject_code = input$loader_subject_code,
         project_name = input$loader_project_name,
         surface_types = input$loader_surface_types,
-        template_ok = input$loader_template_ok,
+        use_template = input$loader_use_template,
         uploaded_source = NULL,
+        controllers = list(),
+        main_camera = list(),
         shiny_outputId = ns("viewer_ready")
       )
 

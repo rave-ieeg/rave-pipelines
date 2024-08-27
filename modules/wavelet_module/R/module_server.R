@@ -144,24 +144,56 @@ module_server <- function(input, output, session, ...){
       onFulfilled = function(...){
 
         dipsaus::close_alert2()
-        shiny::removeModal()
         dipsaus::shiny_alert2(
           title = "Done!",
-          text = paste(ravedash::finished_text(), " \nPlease proceed to the next module"),
+          text = "Wavelet has finished. Trying to make data compatible with RAVE 1.0 modules... (Please wait...)",
           icon = 'success',
-          auto_close = TRUE,
-          buttons = list("OK" = TRUE)
+          auto_close = FALSE,
+          buttons = FALSE
         )
+        Sys.sleep(0.5)
 
-        pipeline$run(
-          as_promise = TRUE,
-          names = c("subject", "clear_cache"),
-          scheduler = "none",
-          callr_function = NULL,
-          type = "vanilla",
-          async = FALSE,
-          shortcut = TRUE
-        )
+        tryCatch({
+          pipeline$run(
+            as_promise = FALSE,
+            names = c("subject", "clear_cache"),
+            scheduler = "none",
+            callr_function = NULL,
+            type = "vanilla",
+            async = FALSE,
+            shortcut = TRUE
+          )
+
+          # save pipeline to subject
+          subject <- pipeline$read("subject")
+          fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
+          if(file.exists(fork_path)) {
+            raveio::backup_file(fork_path, remove = TRUE)
+          }
+          pipeline$fork(fork_path)
+          raveio::with_future_parallel({
+            raveio::rave_subject_format_conversion(subject = subject)
+          })
+          dipsaus::close_alert2()
+          dipsaus::shiny_alert2(
+            title = "Done!",
+            text = "Please feel free to close this dialogue",
+            icon = 'success',
+            auto_close = TRUE,
+            buttons = list("OK" = TRUE)
+          )
+        }, error = function(e) {
+          dipsaus::close_alert2()
+          dipsaus::shiny_alert2(
+            title = "Wavelet done, but...",
+            text = sprintf("Wavelet has finished. You should be able to run RAVE 2.0 pipelines freely. However, an error occurred while back-porting data to RAVE 1.0 format. Therefore, you might encounter some troubles running 1.0 modules. If you do need RAVE 1.0 modules, please go to [Data Tools] module to validate your data and manually convert the format.\n\nError message: %s", e$message),
+            icon = 'warning',
+            auto_close = TRUE,
+            buttons = list("OK" = TRUE)
+          )
+        })
+
+        shiny::removeModal()
 
       },
       onRejected = function(e){
@@ -229,6 +261,51 @@ module_server <- function(input, output, session, ...){
       local_reactives$refresh <- Sys.time()
 
       # reset inputs
+      fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
+      if(dir.exists(fork_path)) {
+        try(silent = FALSE, expr = {
+          forked_pipeline <- raveio::pipeline(pipeline_name = pipeline$pipeline_name,
+                                              paths = subject$pipeline_path)
+          # set default settings
+          previous_settings <- forked_pipeline$get_settings()
+          target_sample_rate <- previous_settings$target_sample_rate
+          pre_downsample <- previous_settings$pre_downsample
+          precision <- previous_settings$precision
+
+          if(length(pre_downsample) == 1 && !is.na(pre_downsample) &&
+             pre_downsample >= 1) {
+            dsamp <- floor(min(sample_rates) / target_sample_rate / 2)
+            if(dsamp <= 1){
+              dsamp <- 1
+            }
+            dsamp <- 2^(seq_len(floor(log2(dsamp)) + 1) - 1)
+            pre_downsample <- as.integer(pre_downsample) %OF% dsamp
+            local_reactives$pre_downsample <- pre_downsample
+            shiny::updateSelectInput(
+              session = session,
+              inputId = "pre_downsample",
+              choices = dsamp,
+              selected = pre_downsample
+            )
+
+          }
+
+          if(length(target_sample_rate) == 1 && !is.na(target_sample_rate) &&
+             target_sample_rate > 0) {
+            shiny::updateNumericInput(
+              session = session,
+              inputId = "target_sample_rate",
+              value = target_sample_rate
+            )
+          }
+          shiny::updateCheckboxInput(
+            session = session,
+            inputId = "precision",
+            value = identical(precision, "float")
+          )
+
+        })
+      }
 
 
       # Reset outputs
@@ -265,7 +342,7 @@ module_server <- function(input, output, session, ...){
     function(value) {
       if(isTRUE(input$use_preset == "Upload preset")) {
         if(!is.data.frame(local_reactives$wavelet_param_tbl)) {
-          return("Please upload a preset kernel table in csv format. The table should contain two columns: `Frequency` and `Cycle`")
+          return("Please upload a preset kernel table in csv format. The table should contain two columns: `Frequency` and `Cycles`")
         }
       }
 
@@ -289,11 +366,17 @@ module_server <- function(input, output, session, ...){
         dsamp <- 1
       }
       dsamp <- 2^(seq_len(floor(log2(dsamp)) + 1) - 1)
+
+      pre_downsample <- local_reactives$pre_downsample
+      if(!length(pre_downsample)) {
+        pre_downsample <- input$pre_downsample
+      }
+      local_reactives$pre_downsample <- NULL
       shiny::updateSelectInput(
         session = session,
         inputId = "pre_downsample",
         choices = dsamp,
-        selected = as.integer(input$pre_downsample) %OF% dsamp
+        selected = as.integer(pre_downsample) %OF% dsamp
       )
 
     }),
@@ -339,8 +422,8 @@ module_server <- function(input, output, session, ...){
           stop("The uploaded csv table must contain the following two columns: 'Frequency', 'Cycles' (case-sensitive)")
         }
         tbl <- tbl[
-          !is.na(tbl$Frequency) && tbl$Frequency != "" &&
-            !is.na(tbl$Cycles) && tbl$Cycles != "",
+          !is.na(tbl$Frequency) & tbl$Frequency != "" &
+            !is.na(tbl$Cycles) & tbl$Cycles != "",
         ]
         freqs <- as.numeric(tbl$Frequency)
         cycle <- as.numeric(tbl$Cycles)
@@ -418,7 +501,12 @@ module_server <- function(input, output, session, ...){
       DT::datatable(tbl)
     }),
     outputId = "kernel_table",
-    export_type = "csv"
+    output_type = "data",
+    extensions = list("CSV" = "csv"),
+    download_function = function(con, params, ...) {
+      tbl <- kernel_params()
+      utils::write.csv(tbl, file = con, row.names = FALSE)
+    }
   )
 
   output$download_kernel_table <- shiny::downloadHandler(
@@ -479,11 +567,7 @@ module_server <- function(input, output, session, ...){
       )
       plot(kernel, cex = 1.4, mai = c(1.02,0.82,0.82,0.42))
     }),
-    outputId = "kernel_plot",
-    export_type = "pdf",
-    export_settings = list(
-      width = 24, height = 13.6
-    )
+    outputId = "kernel_plot"
   )
 
 }

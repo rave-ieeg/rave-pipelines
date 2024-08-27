@@ -12,7 +12,7 @@ Description: Builtin 'RAVE' (R Analysis and Visualization of 'iEEG')
     pipeline files, including importing neurophysiology data,
     preprocessing, analyzing and visualizing the data within the 'RAVE'
     framework
-BugReports: https://github.com/dipterix/rave-pipelines/issues
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
 URL: https://github.com/beauchamplab/rave-pipelines
 Depends: R (>= 4.1.0)
 Imports:
@@ -27,6 +27,8 @@ Imports:
     raveio,
     ravetools,
     ravedash,
+    readNSx,
+    rpyANTs,
     rpymat,
     shidashi,
     shiny,
@@ -36,7 +38,7 @@ Imports:
     targets,
     threeBrain,
     checkmate,
-    yaml,
+    yaml
 Suggests:
     rstudioapi,
     knitr,
@@ -50,7 +52,9 @@ SubPipelines:
     modules/surface_reconstruction,
     modules/custom_3d_viewer,
     modules/block_explorer,
-    modules/import_bids
+    modules/import_bids,
+    modules/ants_preprocessing
+    modules/power_explorer
 InteractiveModules:
     modules/import_lfp_native,
     modules/notch_filter,
@@ -63,5 +67,6 @@ InteractiveModules:
     modules/compatibility_rave1,
     modules/standalone_viewer,
     modules/custom_3d_viewer
-    modules/block_explorer,
-    modules/import_bids
+    modules/import_bids,
+    modules/configure_rave,
+    modules/power_explorer

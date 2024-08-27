@@ -12,10 +12,10 @@ module_html <- function(){
     shiny::fluidRow(
 
       shiny::column(
-        width = 4L,
+        width = 3L,
         shiny::div(
           # class = "row fancy-scroll-y stretch-inner-height",
-          class = "row screen-height overflow-y-scroll padding-bottom-70",
+          class = "row screen-height overflow-y-scroll",
           shiny::column(
             width = 12L,
 
@@ -30,18 +30,15 @@ module_html <- function(){
       ),
 
       shiny::column(
-        width = 8L,
+        width = 9L,
         shiny::div(
-          class = "row screen-height overflow-y-scroll padding-bottom-70 output-wrapper",
+          class = "row screen-height overflow-y-scroll output-wrapper",
           shiny::column(
             width = 12L,
 
             ravedash::output_card(
               title = "Import DICOM Folders or Nifti Images",
               start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("may require `dcm2niix`|bg-yellow")
-              ),
               # class_foot = "no-padding",
               append_tools = FALSE,
               footer = shiny::tagList(
@@ -103,47 +100,73 @@ module_html <- function(){
                 shiny::div(
                   class = "float-right",
                   shiny::div(
-                    local({
-                      if(dry_run) {
-                        NULL
-                      } else {
-                        shiny::tagList(
-                          shiny::actionButton(ns("btn_dcm2niix_run_t1"), "Run from RAVE (T1 MRI)"),
-                          shiny::actionButton(ns("btn_dcm2niix_run_ct"), "Run from RAVE (CT)")
-                        )
-                      }
-                    }),
-                    dipsaus::actionButtonStyled(ns("btn_dcm2niix_copy"), "Save & run by yourself")
+                    shiny::actionButton(ns("btn_dcm2niix_run_t1"), "Run from RAVE (T1 MRI)"),
+                    shiny::actionButton(ns("btn_dcm2niix_run_ct"), "Run from RAVE (CT)")
+                    # dipsaus::actionButtonStyled(ns("btn_dcm2niix_copy"), "Save & run by yourself")
                   )
                 )
               )
             ),
 
             ravedash::output_card(
-              title = "Surface Reconstruction",
+              title = "ACPC Re-alignment (Optional)",
               start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("requires `FreeSurfer`|bg-yellow")
+              class_body = "no-padding min-height-300 height-500 resize-vertical full-width",
+              threeBrain::threejsBrainOutput(
+                outputId = ns("acpc_3dviewer"),
+                width = "100%",
+                height = "100%"
               ),
+
+              footer = shiny::fluidRow(
+                shiny::column(
+                  width = 7L,
+                  shiny::selectInput(
+                    inputId = ns("param_acpc_infile"),
+                    label = "MRI file (select one to be ACPC re-aligned)",
+                    choices = character(0L)
+                  )
+                ),
+                shiny::column(
+                  width = 1L,
+                  shiny::actionButton(
+                    inputId = ns("param_acpc_refresh"),
+                    label = "",
+                    icon = ravedash::shiny_icons$refresh,
+                    style = "margin-top: 2rem;",
+                    width = "100%"
+                  )
+                ),
+                shiny::column(
+                  width = 4L,
+                  dipsaus::actionButtonStyled(
+                    inputId = ns("param_acpc_start"),
+                    label = "Start re-alignment",
+                    style = "margin-top: 2rem;",
+                    width = "100%"
+                  )
+                ),
+                shiny::column(
+                  width = 12L,
+                  shiny::htmlOutput(
+                    outputId = ns("acpc_results"),
+                    inline = TRUE
+                  )
+                )
+              )
+            ),
+
+            ravedash::output_card(
+              title = "MRI Preprocessing",
+              start_collapsed = TRUE,
               append_tools = FALSE,
               # class_foot = "no-padding",
               footer = shiny::tags$details(
-                shiny::tags$summary("Terminal script - FreeSurfer recon-all"),
-                shiny::uiOutput(ns("panel_fs_recon"), container = shiny::p)
+                shiny::tags$summary("Terminal script - Imaging segmentation"),
+                shiny::uiOutput(ns("panel_image_segmentation"), container = shiny::p)
               ),
               shiny::div(
-                "RAVE electrode localization depend on the ",
-                shiny::pre(class="pre-compact no-padding display-inline", "FreeSurfer"),
-                " outputs. The whole complete reconstruction will take several hours to run. ",
-                "If you want to save time, please select flag: ",
-                shiny::pre(class="pre-compact no-padding display-inline", "-autorecon1"),
-                "This procedure only normalizes MRI and strips skulls, ",
-                "hence only takes around 10 minutes. ",
-                "For detailed documentation, please check the ",
-                shiny::a(href = "https://surfer.nmr.mgh.harvard.edu/fswiki/recon-all",
-                         target="_blank", "FreeSurfer website"), ".",
-                shiny::br(),
-                "* The script requires Unix ",
+                "* If you choose to use the FreeSurfer, then the script requires Unix ",
                 shiny::pre(class="pre-compact no-padding display-inline", "bash"),
                 " terminals. If you are using Windows, ",
                 "please use Window sub-system for Linux [WSL2].",
@@ -176,16 +199,32 @@ module_html <- function(){
                   ),
                   shiny::column(
                     width = 5L,
-                    shiny::selectInput(
-                      inputId = ns("param_fs_steps"),
-                      label = "Recon flag",
-                      choices = autorecon_flags,
-                      selected = "-all"
+                    shiny::fluidRow(
+                      shiny::column(
+                        width = 12L,
+                        shiny::selectInput(
+                          inputId = ns("param_fs_prog"),
+                          label = "Command",
+                          choices = c(
+                            "recon-all -all", "recon-all -autorecon1",
+                            "recon-all-clinical.sh",
+                            # "ants-preprocessing",
+                            "YAEL+recon-all",
+                            "simple-import"
+                          ),
+                          selected = "recon-all"
+                        )
+                      )
                     ),
-                    shiny::checkboxInput(
-                      inputId = ns("param_fs_fresh_start"),
-                      label = "Remove existing work before running the command (if applicable)",
-                      value = FALSE
+                    shiny::fluidRow(
+                      shiny::column(
+                        width = 12L,
+                        shiny::checkboxInput(
+                          inputId = ns("param_fs_fresh_start"),
+                          label = "Remove existing work before running the command (if applicable)",
+                          value = FALSE
+                        )
+                      )
                     )
                   )
                 ),
@@ -199,7 +238,12 @@ module_html <- function(){
                       if(dry_run) {
                         NULL
                       } else {
-                        shiny::actionButton(ns("btn_recon_run"), "Run from RAVE")
+                        shiny::conditionalPanel(
+                          "!['recon-all-clinical.sh', 'recon-all -all', 'YAEL+recon-all'].includes( input.param_fs_prog )",
+                          shiny::actionButton(ns("btn_recon_run"), "Run from RAVE"),
+                          ns = ns,
+                          style = "display: inline"
+                        )
                       }
                     }),
                     dipsaus::actionButtonStyled(ns("btn_recon_copy"), "Save & run by yourself")
@@ -209,11 +253,8 @@ module_html <- function(){
             ),
 
             ravedash::output_card(
-              title = "Co-registration CT to T1",
+              title = "Co-registration CT and T1",
               start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("may require `AFNI/FSL/Python`|bg-yellow")
-              ),
               append_tools = FALSE,
               # class_foot = "no-padding",
               footer = shiny::tags$details(
@@ -226,7 +267,7 @@ module_html <- function(){
                 shiny::pre(class="pre-compact no-padding display-inline", "MRI_RAW.nii"),
                 " is the original image file, and ",
                 shiny::pre(class="pre-compact no-padding display-inline", "T1.nii"),
-                " is the FreeSurfer-normalized image.",
+                " is the FreeSurfer/ANTs-normalized image.",
               ),
               shiny::div(
                 shiny::tags$ul(
@@ -533,44 +574,44 @@ module_html <- function(){
                   )
                 )
               )
-            ),
-
-            ravedash::output_card(
-              title = "Align MRI to Template",
-              start_collapsed = TRUE,
-              tools = list(
-                shidashi::as_badge("requires `Python`|bg-yellow")
-              ),
-              append_tools = FALSE,
-              shiny::div(
-                "This *optional* step non-linearly aligns native ",
-                shiny::pre(class="pre-compact no-padding display-inline", "aparc+aseg"),
-                "to template brain in MNI space. Please make sure to finish FreeSurfer ",
-                "has finished for this subject. You can skip this step and proceed to ",
-                "electrode localization.",
-                shiny::hr(),
-
-                shiny::fluidRow(
-
-                  shiny::column(
-                    width = 4L,
-                    shiny::selectInput(
-                      inputId = ns("mri_morph_template_subject"),
-                      label = "Template to morph into",
-                      choices = c("fsaverage", "N27", "bert", "cvs_avg35", "cvs_avg35_inMNI152"),
-                      selected = getOption("threeBrain.template_subject", "fsaverage")
-                    )
-                  )
-                ),
-
-                shiny::div(
-                  class = "float-right",
-                  shiny::div(
-                    dipsaus::actionButtonStyled(ns("btn_mri_morph_run"), "Run from RAVE")
-                  )
-                )
-              )
             )
+
+            # ravedash::output_card(
+            #   title = "Align MRI to Template",
+            #   start_collapsed = TRUE,
+            #   tools = list(
+            #     shidashi::as_badge("requires `Python`|bg-yellow")
+            #   ),
+            #   append_tools = FALSE,
+            #   shiny::div(
+            #     "This *optional* step non-linearly aligns native ",
+            #     shiny::pre(class="pre-compact no-padding display-inline", "aparc+aseg"),
+            #     "to template brain in MNI space. Please make sure to finish FreeSurfer ",
+            #     "has finished for this subject. You can skip this step and proceed to ",
+            #     "electrode localization.",
+            #     shiny::hr(),
+            #
+            #     shiny::fluidRow(
+            #
+            #       shiny::column(
+            #         width = 4L,
+            #         shiny::selectInput(
+            #           inputId = ns("mri_morph_template_subject"),
+            #           label = "Template to morph into",
+            #           choices = c("fsaverage", "N27", "bert", "cvs_avg35", "cvs_avg35_inMNI152"),
+            #           selected = getOption("threeBrain.template_subject", "fsaverage")
+            #         )
+            #       )
+            #     ),
+            #
+            #     shiny::div(
+            #       class = "float-right",
+            #       shiny::div(
+            #         dipsaus::actionButtonStyled(ns("btn_mri_morph_run"), "Run from RAVE")
+            #       )
+            #     )
+            #   )
+            # )
 
           )
         )

@@ -81,19 +81,35 @@ rave_option_server <- function(input, output, session){
       "Session ", healthy_directory(cache_dir), "\n",
 
       "  Core dependencies: \n",
-      "    ", package_ver("dipsaus"), ", ",
+      "    ",
+      package_ver("ravemanager"), ", ",
+      package_ver("rave"), ", ",
+      package_ver("ravetools"), ", ",
+
+      "\n    ",
       package_ver("filearray"), ", ",
+      package_ver("shidashi"), ", ",
       package_ver("future"), ", ",
 
       "\n    ",
-      package_ver("ravedash"), ", ",
-      package_ver("raveio"), ", ",
-      package_ver("ravetools"), ", ",
-
-      "\n    ", package_ver("shiny"), ", ",
-      package_ver("targets"), ", ",
+      package_ver("rpymat"), ", ",
+      package_ver("dipsaus"), ", ",
       package_ver("threeBrain"), ", ",
 
+      "\n    ",
+      package_ver("shiny"), ", ",
+      package_ver("targets"), ", ",
+      package_ver("raveio"), ", ",
+
+      "\n    ",
+      package_ver("ravedash"), ", ",
+      package_ver("readNSx"), ", ",
+      package_ver("rpyANTs"), ", ",
+
+      "\n    ",
+      package_ver("freesurferformats"), ", ",
+      package_ver("rutabaga"), ", ",
+      package_ver("ravebuiltins"), ", ",
 
 
       ""

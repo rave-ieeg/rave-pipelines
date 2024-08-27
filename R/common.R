@@ -3,7 +3,7 @@ page_title <- function(complete = TRUE){
   if(complete){
     re <- "RAVE"
   } else {
-    re <- sprintf("RAVE (%s)", as.character(packageVersion('rave')))
+    re <- "RAVE 2.0"
   }
   re
 }
@@ -22,7 +22,7 @@ page_loader <- function(){
   )
 }
 body_class <- function(){
-  c(
+  unique(c(
     #--- Fix the navigation banner ---
     #"layout-navbar-fixed",
 
@@ -44,13 +44,15 @@ body_class <- function(){
     # "dark-mode",
 
     #--- Hide the navbar-nav-iframe
-    "navbar-iframe-hidden"
+    "navbar-iframe-hidden",
 
 
     #--- Make scrollbar thinner ---
-    # "fancy-scroll-y"
+    # "fancy-scroll-y",
 
-  )
+    get0("additional_body_class", ifnotfound = NULL)
+
+  ))
 }
 nav_class <- function(){
   c(

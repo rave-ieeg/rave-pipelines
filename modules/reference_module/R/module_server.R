@@ -76,16 +76,21 @@ module_server <- function(input, output, session, ...){
 
     re <- local_data$reference_data[[name]]
 
-    if(all(c("voltage", "wavelet") %in% names(re))){ return(re) }
+    has_wavelet <- all(subject$has_wavelet)
 
+    if( has_wavelet ) {
+      if(all(c("voltage", "wavelet") %in% names(re))){ return(re) }
+    } else {
+      if(all(c("voltage") %in% names(re))){ return(re) }
+    }
+
+    re <- list()
     inst <- raveio::new_reference(subject = subject, number = name)
-    voltage <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "voltage")
-    wavelet <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "wavelet-coefficient")
+    re$voltage <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "voltage")
 
-    re <- list(
-      voltage = voltage,
-      wavelet = wavelet
-    )
+    if( has_wavelet ) {
+      re$wavelet <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "wavelet-coefficient")
+    }
     local_data$reference_data[[name]] <- re
     return(re)
 
@@ -491,7 +496,9 @@ module_server <- function(input, output, session, ...){
 
       save_path <- file.path(subject$meta_path, sprintf("reference_%s.csv", name))
 
-      raveio::safe_write_csv(table, save_path)
+      table <- table[order(table$Electrode), ]
+
+      raveio::safe_write_csv(table, save_path, row.names = FALSE)
 
       dipsaus::shiny_alert2(
         title = "Succeed!",
@@ -816,11 +823,7 @@ module_server <- function(input, output, session, ...){
       return()
 
     }),
-    outputId = "reference_plot_signals",
-    export_type = "pdf",
-    export_settings = list(
-      width = 13.5, height = 24
-    )
+    outputId = "reference_plot_signals"
   )
 
   ravedash::register_output(
@@ -910,8 +913,7 @@ module_server <- function(input, output, session, ...){
       )
 
     }),
-    outputId = "reference_plot_electrode",
-    export_type = "pdf"
+    outputId = "reference_plot_electrode"
   )
 
 
@@ -932,11 +934,16 @@ module_server <- function(input, output, session, ...){
 
       repo <- component_container$data$repository
       subject <- repo$subject
+      has_wavelet <- all(subject$has_wavelet)
 
       shiny::validate(
         shiny::need(
           data_loaded && !is.null(subject),
           message = "Subject is not loaded",
+        ),
+        shiny::need(
+          isTRUE(has_wavelet),
+          message = "No wavelet has been applied to this subject"
         ),
         shiny::need(
           length(refinsp_epoch) == 1 && refinsp_epoch != "",
@@ -959,7 +966,7 @@ module_server <- function(input, output, session, ...){
             length(refinsp_baseline_method) == 1 &&
             length(refinsp_freq_range) == 2 &&
             length(block) > 0,
-          message = "Waiting for the initialization..."
+          message = ifelse(isTRUE(has_wavelet), "", "Waiting for the initialization...")
         )
       )
 
@@ -1080,8 +1087,7 @@ module_server <- function(input, output, session, ...){
            labels = c(zlim_str, 0, sprintf("-%s", zlim_str)))
 
     }),
-    outputId = "reference_plot_heatmap",
-    export_type = "pdf"
+    outputId = "reference_plot_heatmap"
   )
 
 
@@ -1199,17 +1205,17 @@ module_server <- function(input, output, session, ...){
 
       new_subject <- pipeline$read("subject")
       new_subject <- raveio::as_rave_subject(new_subject$subject_id)
-      new_repository <- raveio::prepare_subject_bare(subject = new_subject, electrodes = new_subject$electrodes, reference_name = "_unsaved")
+      new_repository <- raveio::prepare_subject_bare0(subject = new_subject, electrodes = new_subject$electrodes, reference_name = "_unsaved")
 
-      if(!inherits(new_repository, "rave_prepare_subject")){
-        ravedash::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_subject`. Abort initialization", level = "warning")
+      if(!inherits(new_repository, "rave_prepare_subject_bare0")){
+        ravedash::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_subject_bare0`. Abort initialization", level = "warning")
         return()
       }
       ravedash::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
-      if(inherits(old_repository, "rave_prepare_power")){
+      if(inherits(old_repository, "rave_prepare_subject_bare0")){
 
         if( !attr(loaded_flag, "force") &&
             identical(old_repository$signature, new_repository$signature) ){
@@ -1219,7 +1225,7 @@ module_server <- function(input, output, session, ...){
       }
 
       # Reset custom UI
-      ref_tbl <- new_repository$reference_table
+      ref_tbl <- new_subject$get_reference('_unsaved')
       groups <- unique(ref_tbl$Group)
       electrode_group <- lapply(groups, function(gname){
         list(

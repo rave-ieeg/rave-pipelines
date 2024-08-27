@@ -11,7 +11,7 @@ module_html <- function(){
         width = 3L,
         shiny::div(
           # class = "row fancy-scroll-y stretch-inner-height",
-          class = "row screen-height overflow-y-scroll padding-bottom-70",
+          class = "row screen-height overflow-y-scroll",
           shiny::column(
             width = 12L,
 
@@ -69,10 +69,20 @@ module_html <- function(){
                     "input['%s'] === '[New Uploads]'",
                     ns("uploaded_source")
                   ),
-                  shiny::fileInput(
+                  dipsaus::fancyFileInput(
                     inputId = ns("uploaded_file"),
-                    label = "Upload csv/fst table",
-                    multiple = FALSE
+                    label = "Upload csv/fst/xlsx table",
+                    width = "100%",
+                    size = "s"
+                  ),
+                  # shiny::fileInput(
+                  #   inputId = ns("uploaded_file"),
+                  #   label = "Upload csv/fst table",
+                  #   multiple = FALSE
+                  # ),
+                  shiny::actionLink(
+                    inputId = ns("download_template_btn"),
+                    label = "Show/Download a template table"
                   )
                 )
               ),
@@ -148,7 +158,7 @@ module_html <- function(){
       shiny::column(
         width = 9L,
         shiny::div(
-          class = "row screen-height overflow-y-scroll padding-bottom-70 output-wrapper",
+          class = "row screen-height overflow-y-scroll output-wrapper",
           shiny::column(
             width = 12L,
             ravedash::output_card(
@@ -157,7 +167,6 @@ module_html <- function(){
               shiny::div(
                 class = 'position-relative fill',
                 ravedash::output_gadget_container(
-                  gadgets = "download",
                   threeBrain::threejsBrainOutput(
                     outputId = ns("viewer"),
                     height = "100%"

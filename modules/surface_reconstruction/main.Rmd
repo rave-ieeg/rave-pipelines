@@ -10,30 +10,7 @@ editor_options:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-build_pipeline <- raveio::configure_knitr()
-
-# For debug use, try to mimic the environment of pipeline
-# Load R scripts starting with `shared-` in R/ folder
-.project_path <- rstudioapi::getActiveProject()
-.module_id <- "surface_reconstruction"
-lapply(
-  list.files(
-    file.path(.project_path, "modules", .module_id, "R"),
-    pattern = "^shared-.*\\.R$",
-    ignore.case = TRUE,
-    full.names = TRUE
-  ), 
-  function(f){
-    source(f, local = FALSE, chdir = TRUE)
-    invisible()
-  })
-
-# Load variables in `settings.yaml` and expose them to the current environment
-.settings <- raveio::load_yaml(file.path(
-  .project_path, "modules", 
-  .module_id, "settings.yaml"))
-list2env(as.list(.settings), envir = environment())
+raveio::pipeline_setup_rmd("surface_reconstruction")
 ```
 
 ```{rave check_commandline_tools, language = "R", export = "cmd_tools", cue = "always"}
@@ -148,14 +125,8 @@ if(!skip_recon && fs_reconstructed) {
 }
 
 ct <- file.path(subject$preprocess_settings$raw_path, path_ct)
-if( is.null(cmd_tools$afni) ) {
-  warns <- append(warns, "AFNI path is missing/invalid: cannot use AFNI-ALICE co-registration script.")
-} else if ( is.null(cmd_tools$flirt) ) {
-  warns <- append(warns, "FSL home is missing/invalid: cannot use FSL-FLIRT co-registration script.")
-} else {
-  if(!path_is_valid(ct, dir_ok = TRUE)) {
-    warns <- append(warns, "The CT path is invalid: co-registration will result in errors.")
-  }
+if(!path_is_valid(ct, dir_ok = TRUE)) {
+  warns <- append(warns, "The CT path is invalid: co-registration will result in errors.")
 }
 
 if(!skip_recon) {
@@ -193,6 +164,41 @@ check_result <- list(
   messages = msgs,
   warnings = warns
 )
+```
+
+### ACPC Re-alignment
+
+```{rave generate_viewer_for_ACPC_alignment, export = "viewer_acpc", cue = "always", echo=FALSE, format="rave-brain"}
+path_root <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+mri_path <- file.path(path_root, "inputs", "MRI", acpc_infile)
+
+if( length(mri_path) ) {
+  acpc_root <- file.path(path_root, "acpc-alignment")
+  if(!isTRUE(file.exists(mri_path))) {
+    stop("Invalid file [", paste(mri_path, collapse = ""), "] for ACPC alignment.")
+  }
+  acpc_mri_dir <- file.path(acpc_root, "mri")
+  if(file.exists(acpc_mri_dir)) {
+    unlink(acpc_mri_dir, recursive = TRUE)
+  }
+  raveio::dir_create2(acpc_mri_dir)
+  
+  # RNifti is available since RNiftyReg depends on it
+  mri <- RNifti::readNifti(mri_path, internal = TRUE)
+  RNifti::writeNifti(mri, file.path(acpc_mri_dir, "brain.nii.gz"))
+  viewer_acpc <- threeBrain::threeBrain(
+    path = acpc_root,
+    subject_code = subject$subject_code
+  )
+} else {
+  viewer_acpc <- NULL
+}
+
+## Code to show viewer
+# viewer_acpc$plot(
+#   control_presets = "acpcrealign",
+#   background = "#000000", 
+# )
 ```
 
 ### Generate command-line scripts
@@ -278,8 +284,8 @@ Find imported volume (in `Nifti` format) under the following folder:
 
 The imported MRI will be used to reconstruct `FreeSurfer` surface. Normally the entire process will take 6-12 hours. However, if you just want to localize electrodes, then choose the `flag` to be `-autorecon1`. This flag only normalize and skull-strip the MRI. This sub-procedure only takes 8-10 minutes.
 
-```{rave FreeSurfer_reconstruction, export = "fs_recon", cue = "always", echo=FALSE}
-fs_recon <- tryCatch({
+```{rave Image_segmentation, export = "image_segmentation", cue = "always", echo=FALSE}
+image_segmentation <- tryCatch({
   mri_path <- params$nii_t1
   mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
   mri_path <- file.path(mri_root, mri_path)
@@ -287,20 +293,138 @@ fs_recon <- tryCatch({
     stop("Please choose a Nifti file under ", mri_root)
   }
   
-  autorecon_flags <- c(
-    "-autorecon1", "-all", "-autorecon2", "-autorecon3",
-    "-autorecon2-cp", "-autorecon2-wm", "-autorecon2-pial"
+  mri_postfix <- gsub("^.*\\.(nii|nii\\.gz)$", "\\1", basename(mri_path))
+  
+  overwrite <- isTRUE(params$segmentation$fresh_start)
+  
+  switch(
+    paste(params$segmentation$program, collapse = ""),
+    "recon-all" = {
+      autorecon_flags <- c(
+        "-autorecon1", "-all", "-autorecon2", "-autorecon3",
+        "-autorecon2-cp", "-autorecon2-wm", "-autorecon2-pial"
+      )
+      flag <- params$segmentation$flag %OF% autorecon_flags
+      raveio::cmd_run_recon_all(
+        subject = subject,
+        mri_path = mri_path,
+        args = flag,
+        overwrite = overwrite,
+        dry_run = TRUE,
+        verbose = FALSE,
+        command_path = cmd_tools$freesurfer
+      )
+    },
+    "recon-all-clinical.sh" = {
+      raveio::cmd_run_recon_all_clinical(
+        subject = subject,
+        mri_path = mri_path,
+        overwrite = overwrite,
+        dry_run = TRUE,
+        verbose = FALSE,
+        command_path = cmd_tools$freesurfer
+      )
+    },
+    "YAEL+recon-all" = {
+      raveio::cmd_run_yael_preprocess(
+        subject_code = subject$subject_code,
+        t1w_path = mri_path, 
+        normalize_template = c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"),
+        run_recon_all = TRUE,
+        dry_run = TRUE,
+        verbose = FALSE
+      )
+    },
+    "ants-preprocessing" = {
+      raveio::cmd_run_r(
+        dry_run = TRUE,
+        verbose = FALSE,
+        quoted = TRUE, 
+        expr = bquote({
+          subject <- raveio::as_rave_subject(.(subject$subject_id))
+          
+          mri_src <- .(mri_path)
+          ants_dirpath <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "ants")
+          
+          raveio::ants_preprocessing(
+            work_path = ants_dirpath,
+            image_path = mri_src,
+            resample = TRUE,
+            verbose = TRUE,
+            template_subject = .(raveio::raveio_getopt("threeBrain_template_subject"))
+          )
+          
+          # Backup, also used by coreg
+          deriv_path <-
+            file.path(subject$preprocess_settings$raw_path,
+                      "rave-imaging",
+                      "derivative")
+          raveio::dir_create2(deriv_path)
+          file.copy(
+            from = mri_src,
+            to = file.path(deriv_path, .(sprintf("MRI_RAW.%s", mri_postfix))),
+            overwrite = TRUE,
+            recursive = FALSE,
+            copy.mode = TRUE,
+            copy.date = TRUE
+          )
+          file.copy(
+            from = file.path(ants_dirpath, "mri", "resampled.nii.gz"),
+            to = file.path(deriv_path, "T1-ants.nii.gz"),
+            overwrite = TRUE,
+            recursive = FALSE,
+            copy.mode = TRUE,
+            copy.date = TRUE
+          )
+
+          message("Done")
+        })
+      )
+    },
+    {
+      raveio::cmd_run_r(
+        dry_run = TRUE,
+        verbose = FALSE,
+        quoted = TRUE, 
+        expr = bquote({
+          subject <- raveio::as_rave_subject(.(subject$subject_id))
+          image_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+          
+          mri_src <- .(mri_path)
+          mri_dirpath <- file.path(image_path, "fs", "mri")
+          mri_dst <- file.path(mri_dirpath, .(sprintf("brain.%s", mri_postfix)))
+          
+          # make sure dir exists
+          raveio::dir_create2(mri_dirpath)
+          
+          file.copy(
+            from = mri_src,
+            to = mri_dst,
+            overwrite = .(overwrite),
+            recursive = FALSE,
+            copy.mode = TRUE,
+            copy.date = TRUE
+          )
+          
+          # Backup, also used by coreg
+          deriv_path <- file.path(image_path, "derivative")
+          raveio::dir_create2(deriv_path)
+          file.copy(
+            from = mri_src,
+            to = file.path(deriv_path, .(sprintf("MRI_RAW.%s", mri_postfix))),
+            overwrite = TRUE,
+            recursive = FALSE,
+            copy.mode = TRUE,
+            copy.date = TRUE
+          )
+
+          message("Done")
+        })
+      )
+    }
   )
-  flag <- params$freesurfer$flag %OF% autorecon_flags
-  raveio::cmd_run_recon_all(
-    subject = subject,
-    mri_path = mri_path,
-    args = flag,
-    overwrite = params$freesurfer$fresh_start,
-    dry_run = TRUE,
-    verbose = FALSE,
-    command_path = cmd_tools$freesurfer
-  )
+  
+  
 }, error = function(e) {
   list(
     error = TRUE,
@@ -313,7 +437,7 @@ fs_recon <- tryCatch({
 <pre class="sh">
 <code class="hljs">
 ```{r, results='asis', echo=FALSE}
-cmd <- fs_recon
+cmd <- image_segmentation
 if(isTRUE(cmd$error)) {
   cat("Error: ", cmd$condition$message, "\n")
 } else {

@@ -2,12 +2,12 @@
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
   shiny::div(
-    class = "container",
+    class = "container-fluid", style = "max-width: 1600px",
     shiny::fluidRow(
       shiny::column(
-        width = 6L,
+        width = 5L,
         ravedash::input_card(
-          title = "Data Selection",
+          title = "Subject Selection",
           class_header = "",
 
           ravedash::flex_group_box(
@@ -27,9 +27,29 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
               shiny::br(),
               loader_sync3$ui_func()
             )
+          )
+        ),
+        shidashi::card_tabset(
+          title = "Image Selection",
+          inputId = ns("image_selection_tabset"),
+          class_header = "",
+          class_body = "padding-10",
+          "Preprocess" = ravedash::flex_group_box(
+            title = "Fast preprocess on the fly",
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              dipsaus::fancyFileInput(ns("loader_preprocess_t1"), "Upload T1w.nii[.gz]", size = "s")
+            ),
+            shidashi::flex_item(
+              dipsaus::fancyFileInput(ns("loader_preprocess_ct"), "Upload CT.nii[.gz]", size = "s")
+            ),
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              dipsaus::actionButtonStyled(ns("loader_preprocess_run"), "Run YAEL preprocess pipeline", width = "100%")
+            )
           ),
-          ravedash::flex_group_box(
-            title = "Data to load",
+          "Data selector" = ravedash::flex_group_box(
+            title = "Image data to load",
 
             shidashi::flex_item(
               shiny::selectInput(
@@ -58,13 +78,6 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                     label = "Choose CT",
                     choices = character(0L)
                   )
-                ),
-                shidashi::flex_item(
-                  shiny::fileInput(
-                    inputId = ns("loader_ct_upload"),
-                    label = "Upload .nii file", multiple = FALSE,
-                    accept = c(".nii", ".gz")
-                  )
                 )
               ),
               shiny::conditionalPanel(
@@ -77,7 +90,9 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                       label = "Choose raw MRI",
                       choices = character(0L)
                     )
-                  ),
+                  )
+                ),
+                shidashi::flex_container(
                   shidashi::flex_item(
                     shiny::selectInput(
                       inputId = ns("loader_transform_fname"),
@@ -96,13 +111,10 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
             )
           )
-
-
-
         )
       ),
       shiny::column(
-        width = 6L,
+        width = 7L,
         ravedash::input_card(
           title = "Electrode Plan",
           class_header = "",
@@ -116,10 +128,10 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             label_color = "#c8c9ca",
             components = shidashi::flex_container(
               class = "margin-m10",
-              shidashi::flex_item(shiny::textInput("label", "Group label")),
-              shidashi::flex_item(shiny::textInput("dimension", "Dimension")),
-              shidashi::flex_item(shiny::selectInput("type", "Type", choices = raveio::LOCATION_TYPES)),
-              shidashi::flex_item(shiny::selectInput("hemisphere", "Hemisphere",
+              shidashi::flex_item(size = 2, shiny::textInput("label", "GroupLabel")),
+              shidashi::flex_item(size = 2, shiny::textInput("dimension", "Channels")),
+              shidashi::flex_item(size = 4, shiny::selectInput("type", "Type", choices = electrode_types)),
+              shidashi::flex_item(size = 1, shiny::selectInput("hemisphere", "Hemisphere",
                                                      choices = c("auto", "left", "right"))),
               shidashi::flex_break(),
               shidashi::flex_item(shiny::tags$small(
@@ -150,42 +162,20 @@ loader_server <- function(input, output, session, ...){
     input$loader_plan
   }), millis = 300)
 
+  local_reactives <- shiny::reactiveValues()
+  local_data <- dipsaus::fastmap2()
+
   shiny::bindEvent(
     ravedash::safe_observe({
-      plan <- get_plan()
-      n <- 0
-      labels <- list()
-      for(ii in seq_along(plan)) {
+      plan <- summarize_plan_list( get_plan() )
+
+      lapply(seq_along(plan), function(ii) {
         item <- plan[[ii]]
-        dimension <- dipsaus::parse_svec(item$dimension, unique = FALSE, sep = "[,x]")
-        dimension <- dimension[!is.na(dimension)]
-        if(!length(dimension) || any(dimension <= 0)) {
-          ne <- 0
+        if(is.null(item)) {
+          msg <- "No channel in this group. This group will be skipped."
         } else {
-          ne <- prod(dimension)
+          msg <- item$msg
         }
-
-        label <- trimws(item$label)
-        if(!nchar(label)) {
-          label <- "NoLabel"
-        }
-        if(!label %in% names(labels)) {
-          labels[[label]] <- 0
-        }
-        type <- item$type
-
-        if(ne == 0) {
-          msg <- "No electrode in this group; please enter a valid electrode dimension."
-        } else if(ne == 1){
-          msg <- sprintf("Electrode %d (%s%.0f): total 1 %s electrode",
-                         n + 1, label, labels[[label]] + 1, type)
-        } else {
-          msg <- sprintf("Electrode %d (%s%.0f) - %d (%s%.0f): total %.0f %s electrodes",
-                         n + 1, label, labels[[label]] + 1, n + ne, label, labels[[label]] + ne, ne, type)
-        }
-        n <- n + ne
-        labels[[label]] <- labels[[label]] + ne
-
         session$sendCustomMessage(
           "shidashi.set_html",
           list(
@@ -193,11 +183,51 @@ loader_server <- function(input, output, session, ...){
             content = msg
           )
         )
-      }
+      })
+
     }),
     get_plan(),
     ignoreNULL = TRUE, ignoreInit = FALSE
   )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      clip_text <- local_data$clip_text
+      title <- local_data$clip_title
+      if( !length(clip_text) ) { return() }
+      if( !length(title) ) { title <- "Notification!" }
+
+      local_data$clip_text <- NULL
+      local_data$clip_title <- NULL
+
+      shidashi::show_notification(
+        message = shiny::div(
+          paste(local_data$clip_message, collapse = ""),
+          shiny::hr(),
+          shiny::pre(
+            class='pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output',
+            `data-dismiss`="toast",
+            type = "button",
+            `aria-label`="Close",
+            `data-clipboard-text` = clip_text,
+            shiny::code( clip_text )
+          )
+        ),
+        title = title,
+        autohide = FALSE, close = TRUE,
+        icon = ravedash::shiny_icons$terminal, session = session
+      )
+    }),
+    local_reactives$show_clipboard_notification,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  show_notification_with_clipboard <- function(title, message, clip_text) {
+    local_data$clip_text <- clip_text
+    local_data$clip_title <- title
+    local_data$clip_message <- message
+    local_reactives$show_clipboard_notification <- Sys.time()
+  }
 
   load_coreg_params <- function() {
     project_name <- loader_project$get_sub_element_input()
@@ -210,7 +240,7 @@ loader_server <- function(input, output, session, ...){
                                        subject_code = subject_code,
                                        strict = FALSE)
     fs_path <- subject$freesurfer_path
-    if( !file.exists(fs_path) ) { return() }
+    if( length(fs_path) != 1 || is.na(fs_path) || !file.exists(fs_path) ) { return() }
 
     path_coreg_conf <- file.path(subject$preprocess_settings$raw_path, "rave-imaging",
                                  "derivative", "conf-coregistration.yaml")
@@ -221,6 +251,10 @@ loader_server <- function(input, output, session, ...){
     )
 
     localization_method <- "Re-sampled CT"
+
+    ct_name <- character()
+    mri_name <- character()
+    trans_name <- NULL
 
     if( file.exists(path_coreg_conf) ) {
       coreg_conf <- raveio::load_yaml(path_coreg_conf)
@@ -341,6 +375,11 @@ loader_server <- function(input, output, session, ...){
         session = session, inputId = "loader_transform_fname",
         choices = character(0L)
       )
+      shidashi::card_tabset_activate(
+        inputId = "image_selection_tabset",
+        title = "Preprocess",
+        notify_on_failure = FALSE
+      )
       return()
     }
 
@@ -372,106 +411,22 @@ loader_server <- function(input, output, session, ...){
       selected = coreg_params$transform_filename
     )
 
-    electrode_file <- file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv"))
-    electrode_file <- electrode_file[file.exists(electrode_file)]
-
-    plan <- list()
-    if(length(electrode_file)) {
-      electrode_file <- electrode_file[[1]]
-      table <- raveio::safe_read_csv(electrode_file)
-      if(all(c('Electrode', "Label") %in% names(table))) {
-        if(!"LocationType" %in% names(table)) {
-          table$LocationType <- raveio::LOCATION_TYPES[[1]]
-        } else {
-          table$LocationType[!table$LocationType %in% raveio::LOCATION_TYPES] <- raveio::LOCATION_TYPES[[1]]
-        }
-        if(!"Dimension" %in% names(table)) {
-          table$Dimension <- ""
-        }
-        if(!"Hemisphere" %in% names(table)) {
-          table$Hemisphere <- "auto"
-        }
-
-        table$LabelPrefix <- gsub("[0-9]+$", "", table$Label)
-        table <- table[order(table$Electrode),]
-
-        current_dim <- ""
-        current_prefix <- ""
-        current_type <- "iEEG"
-        current_hemisphere <- "auto"
-        current_e <- NULL
-
-        for(ii in seq_len(nrow(table))) {
-          sub <- table[ii,]
-          if(!length(current_e)) {
-            current_e <- c(current_e, sub$Electrode)
-            current_dim <- sub$Dimension
-            current_prefix <- sub$LabelPrefix
-            current_type <- sub$LocationType
-            current_hemisphere <- sub$Hemisphere
-          } else {
-            if(!identical(current_dim, sub$Dimension) ||
-               !identical(current_prefix, sub$LabelPrefix) ||
-               !identical(current_type, sub$LocationType) ||
-               !identical(current_hemisphere, sub$Hemisphere) ||
-               sub$Electrode != current_e[[length(current_e)]] + 1) {
-
-              # check dimension
-              dimension <- length(current_e)
-              if(current_dim != "") {
-                dm <- dipsaus::parse_svec(current_dim, unique = TRUE, sep = "[,x]")
-                dm <- dm[!is.na(dm)]
-                if(length(dm) && prod(dm) == dimension) {
-                  dimension <- current_dim
-                }
-              }
-              plan[[length(plan) + 1]] <- list(
-                label = current_prefix,
-                dimension = as.character(dimension),
-                type = current_type,
-                hemisphere = current_hemisphere
-              )
-              current_e <- sub$Electrode
-              current_dim <- sub$Dimension
-              current_prefix <- sub$LabelPrefix
-              current_type <- sub$LocationType
-              current_hemisphere <- sub$Hemisphere
-
-            } else {
-              current_e <- c(current_e, sub$Electrode)
-            }
-          }
-        }
-
-        if(length(current_e)) {
-          # check dimension
-          dimension <- length(current_e)
-          if(current_dim != "") {
-            dm <- dipsaus::parse_svec(current_dim, unique = TRUE, sep = "[,x]")
-            dm <- dm[!is.na(dm)]
-            if(length(dm) && prod(dm) == dimension) {
-              dimension <- current_dim
-            }
-          }
-          plan[[length(plan) + 1]] <- list(
-            label = current_prefix,
-            dimension = as.character(dimension),
-            type = current_type,
-            hemisphere = current_hemisphere
-          )
-        }
-
-      }
+    if(!length(coreg_params$ct_filename) && !isTRUE(coreg_params$method %in% "Localize without CT")) {
+      shidashi::card_tabset_activate(
+        inputId = "image_selection_tabset",
+        title = "Preprocess",
+        notify_on_failure = FALSE
+      )
+    } else {
+      shidashi::card_tabset_activate(
+        inputId = "image_selection_tabset",
+        title = "Data selector",
+        notify_on_failure = FALSE
+      )
     }
 
-    if(!length(plan)) {
-      plan <- list(list(
-        label = "NoLabel",
-        dimension = as.character(length(subject$preprocess_settings$electrodes)),
-        type = "iEEG",
-        hemisphere = "auto"
-      ))
-    }
+    plan <- read_plan_list( file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv")) )
+
     dipsaus::updateCompoundInput2(
       session = session,
       inputId = "loader_plan",
@@ -488,45 +443,124 @@ loader_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+
   shiny::bindEvent(
     ravedash::safe_observe({
 
       if(!loader_project$sv$is_valid() || !loader_subject$sv$is_valid()) {
         loading_error("Invalid project/subject. Please specify a valid subject first before uploading CT.")
-        refresh_ct_chocies()
         return()
       }
       project_name <- loader_project$get_sub_element_input()
       subject_code <- loader_subject$get_sub_element_input()
-      subject <- raveio::RAVESubject$new(project_name = project_name,
-                                         subject_code = subject_code,
-                                         strict = FALSE)
-      fs_path <- subject$freesurfer_path
-      if(length(fs_path) == 0 || is.na(fs_path) || !dir.exists(fs_path)) {
-        loading_error("Cannot find surface/volume reconstruction directory. Please at least run FreeSurfer autorecon1 (only ~10 min)")
-        refresh_ct_chocies()
-        return()
-      }
 
-      finfo <- input$loader_ct_upload
-      fname <- NULL
-      if(nrow(finfo) == 1) {
-        fname <- finfo$name
-        if(!grepl("nii(?:\\.gz)?$", x = fname, ignore.case = TRUE)) {
-          shidashi::show_notification("Please make sure the file ends with [nii] or [nii.gz]. Do not try to decompress or to remove the nii postfix in the file.", title = "Invalid extension", type = "danger", autohide = TRUE, class = "error_notif")
+      dipsaus::shiny_alert2(
+        title = "Checking current environment",
+        icon = "info",
+        text = "Loading Python environment and checking images...",
+        auto_close = FALSE, buttons = FALSE, session = session
+      )
+      on.exit({
+        Sys.sleep(0.5)
+        dipsaus::close_alert2()
+      })
+
+      yael_process <- raveio::YAELProcess$new(subject_code = subject_code)
+
+      t1w <- input$loader_preprocess_t1
+      if(length(t1w)) {
+        if(endsWith(tolower(t1w$name), "nii.gz")) {
+          new_path <- gsub(
+            pattern = "gz$",
+            replacement = "nii.gz",
+            x = t1w$datapath,
+            ignore.case = TRUE
+          )
+          file.copy(t1w$datapath, new_path, overwrite = TRUE)
+          unlink(t1w$datapath)
+          t1w$datapath <- new_path
         }
-        fname <- sprintf(
-          "upload-%s-%s",
-          strftime(Sys.time(), "%y%m%d-%H%M%S"),
-          fname
-        )
-        pdir <- raveio::dir_create2(file.path(fs_path, "coregistration"))
-        file.copy(finfo$datapath, file.path(pdir, fname), overwrite = TRUE, recursive = FALSE)
+        yael_process$set_input_image(path = t1w$datapath,
+                                     type = "T1w",
+                                     overwrite = TRUE)
+        unlink(t1w$datapath)
       }
 
-      refresh_ct_chocies()
-    }),
-    input$loader_ct_upload,
+      ct <- input$loader_preprocess_ct
+      if(length(ct)) {
+        if(endsWith(tolower(ct$name), "nii.gz")) {
+          new_path <- gsub(
+            pattern = "gz$",
+            replacement = "nii.gz",
+            x = ct$datapath,
+            ignore.case = TRUE
+          )
+          file.copy(ct$datapath, new_path, overwrite = TRUE)
+          unlink(ct$datapath)
+          ct$datapath <- new_path
+        }
+        yael_process$set_input_image(path = ct$datapath,
+                                     type = "CT",
+                                     overwrite = TRUE)
+        unlink(ct$datapath)
+      }
+
+      t1w_path <- yael_process$get_input_image("T1w")
+      ct_path <- yael_process$get_input_image("CT")
+
+      if(!length(t1w_path)) {
+        stop("T1w MRI image is missing. Please upload one.")
+      }
+      if(!length(ct_path)) {
+        stop("CT image is missing. Please upload one.")
+      }
+
+      subject <- yael_process$get_subject(project_name = project_name)
+      subject$initialize_paths(include_freesurfer = FALSE)
+
+      simple_cmd <- raveio::cmd_run_yael_preprocess(
+        subject_code = subject_code,
+        normalize_template = NULL,
+        run_recon_all = FALSE,
+        dry_run = TRUE
+      )
+      complete_cmd <- raveio::cmd_run_yael_preprocess(
+        subject_code = subject_code,
+        normalize_template = c(
+          "mni_icbm152_nlin_asym_09b",
+          "mni_icbm152_nlin_asym_09a",
+          "mni_icbm152_nlin_asym_09c"
+        ),
+        run_recon_all = TRUE,
+        dry_run = TRUE
+      )
+
+      ravedash::clear_notifications(class = ns("loader_preprocess_notif"))
+
+      complete_script <- complete_cmd$execute(dry_run = TRUE, backup = FALSE)
+      run_command_pipeline(
+        simple_cmd,
+        wait = FALSE,
+        title = "YAEL Preprocessing",
+        command = simple_cmd$command,
+        session = session,
+        on_modal_removal = function() {
+          refresh_ct_chocies()
+          show_notification_with_clipboard(
+            title = "Finish the rest of pipeline!",
+            message = paste0(
+              "The first phase of the image pipeline is finished. ",
+              "You can start to localize electrodes now. ",
+              "However, to get more accurate results, ",
+              "please finish the rest steps by opening your terminal ",
+              "and pasting the command below:"),
+            clip_text = complete_script
+          )
+        }
+      )
+
+    }, error_wrapper = "alert"),
+    input$loader_preprocess_run,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 

@@ -549,7 +549,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       outputs_need_update()
 
-      env <- pipeline$eval(names = "plot_filtered_signals", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_filtered_signals", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_filtered_signals
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = ""))
@@ -573,7 +573,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       outputs_need_update(message = "")
 
-      env <- pipeline$eval(names = "plot_filtered_signals_subset", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_filtered_signals_subset", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_filtered_signals_subset
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = "Please draw a range from figure to my left."))
@@ -586,7 +586,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       outputs_need_update(message = "")
 
-      env <- pipeline$eval(names = "plot_pwelch", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_pwelch", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_pwelch
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = ""))
@@ -801,7 +801,7 @@ module_server <- function(input, output, session, ...){
 
       outputs_need_update(message = "")
 
-      env <- pipeline$eval(names = "plot_pwelch_subset", env = plot_env, clean = FALSE)
+      env <- pipeline$eval(names = "plot_pwelch_subset", env = plot_env, clean = FALSE, shortcut = TRUE)
       msg <- env$plot_pwelch_subset
       shiny::validate(
         shiny::need(isTRUE(msg), message = paste(msg, collapse = ""))
@@ -966,20 +966,20 @@ module_server <- function(input, output, session, ...){
             }
 
             // set camera
-            canvas.main_camera.position.set(
+            canvas.mainCamera.position.set(
               {{ position[[1]] }} ,
               {{ position[[2]] }} ,
               {{ position[[3]] }}
             );
-            canvas.main_camera.up.set(
+            canvas.mainCamera.up.set(
               {{ up[[1]] }} ,
               {{ up[[2]] }} ,
               {{ up[[3]] }}
             )
-            canvas.main_camera.updateProjectionMatrix();
+            canvas.mainCamera.updateProjectionMatrix();
 
             // Force render one frame (update the canvas)
-            canvas.start_animation(0);
+            canvas.needsUpdate = true;
             ',
             .open = "{{", .close = "}}"
           )
@@ -998,7 +998,7 @@ module_server <- function(input, output, session, ...){
 
   ravedash::register_output(
     outputId = "3dviewer",
-    export_type = "3dviewer",
+    output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
       wg <- local_reactives$brain_widget
       shiny::validate(

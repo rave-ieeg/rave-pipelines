@@ -55,6 +55,7 @@ module_server <- function(input, output, session, ...){
 
       # There is not too many interaction, so update everytime
       check_result <- pipeline$read(var_names = "check_result")
+      print(check_result)
       cmd_tools <- pipeline$read(var_names = "cmd_tools")
       local_reactives$project_name <- check_result$project_name
       local_reactives$subject_code <- check_result$subject_code
@@ -68,13 +69,16 @@ module_server <- function(input, output, session, ...){
         skip_recon = check_result$skip_recon,
         skip_coregistration = check_result$skip_coregistration
       )
+      local_reactives$acpc <- list()
       local_reactives$tools <- cmd_tools
+      local_reactives$viewer_acpc <- NULL
+      local_reactives$acpc_alignment <- NULL
       local_reactives$build_command <- Sys.time()
 
       shidashi::card_operate(title = "Import DICOM Folders or Nifti Images", method = "collapse")
-      shidashi::card_operate(title = "Surface Reconstruction", method = "collapse")
-      shidashi::card_operate(title = "Co-registration CT to T1", method = "collapse")
-      shidashi::card_operate(title = "Align MRI to Template", method = "collapse")
+      shidashi::card_operate(title = "MRI Preprocessing", method = "collapse")
+      shidashi::card_operate(title = "Co-registration CT and T1", method = "collapse")
+      shidashi::card_operate(title = "ACPC Re-alignment (Optional)", method = "collapse")
 
       component_container$reset_data()
       component_container$data$subject <- raveio::RAVESubject$new(
@@ -95,9 +99,9 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       shidashi::card_operate(title = "Import DICOM Folders or Nifti Images", method = "expand")
-      shidashi::card_operate(title = "Surface Reconstruction", method = "collapse")
-      shidashi::card_operate(title = "Co-registration CT to T1", method = "collapse")
-      shidashi::card_operate(title = "Align MRI to Template", method = "collapse")
+      shidashi::card_operate(title = "MRI Preprocessing", method = "collapse")
+      shidashi::card_operate(title = "Co-registration CT and T1", method = "collapse")
+      shidashi::card_operate(title = "ACPC Re-alignment (Optional)", method = "collapse")
     }),
     input$jump_import_dicom,
     ignoreInit = TRUE, ignoreNULL = TRUE
@@ -105,9 +109,9 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       shidashi::card_operate(title = "Import DICOM Folders or Nifti Images", method = "collapse")
-      shidashi::card_operate(title = "Surface Reconstruction", method = "expand")
-      shidashi::card_operate(title = "Co-registration CT to T1", method = "collapse")
-      shidashi::card_operate(title = "Align MRI to Template", method = "collapse")
+      shidashi::card_operate(title = "MRI Preprocessing", method = "expand")
+      shidashi::card_operate(title = "Co-registration CT and T1", method = "collapse")
+      shidashi::card_operate(title = "ACPC Re-alignment (Optional)", method = "collapse")
     }),
     input$jump_recon,
     ignoreInit = TRUE, ignoreNULL = TRUE
@@ -115,9 +119,9 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       shidashi::card_operate(title = "Import DICOM Folders or Nifti Images", method = "collapse")
-      shidashi::card_operate(title = "Surface Reconstruction", method = "collapse")
-      shidashi::card_operate(title = "Co-registration CT to T1", method = "expand")
-      shidashi::card_operate(title = "Align MRI to Template", method = "collapse")
+      shidashi::card_operate(title = "MRI Preprocessing", method = "collapse")
+      shidashi::card_operate(title = "Co-registration CT and T1", method = "expand")
+      shidashi::card_operate(title = "ACPC Re-alignment (Optional)", method = "collapse")
     }),
     input$jump_coregistration,
     ignoreInit = TRUE, ignoreNULL = TRUE
@@ -125,11 +129,11 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       shidashi::card_operate(title = "Import DICOM Folders or Nifti Images", method = "collapse")
-      shidashi::card_operate(title = "Surface Reconstruction", method = "collapse")
-      shidashi::card_operate(title = "Co-registration CT to T1", method = "collapse")
-      shidashi::card_operate(title = "Align MRI to Template", method = "expand")
+      shidashi::card_operate(title = "MRI Preprocessing", method = "collapse")
+      shidashi::card_operate(title = "Co-registration CT and T1", method = "collapse")
+      shidashi::card_operate(title = "ACPC Re-alignment (Optional)", method = "expand")
     }),
-    input$jump_mri_template_registration,
+    input$jump_acpc_realign,
     ignoreInit = TRUE, ignoreNULL = TRUE
   )
 
@@ -154,53 +158,25 @@ module_server <- function(input, output, session, ...){
         shiny::tags$li(
           shiny::actionLink(
             inputId = ns("jump_import_dicom"),
-            label = shiny::tagList(
-              "Import DICOM or Nifti images ", local({
-                if(length(tools$dcm2niix) == 1 &&
-                   !is.na(tools$dcm2niix) &&
-                   isTRUE(file.exists(tools$dcm2niix))) {
-                  shiny::span(type = "primary", ravedash::shiny_icons$arrow_right)
-                } else {
-                  shiny::icon("times")
-                }
-              })
-            )
+            label = "Import DICOM or Nifti images "
+          )
+        ),
+        shiny::tags$li(
+          shiny::actionLink(
+            inputId = ns("jump_acpc_realign"),
+            label = "ACPC Re-alignment (Optional)"
           )
         ),
         shiny::tags$li(
           shiny::actionLink(
             inputId = ns("jump_recon"),
-            label = shiny::tagList(
-              "Surface reconstruction ", local({
-                if(actions$skip_recon) {
-                  shiny::icon("times")
-                } else {
-                  ravedash::shiny_icons$arrow_right
-                }
-              })
-            )
+            label = "MRI Preprocessing"
           )
         ),
         shiny::tags$li(
           shiny::actionLink(
             inputId = ns("jump_coregistration"),
-            label = shiny::tagList(
-              "CT co-registration ", local({
-                if(actions$skip_coregistration) {
-                  shiny::icon("times")
-                } else {
-                  ravedash::shiny_icons$arrow_right
-                }
-              })
-            )
-          )
-        ),
-        shiny::tags$li(
-          shiny::actionLink(
-            inputId = ns("jump_mri_template_registration"),
-            label = shiny::tagList(
-              "Align MRI to template ", ravedash::shiny_icons$arrow_right
-            )
+            label = "CT MRI co-registration"
           )
         )
       )
@@ -234,6 +210,13 @@ module_server <- function(input, output, session, ...){
       session = session, inputId = "param_fs_infile",
       choices = choices, selected = selected
     )
+
+    choices <- choices[!endsWith(choices, "ACPC.nii.gz")]
+    selected <- input$param_acpc_infile %OF% choices
+    shiny::updateSelectInput(
+      session = session, inputId = "param_acpc_infile",
+      choices = choices, selected = selected
+    )
   }
 
   update_nii_ct <- function(){
@@ -264,7 +247,7 @@ module_server <- function(input, output, session, ...){
     deriv_path <- shiny::isolate(file.path(local_reactives$temp_dir, "derivative"))
     choices <- list.files(
       deriv_path,
-      pattern = "\\.(nii|\\.nii\\.gz)$",
+      pattern = "\\.(nii|nii\\.gz)$",
       full.names = FALSE,
       recursive = FALSE,
       ignore.case = TRUE,
@@ -286,6 +269,7 @@ module_server <- function(input, output, session, ...){
       update_nii_t1()
     }),
     input$param_fs_refresh,
+    input$param_acpc_refresh,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
@@ -425,22 +409,26 @@ module_server <- function(input, output, session, ...){
 
     promise <- promises::promise(function(resolve, reject) {
       listener <- function() {
-        if(is.function(check)) {
-          code <- check()
-        } else {
-          code <- check
-        }
-        path <- cmd$log_file
-        if(length(path) != 1 || is.na(path) || !file.exists(path) || path == '') {
-          msg <- NULL
-        } else {
-          suppressWarnings({
-            msg <- readLines(path)
-          })
-          if(!length(msg) || isTRUE(msg == "")) {
-            msg <- "Waiting for outputs..."
+        code <- 0
+        msg <- "Waiting for outputs..."
+        try({
+          if(is.function(check)) {
+            code <- check()
+          } else {
+            code <- check
           }
-        }
+          path <- cmd$log_file
+          if(length(path) != 1 || is.na(path) || !file.exists(path) || path == '') {
+            msg <- NULL
+          } else {
+            suppressWarnings({
+              msg <- readLines(path)
+            })
+            if(!length(msg) || isTRUE(msg == "")) {
+              msg <- "Waiting for outputs..."
+            }
+          }
+        })
 
         if(code == 0) {
           renderMsg(c(msg, "Finished."))
@@ -558,9 +546,9 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      # cmd <- res$fs_recon
+      # cmd <- res$image_segmentation
       # cmd2 <- res$import_CT
-      cmd <- local_reactives$bash_scripts$fs_recon
+      cmd <- local_reactives$bash_scripts$image_segmentation
       if(isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
@@ -594,7 +582,7 @@ module_server <- function(input, output, session, ...){
   )
   shiny::bindEvent(
     ravedash::safe_observe({
-      cmd <- local_reactives$bash_scripts$fs_recon
+      cmd <- local_reactives$bash_scripts$image_segmentation
       if(isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
@@ -784,10 +772,48 @@ module_server <- function(input, output, session, ...){
         float = input$param_dcm2niix_float,
         crop = input$param_dcm2niix_crop
       ),
-      freesurfer = list(
-        flag = input$param_fs_steps,
-        fresh_start = isTRUE(input$param_fs_fresh_start)
-      ),
+      segmentation = local({
+        switch(
+          paste(input$param_fs_prog, collapse = ""),
+          "recon-all -all" = {
+            list(
+              program = "recon-all",
+              flag = "-all",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "recon-all -autorecon1" = {
+            list(
+              program = "recon-all",
+              flag = "-autorecon1",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "recon-all-clinical.sh" = {
+            list(
+              program = "recon-all-clinical.sh",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "ants-preprocessing" = {
+            list(
+              program = "ants-preprocessing"
+            )
+          },
+          "YAEL+recon-all" = {
+            list(
+              program = "YAEL+recon-all",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          {
+            list(
+              program = "simple-import",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          }
+        )
+      }),
       niftyreg = list(
         reference = input$param_coreg_mri,
         reg_type = input$coreg_niftyreg_type,
@@ -900,7 +926,7 @@ module_server <- function(input, output, session, ...){
       ct_preview_path()
     ),
     ct_preview_path(),
-    ignoreNULL = FALSE, ignoreInit = FALSE
+    ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
 
@@ -981,7 +1007,7 @@ module_server <- function(input, output, session, ...){
       mri_preview_path()
     ),
     mri_preview_path(),
-    ignoreNULL = FALSE, ignoreInit = FALSE
+    ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
 
@@ -998,8 +1024,9 @@ module_server <- function(input, output, session, ...){
       shidashi::clear_notifications(class = ns("error_notif"))
 
       res <- pipeline$eval(
-        names = c("settings", 'subject', "params", "import_T1",
-                  "import_CT", "fs_recon", "morphmri_ants",
+        names = c("settings", "params", 'subject', "check_result",
+                  "import_T1", "import_CT", "image_segmentation",
+                  "morphmri_ants",
                   "coreg_flirt", "coreg_niftyreg", "coreg_ants",
                   "coreg_3dallineate", "coreg_nipy"),
         env = local_env, clean = FALSE
@@ -1007,7 +1034,7 @@ module_server <- function(input, output, session, ...){
       # res <- pipeline$run(
       #   as_promise = FALSE,
       #   names = c("settings", 'subject', "params", "import_T1", "import_CT",
-      #             "fs_recon", "coreg_flirt", "coreg_3dallineate"),
+      #             "image_segmentation", "coreg_flirt", "coreg_3dallineate"),
       #   type = "vanilla",
       #   scheduler = "none",
       #   shortcut = TRUE
@@ -1067,8 +1094,8 @@ module_server <- function(input, output, session, ...){
     render_shell(cmd$script)
   })
 
-  output$panel_fs_recon <- shiny::renderUI({
-    cmd <- local_reactives$bash_scripts$fs_recon
+  output$panel_image_segmentation <- shiny::renderUI({
+    cmd <- local_reactives$bash_scripts$image_segmentation
     shiny::validate(
       shiny::need(!isTRUE(cmd$error),
                   message = cmd$condition$message)
@@ -1086,8 +1113,17 @@ module_server <- function(input, output, session, ...){
       "FSL" = {
         local_reactives$bash_scripts$coreg_flirt
       },
-      {
+      "img_pipe" = {
         local_reactives$bash_scripts$coreg_nipy
+      },
+      "NiftyReg" = {
+        local_reactives$bash_scripts$coreg_niftyreg
+      },
+      "ANTs" = {
+        local_reactives$bash_scripts$coreg_ants
+      },
+      {
+        "stop('Unknown coregistration command')"
       }
     )
 
@@ -1104,6 +1140,180 @@ module_server <- function(input, output, session, ...){
     render_shell(cmd$script, shell = shell)
   })
 
+
+
+  # ACPC alignment
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      mri_file <- input$param_acpc_infile
+      if(!length(mri_file)) {
+        stop("No MRI file specified. Please select one.")
+      }
+      pipeline$set_settings(
+        acpc_infile = mri_file
+      )
+      results <- pipeline$eval('viewer_acpc')
+      local_reactives$viewer_acpc <- results$viewer_acpc
+    }, error_wrapper = "notification"),
+    input$param_acpc_start,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  output$acpc_3dviewer <- threeBrain::renderBrain({
+    if( is.null(local_reactives$viewer_acpc) ) { return() }
+    viewer_acpc <- local_reactives$viewer_acpc
+    viewer_acpc$plot(
+      control_presets = "acpcrealign",
+      background = "#000000",
+    )
+  })
+
+  acpc_proxy <- threeBrain::brain_proxy('acpc_3dviewer', session = session)
+
+  output$acpc_results <- shiny::renderUI({
+    acpc <- local_reactives$acpc_alignment
+    if(is.null(local_reactives$viewer_acpc)) {
+      return(shiny::p("Please choose a MRI file (if there is no file in the dropdown menu, please click on ", ravedash::shiny_icons$refresh, " button to update file list). Then click on 'Start re-alignment' button."))
+    }
+    if(!is.list(acpc) || !isTRUE(acpc$ac_set)) {
+      return(p("Please use the controller 'Click to Register/Reset AC' to start localizing AC. Try to focus the crosshair (in the slice panels) to the anterior commissure. Once finished, click on 'Confirm Updating AC'."))
+    }
+    if(!isTRUE(acpc$pc_set)) {
+      return("You have AC set. Now use the controller 'Click to Register/Reset PC' to start localizing PC. Again, focus the crosshair to the posterior commissure. Once finished, click on 'Confirm Updating PC'.")
+    }
+    re <- apply(acpc$ras2acpc, 1, function(r) {
+      paste(sprintf("%.2f", r), collapse = ",")
+    })
+    re <- paste(sprintf("[%s]", re), collapse = "\n")
+    shiny::fluidRow(
+      shiny::column(
+        width = 12L,
+        "ScannerRAS to ACPC transform: ",
+        shiny::code(re),
+        "You can always use the controller 'Click to Set/Reset Rotation' to adjust the Interhemispheric point until you are satisfied with this alignment. Then click the button below to save the ACPC alignment."
+      ),
+      shiny::column(
+        width = 12L,
+        dipsaus::actionButtonStyled(ns("acpc_save"), "Save ACPC alignment results.", width = "100%")
+      )
+    )
+
+  })
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_reactives$acpc_alignment <- acpc_proxy$acpc_alignment
+    }),
+    acpc_proxy$acpc_alignment,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      acpc <- local_reactives$acpc_alignment
+      if(!is.list(acpc) || !isTRUE(acpc$ac_set)) {
+        stop("Anterior commissure is unset. Please set the position of AC.")
+      }
+      if(!isTRUE(acpc$pc_set)) {
+        stop("Posterior commissure is unset. Please set the position of PC.")
+      }
+
+      dipsaus::shiny_alert2(
+        title = "Wait...",
+        text = "Saving ACPC alignment results.",
+        icon = "info",
+        auto_close = FALSE,
+        buttons = FALSE
+      )
+      suc <- FALSE
+      on.exit({
+        if(!suc) {
+          Sys.sleep(0.5)
+          dipsaus::close_alert2()
+        }
+      })
+
+      subject <- pipeline$read("subject")
+      acpc_infile <- pipeline$get_settings("acpc_infile")
+      path_root <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+      path_deriv <- raveio::dir_create2(file.path(path_root, "derivative"))
+      path_mri <- file.path(path_root, "inputs", "MRI", acpc_infile)
+      path_acpc_root <- file.path(path_root, "acpc-alignment")
+      path_acpc_mri <- raveio::dir_create2(file.path(path_root, "acpc-alignment", "mri"))
+
+      # Create ACPC aligned image
+      orig <- RNifti::readNifti(path_mri, internal = TRUE)
+      sform <- RNifti::xform(orig, useQuaternionFirst = TRUE)
+      # New sform: IJK to ACPC
+      sform <- acpc$ras2acpc %*% sform
+      RNifti::sform(orig) <- sform
+      # save qform as well to avoid confusing ITK-base programs
+      RNifti::qform(orig) <- sform
+
+      # save
+      path_acpc_img <- file.path(path_acpc_mri, "brain_acpc.nii.gz")
+      path_acpc_trans <- file.path(path_acpc_root, "MR_Scanner_to_MR_ACPC.txt")
+      RNifti::writeNifti(orig, file = path_acpc_img)
+      RNifti::writeNifti(orig, file = file.path(path_root, "inputs", "MRI", "MRI_acpc.nii.gz"))
+      utils::write.table(acpc$ras2acpc, file = path_acpc_trans,
+                         row.names = FALSE, col.names = FALSE)
+
+      # Backup
+      bkuppath_acpc_img <- file.path(path_deriv, "MRI_acpc.nii.gz")
+      bkuppath_acpc_trans <- file.path(path_deriv, "MR_Scanner_to_MR_ACPC.txt")
+      RNifti::writeNifti(orig, file = bkuppath_acpc_img)
+      utils::write.table(acpc$ras2acpc, file = bkuppath_acpc_trans,
+                         row.names = FALSE, col.names = FALSE)
+
+      raveio::save_yaml(
+        file = file.path(path_deriv, "conf-acpc.yaml"),
+        list(
+          "Heads up" = "Do NOT edit this file",
+          "profile" = "ACPC Re-alignment",
+          "work_path" = path_root,
+          "timestamp" = strftime(Sys.time(), "%a %b %d %H:%M:%S UTC %Y"),
+          "input_image" = list(
+            type = "nifti",
+            path = path_mri,
+            comment = "original MRI image file"
+          ),
+          "outputs" = list(
+            "aligned_image" = list(
+              type = "nifti",
+              path = "./acpc-alignment/mri/brain_acpc.nii.gz",
+              backup = "./derivative/MRI_acpc.nii.gz",
+              comment = "ACPC re-aligned image with sform set as transform from IJK (voxel) to ACPC, and qform set as transform from IJK to ScannerRAS."
+            ),
+            "ACPC" = list(
+              type = "transform",
+              "dimension" = "4x4",
+              "transform_from" = list(
+                coordinate_system = "scanner",
+                orientation = "RAS"
+              ),
+              "transform_to" = list(
+                coordinate_system = "ACPC",
+                orientation = "RAS"
+              ),
+              path = './acpc-alignment/MR_Scanner_to_MR_ACPC.txt',
+              backup = "./derivative/MR_Scanner_to_MR_ACPC.txt",
+              comment = "From Scanner to ACPC coordinate"
+            )
+          )
+        )
+      )
+      Sys.sleep(0.5)
+      dipsaus::close_alert2()
+      suc <- TRUE
+      dipsaus::shiny_alert2(
+        title = "Done!",
+        icon = "success",
+        text = "ACPC alignment results saved to rave-imaging derivatives folder."
+      )
+      update_nii_t1()
+    }),
+    input$acpc_save,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
 
 }

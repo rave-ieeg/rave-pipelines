@@ -413,8 +413,7 @@ module_server <- function(input, output, session, ...){
                                      clip = TRUE),
       brush = shiny::brushOpts(ns("plot_overall__brush"), resetOnNew = TRUE,
                                clip = TRUE, direction = "x")
-    ),
-    export_type = "pdf"
+    )
   )
 
   # output$plot_overall <- shiny::renderPlot({
@@ -552,8 +551,7 @@ module_server <- function(input, output, session, ...){
       addlines()
 
     }),
-    outputId = "plot_subset",
-    export_type = "pdf"
+    outputId = "plot_subset"
   )
 
   # threshold signals

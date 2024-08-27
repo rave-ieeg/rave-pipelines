@@ -1,24 +1,22 @@
-vertical_spacing: ~
-subject_code: DemoSubject
-pwelch_params:
-  window_size: 4000
-  noverlap: 2000.0
+analysis_block: 008
+analysis_electrodes: 13-16,24
+analysis_time:
+- 168.6628233
+- 202.4388718
+block: 008
+filter_bandpass:
+  enabled: no
+filter_notch:
+  enabled: no
+hide_electrodes: ''
+highlight_electrodes: ''
+loaded_electrodes: 13-16,24
+project_name: demo
 pwelch_frequency_limit:
 - 0
 - 300
-project_name: demo
-loaded_electrodes: 13-16,24
-highlight_electrodes: ''
-hide_electrodes: ''
-filter_notch:
-  enabled: no
-filter_bandpass:
-  enabled: no
-block:
-- 008
-- '010'
-- '011'
-- '012'
-analysis_time: ~
-analysis_electrodes: 13-16,24
-analysis_block: 008
+pwelch_params:
+  window_size: 4000
+  noverlap: 2000.0
+subject_code: DemoSubject
+vertical_spacing: ~

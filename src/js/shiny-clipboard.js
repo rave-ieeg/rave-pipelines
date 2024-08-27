@@ -49,7 +49,8 @@ function registerClipboardOutput(Shiny, shidashi) {
       delay: 1000,
       autohide: true,
       icon: "fa fas fa-copy",
-      "class" : "bg-success"
+      "class" : "bg-success",
+      "body"  : e.text
     });
     e.clearSelection();
   });

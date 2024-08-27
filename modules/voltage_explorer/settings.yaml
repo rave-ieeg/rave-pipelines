@@ -1,0 +1,45 @@
+project_name: demo
+subject_code: DemoSubject
+loaded_electrodes: 13-16,24
+reference_name: default
+epoch_choice: auditory_onset
+epoch_choice__trial_starts: -1
+epoch_choice__trial_ends: 3
+analysis_channels: 13-16
+filter_configurations:
+- type: detrend
+- type: baseline
+  windows:
+  - -1.0
+  - -0.2
+- type: decimate
+  by: 2.0
+- type: fir
+  low_pass_freq: 15.0
+- type: decimate
+  by: 4.0
+condition_groupings:
+  '1':
+    label: AOnly
+    conditions:
+    - drive_a
+    - known_a
+    - last_a
+    - meant_a
+  '2':
+    label: AV
+    conditions:
+    - last_av
+    - drive_av
+    - known_av
+    - meant_av
+analysis_settings:
+  '1':
+    label: A
+    event: Trial Onset
+    time:
+    - 0
+    - 0.57
+    frequency:
+    - 67
+    - 152

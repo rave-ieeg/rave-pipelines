@@ -1,13 +1,21 @@
 Package: import_bids
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: Converts 'BIDS-iEEG' Format into 'RAVE' Raw Folder
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 License: MIT
 Authors@R: c(
-    person("your first name", "last/family name", email = your.email@edu", role = c("aut", "cre"))
+    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: 
+    Users may choose 'BIDS' project and subject, import all sessions or 
+    choose certain sessions into 'RAVE'. To simplify the paths (e.g. Windows
+    only allows 260 characters), 'RAVE' will remove the 'BIDS' indicators
+    such as 'sub-', 'ses-' in the imported subject folder names and block
+    folders. Note this module converts into 'RAVE' raw format, please run
+    'import_lfp_native' module afterwards. This module is part of 
+    'RAVE preprocessing pipeline' and can run offline as a pipeline instance;
+    see 'raveio::pipeline("import_bids")'.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+URL: https://rave.wiki

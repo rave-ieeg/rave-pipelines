@@ -1,0 +1,484 @@
+---
+title: "RAVE Custom 3D Viewer (Native Brain)"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+format:
+  html: 
+    max-width: "1600px"
+    width: 1500
+    page-layout: full
+    embed-resources: true
+---
+
+```{r setup, include = FALSE}
+# Default for RAVE pipeline 2.0. Please do NOT remove this chunk
+raveio::pipeline_setup_rmd(
+  module_id = "custom_3d_viewer", 
+  project_path = "/Users/dipterix/Dropbox (PennNeurosurgery)/rave-pipelines")
+set.seed(100)
+```
+
+## 1. Pre-requisites
+
+Loading a RAVE 3D brain on a native single patient requires 3 types of data:
+
+1.  (Mandatory) `FreeSurfer` reconstruction: please copy and rename the folder to `<rave_dir>/raw_dir/<subject>/rave-imaging/fs`
+2.  (Mandatory for iEEG cases) Electrode coordinates in `tkrRAS` coordinate space. If you use RAVE electrode localization, this file will be automatically loaded. For more details on how to transform from scanner-RAS or MNI coordinates to `tkrRAS`, please see \[this documentation\](https://surfer.nmr.mgh.harvard.edu/fswiki/CoordinateSystems), or \[Github issue\](https://github.com/dipterix/threeBrain/issues/32).
+3.  (Optional) Electrode value table in `CSV` format.
+
+The electrode table should look like this:
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(data.frame(
+  Electrode = 1:5,
+  Coord_x = rnorm(5, sd = 20),
+  Coord_y = rnorm(5, sd = 20),
+  Coord_z = rnorm(5, sd = 20),
+  Label = sprintf("G%s", 1:5)
+), digits = 2)
+```
+
+## 1. Create a blank brain viewer
+
+To generate 3D viewer, first you need to create a RAVE brain object, then you can simply use `plot` method:
+
+-   Inputs: `project_name`, `subject_code`
+
+-   Outputs: RAVE brain object `brain` and RAVE 3D viewer
+
+``` {.r eval="FALSE"}
+# Subject
+subject <- sprintf("%s/%s", project_name, subject_code)
+
+# Brain object
+brain <- raveio::rave_brain(subject)
+
+# Generate 3D viewer
+brain$plot()
+```
+
+```{rave get_valid_project_name, language = "R", export = "loaded_brain", cue = "always", collapse=FALSE}
+#| code-fold: true
+#| code-summary: "Show a complicated implementation"
+
+loaded_brain <- load_brain_from_subject_code(
+  subject_code = subject_code, 
+  project_name = project_name,
+  surface_types = surface_types,
+  use_template = use_template
+)
+```
+
+```{rave render_initial_viewer, language = "R", export = "initial_brain_widget", collapse=TRUE, cue = "always"}
+#| code-fold: true
+#| code-summary: "Show a complicated implementation"
+
+library(dipsaus)
+force(shiny_outputId)
+controllers <- as.list(controllers)
+main_camera <- as.list(main_camera)
+
+background <- controllers[["Background Color"]]
+if(length(background) != 1) {
+  background <- "#FFFFFF"
+}
+
+zoom_level <- main_camera$zoom
+if(length(zoom_level) != 1 || zoom_level <= 0) {
+  zoom_level <- 1
+}
+
+position <- as.numeric(unname(unlist(main_camera$position)))
+up <- as.numeric(unname(unlist(main_camera$up)))
+if(length(position) != 3 || length(up) != 3 ||
+   all(position == 0) || all(up == 0) ||
+   any(is.na(position)) || any(is.na(up))) {
+  position <- c(0, 0, 500)
+  up <- c(0, 1, 0)
+} else {
+  position <- position / sqrt(sum(position^2)) * 500
+  up <- up / sqrt(sum(up^2))
+}
+
+if(!isTRUE(controllers[["Show Panels"]])) {
+  controllers[["Show Panels"]] <- FALSE
+}
+    
+initial_brain_widget <- loaded_brain$brain$plot(
+  show_modal = FALSE,
+  background = background,
+  controllers = controllers,
+  start_zoom = zoom_level,
+  # send signals to update parameters such as camera, zoom-level...
+  custom_javascript = raveio::glue(
+    '
+    // Remove the focus box
+    if( canvas.focus_box ) {
+      canvas.focus_box.visible = false;
+    }
+    
+    // set camera
+    canvas.mainCamera.position.set(
+      {{ position[[1]] }} , 
+      {{ position[[2]] }} , 
+      {{ position[[3]] }}
+    );
+    canvas.mainCamera.up.set(
+      {{ up[[1]] }} , 
+      {{ up[[2]] }} , 
+      {{ up[[3]] }}
+    )
+    canvas.mainCamera.updateProjectionMatrix();
+
+    // Let shiny know the viewer is ready
+    if( window.Shiny ) {
+      window.Shiny.setInputValue("{{ shiny_outputId }}", "{{Sys.time()}}");
+    }
+
+    // Force render one frame (update the canvas)
+    canvas.needsUpdate = true;
+    ',
+    .open = "{{", .close = "}}"
+  )
+)
+
+```
+
+```{r, echo=FALSE, out.width="100%", out.height="500px"}
+loaded_brain$brain$plot()
+```
+
+## 2. Render electrodes with values and colors
+
+To assign the electrodes with values, you will need data table that looks like this:
+
+```{r, echo=FALSE}
+data.frame(
+  Electrode = 1:5,
+  PValue = runif(5),
+  Value2 = letters[1:5]
+)
+```
+
+The first column must be `Electrode`. The other column names will be the electrode value names. The electrode values can be numeric (continuous), or factors (categorical). If your data is time series, you can add an additional column `Time` (see data table example below).
+
+To set electrode values, use
+
+``` {.r eval="FALSE"}
+brain$set_electrode_values(<your data frame, or path to the csv>)
+```
+
+In this RAVE module, users can load electrode value table from input choices:
+
+-   `Uploads`: user uploads `csv/fst` table to the subject imaging folder. Under this mode, the input `uploaded_source` must be specified.
+
+-   `Saved pipelines/modules`: get from previously saved pipeline (under construction); under this mode, the pipeline ID and inner target name must be specified
+
+The detailed implementations are folded (too much coding)
+
+```{rave find_data_path, language = "R", export = "path_datatable", cue = "always", collapse=TRUE}
+#| code-fold: true
+#| code-summary: "Show the implementation (how to find data path)"
+
+if(!length(data_source)) { data_source <- "None" }
+path_datatable <- switch(
+  data_source,
+  "Uploads" = {
+    get_subject_imaging_datapath(uploaded_source, subject_code = loaded_brain$subject_code, type = "uploads")
+  }, 
+  "Saved pipelines/modules" = {
+    project_name <- data_source_project
+    saved_pipeline <- data_source_pipeline
+    saved_target <- data_source_pipeline_target
+    
+    if(!length(project_name)) {
+      stop("Trying to get saved pipeline, but no project name has been given. Please assign a valid [data_source_project] variable. If you are running in RAVE's web interface, make sure the project name is set correctly")
+    }
+    if(!length(saved_pipeline) || !length(saved_target)) {
+      stop("Trying to get saved pipeline, but no pipeline name nor target has been given. Please assign a valid [data_source_pipeline] & [data_source_pipeline_target] variable. If you are running in RAVE's web interface, make sure the pipeline is set with no errors.")
+    }
+    
+    pipepath <- get_subject_imaging_datapath(
+      saved_pipeline, subject_code = loaded_brain$subject_code,
+      project_name = project_name, type = "pipeline"
+    )
+    if(!length(pipepath) || is.na(pipepath) || !dir.exists(pipepath)) {
+      stop("Cannot find saved pipeline under the subject [",
+           project_name, "/", loaded_brain$subject_code, "]: ",
+           saved_pipeline)
+    }
+    
+    structure(
+      pipepath, 
+      target = saved_target
+    )
+    
+    # local({
+    #   raveio:::activate_pipeline(pipepath)
+    #   targets::tar_path(name = saved_target)
+    # })
+    
+  },
+  {
+    NULL
+  }
+)
+```
+
+```{rave load_data_table, language = "R", export = "brain_with_data", cue = "always", collapse=TRUE}
+#| code-fold: true
+#| code-summary: "Load the data into brain"
+
+loaded_datatable <- NULL
+
+if(length(path_datatable) == 1) {
+  if(!length(data_source)) { data_source <- "None" }
+  switch(
+    data_source,
+    "Uploads" = {
+      if(grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
+        loaded_datatable <- raveio::load_fst(path_datatable, as.data.table = TRUE)
+      }
+    },
+    "Saved pipelines/modules" = {
+      
+      var <- raveio::pipeline_read(
+        var_names = attr(path_datatable, "target"),
+        pipe_dir = path_datatable,
+        ifnotfound = NULL
+      )
+      
+      if(length(var)) {
+        try({
+          
+          if("Electrode" %in% names(var)) {
+            
+            if(!is.data.frame(var)) {
+              var <- as.data.frame(var)
+            }
+            loaded_datatable <- var
+          }
+          
+        })
+      }
+      
+    }
+  )
+}
+
+
+nms <- names(loaded_datatable)
+
+if(!"Electrode" %in% nms && length(path_datatable)) {
+  if(isTRUE(data_source %in% c("Uploads", "Saved pipelines/modules"))) {
+    stop("Cannot set electrode values. Please make sure the data is a named table, and one of the table names must be [Electrode] (case-sensitive).")
+  }
+} 
+  
+
+if(is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
+  
+  if(!data.table::is.data.table(loaded_datatable)) {
+    loaded_datatable <- data.table::as.data.table(loaded_datatable)
+  }
+  
+  # subset if Subject is contained
+  if("Subject" %in% nms) {
+    template_subject <- raveio::raveio_getopt("threeBrain_template_subject", default = "N27")
+    
+    if(!identical(loaded_brain$brain$subject_code, 
+                  template_subject)) {
+      loaded_datatable <- loaded_datatable[loaded_datatable$Subject %in% loaded_brain$brain$subject_code, ]
+    }
+  }
+  
+  if("Time" %in% names(loaded_datatable)) {
+    
+    # Need to make sure each time-component has only one value
+    fct <- sprintf(
+      "%.2f__%.0f", 
+      loaded_datatable$Time,
+      loaded_datatable$Electrode)
+    
+    # Remove names that don't name sense to collapse
+    # Can't care less about others
+    nms <- nms[!nms %in% c("Time", "Electrode", "Trial", "Frequency", "Block", "Subject")]
+    
+    coltypes <- sapply(nms, function(nm) {
+      is.numeric(loaded_datatable[[nm]])
+    }, simplify = FALSE, USE.NAMES = TRUE)
+    
+    
+    new_table <- lapply(split(loaded_datatable, fct), function(sub) {
+      if(nrow(sub) == 1) {
+        return(sub[, c(nms, "Electrode", "Time"), drop = FALSE])
+      }
+      re <- sapply(nms, function(nm){
+        v <- sub[[nm]]
+        if(coltypes[[nm]]) {
+          v <- v[!is.na(v)]
+          if(!length(v)) { return(NA_real_) }
+          return(mean(v))
+        } else {
+          v <- table(v)
+          v <- v[!is.na(v)]
+          if(!length(v)) { return(NA) }
+          v <- names(v)[v == max(v)]
+          if(length(v) > 1) { return(NA) }
+          return(v)
+        }
+      }, simplify = FALSE, USE.NAMES = TRUE)
+      re$Electrode <- sub$Electrode[[1]]
+      re$Time <- sub$Time[[1]]
+      as.data.frame(re)
+    })
+    
+    loaded_datatable <- data.table::rbindlist(new_table, use.names = TRUE)
+  }
+  nms <- names(loaded_datatable)
+  invalids <- vapply(nms, function(nm) {
+    all(is.na(loaded_datatable[[nm]]))
+  }, FALSE)
+  nms <- nms[!invalids]
+  # loaded_datatable <- loaded_datatable[, !invalids, with = FALSE]
+  
+  if(nrow(loaded_datatable)) {
+    loaded_brain$brain$set_electrode_values(loaded_datatable)
+  } else {
+    nms <- NULL
+  }
+}
+  
+brain_with_data <- list(
+  brain = loaded_brain$brain,
+  variables = nms
+)
+```
+
+Here is a preview of value table (max 1000 rows) if you choose `Uploads`. This table has column `Time`.
+
+```{r, echo = FALSE, collapse=TRUE}
+loaded_datatable <- NULL
+if(identical(data_source, "Uploads")) {
+  if(grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
+    tbl <- fst::fst(path_datatable)
+    if( nrow(tbl) > 1000 ) {
+      loaded_datatable <- tbl[1:1000, ]
+    } else {
+      loaded_datatable <- tbl[]
+    }
+  }
+}
+
+if(is.data.frame(loaded_datatable)) {
+  DT::datatable(loaded_datatable)
+}
+```
+
+The render results:
+
+```{rave render_viewer, language = "R", export = "brain_widget", cue = "always", collapse=TRUE}
+#| code-fold: true
+#| code-summary: "A fine-tuned 3D viewer that remembers the user inputs"
+
+library(dipsaus)
+force(shiny_outputId)
+controllers <- as.list(controllers)
+main_camera <- as.list(main_camera)
+
+background <- controllers[["Background Color"]]
+if(length(background) != 1) {
+  background <- "#FFFFFF"
+}
+
+zoom_level <- main_camera$zoom
+if(length(zoom_level) != 1 || zoom_level <= 0) {
+  zoom_level <- 1
+}
+
+position <- as.numeric(unname(unlist(main_camera$position)))
+up <- as.numeric(unname(unlist(main_camera$up)))
+if(length(position) != 3 || length(up) != 3 ||
+   all(position == 0) || all(up == 0) ||
+   any(is.na(position)) || any(is.na(up))) {
+  position <- c(0, 0, 500)
+  up <- c(0, 1, 0)
+} else {
+  position <- position / sqrt(sum(position^2)) * 500
+  up <- up / sqrt(sum(up^2))
+}
+
+# find valid names
+dnames <- brain_with_data$variables
+dnames <- dnames[!dnames %in% c("Project", "Subject", "Electrode", "Time", "Label")]
+
+dname <- controllers[["Display Data"]] %OF% dnames
+
+if(!identical(controllers[["Display Data"]], dname) && length(dname)) {
+  controllers[["Display Data"]] <- dname
+  controllers[["Display Range"]] <- ""
+}
+
+if(!isTRUE(controllers[["Show Panels"]])) {
+  controllers[["Show Panels"]] <- FALSE
+}
+    
+brain_widget <- brain_with_data$brain$plot(
+  show_modal = FALSE,
+  background = background,
+  controllers = controllers,
+  start_zoom = zoom_level,
+  # send signals to update parameters such as camera, zoom-level...
+  custom_javascript = raveio::glue(
+    '
+    // Remove the focus box
+    if( canvas.focus_box ) {
+      canvas.focus_box.visible = false;
+    }
+    
+    // set camera
+    canvas.mainCamera.position.set(
+      {{ position[[1]] }} , 
+      {{ position[[2]] }} , 
+      {{ position[[3]] }}
+    );
+    canvas.mainCamera.up.set(
+      {{ up[[1]] }} , 
+      {{ up[[2]] }} , 
+      {{ up[[3]] }}
+    )
+    canvas.mainCamera.updateProjectionMatrix();
+
+    // Let shiny know the viewer is ready
+    if( window.Shiny ) {
+       window.Shiny.setInputValue("{{ shiny_outputId }}", "{{Sys.time()}}");
+    }
+
+    // Force render one frame (update the canvas)
+    canvas.needsUpdate = true;
+    ',
+    .open = "{{", .close = "}}"
+  )
+)
+
+```
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-custom_3d_viewer.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-custom_3d_viewer.R")
+```
+
+Once the pipeline script `make-custom_3d_viewer.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
+try({
+  raveio::pipeline_visualize()
+}, silent = TRUE)
+```

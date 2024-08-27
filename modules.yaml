@@ -1,10 +1,10 @@
-divider:
-  Preprocess:
-    order: 0
-  Built-ins:
-    order: 10
-  Settings:
-    order: 10000
+groups:
+  Import Signals:
+    order: 1
+    open: no
+  Images & Electrodes:
+    order: 7
+    open: no
 modules:
   import_lfp_native:
     label: Native Structure
@@ -21,7 +21,7 @@ modules:
   jupyterlab:
     label: JupyterLab
     order: 100
-    badge: Experimental|badge-warning
+    badge: Local|badge-warning
   notch_filter:
     label: Notch Filter
     order: 3
@@ -35,12 +35,12 @@ modules:
     label: Reference Channels
     order: 6
   surface_reconstruction:
-    label: Reconstruction & Coregistration
-    group: Surface & Electrodes
+    label: MRI/CT Preprocessing
+    group: Images & Electrodes
     order: 7.1
   electrode_localization:
     label: Electrode Localization
-    group: Surface & Electrodes
+    group: Images & Electrodes
     order: 7.2
   compatibility_rave1:
     label: Data Tools
@@ -56,14 +56,16 @@ modules:
     label: Subject 3D Viewer
     order: 11
   configure_rave:
-    label: Configure RAVE
+    label: Configurations
     order: 10001
   stimulation_explorer:
     label: Stimulation Explorer
-groups:
-  Import Signals:
-    order: 1
-    open: no
-  Surface & Electrodes:
-    order: 7
-    open: no
+  phase_explorer:
+    label: Phase Explorer
+divider:
+  Preprocess:
+    order: 0
+  Built-ins:
+    order: 10
+  Settings:
+    order: 10000

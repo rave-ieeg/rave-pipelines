@@ -1,6 +1,6 @@
 Package: notch_filter
 Type: rave-pipeline
-Title: 'RAVE' Pipeline to Perform 'Notch' Filter
+Title: 'RAVE' Pipeline to Perform 'Notch' Filters
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
@@ -8,5 +8,10 @@ License: MIT
 Authors@R: c(
     person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
     )
-Description: Remove electric line noise from 'iEEG' signals
-BugReports: https://github.com/dipterix/rave-pipelines/issues
+Description: 
+    Remove electric line noise from 'iEEG' signals. Users can choose
+    a base frequency and its harmonics to remove. The user-interface displays
+    'Welch'-Periodogram for diagnosis. This module is part of 
+    'RAVE preprocessing pipeline' and can run offline as a pipeline instance;
+    see 'raveio::pipeline("notch_filter")'.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues

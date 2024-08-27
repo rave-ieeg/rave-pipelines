@@ -11,7 +11,11 @@ component_container <- ravedash::new_rave_shiny_component_container(
 
 # Define components
 loader_project <- ravedash::presets_loader_project()
-loader_subject <- ravedash::presets_loader_subject(checks = NULL)
+loader_subject <- tryCatch({
+  ravedash::presets_loader_subject(checks = NULL, allow_new = TRUE)
+}, error = function(e) {
+  ravedash::presets_loader_subject(checks = NULL)
+})
 
 loader_sync1 <- ravedash::presets_loader_sync_project_subject(id = "loader_sync_from_recent_project_subject")
 loader_sync2 <- ravedash::presets_loader_sync_project_subject(

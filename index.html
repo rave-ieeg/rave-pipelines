@@ -17,7 +17,7 @@
     <!-- Left navbar links -->
 
     <ul class="navbar-nav">
-      <li class="nav-item">
+      <li class="nav-item push-menu">
         <a class="nav-link btn" data-widget="pushmenu" href="#" role="button">{{ shidashi::as_icon("bars") }}</a>
       </li>
       <li class="nav-item">
@@ -29,7 +29,15 @@
         <a href="#" class="nav-link btn rave-button" rave-action='{"type": "toggle_loader"}'>
           <i class="fas fa-database"></i>
           <span class="none-critical">
-            Load Data
+            Show Loading Screen
+          </span>
+        </a>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block">
+        <a href="#" class="nav-link btn rave-button" rave-action='{"type": "citation_information"}'>
+          <i class="fas fa-quote-left"></i>
+          <span class="none-critical">
+            Citation Information
           </span>
         </a>
       </li>
@@ -38,7 +46,7 @@
           <i class="fab fa-simplybuilt"></i>
           More/Fewer Options
         </a>
-      </li-->
+      </li>
       <li class="nav-item d-none d-sm-inline-block">
         <a href="#" class="nav-link btn rave-button" rave-action='{"type": "save_pipeline"}'>
           <i class="fas fa-file-export"></i>
@@ -54,7 +62,7 @@
             Import Pipeline
           </span>
         </a>
-      </li>
+      </li-->
     </ul>
 
     <!-- Right navbar links -->

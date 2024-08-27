@@ -1,0 +1,3 @@
+ants_preprocessing:
+  script: make-main.R
+  store: shared

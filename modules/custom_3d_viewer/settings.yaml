@@ -1,14 +1,9 @@
-uploaded_source: '[New Uploads]'
-template_ok: no
-surface_types: ~
-subject_code: DemoSubject
-shiny_outputId: custom_3d_viewer-viewer_ready
-project_name: demo
+controllers: []
+data_source: Uploads
+data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
+data_source_pipeline_target: omnibus_results
+data_source_project: demo
 main_camera:
-  target:
-    x: 500
-    'y': 0
-    z: 0
   position:
   - 500.0
   - 0.0
@@ -18,8 +13,9 @@ main_camera:
   - 0.0
   - 1.0
   zoom: 1.0
-data_source_project: demo
-data_source_pipeline_target: omnibus_results
-data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
-data_source: Uploads
-controllers: []
+project_name: '[Auto]'
+shiny_outputId: custom_3d_viewer-viewer_ready
+subject_code: DemoSubject
+surface_types: ~
+use_template: no
+uploaded_source: electrode_value.fst

@@ -8,10 +8,10 @@ pipeline <- raveio::pipeline(
   pipeline_name = "surface_reconstruction",
   paths = "./modules")
 
-autorecon_flags <- c(
-  "-autorecon1", "-all", "-autorecon2", "-autorecon3",
-  "-autorecon2-cp", "-autorecon2-wm", "-autorecon2-pial"
-)
+# autorecon_flags <- c(
+#   "-autorecon1", "-all", "-autorecon2", "-autorecon3",
+#   "-autorecon2-cp", "-autorecon2-wm", "-autorecon2-pial"
+# )
 
 #' Function to check whether data is loaded.
 #' @param first_time whether this function is run for the first time

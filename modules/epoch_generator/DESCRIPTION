@@ -1,6 +1,11 @@
 Package: epoch_generator
 Type: rave-pipeline
-Title: Interactive 'RAVE' Module to Generate Trial Epoch
+Title: Interactive Module to Generate Trial Epoch
+Description:
+    Loads trigger signals such as photodiode, audio sound waves, or seizure 
+    amplitude to generate trial epochs. 
+    This module is part of 'RAVE preprocessing pipeline', purely 
+    interactive and will not run as offline pipelines.
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
@@ -8,4 +13,4 @@ Authors@R: c(
     person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
     )
 License: MIT
-BugReports: https://github.com/dipterix/rave-pipelines/issues
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
