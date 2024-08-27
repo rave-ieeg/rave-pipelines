@@ -3,7 +3,7 @@ page_title <- function(complete = TRUE){
   if(complete){
     re <- "RAVE"
   } else {
-    re <- sprintf("RAVE (%s)", as.character(packageVersion('rave')))
+    re <- "RAVE 2.0"
   }
   re
 }
