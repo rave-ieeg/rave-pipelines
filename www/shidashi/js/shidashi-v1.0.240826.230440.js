@@ -11947,12 +11947,6 @@ overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.OverlayScrollbars.plugin([
 
 
 
-overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.OverlayScrollbars.plugin([
-  overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.SizeObserverPlugin,
-  overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.ScrollbarsHidingPlugin,
-  overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.ClickScrollPlugin
-]);
-
 const default_scroll_opt = {
   /*
   autoUpdate           : null,
@@ -11994,7 +11988,7 @@ class Shidashi {
 
   constructor (Shiny){
     // Insert build version here
-    this.build = { version: '1.0', date: '2024-08-17 10:41:54 EDT' };
+    this.build = { version: '1.0', date: '2024-08-26 23:04:40 EDT' };
     this._keep_alive = true;
     this._moduleId = undefined;
     this._raveId = undefined;
