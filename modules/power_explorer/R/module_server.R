@@ -537,6 +537,7 @@ module_server <- function(input, output, session, ...){
 
   }), input$pes_select_mode, ignoreInit = TRUE, ignoreNULL = TRUE)
 
+
   shiny::bindEvent(ravedash::safe_observe({
     on.exit({shiny::removeModal()})
 
@@ -2557,6 +2558,7 @@ module_server <- function(input, output, session, ...){
 
   ravedash::register_output(
     outputId = "by_frequency_over_time",
+
     render_function = shiny::renderPlot({
       # req(FALSE)
 
@@ -2747,6 +2749,7 @@ module_server <- function(input, output, session, ...){
     outputId = "over_time_by_condition",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+
       force(local_reactives$update_line_plots)
       force(local_reactives$update_over_time_plot)
 
