@@ -11947,6 +11947,12 @@ overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.OverlayScrollbars.plugin([
 
 
 
+overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.OverlayScrollbars.plugin([
+  overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.SizeObserverPlugin,
+  overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.ScrollbarsHidingPlugin,
+  overlayscrollbars__WEBPACK_IMPORTED_MODULE_1__.ClickScrollPlugin
+]);
+
 const default_scroll_opt = {
   /*
   autoUpdate           : null,

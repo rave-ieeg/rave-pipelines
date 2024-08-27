@@ -16,11 +16,21 @@
 `%?<-%` <- dipsaus::`%?<-%`
 str_collapse <- rutabaga::str_collapse
 which.equal <- rutabaga::which.equal
-
-
+fast_median <- ravetools::fast_median
+rbind_list <- rutabaga::rbind_list
 rand_string <- raveio:::rand_string
-
 stopifnot2 <- raveio:::stopifnot2
+
+# require(data.table)
+.datatable.aware = TRUE
+
+get_recursive_summary <- function(ll, nm, FUN=range) {
+  if(is.null(ll[[nm]])) {
+    return(FUN(unlist(lapply(ll, get_recursive_summary, nm=nm))))
+  }
+
+  FUN(ll[[nm]])
+}
 
 pretty.character <- function(x, ...,  upper=c('first', 'all', 'none')) {
 
@@ -149,7 +159,7 @@ get_pluriform_power <- function(
   # event_of_interest = 'Lag_1'
   if(event_of_interest != epoch_event_types[1]) {
     # stop("shifting data not supported yet!")
-    ravedash::logger('Shifting data to: ' %&% event_of_interest)
+    ravedash::logger('Shifting data to: ' %&% event_of_interest, level='debug')
 
     event_of_interest = paste0('Event_', event_of_interest)
     event_offsets = events[[event_of_interest]][ti] - events$Time[ti]
@@ -161,7 +171,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+    # ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
 
     shift_amount = determine_relative_shift_amount(
       event_time = event_offsets,
@@ -170,9 +180,10 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    ravedash::logger('dispaus::shift')
+    # ravedash::logger('dispaus::shift')
 
-    stopifnot('Trial' == names(dimnames(res$data))[3])
+    # this is checked above
+    # stopifnot('Trial' == names(dimnames(res$data))[3])
     stopifnot('Time' == names(dimnames(res$data))[2])
 
     if(length(shift_amount) != dim(res$data)[3L]) {
@@ -193,10 +204,10 @@ get_pluriform_power <- function(
     dimnames(res$shifted_data)$Time = new_time[new_time %within% new_range]
 
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
-    ravedash::logger('updating events file')
+    # ravedash::logger('updating events file')
     nms <- paste0('Event_', epoch_event_types[-1])
     events[nms] <- events[nms] - events[[event_of_interest]]
-    ravedash::logger('done with shifting')
+    # ravedash::logger('done with shifting', level='debug')
   }
 
   # handle outliers
@@ -204,10 +215,16 @@ get_pluriform_power <- function(
     res$clean_data <- res$data
     res$shifted_clean_data <- res$shifted_data
   } else {
-    # FIXME: res$data is not a filearray now so res$data$subset is not a function!
     ravedash::logger('Handling outliers...')
-    res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
-    res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
+
+    # UPDATED res$data is not a filearray now so res$data$subset is not a function!
+    #res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
+    #res$shifted_clean_data <- res$shifted_data$subset(Trial = !(Trial %in% trial_outliers_list))
+
+    ti = ! (dimnames(res$data)$Trial %in% trial_outliers_list)
+
+    res$clean_data = res$data[,,ti,,drop=FALSE]
+    res$shifted_clean_data = res$shifted_data[,,ti,,drop=FALSE]
   }
 
   # make sure to save out the updated time stamps to be used later
@@ -703,9 +720,11 @@ data_builder <- function(pluriform_power, condition_groups, baseline_settings,
                          BUILDER_FUN, data_type='shifted_clean_data_Fsub') {
 
   tmp <- mapply(function(pp, cg) {
+    # pp = pluriform_power[[1]]
+    # cg = condition_groups[[1]]
     # power are nested within analysis groups
     sapply(pp, function(ppa) {
-
+      # ppa = pp[[1]]
       res <- BUILDER_FUN(data=ppa$data[[data_type]],
                   analysis_settings=ppa$settings,
                   condition_group = cg,
@@ -753,15 +772,17 @@ export_electrode_level_data <- function(pipeline, ...) {
 
 }
 
-build_data_for_export <- function(pipeline, ...) {
-
-}
+# build_data_for_export <- function(pipeline, ...) {
+#
+# }
 
 get_available_events <- function(columns) {
-  eet <- stringr::str_subset(columns, 'Event_*')
+  eet <- stringr::str_subset(columns, stringr::fixed('Event_'))
+
   if(length(eet) > 0) {
-    eet <- stringr::str_remove_all(eet, 'Event_')
+    eet <- stringr::str_remove_all(eet, stringr::fixed('Event_'))
   }
+
   eet <- c("Trial Onset", eet)
 
   return(eet)
@@ -779,7 +800,7 @@ trial_export_types <- function() {
     list(
       'CLP_CND' = 'Collapsed by condition column',
       'CLP_GRP' = 'Collapsed by grouping factors',
-      'RAW_GRP' = 'Raw, Conditions used in grouping factors',
+      'RAW_GRP' = 'Raw, Only trials used in grouping factors',
       'RAW_ALL' = 'Raw, All available trials')
   )
 }
@@ -828,7 +849,7 @@ new_shift_array <- function() {
     ))
   )
 
-  # create file array with cache information!
+  # create file array with cache information
   shifted_array <- filearray::filearray_load_or_create(
     filebase = file.path(pathdir_app_persist, shiftarray_basename),
     dimension = dim(repository$power$baselined),
@@ -865,12 +886,13 @@ new_shift_array <- function() {
 }
 
 
-count_elements <- function (x)  {
-  if (is.null(x))
-    return(1)
-
+count = function(x) {
+  if(is.null(x)) return (1)
   length(unique(x))
 }
+
+#
+count_elements <- count
 
 ### UI impl to share the exporting code where possible
 customDownloadButton <- function(outputId, label='Export', class=NULL, icon_lbl="download", ...) {
@@ -914,7 +936,28 @@ get_order_of_magnitude <- function(x) {
   floor(log10(abs(x)))
 }
 
+# helper to allow passing in the index of a column/row alongside the data
+apply_ii <- function (X, MARGIN, FUN, ..., simplify = TRUE) {
+  apply(X, MARGIN, FUN, ii=1, ..., simplify = simplify)
+}
 
 
+# from an emmGrid, get all possible pairwise comparisons
+# for all possible 1- and 2-way slices
+get_stratified_contrasts <- function(emmGrid) {
+  fe = names(emmGrid@levels)
 
+  holdouts = fe;
+  if(length(fe) > 2) {
+    holdouts = append(fe, combn(fe,2,simplify=FALSE))
+  }
 
+  lapply(holdouts, function(out) {
+    suppressMessages(emmeans::emmeans(
+      emmGrid,
+      as.formula(
+        sprintf("pairwise ~ %s", paste0(collapse='*',fe[! fe %in% out]))
+      ),
+      by = out
+    ))}) %>% setNames(sapply(holdouts, paste0, collapse='.'))
+}

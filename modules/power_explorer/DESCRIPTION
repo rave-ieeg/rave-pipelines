@@ -18,9 +18,9 @@ Imports:
     rutabaga,
     ravebuiltins,
     magrittr,
+    lme4,
     stringr,
     stringi,
     data.table,
     ravedash,
-    lmtest,
-    lmerTest
+    lmtest

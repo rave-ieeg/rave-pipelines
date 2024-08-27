@@ -5,16 +5,20 @@ module_server <- function(input, output, session, ...){
     update_outputs = NULL,
     update_line_plots = NULL,
     update_heatmap_plots = NULL,
+    update_by_frequency_over_time_plot = NULL,
+    update_over_time_by_trial_plot = NULL,
+    update_by_frequency_correlation_plot = NULL,
     update_3dviewer = NULL,
-    update_by_trial_plot = NULL,
+    update_by_condition_plot = NULL,
+    update_pairwise_contrasts = NULL,
     update_over_time_plot = NULL,
     current_analysis_settings=NULL,
-    per_electrode_statistics_chooser=NULL,
-    pes_electrode_hover=NULL,
-    pes_electrode_clicks=NULL,
-    pes_selected_electrodes=NULL,
-    pes_display_threshold=NULL,
-    pes_manual_threshold=NULL,
+    update_per_electrode_results_table=NULL,
+    update_pes_plot=NULL,
+    update_by_electrode_custom_plot=NULL,
+    bec_only_selected_electrodes = 'All Electrodes',
+    update_click_info = NULL,
+    update_click_table = NULL,
   )
 
   brain_proxy <- threeBrain::brain_proxy("brain_viewer", session = session)
@@ -24,7 +28,14 @@ module_server <- function(input, output, session, ...){
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
 
+  local_data$pes <- list(
+    per_electrode_statistics_chooser=NULL,
+    pes_selected_electrodes=NULL,
+    pes_manual_threshold=NULL
+  )
+
   local_data$available_electrodes = integer()
+  local_data$epoch_table=NULL
 
   local_data$download_plot_info <- list(
     id = 'none',
@@ -37,14 +48,56 @@ module_server <- function(input, output, session, ...){
     'xvar' = 'Factor1',
     'gvar' = 'AnalysisLabel',
     'yvar' = 'y',
+    'basic_unit' = 'Trials',
     'panelvar' = 'none',
     'plot_options' = list('pt.alpha' = 100, 'pt.cex' = 1),
     'types' = c('jitter points', 'means', 'ebar polygons'),
-    'jitter_seed' = Sys.time()
+    'jitter_seed' = Sys.time(),
+    'plot_width_scale' = 1,
+    'highlight_clicks' = c('labels'),
+    'highlight_text_location' = 'top'
+  )
+  # this item will store a list of data + points locations
+  local_data$by_condition_by_trial_data_locations <- NULL
+  # this stores the trial numbers of the clicked points
+  local_data$bcbt_click_log <- NULL
+  local_data$trial_outliers_list <- NULL
+  # this stores the whole table (some trials have multiple rows, so can't just
+  # index into bcbt_click_log to look up details)
+  local_data$bcbt_click_table <- NULL
+
+  local_data$by_electrode_custom_plot_options <- list(
+    'plot_options' = list(pch=19, pt.cex=1, pt.alpha=100, plot_width_scale=1),
+    'yvars' = 'overall',
+    'yunit' = 'm',
+    'xvars' = 'electrode',
+    'xunit' = 'm',
+    'collapse_xvars' = PE_COLLAPSE_METHODS[1],
+    'collapse_yvars' = PE_COLLAPSE_METHODS[1],
+    'plot_decorations' = list()
   )
 
-  # this is used to get ROI variables
+  # this is used to get ROI variables and provide extra columns for table
   local_data$electrode_meta_data <- NULL
+
+  local_data$by_frequency_correlation_plot_options <- list(
+    max_zlim = 1,
+    percentile_range = FALSE,
+    ncol = 3, byrow=TRUE
+  )
+
+  local_data$by_frequency_over_time_plot_options <- list(
+    max_zlim = 99,
+    percentile_range = TRUE,
+    ncol = 3, byrow=TRUE
+  )
+
+  local_data$over_time_by_trial_plot_options <- list(
+    max_zlim = 99,
+    percentile_range = TRUE,
+    ncol = 3, byrow=TRUE
+  )
+
 
   # get server tools to tweak
   server_tools <- ravedash::get_default_handlers(session = session)
@@ -61,7 +114,7 @@ module_server <- function(input, output, session, ...){
 
   ### function to analyze data
   run_analysis <- function(trigger_3dviewer=TRUE, force_settings=list(),
-                           progress, ...) {
+                           progress, ..., extra_names=c()) {
     if(missing(progress)) {
       progress = shidashi::shiny_progress("Running analysis", max=4)
     }
@@ -80,6 +133,8 @@ module_server <- function(input, output, session, ...){
     # ))
     settings <- dipsaus::fastmap2()
 
+
+
     if ('electrode_text' %in% names(force_settings)) {
       settings$analysis_electrodes = paste0(force_settings$electrode_text)
     } else {
@@ -87,6 +142,54 @@ module_server <- function(input, output, session, ...){
     }
 
 
+    # ensure mutually exclusive trial categories (no duplicate trial types across diff levels of a factor)
+    fcg <- input$first_condition_groupings
+    all_fcg <- lapply(fcg, `[[`, 'conditions')
+    if(any(duplicated(unname(unlist(all_fcg))))) {
+      ravedash::show_notification(title = "Duplicated conditions in First Factor",
+                                  "Duplicated trial types across multiple levels of the same factor. Keeping only the first usage", autohide = FALSE)
+
+      for(ii in seq_along(all_fcg)[-1]) {
+        other_cond <- unname(unlist(all_fcg[1:(ii-1)]))
+
+        fcg[[ii]]$conditions = setdiff(all_fcg[[ii]], other_cond)
+
+        if(length(fcg[[ii]]$conditions) < 1) {
+          ravedash::show_notification(title="Insufficient Data",
+                                      "No conditions available for analysis after removing duplicates. Analysis not run.", type='danger',
+                                      autohide = FALSE)
+          return()
+        }
+      }
+    }
+
+    scg <- input$second_condition_groupings
+    if(isTRUE(input$enable_second_condition_groupings)) {
+      all_scg <- c(unname(unlist(sapply(scg, `[[`, 'conditions'))))
+      if(any(duplicated(unname(unlist(all_scg))))) {
+        ravedash::show_notification(title = "Duplicated conditions in Second Factor",
+                                    "Duplicated trial types across multiple levels of the same factor for second factor. Keeping only the first usage", autohide = FALSE)
+
+        for(ii in seq_along(all_scg)[-1]) {
+          other_cond <- unname(unlist(all_scg[1:(ii-1)]))
+
+          scg[[ii]]$conditions = setdiff(all_scg[[ii]], other_cond)
+
+          if(length(scg[[ii]]$conditions) < 1) {
+            ravedash::show_notification(title="Insufficient Data",
+                                        "No conditions available for analysis after removing duplicates. Analysis not run.", type='danger',
+                                        autohide = FALSE)
+            return()
+          }
+        }
+      }
+    }
+
+    ##----
+
+
+
+    # Pipeline setup and run
     pipeline$set_settings(
       baseline_settings = list(
         window=list(input$baseline_window),
@@ -94,8 +197,9 @@ module_server <- function(input, output, session, ...){
         unit_of_analysis = input$baseline_unit
       ),
       analysis_electrodes = settings$analysis_electrodes,
-      first_condition_groupings = input$first_condition_groupings,
-      second_condition_groupings = input$second_condition_groupings,
+      condition_variable = input$condition_variable,
+      first_condition_groupings = fcg,
+      second_condition_groupings = scg,
       enable_second_condition_groupings = isTRUE(input$enable_second_condition_groupings),
       enable_custom_ROI = isTRUE(input$enable_custom_ROI),
       custom_roi_type = input$custom_roi_type,
@@ -103,12 +207,12 @@ module_server <- function(input, output, session, ...){
       custom_roi_groupings = input$custom_roi_groupings,
       analysis_settings = input$ui_analysis_settings,
 
-      # TODO: create UIs for these variables
+      # TODO: create UIs for time censor and trial outliers
       time_censor = list(
         enabled = FALSE,
         window = c(0, 1)
       ),
-      trial_outliers_list = NULL,
+      trial_outliers_list = local_data$trial_outliers_list,
       electrode_export_file_type = input$electrode_export_file_type,
       electrode_export_data_type = input$electrode_export_data_type,
       electrodes_to_export_roi_name = input$electrodes_to_export_roi_name,
@@ -118,6 +222,23 @@ module_server <- function(input, output, session, ...){
       trials_to_export = input$trials_to_export,
       electrodes_to_export = input$electrodes_to_export
     )
+
+
+    ## target list
+    eval_names <- c('by_frequency_over_time_data',
+                    'by_frequency_correlation_data',
+                    'over_time_by_trial_data',
+                    'over_time_by_electrode_data',
+                    # 'over_time_by_electrode_dataframe',
+                    'omnibus_results',
+                    'over_time_by_condition_data',
+                    'across_electrode_statistics'
+    )
+    if(isTRUE(input$do_over_time_by_electrode_dataframe)) {
+      eval_names %<>% c('over_time_by_electrode_dataframe')
+    } else {
+      local_data$results['over_time_by_electrode_dataframe'] = NULL
+    }
 
     # print(dput(pipeline$get_settings()))
 
@@ -135,7 +256,6 @@ module_server <- function(input, output, session, ...){
 
     progress$inc("Starting pipeline [main loop]")
 
-
     # in the initial run we're just checking the settings and
     # doing the baseline
     results <- pipeline$run(
@@ -147,62 +267,182 @@ module_server <- function(input, output, session, ...){
       async = FALSE,
       # check_interval = 0.1,
       shortcut = FALSE,
-      names = c(
+      names = unique(c(
         'analysis_settings_clean',
         'baseline_settings',
         'baselined_power',
         'analysis_groups',
-        'pluriform_power'
-      )
+        'pluriform_power', extra_names, eval_names
+      ))
+
     )
 
     #local_data = list()
     local_data$results <- results
 
-    progress$inc("Build statistical models")
-    # here we're transforming the pluriform data into the graphs that we need
-    eval_names <- c('by_frequency_over_time_data',
-                    'by_frequency_correlation_data',
-                    'over_time_by_trial_data',
-                    'over_time_by_electrode_data',
-                    'over_time_by_electrode_dataframe',
-                    'omnibus_results',
-                    'over_time_by_condition_data'
+    ravedash::logger(
+      'RESULTS AVAIL:\n', paste0(collapse=', ', names(local_data$results))
     )
-    local_data$results[eval_names] <- as.list(pipeline$eval(names = eval_names, shortcut = TRUE))[eval_names]
+
+    # progress$inc("Evaluating pipeline targets")
+    # here we're transforming the pluriform data into the graphs that we need
+    # eval_names <- c('by_frequency_over_time_data',
+    #                 'by_frequency_correlation_data',
+    #                 'over_time_by_trial_data',
+    #                 'over_time_by_electrode_data',
+    #                 # 'over_time_by_electrode_dataframe',
+    #                 'omnibus_results',
+    #                 'over_time_by_condition_data'
+    # )
+    # if(isTRUE(input$do_over_time_by_electrode_dataframe)) {
+    #   eval_names %<>% c('over_time_by_electrode_dataframe')
+    # } else {
+    #   local_data$results['over_time_by_electrode_dataframe'] = NULL
+    # }
+
+    # local_data$results[eval_names] <- as.list(pipeline$eval(names = eval_names,
+    # shortcut=FALSE))[eval_names]
     progress$inc("Done pipeline eval")
+
+    ### bring down the univariate stats to a more convenient place
+    # so they fit the data/plotting naming convention
+    local_data$results$by_electrode_graphical_results_data <-
+      local_data$results$omnibus_results$stats
+
+    local_data$results$by_condition_by_trial_data <- local_data$results$omnibus_results$data
+    local_data$results$by_condition_by_trial_data_with_outliers <- local_data$results$omnibus_results$data_with_outliers
+
+    local_data$results$by_electrode_custom_plot_data <- local_data$results$omnibus_results$stats
 
     or <- rownames(local_data$results$omnibus_results$stats)
     choices_list <- unique(stringr::str_remove_all(or, '(m+\\(|t+\\(|p+\\(|p_fdr\\(|\\))'))
 
-    ## update the by-electrode analysis viewer switcher
+    # remove choices we don't care about
+    choices_list = choices_list[choices_list!='currently_selected']
 
+    ## update the by-electrode analysis viewer switcher
     current_choice <- input$per_electrode_statistics_chooser
     shiny::updateSelectInput(inputId = 'per_electrode_statistics_chooser',
                              choices = choices_list, selected = current_choice %OF% choices_list)
 
+    # remove more choices we don't care about
+    ind = stringr::str_detect(choices_list, ' - ')
+    starting_contrasts = which(ind)[1]
+
+    if(!is.na(starting_contrasts) && starting_contrasts > 1) {
+      choices_list = choices_list[1:(starting_contrasts-1)]
+    }
+
+    # update custom plot options
+    selY = if(input$bec_yvar_is_multi) {
+      input$bec_yvar_chooser_multi
+    } else {
+      input$bec_yvar_chooser
+    }
+    shiny::updateSelectInput(inputId = 'bec_yvar_chooser',
+                             choices = choices_list, selected = selY[1] %OF% choices_list)
+    shiny::updateSelectInput(inputId = 'bec_yvar_chooser_multi',
+                             choices = choices_list, selected = selY[selY %in% choices_list])
+
+
+    choices_list <- c('electrode', choices_list)
+    selX = if(input$bec_xvar_is_multi) {
+      input$bec_xvar_chooser_multi
+    } else {
+      input$bec_xvar_chooser
+    }
+    shiny::updateSelectInput(inputId = 'bec_xvar_chooser',
+                             choices = choices_list, selected = selX[1] %OF% choices_list)
+
+    shiny::updateSelectInput(inputId = 'bec_xvar_chooser_multi',
+                             choices = choices_list, selected = selX[selX %in% choices_list])
+
+
+    # update the variable selector for the table as well
+    bet_vts <- input$bet_variables_to_hide
+    bet_vts <- bet_vts[bet_vts %in% choices_list]
+    if(length(bet_vts) < 1) bet_vts = character(0)
+
+    # remove electrode as a column choice
+    bet_vts <- bet_vts[tolower(bet_vts) != 'electrode']
+
+    shiny::updateSelectInput(inputId = 'bet_variables_to_hide',
+                             choices = choices_list[choices_list!='electrode'],
+                             selected = bet_vts)
+
+
+    # add in electrode meta data chooser
+    bet_md <- input$bet_meta_data
+    md_choices <- c('Subject', 'MNI152_x', 'MNI152_y', 'MNI152_z', 'Label', 'FSLabel') %>%
+      intersect(names(local_data$electrode_meta_data))
+    bet_md <- bet_md[bet_md %in% md_choices]
+    if(length(bet_md) < 1) bet_md = character(0)
+
+    shiny::updateSelectInput(inputId = 'bet_meta_data',
+                             choices = md_choices,
+                             selected = bet_md)
 
     #### this is where we add Factor 2 to the analysis
     if(is.null(local_data$results$omnibus_results$data$Factor2)) {
-      shiny::updateSelectInput(inputId = 'btp_gvar',
-                               choices=c('Analysis Group', 'First Factor')
-      )
-
       shiny::updateSelectInput(inputId = 'btp_xvar',
                                choices=c('First Factor', 'Analysis Group')
       )
 
-    } else {
       shiny::updateSelectInput(inputId = 'btp_gvar',
-                               choices=c('Analysis Group', 'First Factor', 'Second Factor', 'First:Second')
+                               choices=c('none', 'Analysis Group', 'First Factor')
       )
 
+    } else {
       shiny::updateSelectInput(inputId = 'btp_xvar',
                                choices=c('First Factor', 'Second Factor', 'First:Second', 'Analysis Group')
       )
+
+      shiny::updateSelectInput(inputId = 'btp_gvar',
+                               choices=c('none', 'Analysis Group', 'First Factor', 'Second Factor', 'First:Second')
+      )
+
+
+      shiny::updateSelectInput(inputId = 'btp_panelvar',
+                               choices=c('none', 'First Factor', 'Second Factor', 'First:Second', 'Analysis Group')
+      )
+    }
+
+
+    ## set the plot time range limits for plots
+    newly_available_time <- get_recursive_summary(
+      local_data$results$over_time_by_condition_data, 'x'
+    )
+    shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
+                             value = range(newly_available_time),
+                             min = min(newly_available_time),
+                             max = max(newly_available_time)
+    )
+
+
+    # we need to check which kind of contrasts are available
+    aes <- local_data$results$across_electrode_statistics
+    if(length(aes$fixed_effects) > 1) {
+      shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
+                               choices=c('All-possible pairwise',
+                                         'Stratified contrasts (more power!)',
+                                         'ITX Contrasts (diff of diff)')
+      )
+
+      update_contrast_choices()
+
+    } else {
+      shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
+                               selected = c('All-possible pairwise'), choices = c('All-possible pairwise')
+      )
+    }
+
+    spec_choices = 'None available'
+    if(!is.null(aes$stratified_contrasts)) {
+      spec_choices = names(aes$stratified_contrasts)
     }
 
     local_reactives$update_outputs <- Sys.time()
+
     if(trigger_3dviewer) {
       local_reactives$update_3dviewer <- Sys.time()
     }
@@ -229,7 +469,10 @@ module_server <- function(input, output, session, ...){
   # )
 
   shiny::bindEvent(ravedash::safe_observe({
-    local_reactives$per_electrode_statistics_chooser = input$per_electrode_statistics_chooser
+    local_data$pes$per_electrode_statistics_chooser = input$per_electrode_statistics_chooser
+
+    local_reactives$update_pes_plot = Sys.time()
+
   }), input$per_electrode_statistics_chooser, ignoreNULL = FALSE, ignoreInit=TRUE)
 
 
@@ -243,24 +486,22 @@ module_server <- function(input, output, session, ...){
     }
 
     if(input$pes_select_mode=='Clear labels') {
-      local_reactives$pes_electrode_hover=NULL
-      local_reactives$pes_electrode_clicks=NULL
-      local_reactives$pes_selected_electrodes=NULL
-      local_reactives$pes_manual_threshold=NULL
+      local_data$pes$pes_selected_electrodes=NULL
+      local_data$pes$pes_manual_threshold=NULLd
 
     } else if (input$pes_select_mode == 'Invert selection') {
       if(shiny::isTruthy(local_data$results$omnibus_results$stats)) {
-        curr <- local_reactives$pes_selected_electrodes
+        curr <- local_data$pes$pes_selected_electrodes
         el_numbers <- as.integer(colnames(local_data$results$omnibus_results$stats))
         if(is.null(curr)) {
-          local_reactives$pes_selected_electrodes = el_numbers
+          local_data$pes$pes_selected_electrodes = el_numbers
         } else {
-          local_reactives$pes_selected_electrodes = setdiff(el_numbers, curr)
+          local_data$pes$pes_selected_electrodes = setdiff(el_numbers, curr)
         }
 
         ## if there is a currently set threshold, flip that as well
         if(!is.null(local_reactives$pes_manual_threshold)) {
-          curr = local_reactives$pes_manual_threshold$operator_string
+          curr = local_data$pes$pes_manual_threshold$operator_string
           new = switch(curr,
                        ">" = "<=",
                        "<" = ">=",
@@ -269,7 +510,7 @@ module_server <- function(input, output, session, ...){
                        "==" = "!=",
                        "!=" = "=="
           )
-          local_reactives$pes_manual_threshold$operator_string = new
+          local_data$pes$pes_manual_threshold$operator_string = new
         }
       }
     }
@@ -318,7 +559,7 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(ravedash::safe_observe({
 
-    etext <- dipsaus::deparse_svec(local_reactives$pes_selected_electrodes)
+    etext <- dipsaus::deparse_svec(local_data$pes$pes_selected_electrodes)
     if(nchar(etext) > 0) {
       on.exit({
         Sys.sleep(1)
@@ -341,6 +582,208 @@ module_server <- function(input, output, session, ...){
     }
 
   }), input$pes_selected_action, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+
+
+  ### track changes to by_electrode_custom_plot -- NB: can't change state of hidden input
+
+
+  # handle adding plot decorations
+  shiny::bindEvent(ravedash::safe_observe({
+
+    if(is.null(input$bec_plot_decorators)) {
+      local_data$by_electrode_custom_plot_options$plot_decorations = list()
+    } else {
+      local_data$by_electrode_custom_plot_options$plot_decorations = unlist(input$bec_plot_decorators)
+    }
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+
+  }), input$bec_plot_decorators, ignoreInit=TRUE, ignoreNULL=FALSE)
+
+
+  # handle toggle multi/single
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$yvars =
+      if(input$bec_yvar_is_multi) {
+        input$bec_yvar_chooser_multi
+      } else {
+        input$bec_yvar_chooser
+      }
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+  }), input$bec_yvar_is_multi, ignoreInit=TRUE, ignoreNULL=TRUE)
+
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$xvars =
+      if(input$bec_xvar_is_multi) {
+        input$bec_xvar_chooser_multi
+      } else {
+        input$bec_xvar_chooser
+      }
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+  }), input$bec_xvar_is_multi, ignoreInit=TRUE, ignoreNULL=TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+
+    local_data$by_electrode_custom_plot_options$xvars =
+      if(input$bec_xvar_is_multi) {
+        input$bec_xvar_chooser_multi
+      } else {
+        input$bec_xvar_chooser
+      }
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+
+  }), input$bec_xvar_chooser, input$bec_xvar_chooser_multi, ignoreInit=TRUE, ignoreNULL=FALSE)
+
+
+  ## changing collapse function
+
+  shiny::bindEvent(ravedash::safe_observe({
+
+    local_data$by_electrode_custom_plot_options$collapse_yvars = input$bec_yvar_collapser
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+
+  }), input$bec_yvar_collapser, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$collapse_xvars = input$bec_xvar_collapser
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+
+  }), input$bec_xvar_collapser, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+
+  ##-
+
+
+  shiny::bindEvent(ravedash::safe_observe({
+
+    local_data$by_electrode_custom_plot_options$yvars =
+      if(input$bec_yvar_is_multi) {
+        input$bec_yvar_chooser_multi
+      } else {
+        input$bec_yvar_chooser
+      }
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+
+  }), input$bec_yvar_chooser, input$bec_yvar_chooser_multi, ignoreInit=TRUE, ignoreNULL=TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+    if(!is.null(local_data$results)) {
+
+      # default is to use the whole dataset
+      mat = local_data$results$omnibus_results$stats
+
+      if(input$bec_only_selected_electrodes == 'Currently selected') {
+        ind <- which(rownames(mat) == 'currently_selected')
+        if(length(ind) && sum(mat[ind,]) > 0) {
+          ci = which(mat[ind,]==1)
+          mat = mat[,ci,drop=FALSE]
+        }
+      }
+
+      local_data$results$by_electrode_custom_plot_data <- mat
+      local_reactives$update_by_electrode_custom_plot = Sys.time()
+    }
+
+  }), input$bec_only_selected_electrodes, ignoreInit=TRUE, ignoreNULL=TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$yunit = input$bec_yvar_unit
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+  }), input$bec_yvar_unit, ignoreInit=TRUE, ignoreNULL=TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$xunit = input$bec_xvar_unit
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+  }), input$bec_xvar_unit, ignoreInit=TRUE, ignoreNULL=TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$plot_options$plot_width_scale = max(0.1, as.numeric(input$bec_plot_width_scale), na.rm=TRUE)
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+
+  }), input$bec_plot_width_scale, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_reactives$bec_only_selected_electrodes = input$bec_only_selected_electrodes
+  }), input$bec_only_selected_electrodes, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$plot_options$pt.alpha = input$bec_pt.alpha
+
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+  }), input$bec_pt.alpha, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+  shiny::bindEvent(ravedash::safe_observe({
+    local_data$by_electrode_custom_plot_options$plot_options$pt.cex = input$bec_pt.cex
+    local_reactives$update_by_electrode_custom_plot = Sys.time()
+  }), input$bec_pt.cex, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+
+  # handle a newly uploaded settings file
+  update_all_settings <- function(settings_list) {
+
+    ravedash::show_notification('Loading new settings from file', "Settings update")
+
+    ## baseline
+    shiny::updateSliderInput(session = session, inputId = 'baseline_window',
+                             value = unname(unlist(settings_list$baseline_settings$window)),
+    )
+    shiny::updateSelectInput(session = session, inputId = 'baseline_scope',
+                             selected = settings_list$baseline_settings$scope
+    )
+
+    # condition variable
+    shiny::updateSelectInput(session = session, inputId = 'condition_variable',
+                             selected = settings_list$condition_variable
+    )
+
+    ## analysis settings
+    as <- settings_list$analysis_settings
+    n_analysis <- length(as)
+
+    dipsaus::updateCompoundInput2(
+      session = session,
+      inputId = 'ui_analysis_settings',
+      value=as, ncomp = n_analysis
+    )
+
+    fcg <- settings_list$first_condition_groupings
+
+    dipsaus::updateCompoundInput2(session = session,
+                                  inputId = 'first_condition_groupings',
+                                  value = fcg, ncomp = length(fcg))
+
+    # default condition groups for factor 2
+    val_scg <- settings_list$second_condition_groupings
+
+    dipsaus::updateCompoundInput2(session = session,
+                                  inputId = 'second_condition_groupings',
+                                  value = val_scg, ncomp = length(val_scg)
+    )
+
+    shiny::updateSelectInput(session=session,
+                             inputId = 'custom_roi_variable',
+                             selected=settings_list$custom_roi_variable,
+    )
+
+    # reset all outputs
+    local_reactives$update_outputs <- NULL
+    local_reactives$update_line_plots <- NULL
+    local_reactives$update_heatmap_plots <- NULL
+    local_reactives$update_3dviewer <- NULL
+    local_reactives$update_by_condition_plot <- NULL
+    local_reactives$outliers_updated <- NULL
+    local_reactives$update_over_time_plot <- NULL
+    local_reactives$update_pairwise_contrasts <- NULL
+  }
 
 
   # (Optional) check whether the loaded data is valid
@@ -391,6 +834,14 @@ module_server <- function(input, output, session, ...){
                                selected = baseline_settings$scope
       )
 
+      tmp <- names(new_repository$epoch$table)
+      condition_vars <- tmp[which(stringr::str_detect(tmp, 'Condition'))]
+
+      shiny::updateSelectInput(session = session, inputId = 'condition_variable',
+                               choices = condition_vars,
+                               selected = input$condition_variable %OF% condition_vars
+      )
+
       ##--loading the default analysis settings
       as <- new_repository$subject$get_default('analysis_settings',
                                                default_if_missing = pipeline$get_settings('analysis_settings'), namespace = module_id)
@@ -421,8 +872,26 @@ module_server <- function(input, output, session, ...){
         ), value=as, ncomp = n_analysis
       )
 
+
+      ## set the plot time range limits for plots
+      shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
+                               value = range(new_repository$time_points),
+                               min = min(new_repository$time_points),
+                               max = max(new_repository$time_points)
+      )
+
       ## default condition groups
-      cond_tbl <- table(new_repository$epoch$table$Condition)
+      cvar = 'Condition'
+      if(input$condition_variable != "Condition") {
+        tmp_cvar = input$condition_variable
+        if(!is.null(new_repository$epoch$table[[tmp_cvar]])) {
+          cvar = tmp_cvar
+        }
+      }
+
+      local_data$epoch_table = new_repository$epoch$table
+
+      cond_tbl <- table(new_repository$epoch$table[[cvar]])
       cond_tbl <- cond_tbl[order(names(cond_tbl))]
       conditions <- names(cond_tbl)
       def <- list(
@@ -464,8 +933,10 @@ module_server <- function(input, output, session, ...){
       ## update ROI variable choices
       # any variable with between 2 and 20 unique values can be an ROI
       tbl <- new_repository$electrode_table
-
       local_data$electrode_meta_data = tbl[tbl$Electrode %in% new_repository$power$dimnames$Electrode,]
+
+      # let the Subject column be added
+      local_data$electrode_meta_data$Subject = new_repository$subject$subject_code
 
       roi_vars <- names(which(sapply(local_data$electrode_meta_data, count_elements) %within% c(2, nrow(local_data$electrode_meta_data)-1)))
       roi_vars = roi_vars[!(roi_vars %in% c('isLoaded'))]
@@ -482,7 +953,6 @@ module_server <- function(input, output, session, ...){
       brain <- raveio::rave_brain(new_repository$subject$subject_id)
       local_data$available_electrodes = new_repository$power$dimnames$Electrode
 
-
       # update export electrode categories
       new_choices = c('none', roi_vars)
       if(isTRUE(input$enable_custom_ROI)) {
@@ -492,7 +962,6 @@ module_server <- function(input, output, session, ...){
       shiny::updateSelectInput(inputId='electrodes_to_export_roi_name',
                                selected = 'none', choices = new_choices
       )
-
 
       # Reset outputs
       # shidashi::reset_output("collapse_over_trial")
@@ -507,9 +976,15 @@ module_server <- function(input, output, session, ...){
       local_reactives$update_line_plots <- NULL
       local_reactives$update_heatmap_plots <- NULL
       local_reactives$update_3dviewer <- NULL
-      local_reactives$update_by_trial_plot <- NULL
+      local_reactives$update_by_condition_plot <- NULL
+      local_reactives$outliers_updated <- NULL
       local_reactives$update_over_time_plot <- NULL
 
+      local_reactives$update_by_frequency_over_time_plot <- NULL
+      local_reactives$update_over_time_by_trial_plot <- NULL
+      local_reactives$update_by_frequency_correlation_plot <- NULL
+
+      local_data$bcbt_click_log <- NULL
 
       #TODO update UI selectors to possibly cached values
     }, priority = 1001),
@@ -628,6 +1103,41 @@ module_server <- function(input, output, session, ...){
                                   value = scg, ncomp = length(scg))
   }
 
+  get_available_conditions <- function() {
+    cvar = 'Condition'
+
+    if(input$condition_variable != "Condition") {
+      tmp_cvar = input$condition_variable
+      if(!is.null(local_data$epoch_table[[tmp_cvar]])) {
+        cvar = tmp_cvar
+      }
+    }
+
+    cond_tbl <- table(local_data$epoch_table[[cvar]])
+    cond_tbl <- cond_tbl[order(names(cond_tbl))]
+    conditions <- names(cond_tbl)
+  }
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      conditions <- get_available_conditions()
+
+      val <- list(
+        list(label = "All Conditions", conditions = conditions)
+      )
+
+      all_fcg_conditions <- unname(unlist(sapply(val, `[[`, 'conditions')))
+      dipsaus::updateCompoundInput2(session = session,
+                                    inputId = 'first_condition_groupings',
+                                    initialization = list(conditions =
+                                                            list(choices = conditions)
+                                    ),
+                                    value = val, ncomp = length(val))
+
+    }), input$condition_variable, ignoreNULL = TRUE, ignoreInit=TRUE
+  )
+
 
   # track changes to the ROI grouping variable selector
   shiny::bindEvent(
@@ -711,11 +1221,73 @@ module_server <- function(input, output, session, ...){
         }
       }
 
-      if(any_changes) local_reactives$update_by_trial_plot = Sys.time()
+      # if(any_changes) {
+      # if we've made changes to the plot, the clicks need to be adjusted
+      local_reactives$update_by_condition_plot = Sys.time()
+      # local_data$bcbt_click_log <- NULL
+      # }
 
     }), input$btp_types, input$btp_xvar, input$btp_panelvar, input$btp_gvar,
-    input$btp_pt.alpha, input$btp_pt.cex,
+    input$btp_pt.alpha, input$btp_pt.cex, input$btp_basic_unit,
     ignoreNULL=TRUE, ignoreInit=TRUE
+  )
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_reactives$update_by_condition_plot = Sys.time()
+    }), input$bcbt_show_outliers, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      local_data$grouped_plot_options$highlight_clicks <- input$btp_highlight_clicks
+      local_data$grouped_plot_options$highlight_text_location <- input$btp_highlight_text_location
+
+      local_reactives$update_by_condition_plot = Sys.time()
+
+    }), input$btp_highlight_clicks, input$btp_highlight_text_location,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+
+  update_contrast_choices <- function() {
+    aes = local_data$results$across_electrode_statistics
+
+    if(input$bcs_choose_contrasts == 'Stratified contrasts (more power!)') {
+      shiny::updateSelectInput(session,
+                               inputId = 'bcs_choose_specific_contrast',
+                               selected=names(aes$stratified_contrasts)[1],
+                               choices=names(aes$stratified_contrasts)
+      )
+    } else if (input$bcs_choose_contrasts == 'ITX Contrasts (diff of diff)') {
+      shiny::updateSelectInput(session,
+                               inputId = 'bcs_choose_specific_contrast',
+                               selected=names(aes$itx_contrasts)[1],
+                               choices=names(aes$itx_contrasts)
+      )
+    }
+  }
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_reactives$update_pairwise_contrasts <- Sys.time()
+
+      if(input$bcs_choose_contrasts != 'All-possible pairwise') {
+        update_contrast_choices()
+      }
+
+    }), input$bcs_choose_contrasts,
+    ignoreNULL=TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_reactives$update_pairwise_contrasts <- Sys.time()
+    }), input$bcs_choose_specific_contrast,
+    ignoreNULL=TRUE, ignoreInit = TRUE
   )
 
   shiny::bindEvent(
@@ -723,8 +1295,66 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$update_over_time_plot = Sys.time()
 
-    }), input$over_time_by_condition_switch, ignoreNULL = TRUE, ignoreInit = TRUE
+    }), input$over_time_by_condition_switch, input$over_time_plot_range,
+    ignoreNULL = TRUE, ignoreInit = TRUE
   )
+
+  update_heatmap_controls <- function(prefix, po_name) {
+    optname = po_name %&% '_options'
+    upname = 'update_' %&% po_name
+
+    # ravedash::logger(level='warning', optname, upname)
+
+    new_lim = abs(as.numeric(input[[prefix %&% '_range']]))
+
+    # ignore the change if they've just (say) deleted the previous value
+    if(any(is.na(new_lim), length(new_lim) == 0, !is.numeric(new_lim))) {
+      local_data[[optname]]$max_zlim = 0
+    } else {
+      local_data[[optname]]$max_zlim = new_lim
+    }
+
+    local_data[[optname]]$percentile_range =
+      isTRUE(input[[prefix %&% '_range_is_percentile']])
+
+    local_data[[optname]]$ncol = input[[prefix %&% '_ncol']]
+
+    local_data[[optname]]$byrow = input[[prefix %&% '_byrow']]
+
+    local_reactives[[upname]] = Sys.time()
+  }
+
+  # controls for heatmaps
+  pnames = c('bfot' = 'by_frequency_over_time_plot',
+             'bfc' = 'by_frequency_correlation_plot',
+             'otbt' = 'over_time_by_trial_plot')
+
+  mapply(function(prf, po) {
+    shiny::bindEvent(
+      ravedash::safe_observe({
+        update_heatmap_controls(prf, po_name = po)
+      }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_range']],
+      input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
+      ignoreNULL = TRUE, ignoreInit = TRUE
+    )
+  }, names(pnames), pnames, SIMPLIFY = FALSE)
+
+
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     update_heatmap_controls('otbt', po_name = pnames['otbt'])
+  #   }), input[['otbt' %&% '_range_is_percentile']], input[['otbt' %&% '_range']],
+  #   input[['otbt' %&% '_ncol']], input[['otbt' %&% '_byrow']],
+  #   ignoreNULL = TRUE, ignoreInit = TRUE
+  # )
+  #
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     update_heatmap_controls('bfc', po_name = pnames['bfc'])
+  #   }), input[['bfc' %&% '_range_is_percentile']], input[['bfc' %&% '_range']],
+  #   input[['bfc' %&% '_ncol']], input[['bfc' %&% '_byrow']],
+  #   ignoreNULL = TRUE, ignoreInit = TRUE
+  # )
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -738,21 +1368,41 @@ module_server <- function(input, output, session, ...){
     input$over_time_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::req(local_data$results)
+      local_data$download_plot_info$id =
+        paste0("by_electrode_", unpretty(input$by_electrode_tabset))
+
+      build_modal_plot_download(local_data$download_plot_info)
+    }),
+    input$by_electrode_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::req(local_data$results)
+
+      local_data$download_plot_info$id =
+        paste0("by_condition_", unpretty(input$by_condition_tabset))
+      build_modal_plot_download(local_data$download_plot_info)
+    }),
+    input$by_condition_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # listen to camera on the by_frequency tabset
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::req(local_data$results)
+      local_data$download_plot_info$id =
+        paste0("by_frequency_", unpretty(input$by_frequency_tabset))
+
+      build_modal_plot_download(local_data$download_plot_info)
+    }),
+    input$by_frequency_tabset_camera, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
 
-# shiny::bindEvent(
-#   ravedash::safe_observe({
-#     print("test test test")
-#   }),
-#   input$test, ignoreNULL = TRUE, ignoreInit = TRUE
-# )
-
-  # shiny::bindEvent(
-  #   ravedash::safe_observe({
-  #     local_reactives$pes_electrode_hover = input$pes_hover
-  #   }),
-  #   input$pes_hover, ignoreInit = TRUE
-  # )
 
   get_omni_stat_row <- function(row) {
     stopifnot(shiny::isTruthy(local_data$results$omnibus_results$stats))
@@ -794,26 +1444,38 @@ module_server <- function(input, output, session, ...){
       yy <- get_omni_stat_row(which(plot==plot_choices))
 
       # currently labelled electrodes
-      current_selection <- local_reactives$pes_selected_electrodes
+      current_selection <- local_data$pes$pes_selected_electrodes
 
       # click location, note x is integer, y is numeric
       new_loc = list(x=round(click$x), y=click$y)
 
       # dipsaus::cat2('select mode: ', input$pes_select_mode, level='INFO')
       if (select_mode == 'Label maker') {
-        new_elec <- elec_in_order[new_loc$x]
+
+        # weight in the Y-axis location to find nearest electrode
+        tx_y = yy
+        if(!is.null(local_data$pes$pes_manual_threshold$transform_string) &&
+           local_data$pes$pes_manual_threshold$transform_string != "force") {
+          TX <- match.fun(local_data$pes$pes_manual_threshold$transform_string)
+          tx_y = TX(yy)
+        }
+
+        pt_dist = (abs(tx_y - click$y)^2 / max(tx_y)) +
+          ((click$x - seq_along(elec_in_order))^2 / length(elec_in_order))
+
+        new_elec <- elec_in_order[which.min(pt_dist)]
 
         # add if new location, remove if old location
         if(new_elec %in% current_selection) {
-          local_reactives$pes_selected_electrodes = current_selection[-which(new_elec == current_selection)]
+          local_data$pes$pes_selected_electrodes <- current_selection[-which(new_elec == current_selection)]
         } else {
-          local_reactives$pes_selected_electrodes <- sort(c(current_selection, new_elec))
+          local_data$pes$pes_selected_electrodes <- sort(c(current_selection, new_elec))
         }
 
       } else {
         vals <- list('m' = 'mean', 't' = 't', 'p' = 'p')
 
-        local_reactives$pes_manual_threshold <- list(
+        local_data$pes$pes_manual_threshold <- list(
           'operand_string' = plot,
           'condition_string' =input$per_electrode_statistics_chooser,
           'operator_string' = operator_string,
@@ -826,32 +1488,35 @@ module_server <- function(input, output, session, ...){
         # }
 
         if (select_mode == 'Threshold |v| > x') {
-          local_reactives$pes_manual_threshold$operator_string = '>'
-          local_reactives$pes_manual_threshold$transform_string = 'abs'
+          local_data$pes$pes_manual_threshold$operator_string = '>'
+          local_data$pes$pes_manual_threshold$transform_string = 'abs'
 
         } else if (select_mode == 'Threshold v > x') {
-          local_reactives$pes_manual_threshold$operator_string = '>'
+          local_data$pes$pes_manual_threshold$operator_string = '>'
         } else if (select_mode == 'Threshold v < x') {
-          local_reactives$pes_manual_threshold$operator_string = '<'
+          local_data$pes$pes_manual_threshold$operator_string = '<'
         } else if (select_mode == 'Manual threshold') {
 
           # for manual thresholds, do no rounding
-          local_reactives$pes_manual_threshold$comparator = click$y
+          local_data$pes$pes_manual_threshold$comparator = click$y
         }
 
         # run the threshold check
-        FF <- match.fun(local_reactives$pes_manual_threshold$operator_string)
-        TX <- match.fun(local_reactives$pes_manual_threshold$transform_string)
+        FF <- match.fun(local_data$pes$pes_manual_threshold$operator_string)
+        TX <- match.fun(local_data$pes$pes_manual_threshold$transform_string)
         tx_y = TX(yy)
-        pass = FF(tx_y, local_reactives$pes_manual_threshold$comparator)
-        local_reactives$pes_selected_electrodes = elec_in_order[pass]
+        pass = FF(tx_y, local_data$pes$pes_manual_threshold$comparator)
+        local_data$pes$pes_selected_electrodes = elec_in_order[pass]
       }
     }
 
     # if nothing passes, use NULL rather than integer(0)
-    if(length(local_reactives$pes_selected_electrodes) < 1) {
-      local_reactives$pes_selected_electrodes = NULL
+    if(length(local_data$pes$pes_selected_electrodes) < 1) {
+      local_data$pes$pes_selected_electrodes = NULL
     }
+
+
+    local_reactives$update_pes_plot <- Sys.time()
   }
 
   shiny::bindEvent(
@@ -881,11 +1546,231 @@ module_server <- function(input, output, session, ...){
     input$pes_click_p, ignoreInit = TRUE, ignoreNULL = TRUE
   )
 
+  ### tracking changes to clicks on the by-trial by-condition plot
+
+  is_paneling <- function(show_mesg=TRUE) {
+    if(is.null(input$btp_panelvar) || input$btp_panelvar == 'none') {
+      return (FALSE)
+
+    } else {
+      # if there is a panel variable, matching clicks to data is too tricky
+      if(show_mesg) {
+        ravedash::show_notification('Points cannot be labelled when
+                                      panelling.', 'Locations not available.')
+      }
+
+      return (TRUE)
+    }
+  }
+
+  points_are_trials <- function(show_mesg=TRUE) {
+    # choices=c('Trials', 'Electrodes'))
+    if(input$btp_basic_unit == 'Trials') {
+      return (TRUE)
+
+    } else {
+      # if there is a panel variable, matching clicks to data is too tricky
+      if(show_mesg) {
+        ravedash::show_notification('Points are not labelled when
+                                      plotting as electrodes (post a request on Slack if you need this behavior)', 'Locations not available.')
+      }
+
+      return (FALSE)
+    }
+  }
+
+  locate_bcbt_click <- function(click, data_loc) {
+    # ravedash::logger("Writing out clicks")
+    # base::assign('click', click, envir = globalenv())
+    # base::assign('data_loc', data_loc, envir = globalenv())
+
+    # we first make a hard decision about which data group the data are in
+    ind <- which.min(abs(click$x - data_loc$bars.x))
+
+    if(length(ind) != 1 || is.null(data_loc$y[[ind]]) ) {
+      return(NULL)
+    }
+
+    # determine weights for the distances so that X and Y loc
+    # get roughly equal weight
+    wx = diff(range(data_loc$y[[ind]]$y)) / diff(range(data_loc$x[[ind]]))
+
+    # now we do a search for the data point
+    loc <- which.min(
+      abs(click$x - data_loc$x[[ind]]) * wx +
+        abs(click$y - data_loc$y[[ind]]$y)
+    )
+
+    #return the trial number
+    data_loc$y[[ind]]$Trial[loc]
+  }
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      req(local_data$by_condition_by_trial_data_locations)
+
+      if(! is_paneling() && points_are_trials()) {
+        click = input$btbc_click
+
+        new_row <- locate_bcbt_click(click, local_data$by_condition_by_trial_data_locations)
+
+        # add this information to our click log. If the point is already in the log, remove it
+        if(is.null(local_data$bcbt_click_log)) {
+          local_data$bcbt_click_log <- new_row
+        } else {
+          if(new_row %in% local_data$bcbt_click_log) {
+            local_data$bcbt_click_log <- setdiff(local_data$bcbt_click_log, new_row)
+          } else {
+            local_data$bcbt_click_log %<>% c(new_row)
+          }
+        }
+
+        local_reactives$update_click_info <- Sys.time()
+      }
+
+
+    }), input$btbc_click, ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+
+
+  # ?ravedash::register_output(
+  # output_type = 'no-download',
+  # outputId = 'by_condition_by_trial_clicks',
+  # render_function =
+  output$by_condition_by_trial_clicks <- DT::renderDataTable({
+
+    basic_checks(local_reactives$update_outputs)
+    force(local_reactives$update_click_table)
+    shiny::req(local_data$by_condition_by_trial_data_locations)
+
+    # this is a little wasteful, but we need to get the Z-scores and the column names
+    # of the conditional means are changeable
+    all_cond <- rutabaga::rbind_list(
+      lapply(local_data$by_condition_by_trial_data_locations$y, function(yy) {
+        medy <- fast_median(yy$y)
+        yy$Zg <- round(d=1,scale(yy$y, center=medy, scale = mad(yy$y, center=medy)))
+        return(yy)
+      })
+    )
+
+    # overall m/sd
+    df <- all_cond[Trial %in% local_data$bcbt_click_log,
+                   setdiff(names(all_cond), 'is_clean'), with=FALSE]
+
+
+    if(is.null(df) || nrow(df) < 1) {
+      return(DT::datatable(NULL, options = list()))
+    }
+
+    o.med <- fast_median(all_cond$y)
+    df$Z = round(d=1, scale(df$y, center=o.med, scale = mad(all_cond$y, center=o.med)))
+    df$y %<>% pretty_round
+
+    df$Odd = as.integer(df$Trial %in% local_data$trial_outliers_list)
+
+    local_data$bcbt_click_table <- df
+
+    rfloat <- runif(1)
+    dt <- DT::datatable(
+      df, caption =
+
+        shiny::tags$caption(
+          style='caption-side:top; text-align:center; color:black; margin-top:-15px; margin-bottom:-10px; font-size:110%',
+          shiny::p('Click Details',
+                   shiny::span(style='font-size:90%',shiny::br(),
+                               shiny::actionLink(inputId = ns('clear_rows'),
+                                                 onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('clear_rows'), rfloat),
+                                                 label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
+                               label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
+                   shiny::actionLink(inputId = ns('nominate_outliers'),
+                                     onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('nominate_outliers'), rfloat),
+                                     label = 'Flag Selected (requires re-RAVE)', icon = ravedash::shiny_icons$magic)
+          )
+        ),
+
+      colnames=names(df), rownames = FALSE, extensions='Buttons',
+      options=list(autoWidth=FALSE, scroller=TRUE, scrollX=TRUE, scrollY='300px',
+                   server=FALSE, paging=FALSE,
+                   columnDefs = list(list(className = 'dt-center', targets = '_all')),
+                   dom = 't'#, buttons='csv'
+      )
+    )
+
+    return (dt)
+  }, server = FALSE)
+
+
+  get_clicked_trials <- function(trials_only=TRUE) {
+    rows <- input$by_condition_by_trial_clicks_rows_selected
+    if(length(rows) < 1) return(NULL)
+
+    clicked_rows <- local_data$bcbt_click_table[rows,]
+    clicked_trials <- unique(clicked_rows$Trial)
+    if(trials_only) {
+      return(clicked_trials)
+    }
+
+    list(
+      row_numbers=rows,
+      row_data = clicked_rows,
+      trials = clicked_trials
+    )
+  }
+
+  # clear the selected rows (also removes them from the flagged list)
+  shiny::bindEvent(ravedash::safe_observe({
+    click_data <- get_clicked_trials(FALSE)
+
+    if(is.null(click_data)) return(FALSE)
+
+    local_data$bcbt_click_log <- setdiff(local_data$bcbt_click_log, click_data$trials)
+    local_data$bcbt_click_table <- local_data$bcbt_click_table[-click_data$row_numbers]
+    local_data$trial_outliers_list <- setdiff(local_data$trial_outliers_list, click_data$trials)
+
+    if(length(local_data$trial_outliers_list) < 1) {
+      local_data$trial_outliers_list <- NULL
+    }
+
+    local_reactives$update_by_condition_plot <- Sys.time()
+
+  }), input$clear_rows, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+
+  shiny::bindEvent(ravedash::safe_observe({
+    click_data <- get_clicked_trials(FALSE)
+
+    if(is.null(local_data$trial_outliers_list)) {
+      local_data$trial_outliers_list <- click_data$trials
+    } else {
+      # add in new rows
+      to_add <- setdiff(click_data$trials, local_data$trial_outliers_list)
+      to_rem <- intersect(click_data$trials, local_data$trial_outliers_list)
+
+      tmp_list <- c(to_add, setdiff(local_data$trial_outliers_list, to_rem))
+      if(length(tmp_list) < 1) {
+        local_data$trial_outliers_list <- NULL
+      } else {
+        local_data$trial_outliers_list <- tmp_list
+      }
+    }
+
+    # local_reactives$update_click_table <- Sys.time()
+    local_reactives$update_by_condition_plot <- Sys.time()
+    local_reactives$outliers_updated <- Sys.time()
+
+  }), input$nominate_outliers, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     req(local_data$by_condition_by_trial_data_locations)
   #
-  #     local_reactives$pes_electrode_hover = input$pes_mean_click
-  #   },
-  #   input$pes_mean_click, ignoreInit = TRUE
+  #     if(! is_paneling()) {
+  #       click = input$btbc_click
+  #       # local_data$by_condition_by_trial_data_locations
+  #     }
+  #   }), input$btbc_dblclick, ignoreInit = TRUE, ignoreNULL = TRUE
   # )
+
 
   ### tracking changes to global plot options
   shiny::bindEvent(
@@ -896,6 +1781,14 @@ module_server <- function(input, output, session, ...){
       local_reactives$update_line_plots = Sys.time()
 
     }), input$gpo_lines_palette, ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_data$grouped_plot_options$plot_width_scale = input$scale_pbtbc
+      local_reactives$update_by_condition_plot = Sys.time()
+
+    }), input$scale_pbtbc, ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
   shiny::bindEvent(
@@ -966,9 +1859,9 @@ module_server <- function(input, output, session, ...){
       brain$set_electrode_values(df)
 
       brain$render(outputId = "brain_viewer", session = session,
-                              palettes=res$palettes, value_ranges=res$val_ranges,
-                              control_display = FALSE, side_display=FALSE,
-                              timestamp=FALSE)
+                   palettes=res$palettes, value_ranges=res$val_ranges,
+                   control_display = FALSE, side_display=FALSE,
+                   timestamp=FALSE)
     })
   )
 
@@ -985,15 +1878,19 @@ module_server <- function(input, output, session, ...){
       }
 
       df <- local_data$results$over_time_by_electrode_dataframe
+      if(is.null(df)) {
+        return(threeBrain::threejs_brain(title = "No data availalble. Check box 'Calculate electrode over time (movie maker)' in Global Plot Options"))
+      } else {
+        brain$set_electrode_values(df)
+        res <- build_palettes_and_ranges_for_omnibus_data(df)
+        brain$render(
+          outputId = "brain_viewer_movies",
+          session = session,
+          palettes = res$palettes,
+          title = 'Click "Play/Pause" to start animation'
+        )
+      }
 
-      brain$set_electrode_values(df)
-      res <- build_palettes_and_ranges_for_omnibus_data(df)
-      brain$render(
-        outputId = "brain_viewer_movies",
-        session = session,
-        palettes = res$palettes,
-        title = 'Click "Play/Pause" to start animation'
-      )
     })
   )
 
@@ -1059,6 +1956,7 @@ module_server <- function(input, output, session, ...){
       pipeline$set_settings(
         electrode_export_file_type = input$electrode_export_file_type,
         frequencies_to_export = input$frequencies_to_export,
+        condition_variable = input$condition_variable,
         times_to_export = input$times_to_export,
         trials_to_export = input$trials_to_export,
         electrodes_to_export = input$electrodes_to_export,
@@ -1067,13 +1965,13 @@ module_server <- function(input, output, session, ...){
         electrodes_to_export_roi_categories = input$electrodes_to_export_roi_categories
       )
 
-      run_analysis(
-        trigger_3dviewer = FALSE,
-        force_settings = list(electrode_text=input$electrodes_to_export)
+      run_analysis(extra_names = "data_for_export",
+                   trigger_3dviewer = TRUE,
+                   force_settings = list(electrode_text=input$electrodes_to_export)
       )
 
       # make sure this is available for export later
-      env <- pipeline$eval('data_for_export')
+      env <- pipeline$eval('data_for_export', shortcut=TRUE)
       dfe <- env$data_for_export
 
       kv <- list(
@@ -1116,7 +2014,46 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  shiny::bindEvent(ravedash::safe_observe({
 
+    export_powerpoint()
+
+  }), input$btn_export_powerpoint)
+
+
+  output$btn_export_powerpoint <- shiny::downloadHandler(
+    filename=function(...) {
+      paste0('rave_powerpoint_',
+             format(Sys.time(), "%b_%d_%Y_%H_%M_%S"),
+             '.pptx'
+      )
+    },
+    content = function(conn) {
+      req(local_data$results)
+
+      tf <- ravedash::temp_file(
+        pattern = 'powexpl',
+        fileext = '.pptx'
+      )
+
+      asc <- local_data$results$analysis_settings_clean
+
+      rmarkdown::render('modules/power_explorer/templates/power_explorer_ppt.Rmd',
+                        params = list(
+                          subject = asc[[1]]$subject_code,
+                          project = asc[[1]]$project_name
+                        ),
+                        output_dir = dirname(tf), clean = TRUE,
+                        output_file = basename(tf),
+                        output_format = rmarkdown::powerpoint_presentation(
+                          reference_doc='RAVE_white_bg_16by9-template.pptx',
+                          keep_md=FALSE)
+      )
+
+      file.copy(tf, conn)
+
+    }
+  )
   shiny::bindEvent(ravedash::safe_observe({
 
     ## when this name changes, we need to look up the new category choices
@@ -1148,11 +2085,46 @@ module_server <- function(input, output, session, ...){
     }
 
   }),
-
-
   input$electrodes_to_export_roi_name, ignoreNULL = TRUE, ignoreInit = TRUE)
 
-  output$do_download_export <- downloadHandler(
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+
+      settings <- tryCatch(
+        yaml::read_yaml(input$file_load_settings$datapath),
+        error = function(e) {
+          return (NULL)
+        }
+      )
+
+      if(!is.null(settings)) {
+        update_all_settings(settings)
+      }
+
+
+    }),
+    input$file_load_settings,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+
+  output$btn_save_settings <- shiny::downloadHandler(
+    filename = function(...) {
+      paste0('power_explorer_settings_',
+             format(Sys.time(), "%b_%d_%Y_%H_%M_%S"),
+             '.yaml'
+      )
+    },
+    content = function(conn) {
+      tf <- ravedash::temp_file('pexpl_settings', fileext = '.yaml')
+      yaml::write_yaml(pipeline$get_settings(), file=tf)
+      file.rename(tf, conn)
+    })
+
+  output$do_download_export <- shiny::downloadHandler(
     filename=function(...) {
 
       extensions <- list(
@@ -1168,7 +2140,7 @@ module_server <- function(input, output, session, ...){
       )
     },
     content = function(conn) {
-      env <- pipeline$eval("data_for_export")
+      env <- pipeline$eval("data_for_export", shortcut=TRUE)
       dfe <- env$data_for_export
 
 
@@ -1184,7 +2156,7 @@ module_server <- function(input, output, session, ...){
                                                compress=99)
                               },
                               'HDF5' = function() {
-                                h5file = temp_file('h5_out', fileext = 'h5')
+                                h5file = ravedash::temp_file('h5_out', fileext = 'h5')
 
                                 # recursive method for saving to h5 file
                                 save_list_to_h5 <- function(v, nm) {
@@ -1208,13 +2180,13 @@ module_server <- function(input, output, session, ...){
                               },
                               'Compressed CSV' = function() {
 
-                                tf <- temp_file(
+                                tf <- ravedash::temp_file(
                                   pattern = paste0('data_export_', format(Sys.time(), "%b_%d_%Y_%H_%M")),
                                   fileext = '.csv'
                                 )
                                 data.table::fwrite(data_to_write, file=tf)
 
-                                zf <- temp_file(
+                                zf <- ravedash::temp_file(
                                   pattern = 'pow_expl_', fileext = '.csv.zip'
                                 )
                                 utils::zip(zipfile = zf, files = tf, extras='-j')
@@ -1234,28 +2206,20 @@ module_server <- function(input, output, session, ...){
     }
   )
 
-  shiny::fluidRow(
-    shiny::column(3, shiny::numericInput(ns('download_plot_width'), 'Width (in)',
-                                         min = 1, max=100, value = 7.0, step=.25)
-    ),
-    shiny::column(3, shiny::numericInput(ns('download_plot_height'), 'Height (in)',
-                                         min = 1, max=100, value = 4.0, step=0.5)
-    ),
-    shiny::column(2, shiny::selectInput(ns('download_plot_type'), "Type", selected='pdf',
-                                        choices = c('pdf', 'png', 'jpeg', 'bmp', 'tiff (lzw)')))
-  )
-
   output$do_download_plot <- shiny::downloadHandler(
     filename = function() {
       type = input$download_plot_type
-      nm = local_data$download_plot$id
+      if(type == 'tiff (lzw)') {
+        type = 'tiff'
+      }
+      nm = local_data$download_plot_info$id
 
       paste(paste("plot", nm, Sys.Date(), type, sep="_"), type, sep='.')
     },
     content = function(file) {
 
-      type = input$download_plot_type
-      nm = local_data$download_plot$id
+      type = input$download_plot_info
+      nm = local_data$download_plot_info$id
 
       FUN = get(
         paste0('plot_', local_data$download_plot_info$id)
@@ -1266,13 +2230,62 @@ module_server <- function(input, output, session, ...){
       args <- list()
       args[[dset]] = local_data$results[[dset]]
 
+
+      ### some functions need extra data
       if(dset == 'over_time_by_condition_data') {
         args$condition_switch = input$over_time_by_condition_switch
       }
 
-      pdf(file, width=input$download_plot_width, height=input$download_plot_height,
-          useDingbats = FALSE)
+      if(dset == 'over_time_by_trial_data') {
+        args$plot_options = local_data$over_time_by_trial_plot_options
+      }
+
+      if(dset == 'by_condition_by_trial_data') {
+        args$grouped_plot_options = local_data$grouped_plot_options
+        args$ylab = local_data$results$baseline_settings$unit_of_analysis
+      }
+
+      ###---
+
+
+      ### open up the proper plotting device
+      OPEN_FILE <- switch(input$download_plot_type,
+                          'pdf' = function() {
+                            pdf(file, width=input$download_plot_width,
+                                height=input$download_plot_height,
+                                useDingbats = FALSE,
+                                title = 'RAVE Plot Export')
+                          },
+                          'png' = function() {
+                            scl = 1
+                            png(file, width=scl*input$download_plot_width,
+                                height=scl*input$download_plot_height,
+                                units = 'in', res=72*4)
+                          },
+                          'jpeg' = function(){
+                            jpeg(file,width=input$download_plot_width,
+                                 height=input$download_plot_height,
+                                 units = 'in', quality = 90, res=72*4)
+
+                          },
+                          'bmp' = function(){
+                            bmp(file,width=input$download_plot_width,
+                                height=input$download_plot_height,
+                                units = 'in', res=72*4)
+
+                          },
+                          'tiff (lzw)' = function(){
+                            tiff(file,compression='lzw',
+                                 width=input$download_plot_width,
+                                 height=input$download_plot_height,
+                                 units = 'in', res=72*4)
+
+                          }
+      )
+
+      OPEN_FILE()
       on.exit(dev.off())
+
       do.call(FUN, args)
     })
 
@@ -1287,11 +2300,11 @@ module_server <- function(input, output, session, ...){
   }
 
   output$pes_threshold_string <- shiny::renderText({
-    if(is.null(local_reactives$pes_manual_threshold)) {
+    if(is.null(local_data$pes$pes_manual_threshold)) {
       return ("")
     }
 
-    pmt <- local_reactives$pes_manual_threshold
+    pmt <- local_data$pes$pes_manual_threshold
 
     sprintf("Current threshold: %s %s (%s) %s %s",
             ifelse(pmt$transform_string=='force', "", pmt$transform_string),
@@ -1302,8 +2315,27 @@ module_server <- function(input, output, session, ...){
     )
   })
 
+  ravedash::register_output(
+    outputId = 'by_electrode_custom_plot',
+    render_function = shiny::renderPlot({
+      basic_checks(local_reactives$update_outputs)
+
+      force(local_reactives$update_by_electrode_custom_plot)
+      force(local_reactives$update_line_plots)
+
+      po <- local_data$by_electrode_custom_plot_options
+
+      po$by_electrode_custom_plot_data = local_data$results$by_electrode_custom_plot_data
+
+      do.call(plot_by_electrode_custom_plot, po)
+    })
+  )
+
+
   output$per_electrode_results_table <- DT::renderDataTable({
     basic_checks(local_reactives$update_outputs)
+
+    force(local_reactives$update_per_electrode_results_table)
 
     omnibus_data <- local_data$results$omnibus_results
 
@@ -1315,23 +2347,85 @@ module_server <- function(input, output, session, ...){
     rownames(mat)=NULL
 
     df <- data.frame(mat)
+    cnames <- colnames(mat)
 
-    pcols <- stringr::str_detect(colnames(mat), 'p\\(|p_fdr\\(')
+    # add in meta data
+    if(length(input$bet_meta_data) > 0) {
+      bmd <- local_data$electrode_meta_data[,c('Electrode',input$bet_meta_data),drop=FALSE]
+      bmd.names <- names(bmd)[names(bmd)!='Electrode']
+      if(!is.null(bmd)) {
+        df %<>% merge(bmd, by='Electrode', all.y=FALSE)
+        cnames %<>% c(bmd.names)
+      }
+      ravedash::logger('done adding vars', level='trace')
+    }
+
+    # remove columns the user doesn't want (this is exclusion rule)
+    vars_to_hide <- input$bet_variables_to_hide
+    col_to_hide <- rep(FALSE, length(cnames))
+
+    if(length(vars_to_hide) > 0) {
+      col_to_hide = sapply(cnames, function(x) {
+        any(stringr::str_detect(x, vars_to_hide))
+      })
+    }
+
+    if(! input$bet_show_contrasts) {
+      # first find columns with p_fdr, as those are definitely contrasts
+      ind <- stringr::str_detect(cnames, stringr::fixed('p_fdr('))
+      # now find the contrast label
+      contr <- unique(stringr::str_remove_all(cnames[ind], '(p_fdr|\\(|\\))'))
+      # now detect these strings
+      is_contr <- sapply(cnames, function(str) any(stringr::str_detect(str, contr)))
+      col_to_hide = col_to_hide | is_contr
+    }
+
+    ## remove metrics that aren't wanted (this is inclusion rule)
+    metrics_to_keep <- input$bet_metrics_to_show
+
+    if(length(metrics_to_keep) == 0) {
+      metrics_to_keep = 'm'
+      ravedash::show_notification('Must have at least one metric! Showing m(...)',
+                                  'Need a metric', type='warning')
+    } else if ('p' %in% metrics_to_keep) {
+      metrics_to_keep %<>% c('p_fdr')
+    }
+
+    met_patt =  paste(collapse='|', paste0(metrics_to_keep, '\\('))
+
+    good_met <- stringr::str_detect(cnames, met_patt)
+
+    ## add back any columns that don't have a "(" because they are special
+    good_met = good_met | stringr::str_detect(cnames, stringr::fixed('('),
+                                              negate = TRUE)
+    col_to_hide = col_to_hide | (!good_met)
+
+    # we need to keep df and its names in synch
+    df <- df[!col_to_hide]
+    cnames <- cnames[!col_to_hide]
+
+    pcols <- stringr::str_detect(cnames, 'p\\(|p_fdr\\(')
     df[pcols] %<>% lapply(function(v)as.numeric(round_pval(v)))
 
-    dt <- DT::datatable(df, colnames=colnames(mat), rownames = FALSE,
-                        extensions = c('FixedColumns', 'FixedHeader', 'Scroller', 'Buttons'),
-                        options=list(autoWidth=TRUE, scroller=TRUE, scrollX=TRUE, scrollY='500px',
-                                     buttons = list(list(extend = 'copy', title = NULL)),
-                                     fixedColumns = list(leftColumns = 1),
-                                     server=TRUE,order=TRUE,
-                                     columnDefs = list(list(width = '50px', targets = "_all")
-                                     ),
-                                     dom = 'Brt'
-                        )
+
+    dt <- DT::datatable(
+      df, colnames=cnames, rownames = FALSE,
+      # extensions = c('FixedColumns', 'FixedHeader', 'Scroller', 'Buttons'),
+      extensions = c("Buttons"),
+      options=list(autoWidth=TRUE, scroller=TRUE, scrollX=TRUE, scrollY='500px',
+                   buttons = list(list(extend = 'copy', text='Copy', title = NULL)),
+                   fixedColumns = list(leftColumns = 1),
+                   server=FALSE, #order=TRUE,
+                   # columnDefs = list(
+                   # list(width = '50px', targets = "_all")
+                   # ),
+                   dom = 'Brt'
+      )
     )
 
-    to_round <- df[!pcols] %>% sapply(get_pretty_digits)
+    char = sapply(df, function(x) any(!is.numeric(x)))
+    to_round <- df[!(pcols|char)] %>% sapply(get_pretty_digits)
+
     for(ur in unique(to_round)) {
       nms <- names(which(to_round == ur))
       dt %<>% DT::formatRound(nms, digits=ur+1)
@@ -1341,71 +2435,114 @@ module_server <- function(input, output, session, ...){
     dt %<>% DT::formatRound('Electrode', digits=0)
 
     return (dt)
+  }, server = FALSE)
+
+  # ravedash::register_output(
+  # outputId = "by_condition_by_trial",
+  # render_function = shiny::renderPlot({
+  output$by_condition_by_trial <- shiny::renderPlot({
+    basic_checks(local_reactives$update_outputs)
+
+    force(local_reactives$update_by_condition_plot)
+    force(local_reactives$update_click_info)
+    force(local_reactives$update_line_plots)
+
+    dd <- if(isTRUE(input$bcbt_show_outliers)) {
+      local_data$results$by_condition_by_trial_data_with_outliers
+    } else {
+      local_data$results$by_condition_by_trial_data
+    }
+
+    final_data_locations <- plot_by_condition_by_trial(
+      by_condition_by_trial_data = dd,
+      grouped_plot_options = local_data$grouped_plot_options,
+      ylab = local_data$results$baseline_settings$unit_of_analysis,
+      highlight_trials = local_data$bcbt_click_log
+    )
+
+    local_data$by_condition_by_trial_data_locations <- final_data_locations
+
+    # we have new data locations, so update the click table
+    local_reactives$update_click_table <- Sys.time()
   })
+  # )
+
+  ravedash::register_output(outputId='by_condition_statistics',
+                            render_function = shiny::renderUI({
+                              basic_checks(local_reactives$update_outputs)
+
+                              aes <- local_data$results$across_electrode_statistics$model
+                              summ <- local_data$results$across_electrode_statistics$aov
+
+                              ff <- Reduce(paste, deparse(formula(aes)))
+
+                              shiny::div(
+                                shiny::h5(attr(summ, 'heading')[1]),
+                                shiny::p(shiny::strong("Model Formula: "), ff),
+                                htmltable_coefmat(summ),
+                              )
+
+                            }))
+
+  ravedash::register_output(outputId='by_condition_statistics_emmeans',
+                            render_function = shiny::renderUI({
+                              basic_checks(local_reactives$update_outputs)
+                              ee <- summary(local_data$results$across_electrode_statistics$em)
+                              ee <- ee[,colnames(ee)!='emmean']
+                              em <- merge(
+                                local_data$results$across_electrode_statistics$condition_means,
+                                ee
+                              )
+
+                              names(em)[which(names(em)=='SE')] = 'emm_SE'
+
+                              # fe <- attr(terms(aes), 'term.labels')
+
+                              # contrasts <- emmeans::emmeans(
+                              #   aes, as.formula(sprintf("pairwise ~ %s", paste(fe, collapse='*'))), infer=c(F,T)
+                              # )
+
+                              shiny::div(
+                                shiny::h5("Within condition comparison against 0 (i.e., vs. baseline)"),
+                                as_html.emmGrid(em),
+                              )
+                            }))
+
 
   ravedash::register_output(
-    outputId = "by_trial_by_condition",
-    render_function = shiny::renderPlot({
+    outputId='by_condition_statistics_contrasts',
+    render_function = shiny::renderUI({
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_pairwise_contrasts)
 
-      force(local_reactives$update_by_trial_plot)
-      force(local_reactives$update_line_plots)
+      aes <- local_data$results$across_electrode_statistics
 
-      data <- local_data$results$omnibus_results$data
-
-      po <- local_data$grouped_plot_options
-
-      # based on shiny input, change xvar/yvar
-      count=function(x) {
-        if(is.null(x)) return (1)
-        length(unique(x))
+      get_contr <- function(contrasts) {
+        nm <- input$bcs_choose_specific_contrast
+        if(nm %in% names(contrasts)) {
+          contrasts = contrasts[[nm]]
+        } else if (is.list(contrasts) && ! ('emmGrid' %in% class(contrasts))) {
+          contrasts = contrasts[[1]]
+        }
+        contrasts
       }
 
-      k = 10 + 2.5*(count(data$Factor1)*count(data$AnalysisLabel)-1)
-      if(!is.null(data$Factor2)) {
-        k = k + 2.5 * (count(data$Factor2)-1)
+
+      if(input$bcs_choose_contrasts == 'All-possible pairwise') {
+        contrasts <- aes$pairwise_contrasts
+      } else if(input$bcs_choose_contrasts == 'Stratified contrasts (more power!)') {
+        contrasts <- get_contr(aes$stratified_contrasts)$contrasts
+      } else if(input$bcs_choose_contrasts == 'ITX Contrasts (diff of diff)') {
+        contrasts <- get_contr(aes$itx_contrasts)
       }
 
-      MAX = 30
-      layout(matrix(c(0,1,0), nrow=1), widths = c(1,lcm(min(k, MAX)),1))
-      oom <- get_order_of_magnitude(median(abs(pretty(data$y))))
-
-      line = 2.75 + oom
-
-      #read in group label posision
-      label_position = 'top' #c('none', 'bottom', 'top')
-
-
-      ### if there is a panel var, split the data and do multiple plots
-      po$panelvar = NULL
-
-      # fix the names of xvar and gvar
-      for(nm in c('xvar', 'gvar')) {
-        if(po[[nm]] == 'First Factor') po[[nm]] = 'Factor1'
-        if(po[[nm]] == 'Second Factor') po[[nm]] = 'Factor2'
-        if(po[[nm]] == 'First:Second') po[[nm]] = 'Factor1Factor2'
-        if(po[[nm]] == 'Analysis Group') po[[nm]] = 'AnalysisLabel'
-      }
-
-      # we need to collapse over electrode, but first
-      # select out the electrodes that are requested for analysis.
-      # by default, omnibus has all (omni) of the data
-      nms <- names(data)
-      nms <- nms[!(nms %in% c('y', 'Electrode'))]
-      mat = data.table::data.table(data)
-
-      mat = mat[data$currently_selected, list(y=mean(get('y'))), keyby=nms]
-
-      par('mar'=c(4, 4.5+oom, ifelse(label_position=='top',3.5,2), 2)+.1)
-      do.call(plot_grouped_data,
-              append(po, list(mat=as.data.frame(mat),
-                              do_axes=TRUE, names.pos=label_position))
+      res <- shiny::div(
+        shiny::h5("Between-condition comparison"),
+        as_html(contrasts),
       )
 
-      uoa = local_data$results$settings$baseline_settings$unit_of_analysis
-      rave_axis_labels(ylab=uoa, outer=FALSE, yline=line, xpd=TRUE)
-    })
-  )
+    }))
+
 
 
   ravedash::register_output(
@@ -1425,9 +2562,35 @@ module_server <- function(input, output, session, ...){
 
       basic_checks(local_reactives$update_outputs)
       force(local_reactives$update_heatmap_plots)
-      assign('by_frequency_over_time_data', local_data$results$by_frequency_over_time_data, globalenv())
+      force(local_reactives$update_by_frequency_over_time_plot)
 
-      plot_by_frequency_over_time(local_data$results$by_frequency_over_time_data)
+      by_frequency_over_time_data = local_data$results$by_frequency_over_time_data
+
+      # if there are any changes to the analysis window, we want to highlight
+      # them on the graph
+      for(ii in seq_along(local_reactives$current_analysis_settings)) {
+        ss <- local_reactives$current_analysis_settings[[ii]]
+
+        new_time = unlist(ss$time)
+        new_freq = unlist(ss$frequency)
+
+        jj = which(endsWith(names(by_frequency_over_time_data), ss$label))
+
+        for(curr_map in jj) {
+          if(any(new_time != by_frequency_over_time_data[[curr_map]]$analysis_window,
+                 new_freq != by_frequency_over_time_data[[curr_map]]$analysis_frequency)) {
+            by_frequency_over_time_data[[curr_map]]$analysis_window_tmp = new_time
+            by_frequency_over_time_data[[curr_map]]$analysis_frequency_tmp = new_freq
+          }
+        }
+      }
+
+      ravedash::logger(level='info', "plot_by_frequency_over_time")
+
+      plot_by_frequency_over_time(
+        by_frequency_over_time_data,
+        plot_args = local_data$by_frequency_over_time_plot_options
+      )
 
     })
   )
@@ -1437,33 +2600,22 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
       force(local_reactives$update_heatmap_plots)
+      force(local_reactives$update_by_frequency_correlation_plot)
 
       plot_by_frequency_correlation(
-        local_data$results$by_frequency_correlation_data
+        local_data$results$by_frequency_correlation_data,
+        plot_options = local_data$by_frequency_correlation_plot_options
       )
     })
   )
 
-
-  # output$per_electrode_statistics <- shiny::renderPlot({
-  #   basic_checks(local_reactives$update_outputs)
-  #
-  #   stats <- local_data$results$omnibus_results$stats
-  #
-  #   if(exists('local_reactives') && !is.null(local_reactives$per_electrode_statistics_chooser)) {
-  #     requested_stat = local_reactives$per_electrode_statistics_chooser
-  #   }
-  #
-  #   plot_per_electrode_statistics(stats, requested_stat)
-  # })
-
   get_threshold <- function(ptype) {
     th = NULL
-    if(!is.null(local_reactives$pes_manual_threshold)) {
-      if(local_reactives$pes_manual_threshold$operand == ptype) {
-        th = local_reactives$pes_manual_threshold$comparator
+    if(!is.null(local_data$pes$pes_manual_threshold)) {
+      if(local_data$pes$pes_manual_threshold$operand == ptype) {
+        th = local_data$pes$pes_manual_threshold$comparator
 
-        if(local_reactives$pes_manual_threshold$transform == 'abs') {
+        if(local_data$pes$pes_manual_threshold$transform == 'abs') {
           th = sort(c(-th, th))
         }
       }
@@ -1475,17 +2627,18 @@ module_server <- function(input, output, session, ...){
     outputId = "per_electrode_statistics_mean",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
 
       lbl_elecs = NULL
       requested_stat = NULL
 
-      if(!is.null(local_reactives$per_electrode_statistics_chooser)) {
-        requested_stat = local_reactives$per_electrode_statistics_chooser
+      if(!is.null(local_data$pes$per_electrode_statistics_chooser)) {
+        requested_stat = local_data$pes$per_electrode_statistics_chooser
 
-        if(!is.null(local_reactives$pes_selected_electrodes)) {
-          lbl_elecs <- local_reactives$pes_selected_electrodes
+        if(!is.null(local_data$pes$pes_selected_electrodes)) {
+          lbl_elecs <- local_data$pes$pes_selected_electrodes
         }
 
 
@@ -1501,16 +2654,18 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
 
+      force(local_reactives$update_pes_plot)
+
       stats <- local_data$results$omnibus_results$stats
 
       lbl_elecs = NULL
       requested_stat = NULL
 
-      if(exists('local_reactives') && !is.null(local_reactives$per_electrode_statistics_chooser)) {
-        requested_stat = local_reactives$per_electrode_statistics_chooser
+      if(!is.null(local_data$pes$per_electrode_statistics_chooser)) {
+        requested_stat = local_data$pes$per_electrode_statistics_chooser
 
-        if(!is.null(local_reactives$pes_selected_electrodes)) {
-          lbl_elecs <- local_reactives$pes_selected_electrodes
+        if(!is.null(local_data$pes$pes_selected_electrodes)) {
+          lbl_elecs <- local_data$pes$pes_selected_electrodes
         }
       }
 
@@ -1524,16 +2679,18 @@ module_server <- function(input, output, session, ...){
     outputId = "per_electrode_statistics_fdrp",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+      force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
 
       lbl_elecs = NULL
       requested_stat = NULL
-      if(exists('local_reactives') && !is.null(local_reactives$per_electrode_statistics_chooser)) {
-        requested_stat = local_reactives$per_electrode_statistics_chooser
 
-        if(!is.null(local_reactives$pes_selected_electrodes)) {
-          lbl_elecs <- local_reactives$pes_selected_electrodes
+      if(!is.null(local_data$pes$per_electrode_statistics_chooser)) {
+        requested_stat = local_data$pes$per_electrode_statistics_chooser
+
+        if(!is.null(local_data$pes$pes_selected_electrodes)) {
+          lbl_elecs <- local_data$pes$pes_selected_electrodes
         }
       }
       plot_per_electrode_statistics(stats, requested_stat, which_plots = 'p',
@@ -1542,17 +2699,46 @@ module_server <- function(input, output, session, ...){
     })
   )
 
-  ### by trial over time plot
+  # special function used by the downloader to get all 3 plots in one
+  plot_univariate_statistics_graphical_results <- function(
+    univariate_statistics_graphical_results_data) {
 
+    par(mfrow=c(1,3))
+
+    lbl_elecs = NULL
+    requested_stat = NULL
+
+    if(!is.null(local_data$pes$per_electrode_statistics_chooser)) {
+      requested_stat = local_data$pes$per_electrode_statistics_chooser
+
+      if(!is.null(local_data$pes$pes_selected_electrodes)) {
+        lbl_elecs <- local_data$pes$pes_selected_electrodes
+      }
+    }
+
+    sapply(c('m', 't', 'p'), function(st) {
+      plot_per_electrode_statistics(univariate_statistics_graphical_results_data,
+                                    requested_stat, which_plots = st,
+                                    draw_threshold=get_threshold(st),
+                                    label_electrodes=lbl_elecs, label_type = input$pes_label_type)
+    })
+  }
+
+
+  ### by trial over time plot
   ravedash::register_output(
     outputId = "over_time_by_trial",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
+
       force(local_reactives$update_heatmap_plots)
+      force(local_reactives$update_over_time_by_trial_plot)
+      force(local_reactives$outliers_updated)
 
       # check if we are in a multiple event situation
       plot_over_time_by_trial(
-        local_data$results$over_time_by_trial_data
+        local_data$results$over_time_by_trial_data,
+        local_data$over_time_by_trial_plot_options
       )
     })
   )
@@ -1566,11 +2752,9 @@ module_server <- function(input, output, session, ...){
 
       plot_over_time_by_condition(
         local_data$results$over_time_by_condition_data,
-        condition_switch=input$over_time_by_condition_switch
+        condition_switch=input$over_time_by_condition_switch,
+        plot_range = input$over_time_by_condition_plot_range
       )
     })
   )
 }
-
-
-

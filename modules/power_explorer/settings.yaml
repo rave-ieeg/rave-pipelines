@@ -1,29 +1,33 @@
-electrode_export_data_type: tensor
-electrodes_to_export: ''
-trials_to_export: Raw, Only trials used in grouping factors
-times_to_export: Raw, All available times
-frequencies_to_export: Collapsed, Analysis window(s) only
-electrode_export_file_type: HDF5
-trial_outliers_list: ~
-time_censor:
-  enabled: no
-  window:
-  - 0.0
-  - 1.0
-project_name: demo
-subject_code: DemoSubject
-loaded_electrodes: 13-16,24
-epoch_choice: auditory_onset
-epoch_choice__trial_starts: -1
-epoch_choice__trial_ends: 2
-reference_name: default
+analysis_electrodes__category: freesurferlabel
+analysis_settings:
+  '1':
+    label: A-onset BHA
+    event: Trial Onset
+    time:
+    - 0
+    - 0.5
+    frequency:
+    - 70
+    - 126
 baseline_settings:
   window:
   - - -1.0
-    - -0.47
+    - -0.5
   scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
-analysis_electrodes: '14 '
+electrode_groupings:
+  enabled: no
+  groups:
+    '1':
+      label: STG/S
+      electrodes: 13-14
+    '2':
+      label: Other
+      electrodes: 15-25
+electrodes_list: 13-16,24
+epoch_choice: auditory_onset
+epoch_choice__trial_ends: 2.0
+epoch_choice__trial_starts: -1.0
 first_condition_groupings:
   '1':
     label: AOnly
@@ -39,30 +43,16 @@ first_condition_groupings:
     - drive_av
     - known_av
     - meant_av
-second_condition_groupings:
-  '1':
-    label: MouthLeading
-    conditions: []
-  '2':
-    label: VoiceLeading
-    conditions: []
-enable_second_condition_groupings: no
-enable_custom_ROI: no
-custom_roi_type: Filter only
-custom_roi_variable: none
-custom_roi_groupings:
-  '1':
-    label: ''
-    conditions: []
-analysis_settings:
-  '1':
-    label: A
-    event: Trial Onset
-    time:
-    - 0
-    - 0.57
-    frequency:
-    - 67
-    - 152
-electrodes_to_export_roi_name: none
-electrodes_to_export_roi_categories: ~
+    - meant_v
+    - press_AV
+project_name: demo
+reference_name: default
+selected_electrodes: '13 '
+subject_name: DemoSubject
+tensor_collapse_method: mean
+time_censor:
+  enabled: no
+  window:
+  - 0
+  - 1
+trial_outliers_list: ~

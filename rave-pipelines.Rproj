@@ -15,6 +15,6 @@ LaTeX: pdfLaTeX
 AutoAppendNewline: Yes
 StripTrailingWhitespace: Yes
 
-UseNativePipeOperator: Yes
+UseNativePipeOperator: No
 
 QuitChildProcessesOnExit: Yes

@@ -4,6 +4,12 @@ pretty_round <- function(x, allow_negative_round=FALSE) {
 }
 
 get_pretty_digits <- function(x, allow_negative_round=FALSE) {
+
+  # make sure we weren't given strings
+  if(any(!is.numeric(x))) {
+    return(x)
+  }
+
   max_x <- max(abs(x))
 
   dig = 0
