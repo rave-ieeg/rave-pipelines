@@ -43,11 +43,10 @@ pipeline <- raveio::pipeline(
 #' @return Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE){
 
-  # if(first_time){
-  #   ravedash::fire_rave_event('loader_message', NULL)
-  #   re <- FALSE
-  #   return(re)
-  # }
+  if(first_time){
+    ravedash::fire_rave_event('loader_message', NULL)
+    return(FALSE)
+  }
 
   re <- tryCatch({
     repo <- pipeline$read('repository')
