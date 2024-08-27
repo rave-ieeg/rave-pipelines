@@ -124,20 +124,25 @@ filtered_array <- pre_analysis_filter_array
 
 
 ```{rave analyze_data, language = "R", export = "analysis_results"}
-analysis_ranges <- build_analysis_ranges(repository, analysis_settings)
-condition_groups <- build_condition_groups(repository, condition_groupings)
-parameter_grid <- build_parameter_grid(condition_groups, analysis_ranges)
-parameter_grid$validate()
+parameter_grid <- build_parameter_grid(
+  repository = repository,
+  condition_groupings = condition_groupings,
+  analysis_settings = analysis_settings
+)
+```
 
+```{r}
 lapply(parameter_grid$condition_groups, function(condition_group) {
   # condition_group <- parameter_grid$condition_groups[[1]]
-  voltage_over_time_per_channel <- prepare_voltage_over_time_per_channel(
-    filtered_array = filtered_array,
-    condition_group = condition_group,
-    channels = analysis_channels_clean
-  )
+  voltage_over_time_per_channel <-
+    prepare_voltage_over_time_per_channel(
+      filtered_array = filtered_array,
+      condition_group = condition_group,
+      channels = analysis_channels_clean
+    )
   
-  
+  prepare_voltage_over_time_per_cond_channel(filtered_array = ,condition_groups = ,channels = ,hilbert = ,baseline_unit = )
+  prepare_voltage_over_time_per_trial(filtered_array = ,condition_group = ,channels = )
   
   list(
     voltage_over_time_per_channel = voltage_over_time_per_channel

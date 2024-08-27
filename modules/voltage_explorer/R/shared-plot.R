@@ -22,12 +22,18 @@ pretty_frequency_range <- function(frequency_range) {
 # ---- Voltage over time per channel -------------------------------------------
 # collapsing trials, for each condition group
 
+#' @description
+#' Prepare data for plotting ERP over time for each channel, collapsed
+#' over condition group
+#' @param filtered_array filtered array, `filearray` object
+#' @param condition_group condition group, element of parameter grid
+#' @param channels channels for analysis
 prepare_voltage_over_time_per_channel <- function(filtered_array, condition_group, channels) {
   # DIPSAUS DEBUG START
   # condition_group = parameter_grid$condition_groups[[1]]
   # channels = analysis_channels_clean
 
-  if(!condition_group$has_trials) { return(NULL) }
+  if(!length(condition_group$trial_numbers)) { return(NULL) }
 
   if(missing(channels) || !length(channels)) {
     channels <- filtered_array$get_header("filtered_channels")
@@ -36,7 +42,7 @@ prepare_voltage_over_time_per_channel <- function(filtered_array, condition_grou
   # time x trial
   subarray <- subset(
     filtered_array,
-    Trial ~ Trial %in% condition_group$trial_num,
+    Trial ~ Trial %in% condition_group$trial_numbers,
     Electrode ~ Electrode %in% channels,
     drop = FALSE
   )
@@ -69,8 +75,8 @@ prepare_voltage_over_time_per_channel <- function(filtered_array, condition_grou
       description = "plot_data_voltage_over_time_per_channel",
       condition_group = list(
         id = condition_group$id,
-        order = condition_group$order,
-        name = condition_group$name
+        order = condition_group$group_order,
+        name = condition_group$label
       ),
       sample_rate = sample_rate,
       frequency_range = frequency_range,
