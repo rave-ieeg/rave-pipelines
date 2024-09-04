@@ -483,7 +483,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
         shiny::selectInput(inputId = id, label = "Epoch name",
           choices = c(value, ""), selected = value, multiple = FALSE)
       ),
-      shidashi::flex_break(style='margin:-10px; padding:0px'),
+      shidashi::flex_break(),
       shidashi::flex_item(shiny::p("Pre must be negative if you need a pre-stimulus baseline window."), size=2),
       shidashi::flex_break(),
       shidashi::flex_item(shiny::numericInput(inputId = comp$get_sub_element_id("trial_starts",
@@ -568,14 +568,11 @@ loader_electrodes <- ravedash::presets_loader_electrodes()
 loader_reference <- ravedash::presets_loader_reference()
 loader_viewer <- get_loader_3dviewer()#ravedash::presets_loader_3dviewer(height = "100%")
 
-
-str(loader_viewer$get_settings_value)
-
+# str(loader_viewer$get_settings_value)
 
 import_export_pipeline <- ravedash::presets_import_export_subject_pipeline()
 
 loader_epoch <- build_epoch_loader()#  ravedash::presets_loader_epoch()
-
 
 # comp_condition_groups <- ravedash::presets_condition_groups()
 electrode_selector <- build_electrode_selector()
