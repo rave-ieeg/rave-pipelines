@@ -1736,9 +1736,11 @@ plot_grouped_data <- function(mat, xvar, yvar='y', gvar=NULL, ...,
   ylim=NULL, col=NULL, do_axes=TRUE,
   names.pos = c('none', 'bottom', 'top'),
   plot_options = NULL, jitter_seed=NULL, cex_multifigure_scale=TRUE,
-  just_get_ylim = FALSE, repeated_index='Trial') {
+  just_get_ylim = FALSE, repeated_index='Trial', apply_theme=TRUE) {
 
-  apply_current_theme()
+  if(apply_theme) {
+    apply_current_theme()
+  }
 
   # here we need to know about grouping var, x-axis
   if(is.null(plot_options)) {

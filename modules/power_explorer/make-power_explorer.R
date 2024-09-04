@@ -17,90 +17,90 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+    input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
         quote({
-            settings[["electrode_export_data_type"]]
-        }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
-        quote({
-            settings[["electrodes_to_export"]]
-        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
-        quote({
-            settings[["trials_to_export"]]
-        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
-        quote({
-            settings[["times_to_export"]]
-        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
-        quote({
-            settings[["frequencies_to_export"]]
-        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
-        quote({
-            settings[["electrode_export_file_type"]]
-        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
-        quote({
-            settings[["trial_outliers_list"]]
-        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
-        quote({
-            settings[["time_censor"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
-        quote({
-            settings[["loaded_electrodes"]]
-        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
-        quote({
-            settings[["epoch_choice"]]
-        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
-        quote({
-            settings[["epoch_choice__trial_starts"]]
-        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
-        quote({
-            settings[["epoch_choice__trial_ends"]]
-        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
-        quote({
-            settings[["reference_name"]]
-        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
-        quote({
-            settings[["baseline_settings"]]
-        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
-        quote({
-            settings[["analysis_electrodes"]]
-        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
-        quote({
-            settings[["first_condition_groupings"]]
-        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
-        quote({
-            settings[["second_condition_groupings"]]
-        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
-        quote({
-            settings[["enable_second_condition_groupings"]]
-        }), deps = "settings"), input_condition_variable = targets::tar_target_raw("condition_variable", 
-        quote({
-            settings[["condition_variable"]]
-        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
-        quote({
-            settings[["enable_custom_ROI"]]
-        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
-        quote({
-            settings[["custom_roi_type"]]
-        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
-        quote({
-            settings[["custom_roi_variable"]]
-        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
-        quote({
-            settings[["custom_roi_groupings"]]
-        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
-        quote({
-            settings[["analysis_settings"]]
+            settings[["electrodes_to_export_roi_categories"]]
         }), deps = "settings"), input_electrodes_to_export_roi_name = targets::tar_target_raw("electrodes_to_export_roi_name", 
         quote({
             settings[["electrodes_to_export_roi_name"]]
-        }), deps = "settings"), input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
+        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
         quote({
-            settings[["electrodes_to_export_roi_categories"]]
+            settings[["analysis_settings"]]
+        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
+        quote({
+            settings[["custom_roi_groupings"]]
+        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
+        quote({
+            settings[["custom_roi_variable"]]
+        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
+        quote({
+            settings[["custom_roi_type"]]
+        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
+        quote({
+            settings[["enable_custom_ROI"]]
+        }), deps = "settings"), input_condition_variable = targets::tar_target_raw("condition_variable", 
+        quote({
+            settings[["condition_variable"]]
+        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
+        quote({
+            settings[["enable_second_condition_groupings"]]
+        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
+        quote({
+            settings[["second_condition_groupings"]]
+        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
+        quote({
+            settings[["first_condition_groupings"]]
+        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
+        quote({
+            settings[["analysis_electrodes"]]
+        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
+        quote({
+            settings[["baseline_settings"]]
+        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
+        quote({
+            settings[["reference_name"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
+        quote({
+            settings[["epoch_choice__trial_ends"]]
+        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
+        quote({
+            settings[["epoch_choice__trial_starts"]]
+        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
+        quote({
+            settings[["epoch_choice"]]
+        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
+        quote({
+            settings[["loaded_electrodes"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
+        quote({
+            settings[["time_censor"]]
+        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
+        quote({
+            settings[["trial_outliers_list"]]
+        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
+        quote({
+            settings[["electrode_export_file_type"]]
+        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
+        quote({
+            settings[["frequencies_to_export"]]
+        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
+        quote({
+            settings[["times_to_export"]]
+        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
+        quote({
+            settings[["trials_to_export"]]
+        }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
+        quote({
+            settings[["electrodes_to_export"]]
+        }), deps = "settings"), input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+        quote({
+            settings[["electrode_export_data_type"]]
         }), deps = "settings"), check_load_power = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
@@ -967,6 +967,76 @@ rm(._._env_._.)
                 betfd_success
             }), target_depends = "over_time_by_electrode_data"), 
         deps = "over_time_by_electrode_data", cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), build_over_time_by_electrode_and_trial_data = targets::tar_target_raw(name = "over_time_by_electrode_and_trial_data", 
+        command = quote({
+            .__target_expr__. <- quote({
+                build_data <- function(data, analysis_settings, 
+                  condition_group, baseline_settings, ...) {
+                  dm <- dimnames(data)
+                  to_keep <- sapply(c("Time", "Electrode", "Trial"), 
+                    which.equal, names(dm))
+                  res <- list(data = ravetools::collapse(data, 
+                    keep = to_keep), xlab = "Time (s)", ylab = "Electrode #", 
+                    zlab = "Trial", analysis_unit = baseline_settings$unit_of_analysis, 
+                    condition_group = condition_group$label, 
+                    electrodes = as.integer(dm$Electrode))
+                  res[c("x", "y", "z")] <- dimnames(data)[to_keep] %>% 
+                    lapply(as.numeric)
+                  dimnames(res$data) = dimnames(data)[to_keep]
+                  res$N = length(dm$Trial)
+                  if (isTRUE(analysis_settings$censor_info$enabled)) {
+                    ti = res$x %within% analysis_settings$censor_info$window
+                    res$range <- range(res$data[!ti, , ])
+                  } else {
+                    res$range <- range(res$data)
+                  }
+                  return(res)
+                }
+                over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power, 
+                  condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                  build_data)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(over_time_by_electrode_and_trial_data)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_and_trial_data", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+            target_export = "over_time_by_electrode_and_trial_data", 
+            target_expr = quote({
+                {
+                  build_data <- function(data, analysis_settings, 
+                    condition_group, baseline_settings, ...) {
+                    dm <- dimnames(data)
+                    to_keep <- sapply(c("Time", "Electrode", 
+                      "Trial"), which.equal, names(dm))
+                    res <- list(data = ravetools::collapse(data, 
+                      keep = to_keep), xlab = "Time (s)", ylab = "Electrode #", 
+                      zlab = "Trial", analysis_unit = baseline_settings$unit_of_analysis, 
+                      condition_group = condition_group$label, 
+                      electrodes = as.integer(dm$Electrode))
+                    res[c("x", "y", "z")] <- dimnames(data)[to_keep] %>% 
+                      lapply(as.numeric)
+                    dimnames(res$data) = dimnames(data)[to_keep]
+                    res$N = length(dm$Trial)
+                    if (isTRUE(analysis_settings$censor_info$enabled)) {
+                      ti = res$x %within% analysis_settings$censor_info$window
+                      res$range <- range(res$data[!ti, , ])
+                    } else {
+                      res$range <- range(res$data)
+                    }
+                    return(res)
+                  }
+                  over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power, 
+                    condition_group = analysis_groups, baseline_settings = baseline_settings, 
+                    build_data)
+                }
+                over_time_by_electrode_and_trial_data
+            }), target_depends = c("pluriform_power", "analysis_groups", 
+            "baseline_settings")), deps = c("pluriform_power", 
+        "analysis_groups", "baseline_settings"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_over_time_by_condition_data = targets::tar_target_raw(name = "over_time_by_condition_data", 
         command = quote({
             .__target_expr__. <- quote({
@@ -2294,4 +2364,42 @@ rm(._._env_._.)
         "analysis_groups", "trial_outliers_list", "condition_variable", 
         "times_to_export", "frequencies_to_export", "electrode_export_data_type"
         ), cue = targets::tar_cue("always"), pattern = NULL, 
+        iteration = "list"), build_data_for_group_analysis = targets::tar_target_raw(name = "data_for_group_analysis", 
+        command = quote({
+            .__target_expr__. <- quote({
+                data_for_group_analysis <- list()
+                data_for_group_analysis$baseline_settings <- baseline_settings
+                data_for_group_analysis$analysis_settings_clean <- analysis_settings_clean
+                data_for_group_analysis$electrode_information <- subset(repository$electrode_table, 
+                  repository$electrode_table$Electrode %in% repository$electrode_list)
+                data_for_group_analysis$over_time_by_electrode_data <- over_time_by_electrode_data
+                data_for_group_analysis$omnibus_stats <- omnibus_results$stats
+                data_for_group_analysis$omnibus_data <- omnibus_results$data_with_outliers
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(data_for_group_analysis)
+            }, error = function(e) {
+                asNamespace("raveio")$resolve_pipeline_error(name = "data_for_group_analysis", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+            target_export = "data_for_group_analysis", target_expr = quote({
+                {
+                  data_for_group_analysis <- list()
+                  data_for_group_analysis$baseline_settings <- baseline_settings
+                  data_for_group_analysis$analysis_settings_clean <- analysis_settings_clean
+                  data_for_group_analysis$electrode_information <- subset(repository$electrode_table, 
+                    repository$electrode_table$Electrode %in% 
+                      repository$electrode_list)
+                  data_for_group_analysis$over_time_by_electrode_data <- over_time_by_electrode_data
+                  data_for_group_analysis$omnibus_stats <- omnibus_results$stats
+                  data_for_group_analysis$omnibus_data <- omnibus_results$data_with_outliers
+                }
+                data_for_group_analysis
+            }), target_depends = c("baseline_settings", "analysis_settings_clean", 
+            "repository", "over_time_by_electrode_data", "omnibus_results"
+            )), deps = c("baseline_settings", "analysis_settings_clean", 
+        "repository", "over_time_by_electrode_data", "omnibus_results"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
         iteration = "list"))

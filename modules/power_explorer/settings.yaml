@@ -4,49 +4,35 @@ trials_to_export: Raw, Only trials used in grouping factors
 times_to_export: Raw, All available times
 frequencies_to_export: Collapsed, Analysis window(s) only
 electrode_export_file_type: HDF5
-trial_outliers_list: '270'
+trial_outliers_list: ~
 time_censor:
   enabled: no
   window:
   - 0.0
   - 1.0
-project_name: demo
-subject_code: DemoSubject
-loaded_electrodes: 13-16,24
-epoch_choice: auditory_onset
+project_name: EMU_NoisyWords
+subject_code: PAV002
+loaded_electrodes: 18-19,79-81
+epoch_choice: UTO_PAV002_5modalities_voao
 epoch_choice__trial_starts: -0.55
-epoch_choice__trial_ends: 3
-reference_name: default
+epoch_choice__trial_ends: 3.0
+reference_name: bipolar
 baseline_settings:
   window:
   - - -0.5
     - 0.0
   scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
-analysis_electrodes: '13 '
+analysis_electrodes: 18-19,79-80
 first_condition_groupings:
   '1':
-    label: All Conditions
+    label: Vo
     conditions:
-    - drive_a
-    - drive_av
-    - drive_v
-    - known_a
-    - known_av
-    - known_v
-    - last_a
-    - last_av
-    - last_v
-    - meant_a
-    - meant_av
-    - meant_v
-    - press_AV
+    - V
   '2':
-    label: AV-inc
+    label: A
     conditions:
-    - AdriveVlast
-    - AknownVmeant
-    - AlastVknown
+    - Ac
 second_condition_groupings:
   '1':
     label: ML
@@ -66,10 +52,19 @@ custom_roi_groupings:
 analysis_settings:
   '1':
     label: VisStart
-    event: Trial Onset
+    event: newVisStart
     time:
     - 0
-    - 0.8
+    - 1
+    frequency:
+    - 70
+    - 150
+  '2':
+    label: AudStart
+    event: newAudStart
+    time:
+    - 0
+    - 1
     frequency:
     - 70
     - 150
