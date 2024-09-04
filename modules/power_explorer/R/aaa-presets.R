@@ -484,7 +484,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
           choices = c(value, ""), selected = value, multiple = FALSE)
       ),
       shidashi::flex_break(),
-      shidashi::flex_item(shiny::p("Pre must be negative if you need a pre-stimulus baseline window."), size=2),
+      shidashi::flex_item(shiny::p("Pre must be negative if you need a pre-event baseline window."), size=2),
       shidashi::flex_break(),
       shidashi::flex_item(shiny::numericInput(inputId = comp$get_sub_element_id("trial_starts",
         with_namespace = TRUE), label = "Pre", min = -10, step = .1,
