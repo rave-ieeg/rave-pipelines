@@ -7,6 +7,6 @@
 ^main\.html$
 
 [group_analysis]
-^shared/objects/(?!data_for_group)
+^shared/objects/(?!data_for_group_analysis)
 ^shared/user
 ^main\.html$

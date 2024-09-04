@@ -485,6 +485,45 @@ betfd_success <- tryCatch({
 })
 ```
 
+```{rave build_over_time_by_electrode_and_trial_data, language="R", export ="over_time_by_electrode_and_trial_data"}
+build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
+  dm <- dimnames(data)
+  to_keep <- sapply(c('Time', 'Electrode', 'Trial'), which.equal, names(dm))
+  res <- list(
+    data = ravetools::collapse(data, keep = to_keep),
+    xlab='Time (s)',
+    ylab='Electrode #',
+    zlab='Trial',
+    analysis_unit = baseline_settings$unit_of_analysis,
+    condition_group = condition_group$label,
+    electrodes = as.integer(dm$Electrode)
+  )
+  
+  res[c('x', 'y', 'z')] <- dimnames(data)[to_keep] %>% lapply(as.numeric)
+  dimnames(res$data) = dimnames(data)[to_keep]
+  res$N = length(dm$Trial)
+  
+  if(isTRUE(analysis_settings$censor_info$enabled)) {
+    
+    ti = res$x %within% analysis_settings$censor_info$window
+    res$range <- range(res$data[!ti,,])
+  } else {
+    res$range <- range(res$data)
+  }
+  
+  return(res)
+}
+
+over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power,
+                                            condition_group = analysis_groups, 
+                                            baseline_settings = baseline_settings,
+                                            build_data)
+
+
+```
+
+
+
 ```{rave build_over_time_by_condition_data, language="R", export ="over_time_by_condition_data"}
 build_data <- function(dd, settings) {
   to_keep <- sapply(c('Time', 'Electrode'), which.equal, names(dimnames(dd)))
@@ -1488,6 +1527,21 @@ if(electrode_export_data_type == 'tensor') {
   )
 }
 
+```
+
+```{rave build_data_for_group_analysis, language="R", export='data_for_group_analysis'}
+
+data_for_group_analysis <- list()
+
+data_for_group_analysis$baseline_settings <- baseline_settings
+data_for_group_analysis$analysis_settings_clean <- analysis_settings_clean
+
+data_for_group_analysis$electrode_information <- subset(repository$electrode_table, repository$electrode_table$Electrode %in% repository$electrode_list)
+
+data_for_group_analysis$over_time_by_electrode_data <- over_time_by_electrode_data
+
+data_for_group_analysis$omnibus_stats <- omnibus_results$stats
+data_for_group_analysis$omnibus_data <- omnibus_results$data_with_outliers
 ```
 
 ```{r build, echo=FALSE, results='hide'}

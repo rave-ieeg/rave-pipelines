@@ -173,6 +173,26 @@ module_html <- function(){
                                  selected = pe_graphics_settings_cache$get('heatmap_color_palette') %OF% heatmap_palettes
               )
             ),
+            # ---- Input tab: Save for group analysis --------------------------------
+
+            ravedash::input_card(
+              class_header = "shidashi-anchor", title = "Save for Group Analysis",
+              shiny::p("Data from currently-selected electrodes will be saved on the RAVE server in the subject's directory.", shiny::br(),
+                       "Be sure to provide a unique label (timestamps are automatic). ",
+              "If you select Create New, but reuse an existing label, the original export will not be deleted, "
+              , "but it may become inaccessible from within RAVE."),
+              shiny::p("Using the same label across multiple subjects will greatly facilitate group analysis"),
+              shiny::selectInput(ns("replace_existing_group_anlysis_pipeline"), label = 'Create new / Replace existing pipeline',
+                                 choices = 'Create New'),
+              shiny::textInput(
+                inputId = ns("save_pipeline_for_group_analysis_label"),
+                label = "Label for results (spaces/special chars will be replaced)",
+                placeholder = "compare_A_and_B_pct_signal_change"
+              ),
+
+              dipsaus::actionButtonStyled(ns('save_pipeline_for_group_analysis'), 'Save!', icon = ravedash::shiny_icons$save)
+            ),
+
             # ---- Input tab: Export Electrodes --------------------------------
 
             ravedash::input_card(
@@ -248,6 +268,7 @@ module_html <- function(){
                 icon = ravedash::shiny_icons$export
               )
             ),
+
 
             # ---- Input tab: Export Power Point --------------------------------
 

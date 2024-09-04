@@ -964,6 +964,9 @@ module_server <- function(input, output, session, ...){
                                selected = 'none', choices = new_choices
       )
 
+      # update the list of available forked pipelines
+      update_available_forked_pipelines()
+
       # Reset outputs
       # shidashi::reset_output("collapse_over_trial")
       # shidashi::reset_output("over_time_by_electrode_data")
@@ -1920,9 +1923,6 @@ module_server <- function(input, output, session, ...){
                                     title='Export data type updated')
 
         shiny::updateSelectInput(inputId ='electrode_export_data_type', selected = 'flat')
-
-
-
       }
     }),
     input$electrode_export_data_type, ignoreNULL = TRUE, ignoreInit = TRUE
@@ -2016,9 +2016,7 @@ module_server <- function(input, output, session, ...){
   )
 
   shiny::bindEvent(ravedash::safe_observe({
-
     export_powerpoint()
-
   }), input$btn_export_powerpoint)
 
 
@@ -2092,8 +2090,6 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-
-
       settings <- tryCatch(
         yaml::read_yaml(input$file_load_settings$datapath),
         error = function(e) {
@@ -2104,8 +2100,6 @@ module_server <- function(input, output, session, ...){
       if(!is.null(settings)) {
         update_all_settings(settings)
       }
-
-
     }),
     input$file_load_settings,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -2124,6 +2118,82 @@ module_server <- function(input, output, session, ...){
       yaml::write_yaml(pipeline$get_settings(), file=tf)
       file.rename(tf, conn)
     })
+
+
+  update_available_forked_pipelines <- function() {
+
+    repo <- pipeline$read('repository')
+    all_pipes <- repo$subject$list_pipelines('power_explorer' )
+    all_pipes <- all_pipes[all_pipes$policy == 'group_analysis', drop=FALSE]
+
+    if(nrow(all_pipes) > 0) {
+      lbls <- mapply(function(lbl, pol) {
+        stringr::str_remove(lbl, stringr::fixed(pol))
+      }, all_pipes$label, paste0(all_pipes$policy, '-'))
+
+      curr_sel <- input$replace_existing_group_anlysis_pipeline
+
+      pipe_choices <- unname(c('Create New', lbls))
+
+    # ravedash::logger('updating forks', level='trace')
+
+      shiny::updateSelectInput(
+        inputId = 'replace_existing_group_anlysis_pipeline',
+        choices=pipe_choices, selected = curr_sel %OF% pipe_choices
+      )
+    }
+  }
+
+
+  shiny::bindEvent(ravedash::safe_observe({
+
+    if(input$replace_existing_group_anlysis_pipeline != 'Create New') {
+      shiny::updateTextInput(inputId = 'save_pipeline_for_group_analysis_label', value=input$replace_existing_group_anlysis_pipeline)
+    }
+
+  }), input$replace_existing_group_anlysis_pipeline, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      if(is.null(local_data$results)) {
+        ravedash::shiny_alert2("Could not save results", "No results are available. Try clicking RAVE!",
+                               icon='warning')
+
+      } else if (!nzchar(input$save_pipeline_for_group_analysis_label)) {
+        ravedash::shiny_alert2("Could not save results", "Saved results must have a label.",
+                               icon='warning')
+
+      } else {
+        # make sure this is available
+        prog <- raveio::progress_with_logger("Saving results for group analysis", max = 3)
+        prog$inc('Load data')
+        pipeline$run('data_for_group_analysis')
+
+        lbl <- input$save_pipeline_for_group_analysis_label
+
+        delete_old <- input$replace_existing_group_anlysis_pipeline != 'Create New'
+
+        prog$inc(paste('Save to server:', lbl))
+        repo <- pipeline$read('repository')
+        pipeline$fork_to_subject(
+          subject = repo$subject,
+          label = lbl,
+          delete_old = delete_old,
+          policy = "group_analysis"
+        )
+
+        prog$close(paste0("Done!\n"))
+
+        # if a new pipeline was written, add it to the list
+        update_available_forked_pipelines()
+      }
+
+    }), input$save_pipeline_for_group_analysis,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
 
   output$do_download_export <- shiny::downloadHandler(
     filename=function(...) {
