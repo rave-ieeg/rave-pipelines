@@ -1261,7 +1261,7 @@ fieldset,
   margin-bottom: 0.8rem;
 }
 
-.shiny-bound-output {
+.shiny-busy .shiny-bound-output {
   &::before {
     content: "";
     position: absolute;

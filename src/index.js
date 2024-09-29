@@ -69,22 +69,27 @@ function initShidashi() {
     adminLTEIframeHandler._config.onTabChanged = onTabChanged;
   } else {
     console.debug("AdminLTE: creating new IFrame handler");
-    $iframeWrapper.IFrame({
-      onTabClick: (item) => {
-        return item;
-      },
-      onTabChanged: onTabChanged,
-      onTabCreated: (item) => {
-        return item;
-      },
-      autoIframeMode: true,
-      autoItemActive: true,
-      autoShowNewTab: true,
-      allowDuplicates: false,
-      loadingScreen: false,
-      useNavbarItems: false,
-      scrollOffset: 0
-    });
+    try {
+      $iframeWrapper.IFrame({
+        onTabClick: (item) => {
+          return item;
+        },
+        onTabChanged: onTabChanged,
+        onTabCreated: (item) => {
+          return item;
+        },
+        autoIframeMode: true,
+        autoItemActive: true,
+        autoShowNewTab: true,
+        allowDuplicates: false,
+        loadingScreen: false,
+        useNavbarItems: false,
+        scrollOffset: 0
+      });
+    } catch (e) {
+      console.warn(e);
+    }
+
   }
   return( shidashi );
 }

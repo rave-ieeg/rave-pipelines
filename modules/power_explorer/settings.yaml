@@ -1,38 +1,24 @@
-electrode_export_data_type: tensor
-electrodes_to_export: ''
-trials_to_export: Raw, Only trials used in grouping factors
-times_to_export: Raw, All available times
-frequencies_to_export: Collapsed, Analysis window(s) only
-electrode_export_file_type: HDF5
-trial_outliers_list: ~
-time_censor:
-  enabled: no
-  window:
-  - 0.0
-  - 1.0
-project_name: EMU_NoisyWords
-subject_code: PAV002
-loaded_electrodes: 18-19,79-81
-epoch_choice: UTO_PAV002_5modalities_voao
-epoch_choice__trial_starts: -0.55
-epoch_choice__trial_ends: 3.0
-reference_name: bipolar
-baseline_settings:
-  window:
-  - - -0.5
-    - 0.0
-  scope: Per frequency, trial, and electrode
-  unit_of_analysis: '% Change Power'
-analysis_electrodes: 18-19,79-80
-first_condition_groupings:
+electrodes_to_export_roi_categories: ~
+electrodes_to_export_roi_name: none
+analysis_settings:
   '1':
-    label: Vo
-    conditions:
-    - V
-  '2':
-    label: A
-    conditions:
-    - Ac
+    label: VisStart
+    event: Trial Onset
+    time:
+    - 0
+    - 1
+    frequency:
+    - 70
+    - 150
+custom_roi_groupings:
+  '1':
+    label: ''
+    conditions: []
+custom_roi_variable: none
+custom_roi_type: Filter only
+enable_custom_ROI: no
+condition_variable: Condition
+enable_second_condition_groupings: no
 second_condition_groupings:
   '1':
     label: ML
@@ -40,33 +26,51 @@ second_condition_groupings:
   '2':
     label: VL
     conditions: []
-enable_second_condition_groupings: no
-condition_variable: Condition
-enable_custom_ROI: no
-custom_roi_type: Filter only
-custom_roi_variable: none
-custom_roi_groupings:
+first_condition_groupings:
   '1':
-    label: ''
-    conditions: []
-analysis_settings:
-  '1':
-    label: VisStart
-    event: newVisStart
-    time:
-    - 0
-    - 1
-    frequency:
-    - 70
-    - 150
+    label: audio_visual
+    conditions:
+    - known_av
+    - meant_av
+    - last_av
+    - drive_av
   '2':
-    label: AudStart
-    event: newAudStart
-    time:
-    - 0
-    - 1
-    frequency:
-    - 70
-    - 150
-electrodes_to_export_roi_name: none
-electrodes_to_export_roi_categories: ~
+    label: auditory_only
+    conditions:
+    - last_a
+    - drive_a
+    - known_a
+    - meant_a
+  '3':
+    label: visual_only
+    conditions:
+    - last_v
+    - drive_v
+    - known_v
+    - meant_v
+analysis_electrodes: '14'
+baseline_settings:
+  window:
+  - - -1.0
+    - -0.5
+  scope: Per frequency, trial, and electrode
+  unit_of_analysis: '% Change Power'
+reference_name: default
+epoch_choice__trial_ends: 2
+epoch_choice__trial_starts: -1
+epoch_choice: auditory_onset
+loaded_electrodes: 13-16,24
+subject_code: DemoSubject
+project_name: demo
+time_censor:
+  enabled: no
+  window:
+  - 0.0
+  - 1.0
+trial_outliers_list: ~
+electrode_export_file_type: HDF5
+frequencies_to_export: Collapsed, Analysis window(s) only
+times_to_export: Raw, All available times
+trials_to_export: Raw, Only trials used in grouping factors
+electrodes_to_export: ''
+electrode_export_data_type: tensor
