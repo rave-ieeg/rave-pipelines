@@ -188,6 +188,58 @@ module_server <- function(input, output, session, ...){
     ##----
 
 
+    # check for duplicated analysis settings
+    as <- input$ui_analysis_settings
+
+    if(length(as) > 1) {
+
+      is_overlapped <- function(a1, a2) {
+        get_containment_type <- function(varname) {
+          v1 = as.numeric(a1[[varname]])
+          v2 = as.numeric(a2[[varname]])
+
+          re <- if(all(v1 %within% v2) || all(v2 %within% v1)){
+            2
+          } else if (
+            any(v1 %within% v2) || any(v2 %within% v1)) {
+            1
+          }
+
+          return(re)
+        }
+
+        f1 <- f2 <- 0
+        if(a1$event == a2$event) {
+          # events match, check if time and frequencies are heavily overlapped
+          f1 <- get_containment_type('time')
+          f2 <- get_containment_type('frequency')
+        }
+
+        return(f1*f2)
+      }
+
+      re <- combn(seq_along(as), 2, FUN = function(ij) {
+        is_overlapped(a1 = as[[ij[1]]], a2 = as[[ij[2]]])
+      })
+
+      if(any(re >= 4)) {
+        ravedash::show_notification(
+          message = paste0(
+            "Two or more analysis settings are identical or have excessive overlap.\n"
+            ,"Please check event names, time windows, and frequency windows"),
+          title = "Analysis not run", type = "danger"
+        )
+        return()
+      } else if (any(re > 0)) {
+        ravedash::show_notification(
+          message = "Two or more analysis settings have some overlap. If the analysis fails, please check event names, time windows, and frequency windows",
+          title = "Analysis run with warning", type = "warning"
+        )
+      }
+
+    }
+
+
 
     # Pipeline setup and run
     pipeline$set_settings(
@@ -2135,7 +2187,7 @@ module_server <- function(input, output, session, ...){
 
       pipe_choices <- unname(c('Create New', lbls))
 
-    # ravedash::logger('updating forks', level='trace')
+      # ravedash::logger('updating forks', level='trace')
 
       shiny::updateSelectInput(
         inputId = 'replace_existing_group_anlysis_pipeline',
