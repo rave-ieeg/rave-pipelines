@@ -247,6 +247,7 @@ if(length(missing_blocks)) {
         voltage_signals[[block]]$array[, ii] <- s
       }
     }
+    return()
   }, callback = function(ii){
     sprintf("Creating cache|Electrode %s", electrodes[[ii]])
   })
@@ -269,7 +270,6 @@ if( !isTRUE(getOption("raveio.debug", FALSE)) ) {
   previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
   raveio::pipeline_fork(
     dest = previous_pipeline_path, 
-    filter_pattern = "(^shared|data|R|\\.R|\\.yaml|\\.txt|\\.csv|\\.fst|\\.conf|\\.json|\\.rds)$",
     activate = FALSE
   )
 }

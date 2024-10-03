@@ -1,12 +1,12 @@
+subject_code: DemoSubject
+reference_name: '[Blank profile]'
+project_name: demo
+electrode_group:
+  '1':
+    name: NoLabel
+    electrodes: 1-20
 changes:
 - group_name: NoLabel
   electrodes: 1-20
   reference_type: Common Average Reference
   reference_signal: ref_1-4
-electrode_group:
-  '1':
-    name: NoLabel
-    electrodes: 1-20
-project_name: YAEL
-reference_name: _unsaved
-subject_code: PAV020
