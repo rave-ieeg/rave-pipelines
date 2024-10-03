@@ -126,12 +126,24 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
   comp$no_save <- c(reset_str, category_choices_str, selected_electrode_text_str,
     btn_previous_str, btn_next_str)
   get_repo <- function() {
-    if (!comp$container$data[["@has"]](pipeline_repository)) {
+
+    data_loaded <- isTRUE(shiny::isolate(ravedash::watch_data_loaded()))
+    has_repository <- comp$container$data[['@has']](pipeline_repository)
+
+    if(!data_loaded) {
+      ravedash::logger("Paused getting repository object... data is not loaded",
+                       level = "trace")
+      if( has_repository ) {
+        comp$container$data[["@remove"]](pipeline_repository)
+      }
+      return(NULL)
+    }
+
+    if(!has_repository) {
       repository <- raveio::pipeline_read(var_names = pipeline_repository,
         pipe_dir = comp$container$pipeline_path)
       comp$container$data[[pipeline_repository]] <- repository
-    }
-    else {
+    } else {
       repository <- comp$container$data[[pipeline_repository]]
     }
     if (!inherits(repository, "rave_repository")) {
