@@ -539,7 +539,7 @@ module_server <- function(input, output, session, ...){
 
     if(input$pes_select_mode=='Clear labels') {
       local_data$pes$pes_selected_electrodes=NULL
-      local_data$pes$pes_manual_threshold=NULLd
+      local_data$pes$pes_manual_threshold=NULL
 
     } else if (input$pes_select_mode == 'Invert selection') {
       if(shiny::isTruthy(local_data$results$omnibus_results$stats)) {
