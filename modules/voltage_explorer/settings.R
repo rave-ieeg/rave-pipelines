@@ -27,7 +27,7 @@ settings <- list(
     ),
     list(
       type = "baseline",
-      windows = c(-1, -0.2)
+      windows = c(-1, -0.5)
     ),
     list(
       type = "decimate",
@@ -35,9 +35,16 @@ settings <- list(
     ),
     list(
       type = "fir",
-      # high_pass_freq = 70,
-      low_pass_freq = 15
+      high_pass_freq = 0.1,
+      low_pass_freq = 30
     ),
+    # list(
+    #   type = "hilbert"
+    # ),
+    # list(
+    #   type = "baseline",
+    #   windows = c(-1, -0.5)
+    # ),
     list(
       type = "decimate",
       by = 4
@@ -59,12 +66,22 @@ settings <- list(
   ),
 
   # Analysis settings (time)
-  analysis_settings = list(`1` = list(
-    label = "A",
-    event = "Trial Onset",
-    time = list(0L, 0.57),
-    frequency = c(67L, 152L)
-  ))
+  analysis_settings = list(
+    `1` = list(
+      label = "A",
+      event = "Trial Onset",
+      channels = c(14, 15)
+    ),
+    `2` = list(
+      label = "B",
+      event = "Trial Onset",
+      channels = c(13, 16)
+    )
+  ),
+
+  plot_range = list(
+    time = c(-0.1, 0.4)
+  )
 
 )
 

@@ -56,18 +56,18 @@ build_condition_groups <- function(repository, condition_groupings) {
 
 }
 
-build_parameter_grid <- function(condition_groups, analysis_ranges) {
-
-  # if(missing(baselined_voltage)) {
-  #   baselined_voltage <- repository$voltage$baselined
-  # }
-  collection <- new_param_grid(name = "Voltage explorer parameter grid")
-
-  collection$set_value("condition_groups", condition_groups)
-  collection$set_value("analysis_settings", analysis_ranges)
-
-  collection
-
-}
+# build_parameter_grid <- function(condition_groups, analysis_ranges) {
+#
+#   # if(missing(baselined_voltage)) {
+#   #   baselined_voltage <- repository$voltage$baselined
+#   # }
+#   collection <- new_param_grid(name = "Voltage explorer parameter grid")
+#
+#   collection$set_value("condition_groups", condition_groups)
+#   collection$set_value("analysis_settings", analysis_ranges)
+#
+#   collection
+#
+# }
 
 

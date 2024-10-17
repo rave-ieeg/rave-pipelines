@@ -37,7 +37,19 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
       stop(sprintf("Trial event [%s] needs to load at least %.2f seconds of data. Please either load enough data (time duration) or change the analysis event type.", event, max_shift))
     }
     # TODO: need to check if time range is valid with shifts
-    time_range <- raveio::validate_time_window(unlist(analysis_range$time))
+    # time_range <- raveio::validate_time_window(unlist(analysis_range$time))
+
+    channels <- dipsaus::parse_svec(analysis_range$channels, unique = TRUE)
+
+    if(!length(channels)) {
+      channels <- repository$electrode_list
+    } else {
+      channels <- channels[channels %in% repository$electrode_list]
+    }
+
+    if(!length(channels)) {
+      stop("Analysis setting ", sQuote(label), " does not contain any valid channels. Please revise the channel for analysis.")
+    }
 
     list(
       # For ordering, plot, ...
@@ -48,9 +60,11 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
 
       # event to use
       event = event,
-      time_range = time_range,
+      # time_range = time_range,
       time_shift = delta,
-      shift_range = time_shift_range
+      shift_range = time_shift_range,
+
+      channels = channels
     )
   }))
 
@@ -113,3 +127,68 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
     )
   )
 }
+
+subset_filtered_array <- function(filtered_array, condition_group, analysis_setting) {
+
+  epoch_table <- filtered_array$get_header("epoch_table")
+  sample_rate <- filtered_array$get_header("sample_rate")
+  channels <- analysis_setting$channels
+  if(!length(channels)) {
+    channels <- filtered_array$get_header("filtered_channels")
+  }
+
+  sel <- epoch_table$Trial %in% condition_group$trial_numbers
+
+  delta <- NULL
+  if(length(analysis_setting$event) && nzchar(analysis_setting$event)) {
+    idx <- which(tolower(names(epoch_table)) %in% tolower(sprintf(c("Event_%s", "Event%s"), analysis_setting$event)))
+    if(length(idx)) {
+      delta <- round((epoch_table[[idx]] - epoch_table$Time) * sample_rate)
+    } else {
+      analysis_setting$event <- ""
+    }
+  }
+
+  # time x trial
+  subarray <- subset(
+    filtered_array,
+    Trial ~ sel,
+    Electrode ~ Electrode %in% channels,
+    drop = FALSE
+  )
+  dimnames(subarray) <- NULL
+
+  if(length(delta)) {
+    subarray <- ravetools::shift_array(subarray, along_margin = 1L, unit_margin = 2L, shift_amount = delta[sel])
+  }
+  subarray
+}
+
+iterate_condition_analysis <- function(parameter_grid, fun) {
+
+  condition_groups <- dipsaus::drop_nulls(parameter_grid$condition_groups)
+  analysis_settings <- dipsaus::drop_nulls(parameter_grid$analysis_settings)
+
+  dtbl <- expand.grid(
+    anls_ii = seq_along(analysis_settings),
+    cond_jj = seq_along(condition_groups)
+  )
+  re <- lapply(seq_len(nrow(dtbl)), function(rr) {
+    ii <- dtbl$anls_ii[[rr]]
+    jj <- dtbl$cond_jj[[rr]]
+
+    re <- fun(condition_groups[[jj]], analysis_settings[[ii]])
+
+    list(
+      condition_group = condition_group,
+      analysis_setting = analysis_setting,
+      result = re
+    )
+  })
+  list(
+    n_condition_groups = length(condition_groups),
+    n_analysis_settings = length(analysis_settings),
+    content = re
+  )
+}
+
