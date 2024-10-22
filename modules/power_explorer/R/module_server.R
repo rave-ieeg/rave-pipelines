@@ -1710,12 +1710,14 @@ module_server <- function(input, output, session, ...){
     )
 
     # overall m/sd
-    df <- all_cond[Trial %in% local_data$bcbt_click_log,
+    df <- all_cond[Trial %in% c(local_data$bcbt_click_log,local_data$trial_outliers_list),
                    setdiff(names(all_cond), 'is_clean'), with=FALSE]
 
-
     if(is.null(df) || nrow(df) < 1) {
-      return(DT::datatable(NULL, options = list()))
+      return(DT::datatable(
+        df,
+        options =list(language = list(emptyTable = 'No Clicks / Outliers'))
+      ))
     }
 
     o.med <- fast_median(all_cond$y)
