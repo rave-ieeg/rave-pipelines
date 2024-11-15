@@ -8,7 +8,7 @@
 
 local({
     sys_env <- capture.output({print(Sys.getenv())})
-    writeLines(sys_env, "/home/shiny/envs.txt")
+    writeLines(sys_env, "/apps/shiny/envs.txt")
 })
 
 rave::start_rave2(launch.browser = FALSE)
