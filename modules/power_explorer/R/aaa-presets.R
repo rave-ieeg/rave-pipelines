@@ -396,11 +396,11 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
           selected = as.character(v))
       }
     }
-    shiny::bindEvent(observe({
+    shiny::bindEvent(ravedash::safe_observe({
       initialize_with_new_data_reactive()
     }), comp$get_sub_element_input(category_str), ignoreNULL = TRUE,
       ignoreInit = TRUE)
-    shiny::bindEvent(observe({
+    shiny::bindEvent(ravedash::safe_observe({
       reset()
     }), comp$get_sub_element_input(reset_str), ignoreNULL = TRUE,
       ignoreInit = TRUE)
@@ -408,7 +408,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
       with_namespace = FALSE)]] <- shiny::renderText({
         dipsaus::deparse_svec(dipsaus::parse_svec(comp$current_value))
       })
-    shiny::bindEvent(observe({
+    shiny::bindEvent(ravedash::safe_observe({
       repository <- get_repo()
       if (is.null(repository)) {
         return(NULL)
@@ -438,7 +438,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
         selected = as.character(elec))
     }), comp$get_sub_element_input(btn_previous_str), ignoreNULL = TRUE,
       ignoreInit = TRUE)
-    shiny::bindEvent(observe({
+    shiny::bindEvent(ravedash::safe_observe({
       repository <- get_repo()
       if (is.null(repository)) {
         return(NULL)
@@ -536,7 +536,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
       raveio::validate_time_window(as.vector(rbind(pre,
         post)))
     }
-    shiny::bindEvent(observe({
+    shiny::bindEvent(ravedash::safe_observe({
       open_loader <- ravedash::watch_loader_opened(session = session)
       if (!open_loader) {
         return()

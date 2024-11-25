@@ -272,20 +272,17 @@ names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 
 
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
-# set 12 GiB export size? // set this based on RAM?
-options(future.globals.maxSize =  12 * 1024^3)
-
 # Depends on baselined_power, 
 epoch_event_types = get_available_events(repository$epoch$columns)
 
 baselined_power_data <- subset(baselined_power,
                                Electrode ~ Electrode %in% requested_electrodes)
 
-pluriform_power <- raveio::lapply_async(
+pluriform_power <- lapply(
   analysis_groups,
-  callback = function(x) {
-    paste('[build_pluriform_power] working on:', x$label, 'data')
-  }, 
+  # callback = function(x) {
+  #   paste('[build_pluriform_power] working on:', x$label, 'data')
+  # }, 
   
   FUN = function(ag) {
     # ag = analysis_groups[[2]]
@@ -836,9 +833,6 @@ over_time_by_trial_data <- data_builder(
 ```
 
 ```{rave build_internal_omnibus_results, language="R", export="internal_omnibus_results"}
-# set 16 GiB export size? // set this based on RAM?
-options(future.globals.maxSize =  16 * 1024^3)
-
 # first baseline all the electrodes
 raveio::power_baseline(
   repository,
