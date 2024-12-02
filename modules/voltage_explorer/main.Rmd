@@ -131,8 +131,59 @@ parameter_grid <- build_parameter_grid(
 )
 ```
 
-```{r}
-lapply(parameter_grid$condition_groups, function(condition_group) {
+```{rave prepare_voltage_over_time_per_channel, language = "R", export = "voltage_per_channel"}
+voltage_per_channel <- iterate_condition_analysis(
+  parameter_grid,
+  function(condition_group, analysis_setting) {
+    collapse_cond(
+      filtered_array = filtered_array,
+      condition_group = condition_group,
+      analysis_setting = analysis_setting
+    )
+  }
+)
+voltage_per_channel <- 
+  lapply(parameter_grid$condition_groups, function(condition_group) {
+    prepare_voltage_over_time_per_channel(
+      filtered_array = filtered_array,
+      condition_group = condition_group,
+      channels = analysis_channels_clean
+    )
+  })
+# lapply(voltage_per_channel, plot_voltage_over_time_per_channel)
+```
+
+
+```{rave prepare_voltage_over_time_per_cond_channel, export="voltage_per_cond_channel"}
+voltage_per_cond_channel <- 
+  prepare_voltage_over_time_per_cond_channel(
+    filtered_array = filtered_array,
+    condition_groups = parameter_grid$condition_groups,
+    channels = analysis_channels_clean
+  )
+# plot_voltage_over_time_per_cond_channel(voltage_per_cond_channel)
+# plot_voltage_over_time_per_cond(voltage_per_cond_channel)
+```
+
+```{rave prepare_voltage_over_time_per_cond_channel, export="voltage_per_trial"}
+voltage_per_trial <- 
+  lapply(parameter_grid$condition_groups, function(condition_group) {
+    prepare_voltage_over_time_per_trial(
+      filtered_array = filtered_array,
+      condition_group = condition_group,
+      channels = analysis_channels_clean
+    )
+  })
+# plot_voltage_over_time_per_trial(voltage_per_trial[[1]], type = "heat", sort_trial_by = "c")
+```
+
+```
+# Stack the voltage together instead of line plots
+# short analysis time window
+# Options to add ticks
+
+# Plot 1: 
+vo_time_channel <- lapply(parameter_grid$condition_groups, function(condition_group) {
   # condition_group <- parameter_grid$condition_groups[[1]]
   voltage_over_time_per_channel <-
     prepare_voltage_over_time_per_channel(
@@ -140,15 +191,36 @@ lapply(parameter_grid$condition_groups, function(condition_group) {
       condition_group = condition_group,
       channels = analysis_channels_clean
     )
-  
-  prepare_voltage_over_time_per_cond_channel(filtered_array = ,condition_groups = ,channels = ,hilbert = ,baseline_unit = )
-  prepare_voltage_over_time_per_trial(filtered_array = ,condition_group = ,channels = )
-  
-  list(
-    voltage_over_time_per_channel = voltage_over_time_per_channel
-  )
+  data <- voltage_over_time_per_channel
+  plot_voltage_over_time_per_channel(data)
+  voltage_over_time_per_channel
 })
 
+# plot 2: 
+voltage_over_time_per_cond_channel <- 
+  prepare_voltage_over_time_per_cond_channel(
+    filtered_array = filtered_array,
+    condition_groups = parameter_grid$condition_groups,
+    channels = analysis_channels_clean
+  )
+data <- voltage_over_time_per_cond_channel
+plot_voltage_over_time_per_cond_channel(data)
+plot_voltage_over_time_per_cond(data)
+
+# plot 3
+par(mfrow = c(1, 2))
+lapply(parameter_grid$condition_groups, function(condition_group) {
+  voltage_over_time_per_trial <- 
+    prepare_voltage_over_time_per_trial(
+      filtered_array = filtered_array,
+      condition_group = condition_group,
+      channels = analysis_channels_clean
+    )
+  data <- voltage_over_time_per_trial
+  plot_voltage_over_time_per_trial(data, type = "line", sort_trial_by = "c")
+  # plot_voltage_over_time_per_trial(data, type = "heat", sort_trial_by = "tr")
+  # plot_voltage_over_time_per_trial(data, type = "heat", sort_trial_by = "c")
+})
 
 ```
 

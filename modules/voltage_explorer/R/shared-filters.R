@@ -1,8 +1,8 @@
 ALLOWED_FILTER_TYPES <- c(
   "demean", "detrend", "decimate", "fir_kaiser", "firls", "fir_remez",
-  "butter", "cheby1", "cheby2", "ellip", "fir", "iir", "baseline"
+  "butter", "cheby1", "cheby2", "ellip", "fir", "iir", "baseline", "hilbert"
 )
-
+DEFAULT_VOLTAGE_UNIT <- "MicroVolt"
 
 #' Apply filters to matrix of signals
 #' @param signals vector or matrix where each column is a time-series
@@ -38,6 +38,9 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
     "detrend" = {
       signals <- gsignal::detrend(signals, p = 1)
     },
+    "hilbert" = {
+      signals <- abs(gsignal::hilbert(signals))
+    },
     "decimate" = {
       checkmate::assert_integerish(args$by, lower = 1, any.missing = FALSE, len = 1L, null.ok = FALSE, .var.name = "by")
       if(args$by > 1) {
@@ -57,8 +60,16 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
       for(window in windows) {
         sel <- sel | (time >= window[[1]] & time <= window[[2]])
       }
-
-      signals <- t(t(signals) - colMeans(signals[sel, , drop = FALSE]))
+      if(length(args$physical_unit) && startsWith(args$physical_unit, "Ampl")) {
+        # hilbert then baseline -> amplitude % change
+        baseline <- colMeans(signals[sel, , drop = FALSE])
+        baseline[is.na(baseline)] <- 0
+        tmp <- t(signals) - baseline
+        baseline[baseline == 0] <- 100
+        signals <- t(tmp / baseline * 100)
+      } else {
+        signals <- t(t(signals) - colMeans(signals[sel, , drop = FALSE]))
+      }
     },
     {
       checkmate::assert_numeric(args$sample_rate, lower = 0.1, any.missing = FALSE, len = 1L, finite = TRUE,
@@ -154,6 +165,13 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
       checkmate::assert_numeric(config$start_time, any.missing = FALSE, len = 1L, finite = TRUE,
                                 null.ok = FALSE, .var.name = "sample_rate")
       config$windows <- raveio::validate_time_window(config$windows)
+      if(identical(config$physical_unit, "Amplitude")) {
+        config$physical_unit <- "Amplitude % Change"
+      }
+    },
+    "hilbert" = {
+      # signals <- gsignal::hilbert(signals)
+      config$physical_unit <- "Amplitude"
     },
     {
       checkmate::assert_numeric(config$sample_rate, lower = 0.1, any.missing = FALSE, len = 1L,
@@ -234,9 +252,19 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
   high_pass <- NA
   low_pass <- NA
 
+  physical_unit <- DEFAULT_VOLTAGE_UNIT
+
   for(ii in seq_along(configs)) {
     conf <- configs[[ ii ]]
-    conf <- assert_filter_config(config = conf, sample_rate = new_srate, start_time = start_time)
+    conf <- assert_filter_config(
+      config = conf,
+      sample_rate = new_srate,
+      start_time = start_time,
+      physical_unit = physical_unit
+    )
+    if(length(conf$physical_unit)) {
+      physical_unit <- conf$physical_unit
+    }
     if(identical(conf$type, "decimate")) {
       new_srate <- new_srate / conf$by
       n_timepoints <- ceiling(n_timepoints / conf$by)
@@ -304,6 +332,9 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
 
       # set filter configurations
       arr$set_header(key = "filter_configurations", value = configs, save = FALSE)
+
+      # set epoch table
+      arr$set_header(key = "epoch_table", value = repository$epoch_table, save = FALSE)
 
       # Get new time-points in case the filter decimates the signals
       new_time_points <- start_time + seq(0, by = 1 / new_srate, length.out = n_timepoints)

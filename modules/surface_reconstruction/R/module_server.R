@@ -1024,10 +1024,9 @@ module_server <- function(input, output, session, ...){
       shidashi::clear_notifications(class = ns("error_notif"))
 
       res <- pipeline$eval(
-        names = c("settings", "params", 'subject', "check_result",
-                  "import_T1", "import_CT", "image_segmentation",
-                  "morphmri_ants",
-                  "coreg_flirt", "coreg_niftyreg", "coreg_ants",
+        names = c("settings_path", "settings", "params", "subject", "cmd_tools",
+                  "check_result", "import_T1", "import_CT", "image_segmentation",
+                  "morphmri_ants", "coreg_flirt", "coreg_niftyreg", "coreg_ants",
                   "coreg_3dallineate", "coreg_nipy"),
         env = local_env, clean = FALSE
       )
