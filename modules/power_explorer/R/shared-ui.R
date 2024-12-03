@@ -68,7 +68,13 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
         shiny::column(width = 2L, style='text-align: left;
                             margin-top:37px; margin-left:0px',
                       shiny::checkboxInput(ns(prefix %&% '_byrow'),
-                                           label = 'Flow row', value = TRUE))
+                                           label = 'Flow row', value = TRUE)),
+
+        shiny::column(width = 2L, style='text-align: left;
+                            margin-top:37px; margin-left:0px',
+                      shiny::checkboxInput(ns(prefix %&% '_show_window'),
+                                           label = 'Show Window', value = TRUE))
+
 
       )
     )

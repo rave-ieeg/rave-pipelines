@@ -80,24 +80,29 @@ module_server <- function(input, output, session, ...){
   # this is used to get ROI variables and provide extra columns for table
   local_data$electrode_meta_data <- NULL
 
+  # All of these heat map plots should have the same settings
   local_data$by_frequency_correlation_plot_options <- list(
     max_zlim = 1,
     percentile_range = FALSE,
-    ncol = 3, byrow=TRUE
+    ncol = 3, byrow=TRUE,
+    show_window = TRUE
   )
 
   local_data$by_frequency_over_time_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
-    ncol = 3, byrow=TRUE
+    ncol = 3, byrow=TRUE,
+    show_window = TRUE
   )
 
   local_data$over_time_by_trial_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
-    ncol = 3, byrow=TRUE
+    ncol = 3, byrow=TRUE,
+    show_window = TRUE
   )
 
+  ### ---
 
   # get server tools to tweak
   server_tools <- ravedash::get_default_handlers(session = session)
@@ -1377,6 +1382,8 @@ module_server <- function(input, output, session, ...){
 
     local_data[[optname]]$byrow = input[[prefix %&% '_byrow']]
 
+    local_data[[optname]]$show_window = input[[prefix %&% '_show_window']]
+
     local_reactives[[upname]] = Sys.time()
   }
 
@@ -1391,6 +1398,7 @@ module_server <- function(input, output, session, ...){
         update_heatmap_controls(prf, po_name = po)
       }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_range']],
       input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
+      input[[prf %&% '_show_window']],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
   }, names(pnames), pnames, SIMPLIFY = FALSE)
@@ -2370,6 +2378,9 @@ module_server <- function(input, output, session, ...){
         args$ylab = local_data$results$baseline_settings$unit_of_analysis
       }
 
+      if(dset == 'by_frequency_over_time_data') {
+        args$plot_args = local_data$by_frequency_over_time_plot_options
+      }
       ###---
 
 
