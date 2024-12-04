@@ -1,0 +1,36 @@
+services:
+  test:
+    image: dipterix/rave-server
+    container_name: rave-host
+    environment:
+      APPLICATION_LOGS_TO_STDOUT: "true"
+      FREESURFER_HOME: /usr/local/freesurfer
+      FREESURFER: /usr/local/freesurfer
+    ports:
+      - "3838:3838"
+    volumes:
+      - /Users/beauchamplab/R_Projects/rave-pipelines/docker/data:/data
+      - freesurfer_path:/usr/local/freesurfer
+    depends_on:
+      - freesurfer      # Ensures freesurfer starts before test
+    networks:
+      - app-network     # Connects to a custom network
+
+  freesurfer:
+    image: freesurfer/freesurfer:7.4.1  # Replace with the appropriate FreeSurfer image
+    container_name: freesurfer
+    environment:
+      FS_LICENSE: "/data/freesurfer/license.txt"  # Path to FreeSurfer license
+      SUBJECTS_DIR: "/data/freesurfer/subjects"  # Directory for FreeSurfer subjects
+    volumes:
+      - /Users/beauchamplab/R_Projects/rave-pipelines/docker/data:/data
+      - freesurfer_path:/usr/local/freesurfer # Shared volume for data exchange
+    networks:
+      - app-network                       # Connects to the same custom network
+
+volumes:
+  freesurfer_path:
+
+networks:
+  app-network:
+    driver: bridge
