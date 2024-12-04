@@ -706,13 +706,16 @@ raveio::power_baseline(
 non_empty_groups <- which(rutabaga::get_list_elements(
   analysis_groups, 'has_trials'))
 
-by_condition_group <- raveio::lapply_async(
+by_condition_group <- lapply(
   analysis_groups,
-  callback = function(x) {
-    paste('[build_over_time_by_electrode_dataframe] working on:', x$label, 'data')
-  }, 
+  # callback = function(x) {
+  #   paste('[build_over_time_by_electrode_dataframe] working on:', x$label, 'data')
+  # }, 
   # lapply(analysis_groups[non_empty_groups],
   FUN = function(ag) {
+    
+    ravedash::logger(paste(c('[build_over_time_by_electrode_dataframe] working on:', ag$label, 'data'), collapse = " "))
+    
     res <- lapply(analysis_settings_clean, function(as) {
       # as = analysis_settings_clean[[1]]
       # freq needed
@@ -846,8 +849,8 @@ raveio::power_baseline(
 # for each condition group and for each analysis setting
 # get one value per trial per electrode
 non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 'has_trials'))
-by_condition_group <- raveio::lapply_async(
-  x = analysis_groups[non_empty_groups],
+by_condition_group <- lapply(
+  analysis_groups[non_empty_groups],
   function(ag) {
     lapply(analysis_settings_clean, function(as) {
       # as <- analysis_settings_clean[[1]]
