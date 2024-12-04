@@ -132,16 +132,112 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
           ),
 
 
-          `Installed R Packages` = shiny::fluidRow(
-
+          `Download Subject` = shiny::fluidRow(
             shiny::column(
               width = 12L,
-
-              DT::DTOutput(ns("basic-packages"))
-
+              shiny::p(
+                "Download RAVE subjects from URL. By default the project name and subject code will be inferred from the archive. ",
+                "To use overwrite the project name and/or subject code, please enter them explicitly below. ",
+                "Notice if you change the project/subject, some saved pipelines will not be reproducible. ",
+                "Also RAVE will not overwrite existing subjects, thus the program will fail if there is any existing subject with the same subject code."
+              ),
+              shidashi::flex_container(
+                shidashi::flex_item(
+                  size = 6L,
+                  shiny::textInput(
+                    inputId = ns("rave_install_subject_url"),
+                    label = "Subject to download",
+                    placeholder = "e.g. https://github.com/beauchamplab/rave/releases/download/v0.1.8-beta/demo_YAB.zip",
+                    width = "100%"
+                  )
+                ),
+                shidashi::flex_item(
+                  size = 2L,
+                  shiny::textInput(
+                    inputId = ns("rave_install_subject_project"),
+                    label = "Project name",
+                    placeholder = "optional",
+                    width = "100%"
+                  )
+                ),
+                shidashi::flex_item(
+                  size = 2L,
+                  shiny::textInput(
+                    inputId = ns("rave_install_subject_code"),
+                    label = "Subject code",
+                    placeholder = "optional",
+                    width = "100%"
+                  )
+                ),
+                shidashi::flex_item(
+                  size = 2L,
+                  shiny::div(
+                    style = "margin-bottom:0.8rem; margin-top:2rem;",
+                    shiny::actionButton(
+                      inputId = ns("rave_install_subject_do"),
+                      label = "Download",
+                      width = "100%"
+                    )
+                  )
+                )
+              )
             )
           )
 
+        )
+      ),
+
+      shiny::column(
+        width = 12L,
+
+        ravedash::output_card(
+          title = "R Configurations",
+          inputId = ns("r_settings"),
+          class_body = "min-height-100",
+
+          shiny::fluidRow(
+            shiny::column(
+              width = 12L,
+              DT::DTOutput(ns("basic-packages"))
+            )
+          ),
+
+          footer = shiny::fluidRow(
+            shiny::column(
+              width = 12L,
+              shidashi::flex_container(
+                shidashi::flex_item(
+                  size = 6L,
+                  shiny::textInput(
+                    inputId = ns("r_install_packages"),
+                    label = "Packages to install (separated by comma)",
+                    placeholder = "e.g. ieegio, ...",
+                    width = "100%"
+                  )
+                ),
+                shidashi::flex_item(
+                  size = 4L,
+                  shiny::textInput(
+                    inputId = ns("r_repository"),
+                    label = "Repository",
+                    placeholder = "e.g. https://rave-ieeg.r-universe.dev/",
+                    width = "100%"
+                  )
+                ),
+                shidashi::flex_item(
+                  size = 2L,
+                  shiny::div(
+                    style = "margin-bottom:0.8rem; margin-top:2rem;",
+                    shiny::actionButton(
+                      inputId = ns("r_install_do"),
+                      label = "Add/Update",
+                      width = "100%"
+                    )
+                  )
+                )
+              )
+            )
+          )
         )
       ),
 
@@ -400,6 +496,199 @@ loader_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      pkgs <- unlist(strsplit(input$r_install_packages, ","))
+      pkgs <- trimws(pkgs)
+      pkgs <- pkgs[pkgs != ""]
+      if(!length(pkgs)) {
+        stop("No package to install. Please specify the packages.")
+      }
+
+      repos <- unlist(strsplit(paste(input$r_repository, collapse = ","), ","))
+      repos <- trimws(repos)
+      repos <- repos[repos != ""]
+
+      ravemanager <- asNamespace("ravemanager")
+
+      mirrors <- as.list(ravemanager$get_mirror())
+      for(url in repos) {
+        if(startsWith(url, "http") && !isTRUE(url %in% mirrors)) {
+          mirrors[[sprintf("repo%02d", length(mirrors) + 1)]] <- url
+        }
+      }
+
+      lib_path <- ravemanager$get_libpaths(check = TRUE)
+
+      promise <- ravedash::with_log_modal(
+        title = "Adding R packages",
+        expr = bquote({
+
+          cat("Installing package(s)\n")
+
+          repos <- .(mirrors)
+          lib <- .(lib_path)
+          INSTALL_opts <- "--no-lock"
+          type <- getOption("pkgType")
+          pkgs <- .(pkgs)
+
+          if (system.file(package = "pak") == "") {
+            cat("Installing pak\n")
+            utils::install.packages("pak", repos = repos, lib = lib,
+                                    type = type, INSTALL_opts = INSTALL_opts)
+          }
+          pak <- asNamespace("pak")
+          current_repos <- pak$repo_get(bioc = FALSE)
+          repos[current_repos$name] <- current_repos$url
+          options(repos = repos)
+
+          for(pkg in pkgs) {
+            cat("Installing ", pkg, "\n", sep = "")
+            pak$pkg_install(pkg = pkg, lib = lib, upgrade = FALSE, ask = FALSE, dependencies = NA)
+          }
+
+        }),
+        quoted = TRUE
+      )
+
+      promise$then(
+        function(...) {
+
+          try({
+            local_reactives$update_r_packages <- Sys.time()
+            shidashi::show_notification(
+              message = "Installation successful! Please restart R.",
+              title = "Success!",
+              type = "success",
+              close = TRUE,
+              autohide = TRUE,
+              icon = ravedash::shiny_icons$tools
+            )
+          })
+
+        },
+        function(e) {
+          try({
+            shidashi::show_notification(
+              message = paste(e$message, collapse = "\n"),
+              title = "Error!",
+              type = "danger",
+              close = TRUE,
+              autohide = FALSE,
+              icon = ravedash::shiny_icons$tools
+            )
+          })
+        }
+      )
+
+
+      return()
+
+    }, error_wrapper = "alert"),
+    input$r_install_do,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      url <- input$rave_install_subject_url
+      project_name <- trimws(input$rave_install_subject_project)
+      subject_code <- trimws(input$rave_install_subject_code)
+
+      if(length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
+        project_name <- NA
+      } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = project_name, ignore.case = TRUE)) {
+        stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
+      }
+
+      if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
+        subject_code <- NA
+      } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = subject_code, ignore.case = TRUE)) {
+        stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
+      }
+
+      if(!is.na(project_name) && !is.na(subject_code)) {
+        subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+        if(file.exists(subject$path)) {
+          stop("Subject [", subject_code, "] already exists. Please consider changing to another subject code.")
+        }
+      }
+
+
+      promise <- ravedash::with_log_modal(
+        title = "Installing RAVE subjects",
+        expr = bquote({
+
+          options("cli.num_colors" = 0)
+
+          url <- .(url)
+          project_name <- .(project_name)
+          subject_code <- .(subject_code)
+
+          cat("Downloading from\n  ", url, "\n", sep = "")
+          if(!is.na(project_name)) {
+            cat("Setting project: ", project_name, "\n", sep = "")
+          }
+          if(!is.na(subject_code)) {
+            cat("Setting subject: ", subject_code, "\n", sep = "")
+          }
+
+          # 60 min?
+          options(timeout = 3600)
+          raveio::install_subject(
+            path = url,
+            ask = FALSE,
+            overwrite = FALSE,
+            use_cache = FALSE,
+            dry_run = FALSE,
+            force_project = project_name,
+            force_subject = subject_code
+          )
+
+        }),
+        quoted = TRUE
+      )
+
+      promise$then(
+        function(...) {
+
+          try({
+            shidashi::show_notification(
+              message = "Installation successful! Please refresh RAVE.",
+              title = "Success!",
+              type = "success",
+              close = TRUE,
+              autohide = TRUE,
+              icon = ravedash::shiny_icons$tools
+            )
+          })
+
+        },
+        function(e) {
+
+          try({
+            shidashi::show_notification(
+              message = paste(e$message, collapse = "\n"),
+              title = "Error!",
+              type = "danger",
+              close = TRUE,
+              autohide = FALSE,
+              icon = ravedash::shiny_icons$tools
+            )
+          })
+        }
+      )
+
+
+      return()
+
+    }, error_wrapper = "alert"),
+    input$rave_install_subject_do,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -427,6 +716,7 @@ loader_server <- function(input, output, session, ...){
   )
 
   output[["basic-packages"]] <- DT::renderDT({
+    local_reactives$update_r_packages
     tbl <- as.data.frame(utils::installed.packages(), row.names = FALSE)
 
     tbl <- tbl[, c("Package", "LibPath", "Version", "Built")]
