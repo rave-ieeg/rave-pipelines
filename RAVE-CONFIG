@@ -53,7 +53,7 @@ SubPipelines:
     modules/custom_3d_viewer,
     modules/block_explorer,
     modules/import_bids,
-    modules/ants_preprocessing
+    modules/ants_preprocessing,
     modules/power_explorer
 InteractiveModules:
     modules/import_lfp_native,
@@ -66,7 +66,8 @@ InteractiveModules:
     modules/electrode_localization,
     modules/compatibility_rave1,
     modules/standalone_viewer,
-    modules/custom_3d_viewer
+    modules/custom_3d_viewer,
+    modules/connectivity_viewer,
     modules/import_bids,
     modules/configure_rave,
     modules/power_explorer

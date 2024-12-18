@@ -1,0 +1,25 @@
+path_to_connectivity_matrix: /var/folders/7s/395jkmts5j91y3sgjjgvh5kc0000gn/T//Rtmpan0kzA/9b208b50ab3141da55d8726b/0.csv
+path_to_electrodes: /var/folders/7s/395jkmts5j91y3sgjjgvh5kc0000gn/T//Rtmpan0kzA/d3bebd23387e2bec60896163/0.csv
+project_name: ~
+subject_code: ~
+save_pipeline: yes
+epoch: auditory_onset
+electrodes: 14-16
+reference: default
+intervals:
+- - -1.0
+  - 2.0
+type: power
+baseline:
+- - -1
+  - -0.2
+baseline_method: decibel
+surface_types:
+- white
+- smoothwm
+use_template: ~
+uploaded_source: ~
+controllers: []
+main_camera: []
+shiny_outputId: connectivity_viewer-viewer_ready
+selected_template: cvs_avg35_inMNI152

@@ -1,10 +1,10 @@
-groups:
-  Import Signals:
-    order: 1
-    open: no
-  Images & Electrodes:
-    order: 7
-    open: no
+divider:
+  Preprocess:
+    order: 0
+  Built-ins:
+    order: 10
+  Settings:
+    order: 10000
 modules:
   import_lfp_native:
     label: Native Structure
@@ -17,7 +17,7 @@ modules:
   power_explorer:
     label: Power Explorer
     order: 13
-    badge:  N=1|badge-primary
+    badge: N=1|badge-primary
   jupyterlab:
     label: JupyterLab
     order: 100
@@ -51,10 +51,13 @@ modules:
   block_explorer:
     label: Block Explorer
     badge: Beta|badge-info
-    order: 12
+    order: 20
   custom_3d_viewer:
     label: Subject 3D Viewer
     order: 11
+  connectivity_viewer:
+    label: Connectivity Viewer
+    order: 12
   configure_rave:
     label: Configurations
     order: 10001
@@ -62,10 +65,10 @@ modules:
     label: Stimulation Explorer
   phase_explorer:
     label: Phase Explorer
-divider:
-  Preprocess:
-    order: 0
-  Built-ins:
-    order: 10
-  Settings:
-    order: 10000
+groups:
+  Import Signals:
+    order: 1
+    open: no
+  Images & Electrodes:
+    order: 7
+    open: no
