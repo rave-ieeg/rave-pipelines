@@ -118,6 +118,27 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
         ravedash::input_card(
           title = "Electrode Plan",
           class_header = "",
+          append_tools = FALSE,
+          tools = list(
+            shidashi::card_tool(
+              inputId = ns("loader_plan_upload_wizard"),
+              title = "Upload electrode plan table",
+              widget = "custom",
+              icon = ravedash::shiny_icons$upload
+            ),
+            # shiny::tags$a(
+            #   id = ns("loader_plan_download_wizard"),
+            #   class = "btn btn-tool shiny-download-link disabled",
+            #   href = "", target = "_blank", download = NA,
+            #   `aria-disabled` = "true", tabindex = "-1", title = "Download electrode plan table")
+            shiny::downloadLink(
+              outputId = ns("loader_plan_download_wizard"),
+              label = NULL,
+              class = "btn btn-tool",
+              title = "Download electrode plan table",
+              ravedash::shiny_icons$download
+            )
+          ),
           dipsaus::compoundInput2(
             max_height = "80vh",
             inputId = ns("loader_plan"),
@@ -187,6 +208,128 @@ loader_server <- function(input, output, session, ...){
 
     }),
     get_plan(),
+    ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      shiny::showModal(shiny::modalDialog(
+        title = "Upload electrode plan table",
+        size = "m",
+        dipsaus::fancyFileInput(
+          inputId = session$ns("loader_plan_upload"),
+          label = NULL, width = "100%", size = "m"
+        )
+      ))
+    }),
+    input$loader_plan_upload_wizard,
+    ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  output$loader_plan_download_wizard <- shiny::downloadHandler(
+    filename = "electrode_plan.csv",
+    content = function(con) {
+      plan_table <- lapply(get_plan(), function(x) {
+        data.frame(
+          GroupLabel = x$label[[1]],
+          Channels = x$dimension[[1]],
+          Type = x$type[[1]],
+          Hemisphere = x$hemisphere[[1]]
+        )
+      })
+      plan_table <- data.table::rbindlist(plan_table)
+      data.table::fwrite(plan_table, con, row.names = FALSE)
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      file_info <- input$loader_plan_upload
+      if(!length(file_info) || !length(file_info$datapath)) {
+        return()
+      }
+      plan_table <- utils::read.csv(file_info$datapath)
+      plan_table_names <- tolower(names(plan_table))
+      names(plan_table) <- plan_table_names
+
+      plan_list <- NULL
+
+      # case 1: With GroupLabel, Channels, Type, Hemisphere
+      if(all(c("grouplabel", "channels") %in% plan_table_names)) {
+        plan_list <- lapply(split(plan_table, as.character(plan_table$grouplabel)), function(sub) {
+          grouplabel <- sub$grouplabel[[1]]
+          channels <- dipsaus::parse_svec(sub$channels)
+          min_channel <- min(channels, na.rm = TRUE)
+          if(length(channels) == 1) {
+            channels <- sprintf("%.0f-%.0f", channels, channels)
+          } else {
+            channels <- dipsaus::deparse_svec(channels)
+          }
+          type <- unique(sub$type)
+          type <- type[type %in% electrode_types]
+          if(length(type)) {
+            type <- type[[1]]
+          } else {
+            type <- "iEEG"
+          }
+          hemisphere <- unique(tolower(c(sub$hemisphere, "auto")))
+          hemisphere <- hemisphere[hemisphere %in% c("auto", "left", "right")]
+          hemisphere <- hemisphere[[1]]
+          list(
+            label = grouplabel,
+            dimension = channels,
+            type = type,
+            hemisphere = hemisphere,
+            min_channel = min_channel
+          )
+        })
+      }
+
+      # case 2: electrodes.csv or similar to that
+      if("electrode" %in% plan_table_names && any(c("labelprefix", "label") %in% plan_table_names)) {
+        if(!length(plan_table$labelprefix)) {
+          plan_table$labelprefix <- gsub("[0-9]+$", "", x = plan_table$label)
+        }
+        plan_list <- lapply(split(plan_table, plan_table$labelprefix), function(sub) {
+          channels <- dipsaus::parse_svec(sub$electrode)
+          min_channel <- min(channels, na.rm = TRUE)
+          if(length(channels) == 1) {
+            channels <- sprintf("%.0f-%.0f", channels, channels)
+          } else {
+            channels <- dipsaus::deparse_svec(channels)
+          }
+          grouplabel <- sub$labelprefix[[1]]
+          type <- unique(c(sub$Prototype, "iEEG"))
+          type <- type[type %in% electrode_types][[1]]
+          hemisphere <- unique(tolower(c(sub$hemisphere, "auto")))
+          hemisphere <- hemisphere[hemisphere %in% c("auto", "left", "right")]
+          hemisphere <- hemisphere[[1]]
+          list(
+            label = grouplabel,
+            dimension = channels,
+            type = type,
+            hemisphere = hemisphere,
+            min_channel = min_channel
+          )
+        })
+      }
+
+      if(length(plan_list)) {
+        plan_list <- plan_list[order(sapply(plan_list, "[[", "min_channel"))]
+        dipsaus::updateCompoundInput2(
+          session = session,
+          inputId = "loader_plan",
+          value = plan_list,
+          ncomp = length(plan_list)
+        )
+      } else {
+        stop("No electrode plan is found. Please make sure the format is correct or simply manually enter the electrode plans.")
+      }
+
+      shiny::removeModal(session = session)
+
+    }, error_wrapper = "notification"),
+    input$loader_plan_upload,
     ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
