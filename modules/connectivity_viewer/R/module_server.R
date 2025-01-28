@@ -35,15 +35,6 @@ module_server <- function(input, output, session, ...){
 
   }
 
-  refresh_reactives <- function() {
-    local_reactives$update_inputs <- Sys.time()
-    local_reactives$update_outputs <- Sys.time()
-    local_reactives$viewer_selection <- NULL
-
-  }
-
-
-
   shiny::bindEvent(
     ravedash::safe_observe({
 
@@ -234,6 +225,7 @@ module_server <- function(input, output, session, ...){
         #TODO validation checks here
         local_data$electrode_table = fin
         local_reactives$update_3dviewer <- Sys.time()
+        # local_reactives$update_outputs <- Sys.time()
       }
     }),
     input$uploaded_electrode_table,
@@ -260,7 +252,22 @@ module_server <- function(input, output, session, ...){
           local_data$data_file$SubjectCode = local_reactives$selected_template
         }
 
+        nms <- names(fin)
+
+        nms <- nms[!(nms %in% c('Electrode', 'SubjectCode', 'x', 'y', 'z'))]
+
+        is_numeric <- sapply(fin[nms], function(x) {
+          all(is.numeric(x[!is.na(x)]))
+        })
+
+        nms <- nms[is_numeric]
+
+        # update available variable choices
+        shiny::updateSelectInput(inputId='by_electrode_variable_selector',
+                                 choices=nms, selected = nms[1])
+
         local_reactives$update_3dviewer <- Sys.time()
+        local_reactives$update_outputs <- Sys.time()
       }
     }),
     input$uploaded_data_file,
@@ -268,6 +275,14 @@ module_server <- function(input, output, session, ...){
   )
 
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      local_data$selected_variable = input$by_electrode_variable_selector
+      local_reactives$update_outputs = runif(1)
+
+    }), input$by_electrode_variable_selector, ignoreNULL=TRUE, ignoreInit = TRUE
+  )
 
 
   shiny::bindEvent(
@@ -289,10 +304,13 @@ module_server <- function(input, output, session, ...){
   )
 
 
+
+
   ravedash::register_output(
     outputId = "viewer",
     output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
+
       force(local_reactives$update_3dviewer)
 
       loaded_brain <- threeBrain::merge_brain(
@@ -377,323 +395,48 @@ module_server <- function(input, output, session, ...){
     )
   }), millis = 1000)
 
-  output$viewer_status <- shiny::renderUI({
-
-
-    proxy_data <- get_proxy_data()
-    main_camera <- proxy_data$main_camera
-    viewer_selection <- local_reactives$viewer_selection
-    controllers <- proxy_data$controllers
-
-
-    mni305 <- controllers[["Intersect MNI305"]]
-    if(length(mni305) == 1) {
-      mni152 <- suppressWarnings({
-        mni305 <- as.numeric(strsplit(mni305, ",")[[1]])
-        mni305 <- mni305[!is.na(mni305)]
-        if(length(mni305) != 3) {
-          mni152 <- ""
-        } else {
-          mni152 <- raveio::MNI305_to_MNI152 %*% c(mni305, 1)
-          mni152 <- round(mni152[1:3])
-          mni152 <- shiny::span(
-            shiny::a(
-              sprintf("MNI152: %s", paste(sprintf("%.0f", mni152), collapse = ",")),
-              target = "_blank",
-              href = raveio::url_neurosynth(mni152[1], mni152[2], mni152[3])
-            )
-          )
-        }
-        mni152
-      })
-    } else {
-      mni152 <- ""
-    }
-
-    # name = current_clip,
-    # subject = subject,
-    # electrode = electrode_number,
-    # data = selected_data
-    selection_info <- NULL
-    if(is.list(viewer_selection)) {
-
-      value <- viewer_selection$data$value
-      value_info <- "No value selected"
-      if(length(value)) {
-        if(is.numeric(value)) {
-          if(length(value) == 1) {
-            value_info <- sprintf("%.4g", value)
-          } else {
-            value_info <- shiny::tagList(
-              sprintf("%d numerical values in total.", length(value)), shiny::br(),
-              shiny::tags$small("(Please double click this text to view the plots)",
-                                class = "text-muted")
-            )
-          }
-        } else {
-          value <- unique(value)
-          if(length(value) == 1) {
-            value_info <- as.character(value)
-          } else {
-            value_info <- shiny::tagList(
-              sprintf("%d unique factors.", length(unique(value))), shiny::br(),
-              shiny::tags$small("(Please double click this text to view the plots)",
-                                class = "text-muted")
-            )
-          }
-        }
-
-      }
-
-      electrode_mni <- unlist(viewer_selection$raw$object$MNI305_position)
-      electrode_mni <- as.numeric(electrode_mni)
-      electrode_mni <- electrode_mni[!is.na(electrode_mni)]
-      if( length(electrode_mni) == 3 ) {
-        electrode_mni <- raveio::MNI305_to_MNI152 %*% c(electrode_mni, 1)
-        electrode_mni <- shiny::tags$small(
-          shiny::a(
-            sprintf("[MNI152: %s]", paste(sprintf("%.0f", electrode_mni[1:3]),
-                                          collapse = ",")),
-            target = "_blank",
-            href = raveio::url_neurosynth(
-              electrode_mni[[1]], electrode_mni[[2]],
-              electrode_mni[[3]])
-          )
-        )
-      } else {
-        electrode_mni <- NULL
-      }
-
-      selection_info <- shiny::tagList(
-        shiny::tags$dt(class = "col-sm-12", shiny::hr()),
-        # shiny::tags$dd(class = "col-sm-7"),
-
-        shiny::tags$dt(class = "col-sm-4", "Electrode: "),
-        shiny::tags$dd(class = "col-sm-8 code", viewer_selection$electrode, electrode_mni),
-
-        shiny::tags$dt(class = "col-sm-4", "Data selected: "),
-        shiny::tags$dd(class = "col-sm-8 code", viewer_selection$name),
-
-        shiny::tags$dt(class = "col-sm-4", "Value: "),
-        shiny::tags$dd(class = "col-sm-8 code", value_info)
-      )
-    }
-
-    shiny::tags$dl(
-      class = "row",
-      shiny::tags$dt(class = "col-sm-4", "Surface Type: "),
-      shiny::tags$dd(class = "col-sm-8 code", paste(proxy_data$surface_type, collapse = "")),
-
-      shiny::tags$dt(class = "col-sm-4", "Anat. Clip Plane: "),
-      shiny::tags$dd(class = "col-sm-8 code", mni152),
-
-      shiny::tags$dt(class = "col-sm-4", "Camera Zoom: "),
-      shiny::tags$dd(class = "col-sm-8 code", paste(sprintf("%.2f", unlist(main_camera$zoom)), collapse = ", ")),
-      selection_info
-    )
-
-  })
-
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      shidashi::flip(inputId = "flip_viewer_wrapper")
-    }),
-    input$flip_viewer_status,
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
-
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      info <- as.list(proxy$mouse_event_double_click)
-      if(!isTRUE(info$is_electrode)) {
-        return()
-      }
-      current_clip <- info$current_clip
-      current_time <- info$current_time
-      time_range <- unlist(input$time_range)
-      subject <- info$subject
-      electrode_number <- as.integer(info$electrode_number)
-
-      selected_data <- NULL
-
-      data_table <- local_reactives$data_table
-      if(inherits(data_table, "fst_table")) {
-        nms <- names(data_table)
-        if("Electrode" %in% nms) {
-          if(current_clip %in% nms) {
-            sel <- data_table$Electrode %in% electrode_number
-            if(any(sel)) {
-              data <- data_table[[current_clip]][sel]
-
-              if('Time' %in% nms) {
-                time <- data_table$Time[sel]
-              } else {
-                time <- NULL
-                current_time <- NULL
-                time_range <- NULL
-              }
-
-              selected_data <- list(
-                time = time,
-                value = data,
-                current_time = current_time,
-                time_range = time_range
-              )
-            }
-          }
-        }
-      }
-
-      local_reactives$viewer_selection <- list(
-        name = current_clip,
-        subject = subject,
-        electrode = electrode_number,
-        data = selected_data,
-        raw = info
-      )
-
-    }),
-    proxy$mouse_event_double_click,
-    ignoreInit = TRUE, ignoreNULL = TRUE
-  )
-
   ravedash::register_output(
-    outputId = "viewer_selected_data",
+    outputId = "by_electrode",
     render_function = shiny::renderPlot({
-      viewer_selection <- local_reactives$viewer_selection
+
+      force(local_reactives$update_outputs)
+
+      shiny::validate(shiny::need(!is.null(local_data$data_file), message = "No data file loaded"))
+
+      selected_variable = local_data$selected_variable
+
+
+      # print(str(local_data$data_file))
+
+      # print(str(selected_variable))
+
+      # write.csv(local_data$data_file, file='~/Desktop/tt.csv')
+
+      # local_data <- list(data_file=read.csv('~/Desktop/tt.csv'))
+
       shiny::validate(
-        shiny::need(
-          expr = {
-            is.list(viewer_selection) &&
-              is.list(viewer_selection$data)
-          },
-          message = "Please double-click on one of the electrode"
-        ),
-        shiny::need(
-          expr = length(viewer_selection$data$time) > 1,
-          message = "No data can be visualized"
-        )
-      )
-
-      time <- viewer_selection$data$time
-      timestr <- sprintf("%.2f", time)
-      data <- data.frame(time = as.numeric(timestr),
-                         value = viewer_selection$data$value,
-                         stringsAsFactors = TRUE)
-
-      use_factor <- is.factor(data$value)
-
-      plot_data <- as.data.frame(t(sapply(split(data, timestr), function(sub) {
-        if( use_factor ) {
-          c(sub$time[[1]], cumsum(table(sub$value)))
-        } else {
-          c(sub$time[[1]], nrow(sub), dipsaus::mean_se(sub$value))
-        }
-      })))
-
-      if( use_factor ) {
-        nms <- c("..Time", levels(data$value))
-      } else {
-        nms <- c("Time", "n", "mean", "se")
-      }
-
-      names(plot_data) <- nms
-
-      plot_data <- plot_data[order(plot_data[[1]]), ]
-
-      vname <- paste(viewer_selection$name, collapse = "")
-
-      if( use_factor ) {
-
-        x <- plot_data$..Time
-        y <- as.matrix(plot_data)
-        y[,1] <- 0
-
-        plot(
-          x = range(x, na.rm = TRUE),
-          y = range(y, na.rm = TRUE),
-          xlab = "Time", type = 'n', ylab = sprintf("%s (count)", vname),
-          main = "Accumulated count over time"
+        shiny::need(!is.null(selected_variable), message = "No selected variable"),
+        shiny::need(!is.null(local_data$data_file[[selected_variable]]), message = "Selected variable not available")
         )
 
-        graphics::grid()
+      df <- subset(local_data$data_file,
+                   !is.na(local_data$data_file[[selected_variable]]) &
+                     nzchar(local_data$data_file[[selected_variable]])
+                   )
 
-        idxlist <- seq_len(length(nms) - 1)
-        for(ii in idxlist) {
-          graphics::polygon(
-            x = c(x, rev(x)),
-            y = c(y[, ii], rev(y[, ii + 1])),
-            border = NA,
-            col = dipsaus::col2hexStr(ii, alpha = 0.4)
-          )
-        }
-        graphics::matlines(x = x, y = y[,-1], lty = 1, col = idxlist)
-        ytext <- y[nrow(y), -1]
-        xtext <- x[[length(x)]]
+      print(df)
 
-        graphics::text(
-          labels = nms[-1],
-          x = xtext, y = ytext,
-          adj = c(1, 1)
-        )
+      Y <- df[[selected_variable]]
+      el <- df$Electrode
+      .x <- seq_along(el)
 
-      } else {
-        x <- plot_data$Time
-        y <- plot_data$mean
-        se <- plot_data$se
-        se[is.na(se)] <- 0
-        n <- plot_data$n
-        n[is.na(n)] <- 0
-        max_n <- max(n, na.rm = TRUE)
-        plot(
-          x = range(x, na.rm = TRUE),
-          y = range(y + se, y - se, na.rm = TRUE),
-          xlab = "Time", type = 'n', ylab = vname,
-          main = ifelse(
-            max_n > 1,
-            sprintf("Mean value over time (max count: %.0f)", max_n),
-            "Value over time")
-        )
-        graphics::grid()
-        if(max_n > 1) {
-          graphics::polygon(
-            x = c(x, rev(x)),
-            y = c(y - se, rev(y + se)),
-            border = NA,
-            col = dipsaus::col2hexStr("orange", alpha = 0.4)
-          )
-        }
-        graphics::lines(x, y)
-      }
-
-      graphics::abline(v = viewer_selection$data$current_time, col = "gray60")
-    }),
-    output_opts = list(
-      click = shiny::clickOpts(
-        id = ns("viewer_selected_data_click"),
-        clip = TRUE
-      )
-    )
+      rutabaga::plot_clean(.x, Y, xlab = 'Electrode #', ylab=selected_variable)
+      points(.x, Y, pch=16)
+      points(.x, Y, type='h')
+      rutabaga::ruta_axis(2, at=axTicks(2))
+      rutabaga::ruta_axis(1, at=axTicks(1), labels = el[axTicks(1)])
+    })
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      info <- as.list(input$viewer_selected_data_click)
-      time <- info$x
-      if(length(time) != 1 || is.na(time) || !is.numeric(time)) {
-        return()
-      }
-      proxy$set_controllers(list(Time = time))
-
-      # set time
-      shiny::isolate({
-        if(is.list(local_reactives$viewer_selection$data)) {
-          local_reactives$viewer_selection$data$current_time <- time
-        }
-      })
-    }),
-    input$viewer_selected_data_click,
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
 
 }

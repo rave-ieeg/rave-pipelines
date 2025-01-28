@@ -116,7 +116,7 @@ module_html <- function(){
             ),
             ravedash::output_cardset(
               inputId = ns('over_time_tabset'),
-              title='Over Time',
+              title='Visualize electrode data',
               class_body="no-padding fill-width",
               append_tools = FALSE,
               tools = list(
@@ -131,7 +131,7 @@ module_html <- function(){
               ),
 
               # ---- Output tab: Over Time > By Condition ----------------------
-              `By Condition` = shiny::tagList(
+              `By Electrode` = shiny::tagList(
                 shiny::div(
                   # opens a fluid container
                   class = "container-fluid",
@@ -142,19 +142,19 @@ module_html <- function(){
                       shiny::column(
                         width = 3L,
                         shiny::selectInput(
-                          inputId = ns('over_time_by_condition_switch'),
-                          label='Plot type', selected = 'Combine conditions',
-                          choices = c('Combine conditions', 'Combine events',
-                                      'Combine all', 'Separate all')
-                        )),
-                      shiny::column(offset = 1,
-                                    width = 4L,
-                                    shiny::sliderInput(
-                                      inputId = ns('over_time_by_condition_plot_range'),
-                                      label='Plot range', value = c(0,1),
-                                      min =0, max=1, step = 0.01, dragRange = TRUE
-                                    )
-                      )
+                          inputId = ns('by_electrode_variable_selector'),
+                          label='Display Variable', selected = 'N/A',
+                          choices = c('N/A')
+                        ))
+                      # ,
+                      # shiny::column(offset = 1,
+                      #               width = 4L,
+                      #               shiny::sliderInput(
+                      #                 inputId = ns('over_time_by_condition_plot_range'),
+                      #                 label='Plot range', value = c(0,1),
+                      #                 min =0, max=1, step = 0.01, dragRange = TRUE
+                      #               )
+                      # )
                     )
                   )
                 ),
@@ -162,33 +162,33 @@ module_html <- function(){
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
                   ravedash::output_gadget_container(
                     ravedash::plotOutput2(
-                      outputId = ns('over_time_by_condition'),
+                      outputId = ns('by_electrode'),
                       min_height = 400)
                   )
                 )
               ),
-              `By Electrode` = shiny::tagList(
+              `Aggregated data` = shiny::tagList(
                 shiny::div(
                   class = "fill-width no-padding min-height-400 resize-vertical",
                   ravedash::output_gadget_container(
                     ravedash::plotOutput2(
-                      outputId = ns('over_time_by_electrode'),
+                      outputId = ns('aggregate_over_electrode'),
                       min_height = 400
                     )
                   )
                 )
-              ),
-              `By Trial` = shiny::tagList(
-                shiny::div(
-                  class = "fill-width no-padding min-height-400 resize-vertical",
-                  # make_heatmap_control_panel(prefix = 'otbt', config = 'over_time_tabset_config'),
-                  ravedash::output_gadget_container(
-                    ravedash::plotOutput2(
-                      outputId = ns('over_time_by_trial'),
-                      min_height = 400)
-                  )
-                )
-              )
+              )#,
+              # `By Trial` = shiny::tagList(
+              #   shiny::div(
+              #     class = "fill-width no-padding min-height-400 resize-vertical",
+              #     # make_heatmap_control_panel(prefix = 'otbt', config = 'over_time_tabset_config'),
+              #     ravedash::output_gadget_container(
+              #       ravedash::plotOutput2(
+              #         outputId = ns('over_time_by_trial'),
+              #         min_height = 400)
+              #     )
+              #   )
+              # )
             )
           )
         )
