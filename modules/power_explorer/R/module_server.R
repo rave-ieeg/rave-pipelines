@@ -532,14 +532,15 @@ module_server <- function(input, output, session, ...){
       if(!is.null(aes$stratified_contrasts)) {
         spec_choices = names(aes$stratified_contrasts)
       }
-      local_reactives$update_outputs <- Sys.time()
 
+      local_reactives$update_outputs <- runif(1)
+      # pes plots have a separate update cycle
+      local_reactives$update_pes_plots <- runif(1)
     }
 
     if(trigger_3dviewer) {
-      local_reactives$update_3dviewer <- Sys.time()
+      local_reactives$update_3dviewer <- runif(1)
     }
-
 
     return()
   }
@@ -1934,12 +1935,14 @@ module_server <- function(input, output, session, ...){
     input$ui_analysis_settings, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  basic_checks <- function(flag) {
+  basic_checks <- function(flag, check_uni=TRUE) {
     cond <- !is.null(flag)
 
     ss <- ''
-    if(isTRUE(input$quick_omnibus_only)) {
-      ss <- 'uncheck "Just get univariate stats", then '
+    if(check_uni) {
+      if(isTRUE(input$quick_omnibus_only)) {
+        ss <- 'uncheck "Just get univariate stats", then '
+      }
     }
 
     str <- sprintf('No results available (%sclick RAVE!)', ss)
@@ -1955,7 +1958,7 @@ module_server <- function(input, output, session, ...){
     outputId = "brain_viewer",
     output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
-      cond <- basic_checks(local_reactives$update_3dviewer)
+      cond <- basic_checks(local_reactives$update_3dviewer, check_uni = FALSE)
 
       brain <- raveio::rave_brain(component_container$data$repository$subject)
 
@@ -2430,7 +2433,7 @@ module_server <- function(input, output, session, ...){
       args[[dset]] = local_data$results[[dset]]
 
 
-      ### some functions need extra data
+      ### some functions need special arguments
       if(dset == 'over_time_by_condition_data') {
         args$condition_switch = input$over_time_by_condition_switch
       }
@@ -2447,6 +2450,12 @@ module_server <- function(input, output, session, ...){
       if(dset == 'by_frequency_over_time_data') {
         args$plot_args = local_data$by_frequency_over_time_plot_options
       }
+
+      if(dset == 'by_electrode_custom_plot_data') {
+        args[names(local_data$by_electrode_custom_plot_options)] <- local_data$by_electrode_custom_plot_options
+        args$do_layout=FALSE
+      }
+
       ###---
 
 
@@ -2520,8 +2529,8 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = 'by_electrode_custom_plot',
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
-
+      # basic_checks(local_reactives$update_outputs)
+      basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
       force(local_reactives$update_by_electrode_custom_plot)
       force(local_reactives$update_line_plots)
 
@@ -2535,7 +2544,7 @@ module_server <- function(input, output, session, ...){
 
 
   output$per_electrode_results_table <- DT::renderDataTable({
-    basic_checks(local_reactives$update_outputs)
+    basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
 
     force(local_reactives$update_per_electrode_results_table)
 
@@ -2829,8 +2838,9 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "per_electrode_statistics_mean",
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
-      force(local_reactives$update_pes_plot)
+      basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
+
+      # force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
 
@@ -2855,9 +2865,9 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "per_electrode_statistics_tstat",
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
+      basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
 
-      force(local_reactives$update_pes_plot)
+      # force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
 
@@ -2881,8 +2891,9 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "per_electrode_statistics_fdrp",
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
-      force(local_reactives$update_pes_plot)
+      # basic_checks(local_reactives$update_outputs)
+      # force(local_reactives$update_pes_plot)
+      basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
 
       stats <- local_data$results$omnibus_results$stats
 
