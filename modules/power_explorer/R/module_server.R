@@ -85,21 +85,24 @@ module_server <- function(input, output, session, ...){
     max_zlim = 1,
     percentile_range = FALSE,
     ncol = 3, byrow=TRUE,
-    show_window = TRUE
+    show_window = TRUE,
+    xlim = c(0,1)
   )
 
   local_data$by_frequency_over_time_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
     ncol = 3, byrow=TRUE,
-    show_window = TRUE
+    show_window = TRUE,
+    xlim = c(0,1)
   )
 
   local_data$over_time_by_trial_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
     ncol = 3, byrow=TRUE,
-    show_window = TRUE
+    show_window = TRUE,
+    xlim = c(0,1)
   )
 
   ### ---
@@ -485,11 +488,10 @@ module_server <- function(input, output, session, ...){
     }
 
 
-    ## set the plot time range limits for plots
     if(isTRUE(input$quick_omnibus_only)) {
       local_reactives$update_pes_plot <- runif(1)
     } else {
-
+      ## set the plot time range limits for plots
       newly_available_time <- get_recursive_summary(
         local_data$results$over_time_by_condition_data, 'x'
       )
@@ -498,6 +500,15 @@ module_server <- function(input, output, session, ...){
                                min = min(newly_available_time),
                                max = max(newly_available_time)
       )
+
+      # update the timing range variable for heatmap plots
+      sapply(c('bfot', 'otbt'), function(nm) {
+        shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
+                                 value = range(newly_available_time),
+                                 min = min(newly_available_time),
+                                 max = max(newly_available_time)
+        )
+      })
 
 
       # we need to check which kind of contrasts are available
@@ -859,6 +870,7 @@ module_server <- function(input, output, session, ...){
                              selected=settings_list$custom_roi_variable,
     )
 
+
     # reset all outputs
     local_reactives$update_outputs <- NULL
     local_reactives$update_line_plots <- NULL
@@ -964,6 +976,23 @@ module_server <- function(input, output, session, ...){
                                min = min(new_repository$time_points),
                                max = max(new_repository$time_points)
       )
+
+
+      # update the timing range variable for heatmap plots
+      pnames = c('bfot' = 'by_frequency_over_time_plot',
+                 'bfc' = 'by_frequency_correlation_plot',
+                 'otbt' = 'over_time_by_trial_plot')
+
+      sapply(c('bfot', 'otbt'), function(nm) {
+        shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
+                                 value = range(new_repository$time_points),
+                                 min = min(new_repository$time_points),
+                                 max = max(new_repository$time_points)
+        )
+      })
+
+
+
 
       ## default condition groups
       cvar = 'Condition'
@@ -1411,6 +1440,8 @@ module_server <- function(input, output, session, ...){
 
     local_data[[optname]]$show_window = input[[prefix %&% '_show_window']]
 
+    local_data[[optname]]$xlim = input[[prefix %&% '_xlim']]
+
     local_reactives[[upname]] = Sys.time()
   }
 
@@ -1425,7 +1456,7 @@ module_server <- function(input, output, session, ...){
         update_heatmap_controls(prf, po_name = po)
       }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_range']],
       input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
-      input[[prf %&% '_show_window']],
+      input[[prf %&% '_show_window']], input[[prf %&% '_xlim']],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
   }, names(pnames), pnames, SIMPLIFY = FALSE)
