@@ -71,6 +71,10 @@ module_html <- function(){
 
             ravedash::input_card(
               title = "Baseline",class_header = "shidashi-anchor",
+
+              shiny::checkboxInput(inputId=ns('omnibus_includes_all_electrodes'),
+                                   'Baseline unselected electrodes (for inclusion in stats/3dViewer, but takes time)', value=FALSE
+              ),
               shiny::sliderInput(
                 inputId = ns("baseline_window"), "Window", value = c(0,1),
                 min =0, max=1, step = 0.01, dragRange = TRUE),
@@ -89,6 +93,11 @@ module_html <- function(){
             ravedash::input_card(
               class_header = "shidashi-anchor",
               title = "Analysis Windows",
+
+              shiny::checkboxInput(
+                inputId=ns('quick_omnibus_only'), 'Just get univariate stats + 3dViewer (fast)', value=FALSE
+              ),
+
               dipsaus::compoundInput2(
                 inputId = ns('ui_analysis_settings'),
                 label = "Analysis Window",
@@ -179,8 +188,8 @@ module_html <- function(){
               class_header = "shidashi-anchor", title = "Save for Group Analysis",
               shiny::p("Data from currently-selected electrodes will be saved on the RAVE server in the subject's directory.", shiny::br(),
                        "Be sure to provide a unique label (timestamps are automatic). ",
-              "If you select Create New, but reuse an existing label, the original export will not be deleted, "
-              , "but it may become inaccessible from within RAVE."),
+                       "If you select Create New, but reuse an existing label, the original export will not be deleted, "
+                       , "but it may become inaccessible from within RAVE."),
               shiny::p("Using the same label across multiple subjects will greatly facilitate group analysis"),
               shiny::selectInput(ns("replace_existing_group_anlysis_pipeline"), label = 'Create new / Replace existing pipeline',
                                  choices = 'Create New'),
@@ -452,7 +461,7 @@ module_html <- function(){
                         inputId = ns('bet_variables_to_hide'),
                         label = 'Variables to remove',
                         choices = character(0), multiple = TRUE),
-                        ),
+                      ),
                       shiny::column(width=2, shiny::selectInput(
                         inputId = ns('bet_metrics_to_show'),
                         label = 'Metrics to include',choices = c('m', 't', 'p'),
@@ -460,9 +469,9 @@ module_html <- function(){
                       ),
                       shiny::column(width=2, style='text-align: left; margin-top:37px; margin-left:0px',
                                     shiny::checkboxInput(
-                        inputId = ns('bet_show_contrasts'), label = 'Show Contrasts',
-                        value = TRUE
-                      )),
+                                      inputId = ns('bet_show_contrasts'), label = 'Show Contrasts',
+                                      value = TRUE
+                                    )),
                       shiny::column(width=4, shiny::selectInput(
                         inputId = ns('bet_meta_data'),
                         label = 'Meta data to include',

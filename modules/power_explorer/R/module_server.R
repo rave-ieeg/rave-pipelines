@@ -263,7 +263,7 @@ module_server <- function(input, output, session, ...){
       custom_roi_variable = input$custom_roi_variable,
       custom_roi_groupings = input$custom_roi_groupings,
       analysis_settings = input$ui_analysis_settings,
-
+      omnibus_includes_all_electrodes = isTRUE(input$omnibus_includes_all_electrodes),
       # TODO: create UIs for time censor and trial outliers
       time_censor = list(
         enabled = FALSE,
@@ -315,27 +315,47 @@ module_server <- function(input, output, session, ...){
 
     # in the initial run we're just checking the settings and
     # doing the baseline
-    results <- pipeline$run(
-      as_promise = FALSE,
-      scheduler = "none",
-      type = "smart",
-      callr_function = NULL,
-      # progress_title = "Calculating in progress",
-      async = FALSE,
-      # check_interval = 0.1,
-      shortcut = FALSE,
-      names = unique(c(
-        'analysis_settings_clean',
-        'baseline_settings',
-        'baselined_power',
-        'analysis_groups',
-        'pluriform_power', extra_names, eval_names
-      ))
 
-    )
+    normal_names = c('analysis_settings_clean',
+                     'baseline_settings',
+                     'baselined_power',
+                     'analysis_groups',
+                     'pluriform_power')
 
-    #local_data = list()
-    local_data$results <- results
+    if(isTRUE(input$quick_omnibus_only)) {
+      results <- pipeline$run(
+        as_promise = FALSE,
+        scheduler = "none",
+        type = "smart",
+        callr_function = NULL,
+        # progress_title = "Calculating in progress",
+        async = FALSE,
+        # check_interval = 0.1,
+        shortcut = FALSE,
+        names = 'omnibus_results'
+      )
+
+      local_data$results = list(
+        omnibus_results = results
+      )
+
+    } else {
+      target_names <- unique(c(normal_names, extra_names, eval_names))
+
+      results <- pipeline$run(
+        as_promise = FALSE,
+        scheduler = "none",
+        type = "smart",
+        callr_function = NULL,
+        # progress_title = "Calculating in progress",
+        async = FALSE,
+        # check_interval = 0.1,
+        shortcut = FALSE,
+        names = target_names
+      )
+      #local_data = list()
+      local_data$results <- results
+    }
 
     ravedash::logger(
       'RESULTS AVAIL:\n', paste0(collapse=', ', names(local_data$results))
@@ -466,43 +486,50 @@ module_server <- function(input, output, session, ...){
 
 
     ## set the plot time range limits for plots
-    newly_available_time <- get_recursive_summary(
-      local_data$results$over_time_by_condition_data, 'x'
-    )
-    shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
-                             value = range(newly_available_time),
-                             min = min(newly_available_time),
-                             max = max(newly_available_time)
-    )
-
-
-    # we need to check which kind of contrasts are available
-    aes <- local_data$results$across_electrode_statistics
-    if(length(aes$fixed_effects) > 1) {
-      shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
-                               choices=c('All-possible pairwise',
-                                         'Stratified contrasts (more power!)',
-                                         'ITX Contrasts (diff of diff)')
-      )
-
-      update_contrast_choices()
-
+    if(isTRUE(input$quick_omnibus_only)) {
+      local_reactives$update_pes_plot <- runif(1)
     } else {
-      shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
-                               selected = c('All-possible pairwise'), choices = c('All-possible pairwise')
+
+      newly_available_time <- get_recursive_summary(
+        local_data$results$over_time_by_condition_data, 'x'
       )
-    }
+      shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
+                               value = range(newly_available_time),
+                               min = min(newly_available_time),
+                               max = max(newly_available_time)
+      )
 
-    spec_choices = 'None available'
-    if(!is.null(aes$stratified_contrasts)) {
-      spec_choices = names(aes$stratified_contrasts)
-    }
 
-    local_reactives$update_outputs <- Sys.time()
+      # we need to check which kind of contrasts are available
+      aes <- local_data$results$across_electrode_statistics
+      if(length(aes$fixed_effects) > 1) {
+        shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
+                                 choices=c('All-possible pairwise',
+                                           'Stratified contrasts (more power!)',
+                                           'ITX Contrasts (diff of diff)')
+        )
+
+        update_contrast_choices()
+
+      } else {
+        shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
+                                 selected = c('All-possible pairwise'), choices = c('All-possible pairwise')
+        )
+      }
+
+      spec_choices = 'None available'
+      if(!is.null(aes$stratified_contrasts)) {
+        spec_choices = names(aes$stratified_contrasts)
+      }
+      local_reactives$update_outputs <- Sys.time()
+
+    }
 
     if(trigger_3dviewer) {
       local_reactives$update_3dviewer <- Sys.time()
     }
+
+
     return()
   }
 
@@ -1878,7 +1905,15 @@ module_server <- function(input, output, session, ...){
 
   basic_checks <- function(flag) {
     cond <- !is.null(flag)
-    shiny::validate(shiny::need(cond, 'Results not yet available, please click RAVE!'))
+
+    ss <- ''
+    if(isTRUE(input$quick_omnibus_only)) {
+      ss <- 'uncheck "Just get univariate stats", then '
+    }
+
+    str <- sprintf('No results available (%sclick RAVE!)', ss)
+
+    shiny::validate(shiny::need(cond, str))
     cond
   }
 
