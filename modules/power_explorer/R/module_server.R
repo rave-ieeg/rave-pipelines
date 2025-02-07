@@ -85,21 +85,24 @@ module_server <- function(input, output, session, ...){
     max_zlim = 1,
     percentile_range = FALSE,
     ncol = 3, byrow=TRUE,
-    show_window = TRUE
+    show_window = TRUE,
+    xlim = c(0,1)
   )
 
   local_data$by_frequency_over_time_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
     ncol = 3, byrow=TRUE,
-    show_window = TRUE
+    show_window = TRUE,
+    xlim = c(0,1)
   )
 
   local_data$over_time_by_trial_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
     ncol = 3, byrow=TRUE,
-    show_window = TRUE
+    show_window = TRUE,
+    xlim = c(0,1)
   )
 
   ### ---
@@ -263,7 +266,7 @@ module_server <- function(input, output, session, ...){
       custom_roi_variable = input$custom_roi_variable,
       custom_roi_groupings = input$custom_roi_groupings,
       analysis_settings = input$ui_analysis_settings,
-
+      omnibus_includes_all_electrodes = isTRUE(input$omnibus_includes_all_electrodes),
       # TODO: create UIs for time censor and trial outliers
       time_censor = list(
         enabled = FALSE,
@@ -315,27 +318,47 @@ module_server <- function(input, output, session, ...){
 
     # in the initial run we're just checking the settings and
     # doing the baseline
-    results <- pipeline$run(
-      as_promise = FALSE,
-      scheduler = "none",
-      type = "smart",
-      callr_function = NULL,
-      # progress_title = "Calculating in progress",
-      async = FALSE,
-      # check_interval = 0.1,
-      shortcut = FALSE,
-      names = unique(c(
-        'analysis_settings_clean',
-        'baseline_settings',
-        'baselined_power',
-        'analysis_groups',
-        'pluriform_power', extra_names, eval_names
-      ))
 
-    )
+    normal_names = c('analysis_settings_clean',
+                     'baseline_settings',
+                     'baselined_power',
+                     'analysis_groups',
+                     'pluriform_power')
 
-    #local_data = list()
-    local_data$results <- results
+    if(isTRUE(input$quick_omnibus_only)) {
+      results <- pipeline$run(
+        as_promise = FALSE,
+        scheduler = "none",
+        type = "smart",
+        callr_function = NULL,
+        # progress_title = "Calculating in progress",
+        async = FALSE,
+        # check_interval = 0.1,
+        shortcut = FALSE,
+        names = 'omnibus_results'
+      )
+
+      local_data$results = list(
+        omnibus_results = results
+      )
+
+    } else {
+      target_names <- unique(c(normal_names, extra_names, eval_names))
+
+      results <- pipeline$run(
+        as_promise = FALSE,
+        scheduler = "none",
+        type = "smart",
+        callr_function = NULL,
+        # progress_title = "Calculating in progress",
+        async = FALSE,
+        # check_interval = 0.1,
+        shortcut = FALSE,
+        names = target_names
+      )
+      #local_data = list()
+      local_data$results <- results
+    }
 
     ravedash::logger(
       'RESULTS AVAIL:\n', paste0(collapse=', ', names(local_data$results))
@@ -465,44 +488,60 @@ module_server <- function(input, output, session, ...){
     }
 
 
-    ## set the plot time range limits for plots
-    newly_available_time <- get_recursive_summary(
-      local_data$results$over_time_by_condition_data, 'x'
-    )
-    shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
-                             value = range(newly_available_time),
-                             min = min(newly_available_time),
-                             max = max(newly_available_time)
-    )
-
-
-    # we need to check which kind of contrasts are available
-    aes <- local_data$results$across_electrode_statistics
-    if(length(aes$fixed_effects) > 1) {
-      shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
-                               choices=c('All-possible pairwise',
-                                         'Stratified contrasts (more power!)',
-                                         'ITX Contrasts (diff of diff)')
-      )
-
-      update_contrast_choices()
-
+    if(isTRUE(input$quick_omnibus_only)) {
+      local_reactives$update_pes_plot <- runif(1)
     } else {
-      shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
-                               selected = c('All-possible pairwise'), choices = c('All-possible pairwise')
+      ## set the plot time range limits for plots
+      newly_available_time <- get_recursive_summary(
+        local_data$results$over_time_by_condition_data, 'x'
       )
-    }
+      shiny::updateSliderInput(session = session, inputId = 'over_time_by_condition_plot_range',
+                               value = range(newly_available_time),
+                               min = min(newly_available_time),
+                               max = max(newly_available_time)
+      )
 
-    spec_choices = 'None available'
-    if(!is.null(aes$stratified_contrasts)) {
-      spec_choices = names(aes$stratified_contrasts)
-    }
+      # update the timing range variable for heatmap plots
+      sapply(c('bfot', 'otbt'), function(nm) {
+        shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
+                                 value = range(newly_available_time),
+                                 min = min(newly_available_time),
+                                 max = max(newly_available_time)
+        )
+      })
 
-    local_reactives$update_outputs <- Sys.time()
+
+      # we need to check which kind of contrasts are available
+      aes <- local_data$results$across_electrode_statistics
+      if(length(aes$fixed_effects) > 1) {
+        shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
+                                 choices=c('All-possible pairwise',
+                                           'Stratified contrasts (more power!)',
+                                           'ITX Contrasts (diff of diff)')
+        )
+
+        update_contrast_choices()
+
+      } else {
+        shiny::updateSelectInput(session, inputId = 'bcs_choose_contrasts',
+                                 selected = c('All-possible pairwise'), choices = c('All-possible pairwise')
+        )
+      }
+
+      spec_choices = 'None available'
+      if(!is.null(aes$stratified_contrasts)) {
+        spec_choices = names(aes$stratified_contrasts)
+      }
+
+      local_reactives$update_outputs <- runif(1)
+      # pes plots have a separate update cycle
+      local_reactives$update_pes_plots <- runif(1)
+    }
 
     if(trigger_3dviewer) {
-      local_reactives$update_3dviewer <- Sys.time()
+      local_reactives$update_3dviewer <- runif(1)
     }
+
     return()
   }
 
@@ -832,6 +871,7 @@ module_server <- function(input, output, session, ...){
                              selected=settings_list$custom_roi_variable,
     )
 
+
     # reset all outputs
     local_reactives$update_outputs <- NULL
     local_reactives$update_line_plots <- NULL
@@ -937,6 +977,23 @@ module_server <- function(input, output, session, ...){
                                min = min(new_repository$time_points),
                                max = max(new_repository$time_points)
       )
+
+
+      # update the timing range variable for heatmap plots
+      pnames = c('bfot' = 'by_frequency_over_time_plot',
+                 'bfc' = 'by_frequency_correlation_plot',
+                 'otbt' = 'over_time_by_trial_plot')
+
+      sapply(c('bfot', 'otbt'), function(nm) {
+        shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
+                                 value = range(new_repository$time_points),
+                                 min = min(new_repository$time_points),
+                                 max = max(new_repository$time_points)
+        )
+      })
+
+
+
 
       ## default condition groups
       cvar = 'Condition'
@@ -1384,6 +1441,8 @@ module_server <- function(input, output, session, ...){
 
     local_data[[optname]]$show_window = input[[prefix %&% '_show_window']]
 
+    local_data[[optname]]$xlim = input[[prefix %&% '_xlim']]
+
     local_reactives[[upname]] = Sys.time()
   }
 
@@ -1398,7 +1457,7 @@ module_server <- function(input, output, session, ...){
         update_heatmap_controls(prf, po_name = po)
       }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_range']],
       input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
-      input[[prf %&% '_show_window']],
+      input[[prf %&% '_show_window']], input[[prf %&% '_xlim']],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
   }, names(pnames), pnames, SIMPLIFY = FALSE)
@@ -1876,9 +1935,19 @@ module_server <- function(input, output, session, ...){
     input$ui_analysis_settings, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  basic_checks <- function(flag) {
+  basic_checks <- function(flag, check_uni=TRUE) {
     cond <- !is.null(flag)
-    shiny::validate(shiny::need(cond, 'Results not yet available, please click RAVE!'))
+
+    ss <- ''
+    if(check_uni) {
+      if(isTRUE(input$quick_omnibus_only)) {
+        ss <- 'uncheck "Just get univariate stats", then '
+      }
+    }
+
+    str <- sprintf('No results available (%sclick RAVE!)', ss)
+
+    shiny::validate(shiny::need(cond, str))
     cond
   }
 
@@ -1889,7 +1958,7 @@ module_server <- function(input, output, session, ...){
     outputId = "brain_viewer",
     output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
-      cond <- basic_checks(local_reactives$update_3dviewer)
+      cond <- basic_checks(local_reactives$update_3dviewer, check_uni = FALSE)
 
       brain <- raveio::rave_brain(component_container$data$repository$subject)
 
@@ -2364,7 +2433,7 @@ module_server <- function(input, output, session, ...){
       args[[dset]] = local_data$results[[dset]]
 
 
-      ### some functions need extra data
+      ### some functions need special arguments
       if(dset == 'over_time_by_condition_data') {
         args$condition_switch = input$over_time_by_condition_switch
       }
@@ -2381,6 +2450,12 @@ module_server <- function(input, output, session, ...){
       if(dset == 'by_frequency_over_time_data') {
         args$plot_args = local_data$by_frequency_over_time_plot_options
       }
+
+      if(dset == 'by_electrode_custom_plot_data') {
+        args[names(local_data$by_electrode_custom_plot_options)] <- local_data$by_electrode_custom_plot_options
+        args$do_layout=FALSE
+      }
+
       ###---
 
 
@@ -2454,8 +2529,8 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = 'by_electrode_custom_plot',
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
-
+      # basic_checks(local_reactives$update_outputs)
+      basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
       force(local_reactives$update_by_electrode_custom_plot)
       force(local_reactives$update_line_plots)
 
@@ -2469,7 +2544,7 @@ module_server <- function(input, output, session, ...){
 
 
   output$per_electrode_results_table <- DT::renderDataTable({
-    basic_checks(local_reactives$update_outputs)
+    basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
 
     force(local_reactives$update_per_electrode_results_table)
 
@@ -2763,8 +2838,9 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "per_electrode_statistics_mean",
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
-      force(local_reactives$update_pes_plot)
+      basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
+
+      # force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
 
@@ -2789,9 +2865,9 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "per_electrode_statistics_tstat",
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
+      basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
 
-      force(local_reactives$update_pes_plot)
+      # force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
 
@@ -2815,8 +2891,9 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "per_electrode_statistics_fdrp",
     render_function = shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
-      force(local_reactives$update_pes_plot)
+      # basic_checks(local_reactives$update_outputs)
+      # force(local_reactives$update_pes_plot)
+      basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
 
       stats <- local_data$results$omnibus_results$stats
 

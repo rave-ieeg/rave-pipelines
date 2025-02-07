@@ -836,15 +836,24 @@ over_time_by_trial_data <- data_builder(
 ```
 
 ```{rave build_internal_omnibus_results, language="R", export="internal_omnibus_results"}
-# first baseline all the electrodes
-raveio::power_baseline(
-  repository,
-  baseline_windows = baseline_settings$window,
-  method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
-  units = get_baseline_scope(baseline_settings$scope),
-  signal_type = "LFP",
-  electrodes = repository$electrode_list
-)
+if(omnibus_includes_all_electrodes) {
+  # first baseline all the electrodes
+  raveio::power_baseline(
+    repository,
+    baseline_windows = baseline_settings$window,
+    method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
+    units = get_baseline_scope(baseline_settings$scope),
+    signal_type = "LFP",
+    electrodes = repository$electrode_list
+  )
+  
+  ob_baselined_power <- repository$power$baselined
+} else {
+  
+  # only using requested electrodes
+  ob_baselined_power <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+}
 
 # for each condition group and for each analysis setting
 # get one value per trial per electrode
@@ -862,7 +871,7 @@ by_condition_group <- lapply(
       # shift the data and subset on trials/freq
       # Note: we're subsetting frequency in the call
       all_p <- get_pluriform_power(
-        baselined_data=repository$power$baselined[fi,,,,drop=FALSE],
+        baselined_data=ob_baselined_power[fi,,,,drop=FALSE],
         trial_indices = ag$trials, events = repository$epoch$table,
         epoch_event_types = get_available_events(repository$epoch$columns),
         trial_outliers_list=unlist(trial_outliers_list),

@@ -1,0 +1,13 @@
+Package: connectivity_viewer
+Type: rave-pipeline
+Title: Drag and drop spreadsheets to view data on template brain
+Version: 0.0.1
+Language: en-US
+Encoding: UTF-8
+License: MIT
+Authors@R: c(
+    person("John", "Magnotti", email = "help@rave.wiki", role = c("aut", "cre"))
+    )
+Description: Drag and drop spreadsheets to view data on template brain
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+URL: https://github.com/rave-ieeg/rave-pipelines
