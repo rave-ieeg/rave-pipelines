@@ -73,8 +73,8 @@ sample_rates <- sapply(electrodes, function(e){
   sample_rates[subject$electrodes == e]
 })
 
-dipsaus::lapply_async2(
-  seq_along(electrodes), function(ii){
+raveio::lapply_async(
+  seq_along(electrodes), function(ii) {
     e <- electrodes[[ii]]
     srate <- sample_rates[[ii]]
     h5_path <- sprintf(fmt, e)
@@ -96,7 +96,8 @@ dipsaus::lapply_async2(
       }
       raveio::save_h5(x = signal, file = h5_path, name = sprintf("notch/%s", block), chunk = 1024, replace = TRUE, ctype = "numeric")
     }
-  }, plan = FALSE, callback = function(ii){
+  },
+  callback = function(ii){
     sprintf("Applying Notch filters|Electrode - %s", electrodes[[ii]])
   }
 )
