@@ -17,8 +17,6 @@ rpymat::ensure_rpymat()
 Generate some random data
 
 ```{python generate_input_data, use_rave = TRUE, deps = c("sample_size", "random_generator"), export = "input_data"}
-import numpy as np
-
 # sample size as integer
 sample_size = int(sample_size)
 
@@ -35,6 +33,9 @@ elif random_generator == "rand":
 else:
   raise Exception(f"Unknown random number generator { generator_name }")
 
+
+log_info(f"Generating sample data with function np.random.{ random_generator } and sample size {sample_size}")
+
 input_data = {
   'x' : generator(sample_size),
   'y' : generator(sample_size)
@@ -44,9 +45,8 @@ input_data = {
 Calculate the correlation coefficients
 
 ```{python calculate_correlation, use_rave = TRUE, deps = "input_data", export = "correlation"}
-import numpy as np
 correlation = np.corrcoef(input_data['x'], input_data['y'])
-print(correlation)
+log_info(f"Calculating correlation: { correlation }")
 ```
 
 <!-- End: pipeline code -->

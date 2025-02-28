@@ -5,3 +5,5 @@ name: fooof_module
 dependencies:
 - pip:
   - numpy
+- conda:
+  - loguru

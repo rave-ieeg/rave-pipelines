@@ -2,4 +2,5 @@
 # For example, import packages that is needed to run the module.
 # 
 #
-# import numpy
+import numpy as np
+from fooof_module.logger import log_info

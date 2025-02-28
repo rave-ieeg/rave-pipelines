@@ -1,2 +1,2 @@
-sample_size: 100
-random_generator: "randn"
+sample_size: 200.0
+random_generator: randn

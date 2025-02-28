@@ -2,19 +2,18 @@
 # For example, import packages that is needed to run the module.
 # 
 #
-# import numpy
+import numpy as np
+from fooof_module.logger import log_info
 
 from .. import shared
 from . import RAVERuntimeException
 
 def pipeline_target_input_data(sample_size, random_generator):
   try:
-    import numpy as np
-    
     # sample size as integer
-    sample_s = int(sample_size)
+    sample_size = int(sample_size)
     
-    if sample_s <= 0:
+    if sample_size <= 0:
       raise Exception(f"Sample size should be positive")
     
     # get random number generator
@@ -27,9 +26,12 @@ def pipeline_target_input_data(sample_size, random_generator):
     else:
       raise Exception(f"Unknown random number generator { generator_name }")
     
+    
+    log_info(f"Generating sample data with function np.random.{ random_generator } and sample size {sample_size}")
+    
     input_data = {
-      'x' : generator(sample_s),
-      'y' : generator(sample_s)
+      'x' : generator(sample_size),
+      'y' : generator(sample_size)
     }
     return input_data
   except Exception as e:

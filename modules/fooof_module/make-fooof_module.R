@@ -32,15 +32,15 @@ rm(._._env_._.)
                     e <- e2
                   }
                 }
-                code <- c("import numpy as np", "", "# sample size as integer", 
-                "sample_s = int(sample_size)", "", "if sample_s <= 0:", 
-                "  raise Exception(f\"Sample size should be positive\")", 
+                code <- c("# sample size as integer", "sample_size = int(sample_size)", 
+                "", "if sample_size <= 0:", "  raise Exception(f\"Sample size should be positive\")", 
                 "", "# get random number generator", "if random_generator == \"randn\":", 
                 "  generator = np.random.randn", "elif random_generator == \"randint\":", 
                 "  generator = np.random.randint", "elif random_generator == \"rand\":", 
                 "  generator = np.random.rand", "else:", "  raise Exception(f\"Unknown random number generator { generator_name }\")", 
-                "", "input_data = {", "  'x' : generator(sample_s),", 
-                "  'y' : generator(sample_s)", "}")
+                "", "", "log_info(f\"Generating sample data with function np.random.{ random_generator } and sample size {sample_size}\")", 
+                "", "input_data = {", "  'x' : generator(sample_size),", 
+                "  'y' : generator(sample_size)", "}")
                 stop(sprintf("Target [%s] (python) encountered the following error: \n%s\nAnalysis pipeline code:\n# ---- Target python code: %s -----\n%s\n# ---------------------------------------", 
                   "input_data", paste(e$message, collapse = "\n"), 
                   "input_data", paste(code, collapse = "\n")))
@@ -84,8 +84,9 @@ rm(._._env_._.)
                     e <- e2
                   }
                 }
-                code <- c("import numpy as np", "correlation = np.corrcoef(input_data['x'], input_data['y'])", 
-                "print(correlation)")
+                code <- c("correlation = np.corrcoef(input_data['x'], input_data['y'])", 
+                "log_info(f\"Calculating correlation: { correlation }\")"
+                )
                 stop(sprintf("Target [%s] (python) encountered the following error: \n%s\nAnalysis pipeline code:\n# ---- Target python code: %s -----\n%s\n# ---------------------------------------", 
                   "correlation", paste(e$message, collapse = "\n"), 
                   "correlation", paste(code, collapse = "\n")))
