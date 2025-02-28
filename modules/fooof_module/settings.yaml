@@ -1,3 +1,2 @@
-'n': 100
-pch: 16
-col: steelblue
+sample_size: 100
+random_generator: "randn"
