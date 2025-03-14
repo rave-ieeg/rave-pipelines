@@ -1,6 +1,6 @@
 target_sample_rate: 100.0
-subject_code: PAV020
-project_name: YAEL
+subject_code: DemoSubject
+project_name: test
 precision: float
 pre_downsample: 4.0
 kernel_table:

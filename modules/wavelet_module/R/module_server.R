@@ -264,7 +264,7 @@ module_server <- function(input, output, session, ...){
       fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
       if(dir.exists(fork_path)) {
         try(silent = FALSE, expr = {
-          forked_pipeline <- raveio::pipeline(pipeline_name = pipeline$pipeline_name,
+          forked_pipeline <- ravepipeline::pipeline(pipeline_name = pipeline$pipeline_name,
                                               paths = subject$pipeline_path)
           # set default settings
           previous_settings <- forked_pipeline$get_settings()

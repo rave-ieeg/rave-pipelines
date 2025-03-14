@@ -8,7 +8,7 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd(module_id = "wavelet_module")
+ravepipeline::pipeline_setup_rmd(module_id = "wavelet_module")
 ```
 
 ```{rave load_subject, language = "R", export = "subject", cue = "always", format = "rave-subject"}
@@ -34,7 +34,11 @@ clear_cache <- raveio::clear_cached_files(
 ```
 
 ```{rave get_notch_filter_timestamp, language = "R", export = "notch_filtere_stamp", cue = "always"}
-notch_filtere_stamp <- subject$get_default(namespace = "notch_filter", "parameters", default_if_missing = Sys.time())
+notch_filtere_stamp <- subject$get_default(
+  "parameters", 
+  namespace = "notch_filter", 
+  default_if_missing = Sys.time()
+)
 ```
 
 ```{rave check_prerequisite, language = "R", export = "notch_filtered_electrodes", cue = "always"}
@@ -129,7 +133,7 @@ Once the pipeline script `make-wavelet_module.R` is built, you can visualize and
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
 
