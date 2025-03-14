@@ -1,7 +1,7 @@
 require(testthat)
 test_that("import native formats", {
 
-  pipeline <- raveio::pipeline("import_lfp_native", paths = file.path(rstudioapi::getActiveProject(),
+  pipeline <- ravepipeline::pipeline("import_lfp_native", paths = file.path(rstudioapi::getActiveProject(),
                                                                       "modules"))
 
   # pipeline path is correct

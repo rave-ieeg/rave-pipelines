@@ -1,7 +1,7 @@
 require(testthat)
 test_that("reference", {
 
-  pipeline <- raveio::pipeline(
+  pipeline <- ravepipeline::pipeline(
     pipeline_name = "reference_module",
     paths = file.path(rstudioapi::getActiveProject(), "modules"))
 

@@ -13,9 +13,9 @@ rave_session_root <- normalizePath(
 correct_max_workers <- function() {
   tryCatch({
     max_cores <- dipsaus::detectCores()
-    current_workers <- raveio::raveio_getopt("max_worker", max_cores)
+    current_workers <- ravepipeline::raveio_getopt("max_worker", max_cores)
     if (current_workers > max_cores) {
-      raveio::raveio_setopt("max_worker", max_cores)
+      ravepipeline::raveio_setopt("max_worker", max_cores)
     }
   }, error = function(e) {})
 }

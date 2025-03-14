@@ -10,9 +10,9 @@ if(FALSE){
 
 if(system.file(package = 'raveio') != ""){
   if(dir.exists("./_pipelines")) {
-    raveio::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
+    ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
   } else {
-    raveio::pipeline_root(c(".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
+    ravepipeline::pipeline_root(c(".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
   }
 }
 
@@ -96,7 +96,7 @@ server <- function(input, output, session){
         }
       } else {
         # No module, render rave_options
-        if(!isTRUE(raveio::raveio_getopt(key = "secure_mode", default = FALSE))) {
+        if(!isTRUE(ravepipeline::raveio_getopt(key = "secure_mode", default = FALSE))) {
           source("./R/rave-options.R", local = parse_env)
           shiny::moduleServer("._raveoptions_.", parse_env$rave_option_server)
 
@@ -165,13 +165,13 @@ server <- function(input, output, session){
               }
               jupyter_port <- as.integer(conf$port)
               if(!length(jupyter_port)) {
-                jupyter_port <- raveio::raveio_getopt("jupyter_port", default = 17284L)
+                jupyter_port <- ravepipeline::raveio_getopt("jupyter_port", default = 17284L)
               }
               host <- conf$host
               if(!length(host)) {
                 host <- "127.0.0.1"
               }
-              jupyter_wd <- raveio::raveio_getopt('data_dir')
+              jupyter_wd <- ravepipeline::raveio_getopt('data_dir')
 
               ravedash::show_notification(
                 title = "Starting JupyterLab-server",
@@ -217,7 +217,7 @@ server <- function(input, output, session){
               jupyter_conf <- get_jupyter_configuration()
               jupyter_port <- jupyter_conf$port
               if(!length(jupyter_port)) {
-                jupyter_port <- raveio::raveio_getopt("jupyter_port", default = 17284L)
+                jupyter_port <- ravepipeline::raveio_getopt("jupyter_port", default = 17284L)
               }
               # check if jupyter_port is in server list
               jupyter_running <- FALSE

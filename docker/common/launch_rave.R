@@ -3,7 +3,7 @@
 #     if( is.na(ncpus) || ncpus < 1 ) {
 #         ncpus <- 1
 #     }
-#     raveio::raveio_setopt("max_worker", ncpus)
+#     ravepipeline::raveio_setopt("max_worker", ncpus)
 # })
 
 local({

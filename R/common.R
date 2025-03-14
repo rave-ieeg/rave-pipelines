@@ -72,7 +72,7 @@ module_breadcrumb <- function(){}
 
 frontpage <- function(){
 
-  if(isTRUE(raveio::raveio_getopt(key = "secure_mode", default = FALSE))) {
+  if(isTRUE(ravepipeline::raveio_getopt(key = "secure_mode", default = FALSE))) {
     return(shiny::tags$h2(
       class = "display-4",
       "Please choose any module to start"
@@ -111,7 +111,7 @@ frontpage <- function(){
             shinyWidgets::searchInput(
               inputId = ns("raw_data_dir"),
               label = "Raw data directory",
-              value = raveio::raveio_getopt("raw_data_dir", default = ""),
+              value = ravepipeline::raveio_getopt("raw_data_dir", default = ""),
               placeholder = "Root folder containing raw signals & imaging data",
               btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
               width = "100%"
@@ -119,7 +119,7 @@ frontpage <- function(){
             shinyWidgets::searchInput(
               inputId = ns("data_dir"),
               label = "Main data directory",
-              value = raveio::raveio_getopt("data_dir", default = ""),
+              value = ravepipeline::raveio_getopt("data_dir", default = ""),
               placeholder = "Where RAVE should store its generated files",
               btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
               width = "100%"
@@ -127,7 +127,7 @@ frontpage <- function(){
             shinyWidgets::searchInput(
               inputId = ns("temp_dir"),
               label = "Session directory",
-              value = raveio::raveio_getopt("tensor_temp_path", default = ""),
+              value = ravepipeline::raveio_getopt("tensor_temp_path", default = ""),
               placeholder = "Removable temporary session files",
               btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
               width = "100%"
@@ -136,7 +136,7 @@ frontpage <- function(){
             shinyWidgets::searchInput(
               inputId = ns("template_subject"),
               label = "Template Brain",
-              value = raveio::raveio_getopt("threeBrain_template_subject",
+              value = ravepipeline::raveio_getopt("threeBrain_template_subject",
                                             default = "N27"),
               placeholder = "N27, fsaverage, bert, ...",
               btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
@@ -146,7 +146,7 @@ frontpage <- function(){
             shinyWidgets::searchInput(
               inputId = ns("max_worker"),
               label = "Max parallel cores",
-              value = raveio::raveio_getopt("max_worker", default = 1L),
+              value = ravepipeline::raveio_getopt("max_worker", default = 1L),
               placeholder = "Recommended 2GB RAM per CPU core",
               btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
               width = "100%"
@@ -160,7 +160,7 @@ frontpage <- function(){
               offStatus = "danger",
               onLabel = "Enabled",
               offLabel = "Disabled",
-              value = isFALSE(raveio::raveio_getopt("disable_fork_clusters", default = FALSE))
+              value = isFALSE(ravepipeline::raveio_getopt("disable_fork_clusters", default = FALSE))
             )
 
           )

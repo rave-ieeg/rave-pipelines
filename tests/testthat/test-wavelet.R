@@ -5,7 +5,7 @@ require(testthat)
 
 test_that("Wavelet", {
 
-  pipeline <- raveio::pipeline(
+  pipeline <- ravepipeline::pipeline(
     pipeline_name = "wavelet_module",
     paths = file.path(rstudioapi::getActiveProject(), "modules")
   )
@@ -123,7 +123,7 @@ test_that("Wavelet quick (float+downsample)", {
   subject2 <- raveio::as_rave_subject('test3/KC', strict = FALSE)
   if(!length(subject2$electrodes) || !all(subject2$data_imported)) {
 
-    pipeline <- raveio::pipeline(pipeline_name = "import_lfp_native",
+    pipeline <- ravepipeline::pipeline(pipeline_name = "import_lfp_native",
                                  paths = file.path(rstudioapi::getActiveProject(), "modules"))
     pipeline$set_settings(
       skip_validation = TRUE,
@@ -144,7 +144,7 @@ test_that("Wavelet quick (float+downsample)", {
   # notch
   subject2 <- raveio::as_rave_subject('test3/KC', strict = FALSE)
   if(!all(subject2$notch_filtered)) {
-    pipeline <- raveio::pipeline(
+    pipeline <- ravepipeline::pipeline(
       pipeline_name = "notch_filter",
       paths = file.path(rstudioapi::getActiveProject(), "modules"))
     pipeline$set_settings(
@@ -160,7 +160,7 @@ test_that("Wavelet quick (float+downsample)", {
 
   # wavelet
   subject2 <- raveio::as_rave_subject('test3/KC', strict = FALSE)
-  pipeline <- raveio::pipeline(
+  pipeline <- ravepipeline::pipeline(
     pipeline_name = "wavelet_module",
     paths = file.path(rstudioapi::getActiveProject(), "modules")
   )
