@@ -1,13 +1,3 @@
-#' File whose name starts with `shared-` will be automatically
-#' loaded by the pipeline. Hence you can put global static objects
-#' here, for example,
-#'   - define functions that may be used multiple times,
-#'   - declare variables that can be re-used
-#'   - import packages that will be used via `library()`, or `targets::tar_option_set` (see below)
-NULL
-
-library(raveio)
-loadNamespace("reticulate")
 
 get_basic_info <- function() {
   session_info <- utils::sessionInfo()
@@ -17,8 +7,8 @@ get_basic_info <- function() {
   lapack <- session_info$LAPACK
   if (is.null(lapack)) { lapack <- "" }
 
-  raw_dir <- raveio::raveio_getopt("raw_data_dir", default = "<Missing>")
-  data_dir <- raveio::raveio_getopt("data_dir", default = "<Missing>")
+  raw_dir <- ravepipeline::raveio_getopt("raw_data_dir", default = "<Missing>")
+  data_dir <- ravepipeline::raveio_getopt("data_dir", default = "<Missing>")
   cache_dir <- raveio::cache_root()
 
   healthy_directory <- function(path){
@@ -74,7 +64,7 @@ get_basic_info <- function() {
 
     "\nRAVE status\n",
     "  Version:        ", package_ver("rave", version_only = TRUE), "\n",
-    "  Template brain: ", raveio::raveio_getopt('threeBrain_template_subject', default = "N27"), "\n",
+    "  Template brain: ", ravepipeline::raveio_getopt('threeBrain_template_subject', default = "N27"), "\n",
     "  Directories:    ",
     "Raw ", healthy_directory(raw_dir), ", ",
     "Main ", healthy_directory(data_dir), ", ",

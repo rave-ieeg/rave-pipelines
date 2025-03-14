@@ -8,7 +8,8 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("configure_rave")
+stopifnot(is.function(asNamespace("rstudioapi")[["isAvailable"]]))
+ravepipeline::pipeline_setup_rmd("configure_rave")
 ```
 
 This pipeline does nothing. Please
@@ -16,17 +17,9 @@ This pipeline does nothing. Please
 ## System summary
 
 ```{rave get_system_summary, language = "R", export = "system_summary", cue = "always"}
-tryCatch({
-  library(filearray)
-  library(ravetools)
-  library(dipsaus)
-  library(threeBrain)
-  library(raveio)
-  library(ravedash)
-  library(rpyANTs)
-})
+lapply(ravemanager:::rave_depends, loadNamespace)
 system_summary <- sessionInfo()
-ravemanager::version_info()
+# ravemanager::version_info()
 ```
 
 
@@ -58,15 +51,15 @@ Once the pipeline script `make-configure_rave.R` is built, you can visualize and
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 try({
-  raveio::pipeline_visualize()
+  ravepipeline::pipeline_visualize()
 }, silent = TRUE)
 ```
 
 
 ```{r execute}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_run(type = "vanilla")
-raveio::pipeline_progress(method = 'details')
+ravepipeline::pipeline_run(type = "vanilla")
+ravepipeline::pipeline_progress(method = 'details')
 ```
 
 
