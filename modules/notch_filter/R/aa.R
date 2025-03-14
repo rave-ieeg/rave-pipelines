@@ -57,7 +57,7 @@ if(exists('debug', inherits = FALSE) && isTRUE(get('debug'))){
 
 # Register RAVE pipeline instance so it's "globally" accessible
 
-pipeline <- raveio::pipeline(pipeline_name = pipeline_name,
+pipeline <- ravepipeline::pipeline(pipeline_name = pipeline_name,
                              settings_file = pipeline_settings_file,
                              paths = "./modules")
 

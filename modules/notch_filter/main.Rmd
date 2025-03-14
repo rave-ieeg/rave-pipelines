@@ -10,7 +10,7 @@ editor_options:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("notch_filter")
+ravepipeline::pipeline_setup_rmd("notch_filter")
 ```
 
 ```{rave load_subject, language = "R", export = "subject", cue = "always", format = "rave-subject"}
@@ -60,6 +60,21 @@ filter_settings <- list(
 
 ```
 
+```{rave check_electrode_channels_to_filter, language = "R", export = "channels_to_apply_filters", cue = "always"}
+channels_to_apply_filters <- imported_electrodes
+
+channel_types_lower <- tolower(channel_types)
+if(any(c("auxiliary", "others") %in% channel_types_lower)) {
+  channel_types_lower <- c(channel_types_lower, "unknown")
+}
+
+signal_types <- raveio:::SIGNAL_TYPES
+signal_types <- signal_types[tolower(signal_types) %in% channel_types_lower]
+
+channels <- subject$electrodes[subject$electrode_types %in% signal_types]
+channels_to_apply_filters <- channels_to_apply_filters[channels_to_apply_filters %in% channels]
+```
+
 
 ```{rave apply_Notch_filters, language = "R", export = "apply_notch", cue = "always"}
 
@@ -91,7 +106,8 @@ raveio::lapply_async(
       signal <- raveio::load_h5(h5_path, sprintf("raw/%s", block), ram = TRUE)
       
       # Apply notch filter if filters exist, otherwise do NOT do anything
-      if(length(filters$lb)) {
+      # also make sure the channel is marked to apply filters, otherwise do nothing
+      if(length(filters$lb) && e %in% channels_to_apply_filters) {
         signal <- ravetools::notch_filter(s = signal, sample_rate = srate, lb = filters$lb, ub = filters$ub, domain = filters$domain)
       }
       raveio::save_h5(x = signal, file = h5_path, name = sprintf("notch/%s", block), chunk = 1024, replace = TRUE, ctype = "numeric")
@@ -112,6 +128,7 @@ preproc$save()
 
 apply_notch <- list(
   electrodes = electrodes,
+  filter_applied = channels_to_apply_filters,
   notch_filter_lowerbound = filters$lb,
   notch_filter_upperbound = filters$ub,
   timestamp = strftime(Sys.time(), usetz = TRUE)
@@ -129,7 +146,20 @@ subject$set_default(
 
 ```{rave generate_diagnostic_plots, language = "R", export = "diagnostic_plots", cue = "always"}
 diagnostic_plots <- FALSE
+
+force(subject)
+if(length(diagnostic_plot_path) == 1) {
+  if(startsWith(diagnostic_plot_path, "{")) {
+    diagnostic_plot_path <- glue::glue(diagnostic_plot_path)
+  }
+  raveio::dir_create2(dirname(diagnostic_plot_path))
+} else {
+  diagnostic_plot_path <- NULL
+}
+
 params <- as.list(diagnostic_plot_params)
+params$path <- diagnostic_plot_path
+diagnostic_plots <- diagnostic_plot_path
 
 if(!isTRUE(params$dry_run)) {
   background <- params$background
@@ -174,7 +204,7 @@ if(!isTRUE(params$dry_run)) {
   quiet <- isTRUE(params$quiet)
   
   
-  diagnostic_plots <- diagnose_notch_filters(
+  diagnose_notch_filters(
     subject = subject,
     electrodes = imported_electrodes,
     max_freq = max_freq,
@@ -197,7 +227,7 @@ Please make sure the following code block is at the end of your pipeline file. T
 ```{r build, echo=FALSE, results='hide'}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 build_pipeline(make_file = "make-notch_filter.R")
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
 

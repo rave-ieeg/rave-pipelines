@@ -15,6 +15,7 @@ module_html <- function(){
 
             ravedash::input_card(
               title = "Filter settings",
+
               ravedash::flex_group_box(
                 title = "Frequencies and bandwidths",
 
@@ -44,6 +45,20 @@ module_html <- function(){
                 )
               ),
               shiny::uiOutput(ns("notch_filter_preview")),
+
+              ravedash::flex_group_box(
+                title = "Channel types",
+
+                shidashi::flex_item(
+                  shiny::selectInput(
+                    inputId = ns("notch_filter_channel_types"),
+                    label = "Additional channel types (LFP macro-channels will always be included)",
+                    choices = c("Spike", "Auxiliary"),
+                    selected = character(0L),
+                    multiple = TRUE
+                  )
+                )
+              ),
               footer = tagList(
                 dipsaus::actionButtonStyled(
                   ns("notch_filter_btn"),
@@ -94,11 +109,11 @@ module_html <- function(){
                   shidashi::flex_item(
                     shiny::sliderInput(
                       inputId = ns("pwelch_winlen"),
-                      label = "Window length",
-                      min = 100,
-                      max = 4000,
-                      value = 4000,
-                      step = 1
+                      label = "Window length (seconds)",
+                      min = 0,
+                      max = 4,
+                      value = 2,
+                      step = 0.1
                     )
                   ),
                   shidashi::flex_break(),

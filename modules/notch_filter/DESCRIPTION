@@ -13,5 +13,5 @@ Description:
     a base frequency and its harmonics to remove. The user-interface displays
     'Welch'-Periodogram for diagnosis. This module is part of 
     'RAVE preprocessing pipeline' and can run offline as a pipeline instance;
-    see 'raveio::pipeline("notch_filter")'.
+    see 'ravepipeline::pipeline("notch_filter")'.
 BugReports: https://github.com/rave-ieeg/rave-pipelines/issues

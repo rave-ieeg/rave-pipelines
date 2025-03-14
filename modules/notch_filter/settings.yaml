@@ -1,5 +1,8 @@
-subject_code: PAV020
-project_name: YAEL
+channel_types:
+- LFP
+- Spike
+subject_code: DemoSubject
+project_name: test
 notch_filter_upperbound:
 - 61.0
 - 122.0
@@ -8,9 +11,9 @@ notch_filter_lowerbound:
 - 59.0
 - 118.0
 - 178.0
+diagnostic_plot_path: '{subject$note_path}/notch_filter.pdf'
 diagnostic_plot_params:
-  path: /var/folders/bs/n0q8wqv931g89ppshhgp2m2m0000gn/T//RtmpPoysNZ/file29594ccf28a7.pdf
-  window_length: 4000
+  window_length: 2
   max_frequency: 300
   histogram_bins: 60
   background: '#ffffff'
