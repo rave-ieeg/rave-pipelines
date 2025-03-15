@@ -47,15 +47,15 @@ lfp_sample_rate <- import_channels__lfp_sample_rate
 microwire_sample_rate <- import_channels__microwire_sample_rate
 auxiliary_sample_rate <- import_channels__auxiliary_sample_rate
 
-if(length(lfp_channels) > 0 && !length(lfp_sample_rate) || !isTRUE(lfp_sample_rate > 1)) {
+if(length(lfp_channels) > 0 && (!length(lfp_sample_rate) || !isTRUE(lfp_sample_rate > 1))) {
   stop("LFP sample rate is invalid")
 }
 
-if(length(microwire_channels) > 0 && !length(microwire_sample_rate) || !isTRUE(microwire_sample_rate > 1)) {
+if(length(microwire_channels) > 0 && (!length(microwire_sample_rate) || !isTRUE(microwire_sample_rate > 1))) {
   stop("Microwire sample rate is invalid")
 }
 
-if(length(auxiliary_channels) > 0 && !length(auxiliary_sample_rate) || !isTRUE(auxiliary_sample_rate > 1)) {
+if(length(auxiliary_channels) > 0 && (!length(auxiliary_sample_rate) || !isTRUE(auxiliary_sample_rate > 1))) {
   stop("Auxiliary sample rate is invalid")
 }
 
@@ -162,14 +162,20 @@ if(force_import) {
     })
     preproc$set_blocks(blocks)
   }
-  preproc$set_electrodes(lfp_channels, type = "LFP", add = TRUE)
-  preproc$set_sample_rates(lfp_sample_rate, type = "LFP")
+  if(length(lfp_channels)) {
+    preproc$set_electrodes(lfp_channels, type = "LFP", add = TRUE)
+    preproc$set_sample_rates(lfp_sample_rate, type = "LFP")
+  }
   
-  preproc$set_electrodes(microwire_channels, type = "Spike", add = TRUE)
-  preproc$set_sample_rates(microwire_sample_rate, type = "Spike")
+  if(length(microwire_channels)) {
+    preproc$set_electrodes(microwire_channels, type = "Spike", add = TRUE)
+    preproc$set_sample_rates(microwire_sample_rate, type = "Spike")
+  }
   
-  preproc$set_electrodes(auxiliary_channels, type = "Auxiliary", add = TRUE)
-  preproc$set_sample_rates(auxiliary_sample_rate, type = "Auxiliary")
+  if(length(auxiliary_channels)) {
+    preproc$set_electrodes(auxiliary_channels, type = "Auxiliary", add = TRUE)
+    preproc$set_sample_rates(auxiliary_sample_rate, type = "Auxiliary")
+  }
   preproc$save()
 }
 
