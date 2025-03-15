@@ -4,7 +4,7 @@ library(targets)
   source("common.R", local = TRUE)
 
   # load & combine pipelines
-  targets <- raveio::load_targets(
+  targets <- ravepipeline::load_targets(
     "make-block_explorer.R"
   )
 
