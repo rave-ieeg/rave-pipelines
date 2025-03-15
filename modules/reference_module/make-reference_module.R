@@ -15,7 +15,7 @@ rm(._._env_._.)
 ...targets <- list(`__Check_settings_file` = targets::tar_target_raw("settings_path",
     "settings.yaml", format = "file"), `__Load_settings` = targets::tar_target_raw("settings",
     quote({
-        read_yaml(settings_path)
+        yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")),
     input_subject_code = targets::tar_target_raw("subject_code",
         quote({
