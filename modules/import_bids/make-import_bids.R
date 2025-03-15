@@ -36,7 +36,7 @@ rm(._._env_._.)
         }), deps = "settings"), get_BIDS_subject_information = targets::tar_target_raw(name = "BIDS_subject_info", 
         command = quote({
             .__target_expr__. <- quote({
-                bids_root <- raveio::raveio_getopt("bids_data_dir")
+                bids_root <- ravepipeline::raveio_getopt("bids_data_dir")
                 if (!checkmate::test_character(BIDS_subject, 
                   min.chars = 4, pattern = "^sub-", len = 1L, 
                   any.missing = FALSE)) {
@@ -66,7 +66,7 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "BIDS_subject_info", target_expr = quote({
                 {
-                  bids_root <- raveio::raveio_getopt("bids_data_dir")
+                  bids_root <- ravepipeline::raveio_getopt("bids_data_dir")
                   if (!checkmate::test_character(BIDS_subject, 
                     min.chars = 4, pattern = "^sub-", len = 1L, 
                     any.missing = FALSE)) {
@@ -131,7 +131,7 @@ rm(._._env_._.)
                 src_exist <- sapply(abs_src_paths, function(path) {
                   any(file.exists(sprintf("%s_%s", path, BIDS_subject_info$data_types)))
                 })
-                raw_path <- raveio::raveio_getopt("raw_data_dir")
+                raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
                 dst_paths <- file.path(raw_path, BIDS_subject_info$subject_code, 
                   block_names)
                 dst_exist <- dir.exists(dst_paths)
@@ -189,7 +189,7 @@ rm(._._env_._.)
                   src_exist <- sapply(abs_src_paths, function(path) {
                     any(file.exists(sprintf("%s_%s", path, BIDS_subject_info$data_types)))
                   })
-                  raw_path <- raveio::raveio_getopt("raw_data_dir")
+                  raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
                   dst_paths <- file.path(raw_path, BIDS_subject_info$subject_code, 
                     block_names)
                   dst_exist <- dir.exists(dst_paths)
@@ -207,7 +207,7 @@ rm(._._env_._.)
         iteration = "list"), migrate_to_rave_raw = targets::tar_target_raw(name = "migrate_result", 
         command = quote({
             .__target_expr__. <- quote({
-                raw_path <- raveio::raveio_getopt("raw_data_dir")
+                raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
                 subject_code <- BIDS_subject_info$subject_code
                 data_types <- BIDS_subject_info$data_types
                 bids_root <- BIDS_subject_info$path
@@ -282,7 +282,7 @@ rm(._._env_._.)
         }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
             target_export = "migrate_result", target_expr = quote({
                 {
-                  raw_path <- raveio::raveio_getopt("raw_data_dir")
+                  raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
                   subject_code <- BIDS_subject_info$subject_code
                   data_types <- BIDS_subject_info$data_types
                   bids_root <- BIDS_subject_info$path

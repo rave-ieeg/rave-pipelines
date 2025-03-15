@@ -1,9 +1,11 @@
-BIDS_dataset: FragilityEEGDataset
-BIDS_sessions: ~
-BIDS_runs:
-- ses-presurgery/ieeg/sub-jh103_ses-presurgery_task-ictal_acq-ecog_run-01
-- ses-presurgery/ieeg/sub-jh103_ses-presurgery_task-ictal_acq-ecog_run-02
-- ses-presurgery/ieeg/sub-jh103_ses-presurgery_task-ictal_acq-ecog_run-03
 backup: no
-BIDS_subject: sub-jh103
+BIDS_dataset: ds004100
+BIDS_runs:
+- ses-presurgery/ieeg/sub-HUP060_ses-presurgery_task-ictal_acq-seeg_run-01
+- ses-presurgery/ieeg/sub-HUP060_ses-presurgery_task-ictal_acq-seeg_run-02
+- ses-presurgery/ieeg/sub-HUP060_ses-presurgery_task-ictal_acq-seeg_run-03
+- ses-presurgery/ieeg/sub-HUP060_ses-presurgery_task-interictal_acq-seeg_run-01
+- ses-presurgery/ieeg/sub-HUP060_ses-presurgery_task-interictal_acq-seeg_run-02
+BIDS_sessions: ~
+BIDS_subject: sub-HUP060
 overwrite: no

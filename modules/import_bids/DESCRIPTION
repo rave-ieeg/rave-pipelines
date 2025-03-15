@@ -16,6 +16,6 @@ Description:
     folders. Note this module converts into 'RAVE' raw format, please run
     'import_lfp_native' module afterwards. This module is part of 
     'RAVE preprocessing pipeline' and can run offline as a pipeline instance;
-    see 'raveio::pipeline("import_bids")'.
+    see 'ravepipeline::pipeline("import_bids")'.
 BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
 URL: https://rave.wiki

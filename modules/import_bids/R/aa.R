@@ -3,7 +3,7 @@ library(ravedash)
 
 # Stores global variables. These are required
 module_id <- "import_bids"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "import_bids",
   settings_file = "settings.yaml",
   paths = "./modules")

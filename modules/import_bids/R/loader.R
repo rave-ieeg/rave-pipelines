@@ -207,7 +207,7 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       if(!isTRUE(sv_loader_subject$is_valid())) { return() }
 
-      BIDS_root <- raveio::raveio_getopt("bids_data_dir")
+      BIDS_root <- ravepipeline::raveio_getopt("bids_data_dir")
 
       BIDS_sessions <- input$loader_subject_session
       if(!length(BIDS_sessions) || "[All sessions]" %in% BIDS_sessions) {
@@ -243,7 +243,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       # gather information from preset UIs
-      BIDS_root <- raveio::raveio_getopt("bids_data_dir")
+      BIDS_root <- ravepipeline::raveio_getopt("bids_data_dir")
       BIDS_dataset <- input$loader_bids_dataset
       BIDS_subject <- input$loader_bids_subject
       import_all_sessions <- input$loader_conf_allsessions
@@ -434,7 +434,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       BIDS_subject_info <- pipeline$read("BIDS_subject_info")
-      pipeline_import_lfp <- raveio::pipeline("import_lfp_native")
+      pipeline_import_lfp <- ravepipeline::pipeline("import_lfp_native")
       pipeline_import_lfp$set_settings(
         import_setup__subject_code = BIDS_subject_info$subject_code
       )
