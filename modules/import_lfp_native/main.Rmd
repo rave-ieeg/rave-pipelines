@@ -168,8 +168,8 @@ if(force_import) {
   preproc$set_electrodes(microwire_channels, type = "Spike", add = TRUE)
   preproc$set_sample_rates(microwire_sample_rate, type = "Spike")
   
-  preproc$set_electrodes(auxiliary_channels, type = "Unknown", add = TRUE)
-  preproc$set_sample_rates(auxiliary_sample_rate, type = "Unknown")
+  preproc$set_electrodes(auxiliary_channels, type = "Auxiliary", add = TRUE)
+  preproc$set_sample_rates(auxiliary_sample_rate, type = "Auxiliary")
   preproc$save()
 }
 
@@ -208,7 +208,7 @@ if(length(auxiliary_channels)) {
     blocks = blocks, electrodes = auxiliary_channels,
     sample_rate = auxiliary_sample_rate, format = format,
     conversion = auxiliary_unit,
-    data_type = "Unknown", add = TRUE, 
+    data_type = "Auxiliary", add = TRUE, 
     skip_validation = TRUE
   )
 }
@@ -238,7 +238,7 @@ if(length(microwire_channels)) {
   data_types <- c(data_types, "Spike")
 }
 if(length(lfp_channels)) {
-  data_types <- c(data_types, "Unknown")
+  data_types <- c(data_types, "Auxiliary")
 }
 
 subject$set_default(

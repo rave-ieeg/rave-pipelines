@@ -8,8 +8,8 @@ import_blocks__session_block:
 - '012'
 import_channels__action_compose_do: ~
 import_channels__actions_compose: 0
-import_channels__auxiliary_channels: '24'
-import_channels__auxiliary_sample_rate: 30000
+import_channels__auxiliary_channels: '13'
+import_channels__auxiliary_sample_rate: 15000
 import_channels__auxiliary_unit: NA
 import_channels__compose_setup: {}
 import_channels__compose_setup_message_1: ~
@@ -18,10 +18,10 @@ import_channels__compose_upload_example: ~
 import_channels__compose_upload_file: ~
 import_channels__electrode_file: auto
 import_channels__electrodes: ~
-import_channels__lfp_channels: 13-15
+import_channels__lfp_channels: 14-16
 import_channels__lfp_sample_rate: 2000
 import_channels__lfp_unit: NA
-import_channels__microwire_channels: '16'
+import_channels__microwire_channels: '24'
 import_channels__microwire_sample_rate: 30000
 import_channels__microwire_unit: NA
 import_channels__sample_rate: ~

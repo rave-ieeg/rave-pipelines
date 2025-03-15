@@ -1,17 +1,4 @@
-channel_types:
-- LFP
-- Spike
-subject_code: DemoSubject
-project_name: test
-notch_filter_upperbound:
-- 61.0
-- 122.0
-- 182.0
-notch_filter_lowerbound:
-- 59.0
-- 118.0
-- 178.0
-diagnostic_plot_path: '{subject$note_path}/notch_filter.pdf'
+background: '#ffffff'
 diagnostic_plot_params:
   window_length: 2
   max_frequency: 300
@@ -20,4 +7,15 @@ diagnostic_plot_params:
   foreground: '#212529'
   font_size: 2.0
   quiet: no
-background: '#ffffff'
+diagnostic_plot_path: '{subject$note_path}/notch_filter.pdf'
+notch_filter_lowerbound:
+- 59.0
+- 118.0
+- 178.0
+notch_filter_upperbound:
+- 61.0
+- 122.0
+- 182.0
+project_name: test
+subject_code: DemoSubject
+channel_types: LFP

@@ -540,7 +540,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           etypes <- preproc$electrode_types
           lfp_sel <- etypes %in% "LFP"
           spike_sel <- etypes %in% "Spike"
-          misc_sel <- etypes %in% c("Unknown", "Audio", "Photodiode")
+          misc_sel <- etypes %in% c("Unknown", "Audio", "Photodiode", "Auxiliary")
 
           lfp_channels <- preproc$electrodes[lfp_sel]
           spike_channels <- preproc$electrodes[spike_sel]

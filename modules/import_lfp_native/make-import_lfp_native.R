@@ -17,7 +17,55 @@ rm(._._env_._.)
     quote({
         read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_import_channels__lfp_channels = targets::tar_target_raw("import_channels__lfp_channels", 
+    input_compose_setup = targets::tar_target_raw("compose_setup", 
+        quote({
+            settings[["compose_setup"]]
+        }), deps = "settings"), input_force_import = targets::tar_target_raw("force_import", 
+        quote({
+            settings[["force_import"]]
+        }), deps = "settings"), input_import_blocks__format = targets::tar_target_raw("import_blocks__format", 
+        quote({
+            settings[["import_blocks__format"]]
+        }), deps = "settings"), input_import_blocks__session_block = targets::tar_target_raw("import_blocks__session_block", 
+        quote({
+            settings[["import_blocks__session_block"]]
+        }), deps = "settings"), input_import_channels__action_compose_do = targets::tar_target_raw("import_channels__action_compose_do", 
+        quote({
+            settings[["import_channels__action_compose_do"]]
+        }), deps = "settings"), input_import_channels__actions_compose = targets::tar_target_raw("import_channels__actions_compose", 
+        quote({
+            settings[["import_channels__actions_compose"]]
+        }), deps = "settings"), input_import_channels__auxiliary_channels = targets::tar_target_raw("import_channels__auxiliary_channels", 
+        quote({
+            settings[["import_channels__auxiliary_channels"]]
+        }), deps = "settings"), input_import_channels__auxiliary_sample_rate = targets::tar_target_raw("import_channels__auxiliary_sample_rate", 
+        quote({
+            settings[["import_channels__auxiliary_sample_rate"]]
+        }), deps = "settings"), input_import_channels__auxiliary_unit = targets::tar_target_raw("import_channels__auxiliary_unit", 
+        quote({
+            settings[["import_channels__auxiliary_unit"]]
+        }), deps = "settings"), input_import_channels__compose_setup = targets::tar_target_raw("import_channels__compose_setup", 
+        quote({
+            settings[["import_channels__compose_setup"]]
+        }), deps = "settings"), input_import_channels__compose_setup_message_1 = targets::tar_target_raw("import_channels__compose_setup_message_1", 
+        quote({
+            settings[["import_channels__compose_setup_message_1"]]
+        }), deps = "settings"), input_import_channels__compose_upload = targets::tar_target_raw("import_channels__compose_upload", 
+        quote({
+            settings[["import_channels__compose_upload"]]
+        }), deps = "settings"), input_import_channels__compose_upload_example = targets::tar_target_raw("import_channels__compose_upload_example", 
+        quote({
+            settings[["import_channels__compose_upload_example"]]
+        }), deps = "settings"), input_import_channels__compose_upload_file = targets::tar_target_raw("import_channels__compose_upload_file", 
+        quote({
+            settings[["import_channels__compose_upload_file"]]
+        }), deps = "settings"), input_import_channels__electrode_file = targets::tar_target_raw("import_channels__electrode_file", 
+        quote({
+            settings[["import_channels__electrode_file"]]
+        }), deps = "settings"), input_import_channels__electrodes = targets::tar_target_raw("import_channels__electrodes", 
+        quote({
+            settings[["import_channels__electrodes"]]
+        }), deps = "settings"), input_import_channels__lfp_channels = targets::tar_target_raw("import_channels__lfp_channels", 
         quote({
             settings[["import_channels__lfp_channels"]]
         }), deps = "settings"), input_import_channels__lfp_sample_rate = targets::tar_target_raw("import_channels__lfp_sample_rate", 
@@ -35,60 +83,21 @@ rm(._._env_._.)
         }), deps = "settings"), input_import_channels__microwire_unit = targets::tar_target_raw("import_channels__microwire_unit", 
         quote({
             settings[["import_channels__microwire_unit"]]
-        }), deps = "settings"), input_import_channels__auxiliary_channels = targets::tar_target_raw("import_channels__auxiliary_channels", 
+        }), deps = "settings"), input_import_channels__sample_rate = targets::tar_target_raw("import_channels__sample_rate", 
         quote({
-            settings[["import_channels__auxiliary_channels"]]
-        }), deps = "settings"), input_import_channels__auxiliary_sample_rate = targets::tar_target_raw("import_channels__auxiliary_sample_rate", 
+            settings[["import_channels__sample_rate"]]
+        }), deps = "settings"), input_import_channels__unit = targets::tar_target_raw("import_channels__unit", 
         quote({
-            settings[["import_channels__auxiliary_sample_rate"]]
-        }), deps = "settings"), input_import_channels__auxiliary_unit = targets::tar_target_raw("import_channels__auxiliary_unit", 
-        quote({
-            settings[["import_channels__auxiliary_unit"]]
-        }), deps = "settings"), input_skip_validation = targets::tar_target_raw("skip_validation", 
-        quote({
-            settings[["skip_validation"]]
-        }), deps = "settings"), input_import_setup__subject_code = targets::tar_target_raw("import_setup__subject_code", 
-        quote({
-            settings[["import_setup__subject_code"]]
+            settings[["import_channels__unit"]]
         }), deps = "settings"), input_import_setup__project_name = targets::tar_target_raw("import_setup__project_name", 
         quote({
             settings[["import_setup__project_name"]]
-        }), deps = "settings"), input_import_channels__electrode_file = targets::tar_target_raw("import_channels__electrode_file", 
+        }), deps = "settings"), input_import_setup__subject_code = targets::tar_target_raw("import_setup__subject_code", 
         quote({
-            settings[["import_channels__electrode_file"]]
-        }), deps = "settings"), input_import_channels__compose_upload_file = targets::tar_target_raw("import_channels__compose_upload_file", 
+            settings[["import_setup__subject_code"]]
+        }), deps = "settings"), input_skip_validation = targets::tar_target_raw("skip_validation", 
         quote({
-            settings[["import_channels__compose_upload_file"]]
-        }), deps = "settings"), input_import_channels__compose_upload_example = targets::tar_target_raw("import_channels__compose_upload_example", 
-        quote({
-            settings[["import_channels__compose_upload_example"]]
-        }), deps = "settings"), input_import_channels__compose_upload = targets::tar_target_raw("import_channels__compose_upload", 
-        quote({
-            settings[["import_channels__compose_upload"]]
-        }), deps = "settings"), input_import_channels__compose_setup_message_1 = targets::tar_target_raw("import_channels__compose_setup_message_1", 
-        quote({
-            settings[["import_channels__compose_setup_message_1"]]
-        }), deps = "settings"), input_import_channels__compose_setup = targets::tar_target_raw("import_channels__compose_setup", 
-        quote({
-            settings[["import_channels__compose_setup"]]
-        }), deps = "settings"), input_import_channels__actions_compose = targets::tar_target_raw("import_channels__actions_compose", 
-        quote({
-            settings[["import_channels__actions_compose"]]
-        }), deps = "settings"), input_import_channels__action_compose_do = targets::tar_target_raw("import_channels__action_compose_do", 
-        quote({
-            settings[["import_channels__action_compose_do"]]
-        }), deps = "settings"), input_import_blocks__session_block = targets::tar_target_raw("import_blocks__session_block", 
-        quote({
-            settings[["import_blocks__session_block"]]
-        }), deps = "settings"), input_import_blocks__format = targets::tar_target_raw("import_blocks__format", 
-        quote({
-            settings[["import_blocks__format"]]
-        }), deps = "settings"), input_force_import = targets::tar_target_raw("force_import", 
-        quote({
-            settings[["force_import"]]
-        }), deps = "settings"), input_compose_setup = targets::tar_target_raw("compose_setup", 
-        quote({
-            settings[["compose_setup"]]
+            settings[["skip_validation"]]
         }), deps = "settings"), obtain_subject_instance = targets::tar_target_raw(name = "subject", 
         command = quote({
             .__target_expr__. <- quote({
@@ -341,9 +350,9 @@ rm(._._env_._.)
                   preproc$set_sample_rates(microwire_sample_rate, 
                     type = "Spike")
                   preproc$set_electrodes(auxiliary_channels, 
-                    type = "Unknown", add = TRUE)
+                    type = "Auxiliary", add = TRUE)
                   preproc$set_sample_rates(auxiliary_sample_rate, 
-                    type = "Unknown")
+                    type = "Auxiliary")
                   preproc$save()
                 }
                 if (length(lfp_channels)) {
@@ -365,7 +374,7 @@ rm(._._env_._.)
                     subject_code = subject$subject_code, blocks = blocks, 
                     electrodes = auxiliary_channels, sample_rate = auxiliary_sample_rate, 
                     format = format, conversion = auxiliary_unit, 
-                    data_type = "Unknown", add = TRUE, skip_validation = TRUE)
+                    data_type = "Auxiliary", add = TRUE, skip_validation = TRUE)
                 }
                 compose_params <- clean_compose_setup(compose_setup = compose_setup, 
                   electrodes = lfp_channels)
@@ -386,7 +395,7 @@ rm(._._env_._.)
                   data_types <- c(data_types, "Spike")
                 }
                 if (length(lfp_channels)) {
-                  data_types <- c(data_types, "Unknown")
+                  data_types <- c(data_types, "Auxiliary")
                 }
                 subject$set_default(namespace = module_id, key = "import_parameters", 
                   value = list(project_name = subject$project_name, 
@@ -474,9 +483,9 @@ rm(._._env_._.)
                     preproc$set_sample_rates(microwire_sample_rate, 
                       type = "Spike")
                     preproc$set_electrodes(auxiliary_channels, 
-                      type = "Unknown", add = TRUE)
+                      type = "Auxiliary", add = TRUE)
                     preproc$set_sample_rates(auxiliary_sample_rate, 
-                      type = "Unknown")
+                      type = "Auxiliary")
                     preproc$save()
                   }
                   if (length(lfp_channels)) {
@@ -498,7 +507,7 @@ rm(._._env_._.)
                       subject_code = subject$subject_code, blocks = blocks, 
                       electrodes = auxiliary_channels, sample_rate = auxiliary_sample_rate, 
                       format = format, conversion = auxiliary_unit, 
-                      data_type = "Unknown", add = TRUE, skip_validation = TRUE)
+                      data_type = "Auxiliary", add = TRUE, skip_validation = TRUE)
                   }
                   compose_params <- clean_compose_setup(compose_setup = compose_setup, 
                     electrodes = lfp_channels)
@@ -519,7 +528,7 @@ rm(._._env_._.)
                     data_types <- c(data_types, "Spike")
                   }
                   if (length(lfp_channels)) {
-                    data_types <- c(data_types, "Unknown")
+                    data_types <- c(data_types, "Auxiliary")
                   }
                   subject$set_default(namespace = module_id, 
                     key = "import_parameters", value = list(project_name = subject$project_name, 

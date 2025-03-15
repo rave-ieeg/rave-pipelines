@@ -44,7 +44,6 @@ module_server <- function(input, output, session, ...){
 
       channel_types <- unique(subject$electrode_types[subject$electrodes %in% notch_params$filter_applied])
       channel_types <- as.character(channel_types[!channel_types %in% "LFP"])
-      channel_types[channel_types %in% c("Audio", "Photodiode", "Unknown")] <- "Auxiliary"
 
       shiny::updateSelectInput(
         session = session,

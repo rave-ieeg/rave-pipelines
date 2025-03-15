@@ -146,10 +146,6 @@ rm(._._env_._.)
             .__target_expr__. <- quote({
                 channels_to_apply_filters <- imported_electrodes
                 channel_types_lower <- tolower(channel_types)
-                if (any(c("auxiliary", "others") %in% channel_types_lower)) {
-                  channel_types_lower <- c(channel_types_lower, 
-                    "unknown")
-                }
                 signal_types <- raveio:::SIGNAL_TYPES
                 signal_types <- signal_types[tolower(signal_types) %in% 
                   channel_types_lower]
@@ -170,10 +166,6 @@ rm(._._env_._.)
                 {
                   channels_to_apply_filters <- imported_electrodes
                   channel_types_lower <- tolower(channel_types)
-                  if (any(c("auxiliary", "others") %in% channel_types_lower)) {
-                    channel_types_lower <- c(channel_types_lower, 
-                      "unknown")
-                  }
                   signal_types <- raveio:::SIGNAL_TYPES
                   signal_types <- signal_types[tolower(signal_types) %in% 
                     channel_types_lower]

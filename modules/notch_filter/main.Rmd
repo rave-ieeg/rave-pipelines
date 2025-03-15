@@ -64,10 +64,6 @@ filter_settings <- list(
 channels_to_apply_filters <- imported_electrodes
 
 channel_types_lower <- tolower(channel_types)
-if(any(c("auxiliary", "others") %in% channel_types_lower)) {
-  channel_types_lower <- c(channel_types_lower, "unknown")
-}
-
 signal_types <- raveio:::SIGNAL_TYPES
 signal_types <- signal_types[tolower(signal_types) %in% channel_types_lower]
 
