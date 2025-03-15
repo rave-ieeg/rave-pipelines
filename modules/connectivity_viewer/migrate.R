@@ -57,7 +57,7 @@ migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup =
 
     # move current directory to the new subject pipeline directory
     # DO NOT activate the new module
-    raveio::pipeline_fork(
+    ravepipeline::pipeline_fork(
       src = ".",
       dest = file.path(subject$pipeline_path, target_name),
       activate = FALSE

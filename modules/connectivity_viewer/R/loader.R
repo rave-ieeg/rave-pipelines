@@ -2,7 +2,7 @@
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
   all_templates <- names(threeBrain::available_templates())
 
-  current_rave_template <- raveio::raveio_getopt("threeBrain_template_subject")
+  current_rave_template <- ravepipeline::raveio_getopt("threeBrain_template_subject")
   template_root_path <- threeBrain::default_template_directory()
 
   template_exists <- sapply(all_templates, function(at) {

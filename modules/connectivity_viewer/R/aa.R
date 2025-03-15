@@ -3,7 +3,7 @@ library(ravedash)
 
 # Stores global variables. These are required
 module_id <- "connectivity_viewer"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "connectivity_viewer",
   settings_file = "settings.yaml",
   paths = "./modules")
