@@ -1,8 +1,12 @@
-changes: []
+subject_code: DemoSubject
+reference_name: _unsaved
+project_name: test
 electrode_group:
   '1':
     name: NoLabel
     electrodes: 14-16
-project_name: test
-reference_name: _unsaved
-subject_code: DemoSubject
+changes:
+- group_name: NoLabel
+  electrodes: 14-16
+  reference_type: Common Average Reference
+  reference_signal: ref_14-16

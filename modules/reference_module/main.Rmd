@@ -307,7 +307,7 @@ not_lfp <- !reference_group$Electrode %in% lfp_channels
 if(any(not_lfp)) {
   electrodes <- reference_group$Electrode[not_lfp]
   reference_group$Group[not_lfp] <- ""
-  reference_group$Reference[not_lfp] <- ""
+  reference_group$Reference[not_lfp] <- "noref"
   reference_group$Type[not_lfp] <- "No Reference"
 }
 
