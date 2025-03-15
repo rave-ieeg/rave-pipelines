@@ -2,7 +2,7 @@
 
 module_html <- function(){
 
-  all_modules <- sort(unique(raveio::pipeline_list()))
+  all_modules <- sort(unique(ravepipeline::pipeline_list()))
 
   shiny::fluidPage(
     shiny::fluidRow(

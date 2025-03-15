@@ -15,9 +15,7 @@ format:
 
 ```{r setup, include = FALSE}
 # Default for RAVE pipeline 2.0. Please do NOT remove this chunk
-raveio::pipeline_setup_rmd(
-  module_id = "custom_3d_viewer", 
-  project_path = "/Users/dipterix/Dropbox (PennNeurosurgery)/rave-pipelines")
+ravepipeline::pipeline_setup_rmd(module_id = "custom_3d_viewer")
 set.seed(100)
 ```
 
@@ -76,7 +74,6 @@ loaded_brain <- load_brain_from_subject_code(
 #| code-fold: true
 #| code-summary: "Show a complicated implementation"
 
-library(dipsaus)
 force(shiny_outputId)
 controllers <- as.list(controllers)
 main_camera <- as.list(main_camera)
@@ -245,7 +242,7 @@ if(length(path_datatable) == 1) {
     },
     "Saved pipelines/modules" = {
       
-      var <- raveio::pipeline_read(
+      var <- ravepipeline::pipeline_read(
         var_names = attr(path_datatable, "target"),
         pipe_dir = path_datatable,
         ifnotfound = NULL
@@ -287,7 +284,7 @@ if(is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
   
   # subset if Subject is contained
   if("Subject" %in% nms) {
-    template_subject <- raveio::raveio_getopt("threeBrain_template_subject", default = "N27")
+    template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", default = "N27")
     
     if(!identical(loaded_brain$brain$subject_code, 
                   template_subject)) {
@@ -313,6 +310,7 @@ if(is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
     
     
     new_table <- lapply(split(loaded_datatable, fct), function(sub) {
+      sub <- as.data.frame(sub)
       if(nrow(sub) == 1) {
         return(sub[, c(nms, "Electrode", "Time"), drop = FALSE])
       }
@@ -384,7 +382,6 @@ The render results:
 #| code-fold: true
 #| code-summary: "A fine-tuned 3D viewer that remembers the user inputs"
 
-library(dipsaus)
 force(shiny_outputId)
 controllers <- as.list(controllers)
 main_camera <- as.list(main_camera)
@@ -479,6 +476,6 @@ Once the pipeline script `make-custom_3d_viewer.R` is built, you can visualize a
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 try({
-  raveio::pipeline_visualize()
+  ravepipeline::pipeline_visualize()
 }, silent = TRUE)
 ```

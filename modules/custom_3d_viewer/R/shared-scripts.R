@@ -6,40 +6,6 @@
 #'   - import packages that will be used via `library()`, or `targets::tar_option_set` (see below)
 NULL
 
-# Set pipeline options
-targets::tar_option_set(
-
-  # R libraries to load
-  packages = c("raveio")
-
-  # memory strategy.
-  # "persistent": the target stays in memory until the end of the pipeline
-  #   unless storage is "worker", in which case targets unloads the value
-  #   from memory right after storing it in order to avoid sending copious
-  #   data over a network.
-  # "transient": the target gets unloaded after every new target completes.
-  # The former conserves bandwidth, and the latter conserves local storage.
-
-  # memory = 'persistent'
-
-  # When `scheduler` is "future" or "clustermq":
-  # "main": the target's return value is sent back to the host machine and
-  #   saved/uploaded locally.
-  # "worker": the worker saves/uploads the value.
-  #
-  # Set to worker if your nodes might generate large amount of data
-
-  # storage = 'worker'
-
-  # When `scheduler` is "future" or "clustermq":
-  # "main": the target's dependencies are loaded on the host machine and sent
-  #   to the worker before the target builds.
-  # "worker": the worker loads the targets dependencies.
-
-  # retrieval = "worker"
-
-)
-
 `%OF%` <- dipsaus::`%OF%`
 TEMPLATE_CHOICES = c(
   "Simple property",
@@ -49,8 +15,8 @@ TEMPLATE_CHOICES = c(
 
 load_brain_from_subject_code <- function(subject_code, project_name = "[Auto]", surface_types = NULL, use_template = FALSE) {
 
-  rave_path <- raveio::raveio_getopt("data_dir")
-  raw_path <- raveio::raveio_getopt("raw_data_dir")
+  rave_path <- ravepipeline::raveio_getopt("data_dir")
+  raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
 
   brain <- NULL
   electrode_table <- NULL
@@ -75,7 +41,7 @@ load_brain_from_subject_code <- function(subject_code, project_name = "[Auto]", 
   }
 
   if(!is.data.frame(electrode_table) && !project_name %in% c("[None]")) {
-    electrode_table <- raveio::pipeline_load_extdata("suggested_electrode_table")
+    electrode_table <- ravepipeline::pipeline_load_extdata("suggested_electrode_table")
   }
 
   if(is.null(brain)) {

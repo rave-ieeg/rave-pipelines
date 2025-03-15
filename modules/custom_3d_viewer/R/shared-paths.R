@@ -1,7 +1,7 @@
 
 has_fsdir <- function(project_name, subject_code,
-                      rave_path = raveio::raveio_getopt("data_dir"),
-                      raw_path = raveio::raveio_getopt("raw_data_dir")) {
+                      rave_path = ravepipeline::raveio_getopt("data_dir"),
+                      raw_path = ravepipeline::raveio_getopt("raw_data_dir")) {
   if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
     return(FALSE)
   }
@@ -33,7 +33,7 @@ has_fsdir <- function(project_name, subject_code,
 }
 
 get_projects_with_scode <- function(subject_code, refresh = TRUE,
-                                    rave_path = raveio::raveio_getopt("data_dir")) {
+                                    rave_path = ravepipeline::raveio_getopt("data_dir")) {
   if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
     return(NULL)
   }
@@ -45,7 +45,7 @@ get_projects_with_scode <- function(subject_code, refresh = TRUE,
 
 get_subject_imaging_datapath <- function(
     ..., subject_code, project_name, type = c("uploads", "pipeline"), check = FALSE,
-    raw_path = raveio::raveio_getopt("raw_data_dir")) {
+    raw_path = ravepipeline::raveio_getopt("raw_data_dir")) {
 
   type <- match.arg(type)
 

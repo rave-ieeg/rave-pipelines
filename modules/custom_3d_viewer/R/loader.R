@@ -172,7 +172,7 @@ loader_server <- function(input, output, session, ...){
     if(identical(project_name, "[None]")) { return() }
 
     re <- NULL
-    rave_path <- raveio::raveio_getopt("data_dir")
+    rave_path <- ravepipeline::raveio_getopt("data_dir")
 
     if(identical(project_name, "[Upload]")) {
       re <- local_reactives$electrode_table
@@ -203,7 +203,7 @@ loader_server <- function(input, output, session, ...){
       return()
     }
 
-    rave_path <- raveio::raveio_getopt("data_dir")
+    rave_path <- ravepipeline::raveio_getopt("data_dir")
 
     dir <- file.path(rave_path, project_name, subject_code)
     raveio::RAVESubject$new()

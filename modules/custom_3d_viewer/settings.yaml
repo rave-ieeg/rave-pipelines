@@ -1,21 +1,26 @@
-controllers: []
+controllers:
+  Background Color: '#FFFFFF'
 data_source: Uploads
 data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
 data_source_pipeline_target: omnibus_results
 data_source_project: demo
 main_camera:
+  target:
+    x: 0.1824112
+    'y': 5.4496269
+    z: 29.8170767
   position:
-  - 500.0
-  - 0.0
-  - 0.0
+  - -436.6583274
+  - 174.4191356
+  - 71.304271
   up:
-  - 0.0
-  - 0.0
-  - 1.0
+  - 0.0725928
+  - -0.0884934
+  - 0.993428
   zoom: 1.0
-project_name: '[Auto]'
+project_name: demo
 shiny_outputId: custom_3d_viewer-viewer_ready
 subject_code: DemoSubject
 surface_types: ~
+uploaded_source: electrode_value(3).fst
 use_template: no
-uploaded_source: electrode_value.fst
