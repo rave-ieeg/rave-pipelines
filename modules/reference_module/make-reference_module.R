@@ -1,40 +1,41 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
+._._env_._.$pipeline <- pipeline_from_path(".")
 lapply(sort(list.files(
   "R/", ignore.case = TRUE,
-  pattern = "^shared-.*\\.R",
+  pattern = "^shared-.*\\.R", 
   full.names = TRUE
 )), function(f) {
   source(f, local = ._._env_._., chdir = TRUE)
 })
 targets::tar_option_set(envir = ._._env_._.)
 rm(._._env_._.)
-...targets <- list(`__Check_settings_file` = targets::tar_target_raw("settings_path",
-    "settings.yaml", format = "file"), `__Load_settings` = targets::tar_target_raw("settings",
+...targets <- list(`__Check_settings_file` = targets::tar_target_raw("settings_path", 
+    "settings.yaml", format = "file"), `__Load_settings` = targets::tar_target_raw("settings", 
     quote({
-        yaml::read_yaml(settings_path)
-    }), deps = "settings_path", cue = targets::tar_cue("always")),
-    input_subject_code = targets::tar_target_raw("subject_code",
+        read_yaml(settings_path)
+    }), deps = "settings_path", cue = targets::tar_cue("always")), 
+    input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
             settings[["subject_code"]]
-        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name",
+        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
         quote({
             settings[["reference_name"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name",
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
         quote({
             settings[["project_name"]]
-        }), deps = "settings"), input_electrode_group = targets::tar_target_raw("electrode_group",
+        }), deps = "settings"), input_electrode_group = targets::tar_target_raw("electrode_group", 
         quote({
             settings[["electrode_group"]]
-        }), deps = "settings"), input_changes = targets::tar_target_raw("changes",
+        }), deps = "settings"), input_changes = targets::tar_target_raw("changes", 
         quote({
             settings[["changes"]]
-        }), deps = "settings"), load_subject = targets::tar_target_raw(name = "subject",
+        }), deps = "settings"), load_subject = targets::tar_target_raw(name = "subject", 
         command = quote({
             .__target_expr__. <- quote({
-                subject <- raveio::RAVESubject$new(project_name = project_name,
+                subject <- raveio::RAVESubject$new(project_name = project_name, 
                   subject_code = subject_code)
                 if (!all(subject$preprocess_settings$notch_filtered)) {
                   stop("Please run Notch filter module first.")
@@ -44,13 +45,13 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(subject)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "subject",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "subject", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-subject",
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject", 
             target_export = "subject", target_expr = quote({
                 {
-                  subject <- raveio::RAVESubject$new(project_name = project_name,
+                  subject <- raveio::RAVESubject$new(project_name = project_name, 
                     subject_code = subject_code)
                   if (!all(subject$preprocess_settings$notch_filtered)) {
                     stop("Please run Notch filter module first.")
@@ -58,16 +59,16 @@ rm(._._env_._.)
                 }
                 subject
             }), target_depends = c("project_name", "subject_code"
-            )), deps = c("project_name", "subject_code"), cue = targets::tar_cue("always"),
-        pattern = NULL, iteration = "list"), obtain_previous_preprocessing = targets::tar_target_raw(name = "preprocessing_history",
+            )), deps = c("project_name", "subject_code"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), obtain_previous_preprocessing = targets::tar_target_raw(name = "preprocessing_history", 
         command = quote({
             .__target_expr__. <- quote({
-                previous_pipeline_path <- file.path(subject$pipeline_path,
+                previous_pipeline_path <- file.path(subject$pipeline_path, 
                   "reference_module")
                 previous_data <- NULL
                 if (dir.exists(previous_pipeline_path)) {
                   try(silent = TRUE, {
-                    previous_pipeline <- raveio::pipeline(pipeline_name = "reference_module",
+                    previous_pipeline <- ravepipeline::pipeline(pipeline_name = "reference_module", 
                       paths = subject$pipeline_path, temporary = TRUE)
                     previous_data <- previous_pipeline$read("preprocessing_history")
                     if (is.list(previous_data)) {
@@ -75,8 +76,8 @@ rm(._._env_._.)
                     }
                   })
                 }
-                current <- list(notch_filtered = subject$notch_filtered,
-                  notch_params = subject$preprocess_settings$notch_params,
+                current <- list(notch_filtered = subject$notch_filtered, 
+                  notch_params = subject$preprocess_settings$notch_params, 
                   has_wavelet = subject$has_wavelet, wavelet_params = subject$preprocess_settings$wavelet_params)
                 use_cache <- TRUE
                 if (length(previous_data) != length(current)) {
@@ -103,25 +104,25 @@ rm(._._env_._.)
                     }
                   }
                 }
-                preprocessing_history <- list(current = current,
+                preprocessing_history <- list(current = current, 
                   previous = previous_data, use_cache = use_cache)
             })
             tryCatch({
                 eval(.__target_expr__.)
                 return(preprocessing_history)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "preprocessing_history",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "preprocessing_history", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "preprocessing_history", target_expr = quote({
                 {
-                  previous_pipeline_path <- file.path(subject$pipeline_path,
+                  previous_pipeline_path <- file.path(subject$pipeline_path, 
                     "reference_module")
                   previous_data <- NULL
                   if (dir.exists(previous_pipeline_path)) {
                     try(silent = TRUE, {
-                      previous_pipeline <- raveio::pipeline(pipeline_name = "reference_module",
+                      previous_pipeline <- ravepipeline::pipeline(pipeline_name = "reference_module", 
                         paths = subject$pipeline_path, temporary = TRUE)
                       previous_data <- previous_pipeline$read("preprocessing_history")
                       if (is.list(previous_data)) {
@@ -129,8 +130,8 @@ rm(._._env_._.)
                       }
                     })
                   }
-                  current <- list(notch_filtered = subject$notch_filtered,
-                    notch_params = subject$preprocess_settings$notch_params,
+                  current <- list(notch_filtered = subject$notch_filtered, 
+                    notch_params = subject$preprocess_settings$notch_params, 
                     has_wavelet = subject$has_wavelet, wavelet_params = subject$preprocess_settings$wavelet_params)
                   use_cache <- TRUE
                   if (length(previous_data) != length(current)) {
@@ -157,37 +158,37 @@ rm(._._env_._.)
                       }
                     }
                   }
-                  preprocessing_history <- list(current = current,
+                  preprocessing_history <- list(current = current, 
                     previous = previous_data, use_cache = use_cache)
                 }
                 preprocessing_history
-            }), target_depends = "subject"), deps = "subject",
-        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"),
-    load_presets = targets::tar_target_raw(name = "reference_table_initial",
+            }), target_depends = "subject"), deps = "subject", 
+        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
+    load_presets = targets::tar_target_raw(name = "reference_table_initial", 
         command = quote({
             .__target_expr__. <- quote({
                 if (isTRUE(reference_name %in% subject$reference_names)) {
                   tryCatch({
-                    reference_table_initial <- subject$get_reference(reference_name,
+                    reference_table_initial <- subject$get_reference(reference_name, 
                       simplify = FALSE)
-                    reference_table_initial <- reference_table_initial[,
+                    reference_table_initial <- reference_table_initial[, 
                       c("Electrode", "Group", "Reference", "Type")]
                   }, error = function(e) {
-                    ravedash::logger("Unable to load reference [",
+                    ravedash::logger("Unable to load reference [", 
                       reference_name, "]", level = "error")
                     ravedash::logger_error_condition(e)
-                    stop("Unable to load reference [", reference_name,
+                    stop("Unable to load reference [", reference_name, 
                       "]. Please check your reference file or simply start with a blank reference profile.")
                   })
                 } else {
                   electrode_table <- subject$get_electrode_table(reference_name = reference_name)
-                  str_electrode_group <- gsub("[0-9]+$", "",
+                  str_electrode_group <- gsub("[0-9]+$", "", 
                     electrode_table$Label)
                   electrode_table$Group <- trimws(str_electrode_group)
                   if (!"LocationType" %in% names(electrode_table)) {
                     electrode_table$LocationType <- "iEEG"
                   } else {
-                    electrode_table$LocationType[!electrode_table$LocationType %in%
+                    electrode_table$LocationType[!electrode_table$LocationType %in% 
                       raveio::LOCATION_TYPES] <- "iEEG"
                   }
                   if (length(subject$electrode_types) == nrow(electrode_table)) {
@@ -195,7 +196,7 @@ rm(._._env_._.)
                   } else if (!"SignalType" %in% names(electrode_table)) {
                     electrode_table$SignalType <- "LFP"
                   } else {
-                    electrode_table$SignalType[!electrode_table$SignalType %in%
+                    electrode_table$SignalType[!electrode_table$SignalType %in% 
                       raveio::SIGNAL_TYPES] <- "LFP"
                   }
                   splits <- split(electrode_table, electrode_table$Group)
@@ -206,7 +207,7 @@ rm(._._env_._.)
                     seeg <- which(ltype == "sEEG")
                     if (length(seeg) >= 2) {
                       last_idx <- seeg[[length(seeg)]]
-                      refs[seeg[-length(seeg)]] <- sprintf("ref_%d",
+                      refs[seeg[-length(seeg)]] <- sprintf("ref_%d", 
                         sub$Electrode[seeg[-1]])
                       ref_type[seeg[-length(seeg)]] <- "Bipolar Reference"
                       refs[[last_idx]] <- "noref"
@@ -214,13 +215,13 @@ rm(._._env_._.)
                     }
                     sub$Reference <- refs
                     sub$Type <- ref_type
-                    sub[, c("Electrode", "Group", "Reference",
+                    sub[, c("Electrode", "Group", "Reference", 
                       "Type")]
                   })
-                  reference_table_initial <- do.call("rbind",
+                  reference_table_initial <- do.call("rbind", 
                     unname(subs))
                 }
-                unsaved_meta <- file.path(subject$meta_path,
+                unsaved_meta <- file.path(subject$meta_path, 
                   "reference__unsaved.csv")
                 utils::write.csv(reference_table_initial, unsaved_meta)
             })
@@ -228,35 +229,35 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(reference_table_initial)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "reference_table_initial",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "reference_table_initial", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "reference_table_initial", target_expr = quote({
                 {
                   if (isTRUE(reference_name %in% subject$reference_names)) {
                     tryCatch({
-                      reference_table_initial <- subject$get_reference(reference_name,
+                      reference_table_initial <- subject$get_reference(reference_name, 
                         simplify = FALSE)
-                      reference_table_initial <- reference_table_initial[,
-                        c("Electrode", "Group", "Reference",
+                      reference_table_initial <- reference_table_initial[, 
+                        c("Electrode", "Group", "Reference", 
                           "Type")]
                     }, error = function(e) {
-                      ravedash::logger("Unable to load reference [",
+                      ravedash::logger("Unable to load reference [", 
                         reference_name, "]", level = "error")
                       ravedash::logger_error_condition(e)
-                      stop("Unable to load reference [", reference_name,
+                      stop("Unable to load reference [", reference_name, 
                         "]. Please check your reference file or simply start with a blank reference profile.")
                     })
                   } else {
                     electrode_table <- subject$get_electrode_table(reference_name = reference_name)
-                    str_electrode_group <- gsub("[0-9]+$", "",
+                    str_electrode_group <- gsub("[0-9]+$", "", 
                       electrode_table$Label)
                     electrode_table$Group <- trimws(str_electrode_group)
                     if (!"LocationType" %in% names(electrode_table)) {
                       electrode_table$LocationType <- "iEEG"
                     } else {
-                      electrode_table$LocationType[!electrode_table$LocationType %in%
+                      electrode_table$LocationType[!electrode_table$LocationType %in% 
                         raveio::LOCATION_TYPES] <- "iEEG"
                     }
                     if (length(subject$electrode_types) == nrow(electrode_table)) {
@@ -264,7 +265,7 @@ rm(._._env_._.)
                     } else if (!"SignalType" %in% names(electrode_table)) {
                       electrode_table$SignalType <- "LFP"
                     } else {
-                      electrode_table$SignalType[!electrode_table$SignalType %in%
+                      electrode_table$SignalType[!electrode_table$SignalType %in% 
                         raveio::SIGNAL_TYPES] <- "LFP"
                     }
                     splits <- split(electrode_table, electrode_table$Group)
@@ -275,7 +276,7 @@ rm(._._env_._.)
                       seeg <- which(ltype == "sEEG")
                       if (length(seeg) >= 2) {
                         last_idx <- seeg[[length(seeg)]]
-                        refs[seeg[-length(seeg)]] <- sprintf("ref_%d",
+                        refs[seeg[-length(seeg)]] <- sprintf("ref_%d", 
                           sub$Electrode[seeg[-1]])
                         ref_type[seeg[-length(seeg)]] <- "Bipolar Reference"
                         refs[[last_idx]] <- "noref"
@@ -283,156 +284,49 @@ rm(._._env_._.)
                       }
                       sub$Reference <- refs
                       sub$Type <- ref_type
-                      sub[, c("Electrode", "Group", "Reference",
+                      sub[, c("Electrode", "Group", "Reference", 
                         "Type")]
                     })
-                    reference_table_initial <- do.call("rbind",
+                    reference_table_initial <- do.call("rbind", 
                       unname(subs))
                   }
-                  unsaved_meta <- file.path(subject$meta_path,
+                  unsaved_meta <- file.path(subject$meta_path, 
                     "reference__unsaved.csv")
                   utils::write.csv(reference_table_initial, unsaved_meta)
                 }
                 reference_table_initial
             }), target_depends = c("reference_name", "subject"
-            )), deps = c("reference_name", "subject"), cue = targets::tar_cue("always"),
-        pattern = NULL, iteration = "list"), load_voltage_data = targets::tar_target_raw(name = "voltage_data",
+            )), deps = c("reference_name", "subject"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), load_voltage_data = targets::tar_target_raw(name = "voltage_data", 
         command = quote({
             .__target_expr__. <- quote({
                 electrodes <- subject$electrodes
+                is_lfp <- subject$electrode_types %in% "LFP"
+                lfp_channels <- electrodes[is_lfp]
+                if (!length(lfp_channels)) {
+                  stop("There is no LFP/macro channel for this subject")
+                }
                 blocks <- subject$blocks
                 use_cache <- preprocessing_history$use_cache
-                has_wavelet <- all(preprocessing_history$current$has_wavelet)
-                cache_root <- file.path(subject$cache_path, "rave2",
+                has_wavelet <- all(preprocessing_history$current$has_wavelet[is_lfp])
+                cache_root <- file.path(subject$cache_path, "rave2", 
                   "voltage")
                 raveio::dir_create2(cache_root)
                 notch_params <- subject$preprocess_settings$notch_params
-                first_e <- electrodes[[1]]
-                first_inst <- raveio::new_electrode(subject = subject,
+                first_e <- electrodes[is_lfp][[1]]
+                first_inst <- raveio::new_electrode(subject = subject, 
                   number = first_e)
-                progress <- dipsaus::progress2("Check cache data",
+                progress <- dipsaus::progress2("Check cache data", 
                   max = length(blocks), shiny_auto_close = TRUE)
-                voltage_signals <- lapply(blocks, function(block) {
-                  progress$inc(sprintf("%s", block))
-                  if (has_wavelet) {
-                    sample_signal <- raveio::load_h5(first_inst$voltage_file,
-                      name = sprintf("/raw/voltage/%s", block),
-                      ram = FALSE)
-                  } else {
-                    sample_signal <- raveio::load_h5(first_inst$preprocess_file,
-                      name = sprintf("/notch/%s", block), ram = FALSE)
-                  }
-                  signal_length <- length(sample_signal)
-                  block_path <- file.path(cache_root, block)
-                  exists <- TRUE
-                  arr <- tryCatch({
-                    if (!use_cache) {
-                      stop("Do not use cache")
-                    }
-                    filearray::filearray_checkload(filebase = block_path,
-                      mode = "readwrite", symlink_ok = FALSE,
-                      subject_id = subject$subject_id, blocks = blocks,
-                      electrodes = electrodes, notch_params = notch_params,
-                      sample_rates = subject$raw_sample_rates,
-                      signal_length = as.integer(signal_length),
-                      staged = TRUE)
-                  }, error = function(e) {
-                    unlink(block_path, recursive = TRUE)
-                    arr <- filearray::filearray_create(filebase = block_path,
-                      dimension = c(signal_length, length(electrodes)),
-                      type = "double", partition_size = 1L)
-                    arr$.header$subject_id <- subject$subject_id
-                    arr$.header$blocks <- blocks
-                    arr$.header$electrodes <- electrodes
-                    arr$.header$notch_params <- notch_params
-                    arr$.header$sample_rates <- subject$raw_sample_rates
-                    arr$.header$signal_length <- as.integer(signal_length)
-                    arr$.save_header()
-                    exists <<- FALSE
-                    arr
-                  })
-                  list(exists = exists, array = arr)
-                })
-                names(voltage_signals) <- blocks
-                exists <- vapply(voltage_signals, "[[", FALSE,
-                  "exists")
-                missing_blocks <- blocks[!exists]
-                subject_id <- subject$subject_id
-                if (length(missing_blocks)) {
-                  raveio::lapply_async(seq_along(electrodes),
-                    function(ii) {
-                      e <- electrodes[[ii]]
-                      inst <- raveio::new_electrode(subject = subject_id,
-                        number = e)
-                      if (has_wavelet) {
-                        voltage_file <- inst$voltage_file
-                        for (block in missing_blocks) {
-                          s <- raveio::load_h5(voltage_file,
-                            sprintf("/raw/voltage/%s", block),
-                            ram = TRUE)
-                          voltage_signals[[block]]$array[, ii] <- s
-                        }
-                      } else {
-                        voltage_file <- inst$preprocess_file
-                        for (block in missing_blocks) {
-                          s <- raveio::load_h5(voltage_file,
-                            sprintf("/notch/%s", block), ram = TRUE)
-                          voltage_signals[[block]]$array[, ii] <- s
-                        }
-                      }
-                    }, callback = function(ii) {
-                      sprintf("Creating cache|Electrode %s",
-                        electrodes[[ii]])
-                    })
-                }
-                voltage_data <- list(data = structure(lapply(voltage_signals,
-                  function(item) {
-                    if (!item$exists) {
-                      item$array$set_header("staged", TRUE)
-                    }
-                    item$array$.mode <- "readonly"
-                    item$array
-                  }), names = blocks), electrodes = electrodes)
-                if (!isTRUE(getOption("raveio.debug", FALSE))) {
-                  previous_pipeline_path <- file.path(subject$pipeline_path,
-                    "reference_module")
-                  raveio::pipeline_fork(dest = previous_pipeline_path,
-                    filter_pattern = "(^shared|data|R|\\.R|\\.yaml|\\.txt|\\.csv|\\.fst|\\.conf|\\.json|\\.rds)$",
-                    activate = FALSE)
-                }
-                voltage_data
-            })
-            tryCatch({
-                eval(.__target_expr__.)
-                return(voltage_data)
-            }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "voltage_data",
-                  condition = e, expr = .__target_expr__.)
-            })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
-            target_export = "voltage_data", target_expr = quote({
-                {
-                  electrodes <- subject$electrodes
-                  blocks <- subject$blocks
-                  use_cache <- preprocessing_history$use_cache
-                  has_wavelet <- all(preprocessing_history$current$has_wavelet)
-                  cache_root <- file.path(subject$cache_path,
-                    "rave2", "voltage")
-                  raveio::dir_create2(cache_root)
-                  notch_params <- subject$preprocess_settings$notch_params
-                  first_e <- electrodes[[1]]
-                  first_inst <- raveio::new_electrode(subject = subject,
-                    number = first_e)
-                  progress <- dipsaus::progress2("Check cache data",
-                    max = length(blocks), shiny_auto_close = TRUE)
-                  voltage_signals <- lapply(blocks, function(block) {
+                voltage_signals <- structure(names = blocks, 
+                  lapply(blocks, function(block) {
                     progress$inc(sprintf("%s", block))
                     if (has_wavelet) {
-                      sample_signal <- raveio::load_h5(first_inst$voltage_file,
-                        name = sprintf("/raw/voltage/%s", block),
+                      sample_signal <- raveio::load_h5(first_inst$voltage_file, 
+                        name = sprintf("/raw/voltage/%s", block), 
                         ram = FALSE)
                     } else {
-                      sample_signal <- raveio::load_h5(first_inst$preprocess_file,
+                      sample_signal <- raveio::load_h5(first_inst$preprocess_file, 
                         name = sprintf("/notch/%s", block), ram = FALSE)
                     }
                     signal_length <- length(sample_signal)
@@ -442,93 +336,224 @@ rm(._._env_._.)
                       if (!use_cache) {
                         stop("Do not use cache")
                       }
-                      filearray::filearray_checkload(filebase = block_path,
-                        mode = "readwrite", symlink_ok = FALSE,
-                        subject_id = subject$subject_id, blocks = blocks,
-                        electrodes = electrodes, notch_params = notch_params,
-                        sample_rates = subject$raw_sample_rates,
-                        signal_length = as.integer(signal_length),
+                      filearray::filearray_checkload(filebase = block_path, 
+                        mode = "readwrite", symlink_ok = FALSE, 
+                        subject_id = subject$subject_id, blocks = blocks, 
+                        electrodes = electrodes, electrode_is_lfp = is_lfp, 
+                        notch_params = notch_params, sample_rates = subject$raw_sample_rates, 
+                        signal_length = as.integer(signal_length), 
                         staged = TRUE)
                     }, error = function(e) {
                       unlink(block_path, recursive = TRUE)
-                      arr <- filearray::filearray_create(filebase = block_path,
-                        dimension = c(signal_length, length(electrodes)),
+                      arr <- filearray::filearray_create(filebase = block_path, 
+                        dimension = c(signal_length, sum(is_lfp)), 
                         type = "double", partition_size = 1L)
                       arr$.header$subject_id <- subject$subject_id
                       arr$.header$blocks <- blocks
                       arr$.header$electrodes <- electrodes
+                      arr$.header$electrode_is_lfp <- is_lfp
                       arr$.header$notch_params <- notch_params
                       arr$.header$sample_rates <- subject$raw_sample_rates
                       arr$.header$signal_length <- as.integer(signal_length)
+                      dimnames(arr) <- list(NULL, Electrode = lfp_channels)
                       arr$.save_header()
                       exists <<- FALSE
                       arr
                     })
                     list(exists = exists, array = arr)
-                  })
-                  names(voltage_signals) <- blocks
-                  exists <- vapply(voltage_signals, "[[", FALSE,
+                  }))
+                exists <- vapply(voltage_signals, "[[", FALSE, 
+                  "exists")
+                missing_blocks <- blocks[!exists]
+                subject_id <- subject$subject_id
+                if (length(missing_blocks)) {
+                  raveio::lapply_async(seq_along(lfp_channels), 
+                    function(ii) {
+                      e <- lfp_channels[[ii]]
+                      inst <- raveio::new_electrode(subject = subject_id, 
+                        number = e)
+                      if (has_wavelet) {
+                        voltage_file <- inst$voltage_file
+                        for (block in missing_blocks) {
+                          s <- raveio::load_h5(voltage_file, 
+                            sprintf("/raw/voltage/%s", block), 
+                            ram = TRUE)
+                          voltage_signals[[block]]$array[, ii] <- s
+                        }
+                      } else {
+                        voltage_file <- inst$preprocess_file
+                        for (block in missing_blocks) {
+                          s <- raveio::load_h5(voltage_file, 
+                            sprintf("/notch/%s", block), ram = TRUE)
+                          voltage_signals[[block]]$array[, ii] <- s
+                        }
+                      }
+                      return()
+                    }, callback = function(ii) {
+                      sprintf("Creating cache|Electrode %s", 
+                        electrodes[[ii]])
+                    })
+                }
+                voltage_data <- list(data = structure(lapply(voltage_signals, 
+                  function(item) {
+                    if (!item$exists) {
+                      item$array$set_header("staged", TRUE)
+                    }
+                    item$array$.mode <- "readonly"
+                    item$array
+                  }), names = blocks), electrodes = lfp_channels)
+                if (!isTRUE(getOption("raveio.debug", FALSE))) {
+                  previous_pipeline_path <- file.path(subject$pipeline_path, 
+                    "reference_module")
+                  ravepipeline::pipeline_fork(dest = previous_pipeline_path, 
+                    activate = FALSE)
+                }
+                voltage_data
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(voltage_data)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "voltage_data", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "voltage_data", target_expr = quote({
+                {
+                  electrodes <- subject$electrodes
+                  is_lfp <- subject$electrode_types %in% "LFP"
+                  lfp_channels <- electrodes[is_lfp]
+                  if (!length(lfp_channels)) {
+                    stop("There is no LFP/macro channel for this subject")
+                  }
+                  blocks <- subject$blocks
+                  use_cache <- preprocessing_history$use_cache
+                  has_wavelet <- all(preprocessing_history$current$has_wavelet[is_lfp])
+                  cache_root <- file.path(subject$cache_path, 
+                    "rave2", "voltage")
+                  raveio::dir_create2(cache_root)
+                  notch_params <- subject$preprocess_settings$notch_params
+                  first_e <- electrodes[is_lfp][[1]]
+                  first_inst <- raveio::new_electrode(subject = subject, 
+                    number = first_e)
+                  progress <- dipsaus::progress2("Check cache data", 
+                    max = length(blocks), shiny_auto_close = TRUE)
+                  voltage_signals <- structure(names = blocks, 
+                    lapply(blocks, function(block) {
+                      progress$inc(sprintf("%s", block))
+                      if (has_wavelet) {
+                        sample_signal <- raveio::load_h5(first_inst$voltage_file, 
+                          name = sprintf("/raw/voltage/%s", block), 
+                          ram = FALSE)
+                      } else {
+                        sample_signal <- raveio::load_h5(first_inst$preprocess_file, 
+                          name = sprintf("/notch/%s", block), 
+                          ram = FALSE)
+                      }
+                      signal_length <- length(sample_signal)
+                      block_path <- file.path(cache_root, block)
+                      exists <- TRUE
+                      arr <- tryCatch({
+                        if (!use_cache) {
+                          stop("Do not use cache")
+                        }
+                        filearray::filearray_checkload(filebase = block_path, 
+                          mode = "readwrite", symlink_ok = FALSE, 
+                          subject_id = subject$subject_id, blocks = blocks, 
+                          electrodes = electrodes, electrode_is_lfp = is_lfp, 
+                          notch_params = notch_params, sample_rates = subject$raw_sample_rates, 
+                          signal_length = as.integer(signal_length), 
+                          staged = TRUE)
+                      }, error = function(e) {
+                        unlink(block_path, recursive = TRUE)
+                        arr <- filearray::filearray_create(filebase = block_path, 
+                          dimension = c(signal_length, sum(is_lfp)), 
+                          type = "double", partition_size = 1L)
+                        arr$.header$subject_id <- subject$subject_id
+                        arr$.header$blocks <- blocks
+                        arr$.header$electrodes <- electrodes
+                        arr$.header$electrode_is_lfp <- is_lfp
+                        arr$.header$notch_params <- notch_params
+                        arr$.header$sample_rates <- subject$raw_sample_rates
+                        arr$.header$signal_length <- as.integer(signal_length)
+                        dimnames(arr) <- list(NULL, Electrode = lfp_channels)
+                        arr$.save_header()
+                        exists <<- FALSE
+                        arr
+                      })
+                      list(exists = exists, array = arr)
+                    }))
+                  exists <- vapply(voltage_signals, "[[", FALSE, 
                     "exists")
                   missing_blocks <- blocks[!exists]
                   subject_id <- subject$subject_id
                   if (length(missing_blocks)) {
-                    raveio::lapply_async(seq_along(electrodes),
+                    raveio::lapply_async(seq_along(lfp_channels), 
                       function(ii) {
-                        e <- electrodes[[ii]]
-                        inst <- raveio::new_electrode(subject = subject_id,
+                        e <- lfp_channels[[ii]]
+                        inst <- raveio::new_electrode(subject = subject_id, 
                           number = e)
                         if (has_wavelet) {
                           voltage_file <- inst$voltage_file
                           for (block in missing_blocks) {
-                            s <- raveio::load_h5(voltage_file,
-                              sprintf("/raw/voltage/%s", block),
+                            s <- raveio::load_h5(voltage_file, 
+                              sprintf("/raw/voltage/%s", block), 
                               ram = TRUE)
-                            voltage_signals[[block]]$array[,
+                            voltage_signals[[block]]$array[, 
                               ii] <- s
                           }
                         } else {
                           voltage_file <- inst$preprocess_file
                           for (block in missing_blocks) {
-                            s <- raveio::load_h5(voltage_file,
+                            s <- raveio::load_h5(voltage_file, 
                               sprintf("/notch/%s", block), ram = TRUE)
-                            voltage_signals[[block]]$array[,
+                            voltage_signals[[block]]$array[, 
                               ii] <- s
                           }
                         }
+                        return()
                       }, callback = function(ii) {
-                        sprintf("Creating cache|Electrode %s",
+                        sprintf("Creating cache|Electrode %s", 
                           electrodes[[ii]])
                       })
                   }
-                  voltage_data <- list(data = structure(lapply(voltage_signals,
+                  voltage_data <- list(data = structure(lapply(voltage_signals, 
                     function(item) {
                       if (!item$exists) {
                         item$array$set_header("staged", TRUE)
                       }
                       item$array$.mode <- "readonly"
                       item$array
-                    }), names = blocks), electrodes = electrodes)
+                    }), names = blocks), electrodes = lfp_channels)
                   if (!isTRUE(getOption("raveio.debug", FALSE))) {
-                    previous_pipeline_path <- file.path(subject$pipeline_path,
+                    previous_pipeline_path <- file.path(subject$pipeline_path, 
                       "reference_module")
-                    raveio::pipeline_fork(dest = previous_pipeline_path,
-                      filter_pattern = "(^shared|data|R|\\.R|\\.yaml|\\.txt|\\.csv|\\.fst|\\.conf|\\.json|\\.rds)$",
+                    ravepipeline::pipeline_fork(dest = previous_pipeline_path, 
                       activate = FALSE)
                   }
                   voltage_data
                 }
                 voltage_data
             }), target_depends = c("subject", "preprocessing_history"
-            )), deps = c("subject", "preprocessing_history"),
-        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"),
-    validate_electrode_groups = targets::tar_target_raw(name = "reference_group",
+            )), deps = c("subject", "preprocessing_history"), 
+        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
+    validate_electrode_groups = targets::tar_target_raw(name = "reference_group", 
         command = quote({
             .__target_expr__. <- quote({
                 ngroups <- length(electrode_group)
-                group_names <- NULL
+                group_names <- ""
                 electrodes <- NULL
                 reference_group <- reference_table_initial
                 reference_group$GroupID <- 0
+                lfp_channels <- subject$electrodes[subject$electrode_types %in% 
+                  c("LFP")]
+                not_lfp <- !reference_group$Electrode %in% lfp_channels
+                if (any(not_lfp)) {
+                  electrodes <- reference_group$Electrode[not_lfp]
+                  reference_group$Group[not_lfp] <- ""
+                  reference_group$Reference[not_lfp] <- ""
+                  reference_group$Type[not_lfp] <- "No Reference"
+                }
                 id <- 1
                 for (x in electrode_group) {
                   e <- dipsaus::parse_svec(x$electrodes)
@@ -539,20 +564,20 @@ rm(._._env_._.)
                     }
                     x$name <- trimws(x$name)
                     if (x$name %in% group_names) {
-                      stop("Electrode groups must have unique names (violation: ",
+                      stop("Electrode groups must have unique names (violation: ", 
                         x$name, ")")
                     }
                     group_names <- c(group_names, x$name)
-                    emissing <- e[!e %in% subject$electrodes]
+                    emissing <- e[!e %in% lfp_channels]
                     if (length(emissing)) {
-                      stop("Electrodes ", dipsaus::deparse_svec(emissing),
-                        " are not declared/imported. Please remove from group [",
+                      stop("Channel ", dipsaus::deparse_svec(emissing), 
+                        " are not declared/imported or LFP channels (e.g. microwires, auxiliary, ...). Please remove from group [", 
                         x$name, "]")
                     }
                     edup <- e[e %in% electrodes]
                     if (length(edup)) {
-                      stop("Electrodes ", dipsaus::deparse_svec(edup),
-                        " have been included in multiple groups. Please fix this issue by ensuring each of these electrodes only belongs to one group at a time.")
+                      stop("Electrodes ", dipsaus::deparse_svec(edup), 
+                        " appear in multiple groups. Please fix this issue by ensuring that each of channel only appears in one group at a time.")
                     }
                     electrodes <- c(electrodes, e)
                     sel <- reference_group$Electrode %in% e
@@ -567,17 +592,27 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(reference_group)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "reference_group",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "reference_group", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "reference_group", target_expr = quote({
                 {
                   ngroups <- length(electrode_group)
-                  group_names <- NULL
+                  group_names <- ""
                   electrodes <- NULL
                   reference_group <- reference_table_initial
                   reference_group$GroupID <- 0
+                  lfp_channels <- subject$electrodes[subject$electrode_types %in% 
+                    c("LFP")]
+                  not_lfp <- !reference_group$Electrode %in% 
+                    lfp_channels
+                  if (any(not_lfp)) {
+                    electrodes <- reference_group$Electrode[not_lfp]
+                    reference_group$Group[not_lfp] <- ""
+                    reference_group$Reference[not_lfp] <- ""
+                    reference_group$Type[not_lfp] <- "No Reference"
+                  }
                   id <- 1
                   for (x in electrode_group) {
                     e <- dipsaus::parse_svec(x$electrodes)
@@ -588,20 +623,20 @@ rm(._._env_._.)
                       }
                       x$name <- trimws(x$name)
                       if (x$name %in% group_names) {
-                        stop("Electrode groups must have unique names (violation: ",
+                        stop("Electrode groups must have unique names (violation: ", 
                           x$name, ")")
                       }
                       group_names <- c(group_names, x$name)
-                      emissing <- e[!e %in% subject$electrodes]
+                      emissing <- e[!e %in% lfp_channels]
                       if (length(emissing)) {
-                        stop("Electrodes ", dipsaus::deparse_svec(emissing),
-                          " are not declared/imported. Please remove from group [",
+                        stop("Channel ", dipsaus::deparse_svec(emissing), 
+                          " are not declared/imported or LFP channels (e.g. microwires, auxiliary, ...). Please remove from group [", 
                           x$name, "]")
                       }
                       edup <- e[e %in% electrodes]
                       if (length(edup)) {
-                        stop("Electrodes ", dipsaus::deparse_svec(edup),
-                          " have been included in multiple groups. Please fix this issue by ensuring each of these electrodes only belongs to one group at a time.")
+                        stop("Electrodes ", dipsaus::deparse_svec(edup), 
+                          " appear in multiple groups. Please fix this issue by ensuring that each of channel only appears in one group at a time.")
                       }
                       electrodes <- c(electrodes, e)
                       sel <- reference_group$Electrode %in% e
@@ -613,13 +648,13 @@ rm(._._env_._.)
                   head(reference_group)
                 }
                 reference_group
-            }), target_depends = c("electrode_group", "reference_table_initial",
-            "subject")), deps = c("electrode_group", "reference_table_initial",
-        "subject"), cue = targets::tar_cue("thorough"), pattern = NULL,
-        iteration = "list"), validate_and_apply_changes = targets::tar_target_raw(name = "reference_updated",
+            }), target_depends = c("electrode_group", "reference_table_initial", 
+            "subject")), deps = c("electrode_group", "reference_table_initial", 
+        "subject"), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), validate_and_apply_changes = targets::tar_target_raw(name = "reference_updated", 
         command = quote({
             .__target_expr__. <- quote({
-                reference_choices <- c("No Reference", "Common Average Reference",
+                reference_choices <- c("No Reference", "Common Average Reference", 
                   "White-matter Reference", "Bipolar Reference")
                 for (item in changes) {
                   evec <- dipsaus::parse_svec(item$electrodes)
@@ -628,13 +663,13 @@ rm(._._env_._.)
                     next
                   }
                   if (length(item$reference_type) != 1) {
-                    stop("Reference type is missing for electrode ",
+                    stop("Reference type is missing for electrode ", 
                       dipsaus::deparse_svec(evec))
                   }
                   reference_group$Type[sel] <- item$reference_type
                   if (item$reference_type == reference_choices[[1]]) {
                     reference_group$Reference[sel] <- "noref"
-                  } else if (item$reference_type %in% reference_choices[c(2,
+                  } else if (item$reference_type %in% reference_choices[c(2, 
                     3)]) {
                     if (length(item$reference_signal) != 1) {
                       stop("Reference signal must be the same within the group if the group reference type is common average or white-matter reference")
@@ -648,7 +683,7 @@ rm(._._env_._.)
                   }
                 }
                 reference_updated <- reference_group
-                unsaved_meta <- file.path(subject$meta_path,
+                unsaved_meta <- file.path(subject$meta_path, 
                   "reference__unsaved.csv")
                 utils::write.csv(reference_updated, unsaved_meta)
             })
@@ -656,13 +691,13 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(reference_updated)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "reference_updated",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "reference_updated", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "reference_updated", target_expr = quote({
                 {
-                  reference_choices <- c("No Reference", "Common Average Reference",
+                  reference_choices <- c("No Reference", "Common Average Reference", 
                     "White-matter Reference", "Bipolar Reference")
                   for (item in changes) {
                     evec <- dipsaus::parse_svec(item$electrodes)
@@ -671,13 +706,13 @@ rm(._._env_._.)
                       next
                     }
                     if (length(item$reference_type) != 1) {
-                      stop("Reference type is missing for electrode ",
+                      stop("Reference type is missing for electrode ", 
                         dipsaus::deparse_svec(evec))
                     }
                     reference_group$Type[sel] <- item$reference_type
                     if (item$reference_type == reference_choices[[1]]) {
                       reference_group$Reference[sel] <- "noref"
-                    } else if (item$reference_type %in% reference_choices[c(2,
+                    } else if (item$reference_type %in% reference_choices[c(2, 
                       3)]) {
                       if (length(item$reference_signal) != 1) {
                         stop("Reference signal must be the same within the group if the group reference type is common average or white-matter reference")
@@ -691,12 +726,12 @@ rm(._._env_._.)
                     }
                   }
                   reference_updated <- reference_group
-                  unsaved_meta <- file.path(subject$meta_path,
+                  unsaved_meta <- file.path(subject$meta_path, 
                     "reference__unsaved.csv")
                   utils::write.csv(reference_updated, unsaved_meta)
                 }
                 reference_updated
-            }), target_depends = c("changes", "reference_group",
-            "subject")), deps = c("changes", "reference_group",
-        "subject"), cue = targets::tar_cue("always"), pattern = NULL,
+            }), target_depends = c("changes", "reference_group", 
+            "subject")), deps = c("changes", "reference_group", 
+        "subject"), cue = targets::tar_cue("always"), pattern = NULL, 
         iteration = "list"))

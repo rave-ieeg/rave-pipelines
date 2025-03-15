@@ -4,7 +4,7 @@ library(ravedash)
 # Stores global variables. These are required
 debug <- TRUE
 module_id <- "reference_module"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "reference_module",
   paths = "./modules")
 

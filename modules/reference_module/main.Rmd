@@ -8,7 +8,7 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("reference_module")
+ravepipeline::pipeline_setup_rmd("reference_module")
 options("raveio.debug" = TRUE)
 ```
 
@@ -30,7 +30,7 @@ previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
 previous_data <- NULL
 if(dir.exists(previous_pipeline_path)) {
   try(silent = TRUE, {
-    previous_pipeline <- raveio::pipeline(pipeline_name = "reference_module", paths = subject$pipeline_path, temporary = TRUE)
+    previous_pipeline <- ravepipeline::pipeline(pipeline_name = "reference_module", paths = subject$pipeline_path, temporary = TRUE)
     previous_data <- previous_pipeline$read("preprocessing_history")
     if(is.list(previous_data)) {
       previous_data <- previous_data$current
@@ -152,87 +152,101 @@ utils::write.csv(reference_table_initial, unsaved_meta)
 # need to 
 
 electrodes <- subject$electrodes
+is_lfp <- subject$electrode_types %in% "LFP"
+lfp_channels <- electrodes[is_lfp]
+
+if(!length(lfp_channels)) {
+  stop("There is no LFP/macro channel for this subject")
+}
+
 blocks <- subject$blocks
 use_cache <- preprocessing_history$use_cache
-has_wavelet <- all(preprocessing_history$current$has_wavelet)
+has_wavelet <- all(preprocessing_history$current$has_wavelet[is_lfp])
 
 cache_root <- file.path(subject$cache_path, "rave2", "voltage")
 raveio::dir_create2(cache_root)
 
 notch_params <- subject$preprocess_settings$notch_params
 
-first_e <- electrodes[[1]]
+first_e <- electrodes[is_lfp][[1]]
 first_inst <- raveio::new_electrode(subject = subject, 
                                     number = first_e)
 
 progress <- dipsaus::progress2("Check cache data", max = length(blocks), shiny_auto_close = TRUE)
 
-voltage_signals <- lapply(blocks, function(block) {
-  
-  progress$inc(sprintf("%s", block))
-  
-  if( has_wavelet ) {
-    sample_signal <- raveio::load_h5(first_inst$voltage_file, name = sprintf("/raw/voltage/%s", block), ram = FALSE)
-  } else {
-    sample_signal <- raveio::load_h5(first_inst$preprocess_file, name = sprintf("/notch/%s", block), ram = FALSE)
-  }
-  
-  
-  signal_length <- length(sample_signal)
-  
-  block_path <- file.path(cache_root, block)
-  exists <- TRUE
-  
-  arr <- tryCatch({
-    if( !use_cache ) { stop("Do not use cache") }
-    filearray::filearray_checkload(
-      filebase = block_path,
-      mode = "readwrite", 
-      symlink_ok = FALSE, 
-      subject_id = subject$subject_id,
-      blocks = blocks,
-      electrodes = electrodes,
-      notch_params = notch_params,
-      sample_rates = subject$raw_sample_rates,
-      signal_length = as.integer(signal_length),
-      staged = TRUE
+voltage_signals <- structure(
+  names = blocks,
+  lapply(blocks, function(block) {
+    
+    # block <- blocks[[1]]
+    
+    progress$inc(sprintf("%s", block))
+    
+    if( has_wavelet ) {
+      sample_signal <- raveio::load_h5(first_inst$voltage_file, name = sprintf("/raw/voltage/%s", block), ram = FALSE)
+    } else {
+      sample_signal <- raveio::load_h5(first_inst$preprocess_file, name = sprintf("/notch/%s", block), ram = FALSE)
+    }
+    
+    
+    signal_length <- length(sample_signal)
+    
+    block_path <- file.path(cache_root, block)
+    exists <- TRUE
+    
+    arr <- tryCatch({
+      if( !use_cache ) { stop("Do not use cache") }
+      filearray::filearray_checkload(
+        filebase = block_path,
+        mode = "readwrite", 
+        symlink_ok = FALSE, 
+        subject_id = subject$subject_id,
+        blocks = blocks,
+        electrodes = electrodes,
+        electrode_is_lfp = is_lfp,
+        notch_params = notch_params,
+        sample_rates = subject$raw_sample_rates,
+        signal_length = as.integer(signal_length),
+        staged = TRUE
+      )
+    }, error = function(e){
+      unlink(block_path, recursive = TRUE)
+      arr <- filearray::filearray_create(
+        filebase = block_path, 
+        dimension = c(signal_length, sum(is_lfp)), 
+        type = "double", partition_size = 1L
+      )
+      arr$.header$subject_id <- subject$subject_id
+      arr$.header$blocks <- blocks
+      arr$.header$electrodes <- electrodes
+      arr$.header$electrode_is_lfp <- is_lfp
+      arr$.header$notch_params <- notch_params
+      arr$.header$sample_rates <- subject$raw_sample_rates
+      arr$.header$signal_length <- as.integer(signal_length)
+      dimnames(arr) <- list(NULL, Electrode = lfp_channels)
+      arr$.save_header()
+      exists <<- FALSE
+      arr
+    })
+    
+    list(
+      exists = exists,
+      array = arr
     )
-  }, error = function(e){
-    unlink(block_path, recursive = TRUE)
-    arr <- filearray::filearray_create(
-      filebase = block_path, 
-      dimension = c(signal_length, length(electrodes)), 
-      type = "double", partition_size = 1L
-    )
-    arr$.header$subject_id <- subject$subject_id
-    arr$.header$blocks <- blocks
-    arr$.header$electrodes <- electrodes
-    arr$.header$notch_params <- notch_params
-    arr$.header$sample_rates <- subject$raw_sample_rates
-    arr$.header$signal_length <- as.integer(signal_length)
-    arr$.save_header()
-    exists <<- FALSE
-    arr
+    
   })
-  
-  list(
-    exists = exists,
-    array = arr
-  )
-  
-})
-
-names(voltage_signals) <- blocks
+)
 
 exists <- vapply(voltage_signals, '[[', FALSE, "exists")
 missing_blocks <- blocks[!exists]
 
 subject_id <- subject$subject_id
 
+
 if(length(missing_blocks)) {
   
-  raveio::lapply_async(seq_along(electrodes), function(ii){
-    e <- electrodes[[ii]]
+  raveio::lapply_async(seq_along(lfp_channels), function(ii){
+    e <- lfp_channels[[ii]]
     inst <- raveio::new_electrode(subject = subject_id, number = e)
     if( has_wavelet ) {
       voltage_file <- inst$voltage_file
@@ -262,13 +276,13 @@ voltage_data <- list(
     item$array$.mode <- "readonly"
     item$array
   }), names = blocks),
-  electrodes = electrodes
+  electrodes = lfp_channels
 )
 
 # save pipeline
 if( !isTRUE(getOption("raveio.debug", FALSE)) ) {
   previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
-  raveio::pipeline_fork(
+  ravepipeline::pipeline_fork(
     dest = previous_pipeline_path, 
     activate = FALSE
   )
@@ -281,11 +295,22 @@ voltage_data
 
 ngroups <- length(electrode_group)
 
-group_names <- NULL
+group_names <- ""
 electrodes <- NULL
 
 reference_group <- reference_table_initial
 reference_group$GroupID <- 0
+
+lfp_channels <- subject$electrodes[subject$electrode_types %in% c("LFP")]
+
+not_lfp <- !reference_group$Electrode %in% lfp_channels
+if(any(not_lfp)) {
+  electrodes <- reference_group$Electrode[not_lfp]
+  reference_group$Group[not_lfp] <- ""
+  reference_group$Reference[not_lfp] <- ""
+  reference_group$Type[not_lfp] <- "No Reference"
+}
+
 
 id <- 1
 for(x in electrode_group) {
@@ -303,14 +328,14 @@ for(x in electrode_group) {
     }
     group_names <- c(group_names, x$name)
     
-    emissing <- e[!e %in% subject$electrodes]
+    emissing <- e[!e %in% lfp_channels]
     if(length(emissing)) {
-      stop("Electrodes ", dipsaus::deparse_svec(emissing), " are not declared/imported. Please remove from group [", x$name, "]")
+      stop("Channel ", dipsaus::deparse_svec(emissing), " are not declared/imported or LFP channels (e.g. microwires, auxiliary, ...). Please remove from group [", x$name, "]")
     }
     
     edup <- e[e %in% electrodes]
     if(length(edup)) {
-      stop("Electrodes ", dipsaus::deparse_svec(edup), " have been included in multiple groups. Please fix this issue by ensuring each of these electrodes only belongs to one group at a time.")
+      stop("Electrodes ", dipsaus::deparse_svec(edup), " appear in multiple groups. Please fix this issue by ensuring that each of channel only appears in one group at a time.")
     }
     electrodes <- c(electrodes, e)
     
@@ -383,6 +408,6 @@ Once the pipeline script `make-reference_module.R` is built, you can visualize a
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
