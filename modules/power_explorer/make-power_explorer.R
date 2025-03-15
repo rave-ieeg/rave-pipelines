@@ -1,5 +1,5 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
 ._._env_._.$pipeline <- pipeline_from_path(".")
@@ -15,95 +15,101 @@ rm(._._env_._.)
 ...targets <- list(`__Check_settings_file` = targets::tar_target_raw("settings_path", 
     "settings.yaml", format = "file"), `__Load_settings` = targets::tar_target_raw("settings", 
     quote({
-        yaml::read_yaml(settings_path)
+        read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+    input_epoch_choice__trial_starts_rel_to_event = targets::tar_target_raw("epoch_choice__trial_starts_rel_to_event", 
         quote({
-            settings[["electrode_export_data_type"]]
-        }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
+            settings[["epoch_choice__trial_starts_rel_to_event"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends_rel_to_event = targets::tar_target_raw("epoch_choice__trial_ends_rel_to_event", 
         quote({
-            settings[["electrodes_to_export"]]
-        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
-        quote({
-            settings[["trials_to_export"]]
-        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
-        quote({
-            settings[["times_to_export"]]
-        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
-        quote({
-            settings[["frequencies_to_export"]]
-        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
-        quote({
-            settings[["electrode_export_file_type"]]
-        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
-        quote({
-            settings[["trial_outliers_list"]]
-        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
-        quote({
-            settings[["time_censor"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
-        quote({
-            settings[["loaded_electrodes"]]
-        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
-        quote({
-            settings[["epoch_choice"]]
-        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
-        quote({
-            settings[["epoch_choice__trial_starts"]]
-        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
-        quote({
-            settings[["epoch_choice__trial_ends"]]
-        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
-        quote({
-            settings[["reference_name"]]
-        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
-        quote({
-            settings[["baseline_settings"]]
-        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
-        quote({
-            settings[["analysis_electrodes"]]
-        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
-        quote({
-            settings[["first_condition_groupings"]]
-        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
-        quote({
-            settings[["second_condition_groupings"]]
-        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
-        quote({
-            settings[["enable_second_condition_groupings"]]
-        }), deps = "settings"), input_condition_variable = targets::tar_target_raw("condition_variable", 
-        quote({
-            settings[["condition_variable"]]
-        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
-        quote({
-            settings[["enable_custom_ROI"]]
-        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
-        quote({
-            settings[["custom_roi_type"]]
-        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
-        quote({
-            settings[["custom_roi_variable"]]
-        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
-        quote({
-            settings[["custom_roi_groupings"]]
-        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
-        quote({
-            settings[["analysis_settings"]]
-        }), deps = "settings"), input_omnibus_includes_all_electrodes = targets::tar_target_raw("omnibus_includes_all_electrodes", 
-        quote({
-            settings[["omnibus_includes_all_electrodes"]]
-        }), deps = "settings"), input_electrodes_to_export_roi_name = targets::tar_target_raw("electrodes_to_export_roi_name", 
-        quote({
-            settings[["electrodes_to_export_roi_name"]]
+            settings[["epoch_choice__trial_ends_rel_to_event"]]
         }), deps = "settings"), input_electrodes_to_export_roi_categories = targets::tar_target_raw("electrodes_to_export_roi_categories", 
         quote({
             settings[["electrodes_to_export_roi_categories"]]
+        }), deps = "settings"), input_electrodes_to_export_roi_name = targets::tar_target_raw("electrodes_to_export_roi_name", 
+        quote({
+            settings[["electrodes_to_export_roi_name"]]
+        }), deps = "settings"), input_omnibus_includes_all_electrodes = targets::tar_target_raw("omnibus_includes_all_electrodes", 
+        quote({
+            settings[["omnibus_includes_all_electrodes"]]
+        }), deps = "settings"), input_analysis_settings = targets::tar_target_raw("analysis_settings", 
+        quote({
+            settings[["analysis_settings"]]
+        }), deps = "settings"), input_custom_roi_groupings = targets::tar_target_raw("custom_roi_groupings", 
+        quote({
+            settings[["custom_roi_groupings"]]
+        }), deps = "settings"), input_custom_roi_variable = targets::tar_target_raw("custom_roi_variable", 
+        quote({
+            settings[["custom_roi_variable"]]
+        }), deps = "settings"), input_custom_roi_type = targets::tar_target_raw("custom_roi_type", 
+        quote({
+            settings[["custom_roi_type"]]
+        }), deps = "settings"), input_enable_custom_ROI = targets::tar_target_raw("enable_custom_ROI", 
+        quote({
+            settings[["enable_custom_ROI"]]
+        }), deps = "settings"), input_condition_variable = targets::tar_target_raw("condition_variable", 
+        quote({
+            settings[["condition_variable"]]
+        }), deps = "settings"), input_enable_second_condition_groupings = targets::tar_target_raw("enable_second_condition_groupings", 
+        quote({
+            settings[["enable_second_condition_groupings"]]
+        }), deps = "settings"), input_second_condition_groupings = targets::tar_target_raw("second_condition_groupings", 
+        quote({
+            settings[["second_condition_groupings"]]
+        }), deps = "settings"), input_first_condition_groupings = targets::tar_target_raw("first_condition_groupings", 
+        quote({
+            settings[["first_condition_groupings"]]
+        }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
+        quote({
+            settings[["analysis_electrodes"]]
+        }), deps = "settings"), input_baseline_settings = targets::tar_target_raw("baseline_settings", 
+        quote({
+            settings[["baseline_settings"]]
+        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
+        quote({
+            settings[["reference_name"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
+        quote({
+            settings[["epoch_choice__trial_ends"]]
+        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
+        quote({
+            settings[["epoch_choice__trial_starts"]]
+        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
+        quote({
+            settings[["epoch_choice"]]
+        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
+        quote({
+            settings[["loaded_electrodes"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_time_censor = targets::tar_target_raw("time_censor", 
+        quote({
+            settings[["time_censor"]]
+        }), deps = "settings"), input_trial_outliers_list = targets::tar_target_raw("trial_outliers_list", 
+        quote({
+            settings[["trial_outliers_list"]]
+        }), deps = "settings"), input_electrode_export_file_type = targets::tar_target_raw("electrode_export_file_type", 
+        quote({
+            settings[["electrode_export_file_type"]]
+        }), deps = "settings"), input_frequencies_to_export = targets::tar_target_raw("frequencies_to_export", 
+        quote({
+            settings[["frequencies_to_export"]]
+        }), deps = "settings"), input_times_to_export = targets::tar_target_raw("times_to_export", 
+        quote({
+            settings[["times_to_export"]]
+        }), deps = "settings"), input_trials_to_export = targets::tar_target_raw("trials_to_export", 
+        quote({
+            settings[["trials_to_export"]]
+        }), deps = "settings"), input_electrodes_to_export = targets::tar_target_raw("electrodes_to_export", 
+        quote({
+            settings[["electrodes_to_export"]]
+        }), deps = "settings"), input_electrode_export_data_type = targets::tar_target_raw("electrode_export_data_type", 
+        quote({
+            settings[["electrode_export_data_type"]]
         }), deps = "settings"), check_load_power = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
@@ -119,10 +125,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(repository)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "repository", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "repository", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave_prepare_power", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave_prepare_power", 
             target_export = "repository", target_expr = quote({
                 {
                   subject <- raveio::as_rave_subject(subject_id = sprintf("%s/%s", 
@@ -155,10 +161,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(requested_electrodes)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "requested_electrodes", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "requested_electrodes", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "requested_electrodes", target_expr = quote({
                 {
                   requested_electrodes <- dipsaus::parse_svec(analysis_electrodes, 
@@ -270,10 +276,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(analysis_settings_clean)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "analysis_settings_clean", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_settings_clean", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "analysis_settings_clean", target_expr = quote({
                 {
                   check_range <- function(x, lim, lbl) {
@@ -388,10 +394,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(baselined_power)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "baselined_power", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "baselined_power", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "user-defined-r", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "user-defined-r", 
             target_export = "baselined_power", target_expr = quote({
                 {
                   raveio::power_baseline(x = repository, baseline_windows = baseline_settings$window, 
@@ -446,10 +452,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(trial_details)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "trial_details", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "trial_details", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "trial_details", target_expr = quote({
                 {
                   k = sapply(lapply(first_condition_groupings, 
@@ -532,10 +538,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(analysis_groups)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "analysis_groups", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_groups", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "analysis_groups", target_expr = quote({
                 {
                   if (isTRUE(enable_second_condition_groupings)) {
@@ -607,10 +613,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(pluriform_power)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "pluriform_power", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "pluriform_power", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "user-defined-r", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "user-defined-r", 
             target_export = "pluriform_power", target_expr = quote({
                 {
                   epoch_event_types = get_available_events(repository$epoch$columns)
@@ -671,10 +677,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(by_frequency_over_time_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "by_frequency_over_time_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "by_frequency_over_time_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "by_frequency_over_time_data", target_expr = quote({
                 {
                   build_data <- function(data, analysis_settings, 
@@ -730,10 +736,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(by_frequency_correlation_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "by_frequency_correlation_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "by_frequency_correlation_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "by_frequency_correlation_data", 
             target_expr = quote({
                 {
@@ -772,10 +778,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(plot_bfcd_success)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "plot_bfcd_success", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "plot_bfcd_success", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "plot_bfcd_success", target_expr = quote({
                 {
                   plot_bfcd_success = FALSE
@@ -821,10 +827,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(by_trial_tf_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "by_trial_tf_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "by_trial_tf_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "by_trial_tf_data", target_expr = quote({
                 {
                   build_data <- function(dd, settings) {
@@ -894,10 +900,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(over_time_by_electrode_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "over_time_by_electrode_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_electrode_data", target_expr = quote({
                 {
                   build_data <- function(data, analysis_settings, 
@@ -945,10 +951,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(betfd_success)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "betfd_success", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "betfd_success", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "betfd_success", target_expr = quote({
                 {
                   betfd_success <- tryCatch({
@@ -994,10 +1000,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(over_time_by_electrode_and_trial_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_and_trial_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "over_time_by_electrode_and_trial_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_electrode_and_trial_data", 
             target_expr = quote({
                 {
@@ -1079,10 +1085,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(over_time_by_condition_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_condition_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "over_time_by_condition_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_condition_data", target_expr = quote({
                 {
                   build_data <- function(dd, settings) {
@@ -1139,10 +1145,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(plot_over_time_by_condition_result)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "plot_over_time_by_condition_result", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "plot_over_time_by_condition_result", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "plot_over_time_by_condition_result", 
             target_expr = quote({
                 {
@@ -1180,10 +1186,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(scatter_bar_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "scatter_bar_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "scatter_bar_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "scatter_bar_data", target_expr = quote({
                 {
                   build_data <- function(dd, settings) {
@@ -1223,10 +1229,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(analysis_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "analysis_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "analysis_data", target_expr = quote({
                 {
                   has_data <- which(sapply(analysis_groups, `[[`, 
@@ -1295,10 +1301,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(over_time_by_electrode_dataframe)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_electrode_dataframe", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "over_time_by_electrode_dataframe", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_electrode_dataframe", 
             target_expr = quote({
                 {
@@ -1393,10 +1399,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(over_time_by_trial_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "over_time_by_trial_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "over_time_by_trial_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_trial_data", target_expr = quote({
                 {
                   build_data <- function(data, analysis_settings, 
@@ -1574,10 +1580,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(internal_omnibus_results)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "internal_omnibus_results", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "internal_omnibus_results", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "internal_omnibus_results", target_expr = quote({
                 {
                   if (omnibus_includes_all_electrodes) {
@@ -1750,10 +1756,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(omnibus_results)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "omnibus_results", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "omnibus_results", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "omnibus_results", target_expr = quote({
                 {
                   omnibus_results = internal_omnibus_results
@@ -1860,10 +1866,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(across_electrode_statistics)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "across_electrode_statistics", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "across_electrode_statistics", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "across_electrode_statistics", target_expr = quote({
                 {
                   require(data.table)
@@ -1970,10 +1976,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(by_trial_electrode_similarity_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "by_trial_electrode_similarity_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "by_trial_electrode_similarity_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "by_trial_electrode_similarity_data", 
             target_expr = quote({
                 {
@@ -2173,10 +2179,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(data_for_export)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "data_for_export", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_for_export", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_for_export", target_expr = quote({
                 {
                   warning("Overlapping time/frequency windows will not be coded properly in the export file")
@@ -2384,10 +2390,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(data_for_group_analysis)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "data_for_group_analysis", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_for_group_analysis", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_for_group_analysis", target_expr = quote({
                 {
                   data_for_group_analysis <- list()

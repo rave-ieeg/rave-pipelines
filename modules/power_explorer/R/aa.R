@@ -3,7 +3,7 @@
 # Stores global variables
 module_id <- "power_explorer"
 debug <- TRUE
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "power_explorer",
   paths = "./modules")
 

@@ -2740,7 +2740,7 @@ plot_by_trial_electrode_similarity <- function(by_trial_electrode_similarity_dat
 
 
 # chdir = TRUE, current working directory is this folder
-pipeline <- raveio::pipeline(pipeline_name = "power_explorer", paths = "../..")
+pipeline <- ravepipeline::pipeline(pipeline_name = "power_explorer", paths = "../..")
 pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
 
 default_pegs <- {list(
