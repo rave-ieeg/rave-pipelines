@@ -4,7 +4,7 @@ library(ravedash)
 # Stores global variables. These are required
 module_id <- "surface_reconstruction"
 debug <- TRUE
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "surface_reconstruction",
   paths = "./modules")
 

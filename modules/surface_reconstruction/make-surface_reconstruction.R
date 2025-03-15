@@ -1,5 +1,5 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
 ._._env_._.$pipeline <- pipeline_from_path(".")
@@ -17,42 +17,42 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_skip_coregistration = targets::tar_target_raw("skip_coregistration", 
+    input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
-            settings[["skip_coregistration"]]
-        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
-        quote({
-            settings[["path_ct"]]
-        }), deps = "settings"), input_dcm2niix_path = targets::tar_target_raw("dcm2niix_path", 
-        quote({
-            settings[["dcm2niix_path"]]
-        }), deps = "settings"), input_params = targets::tar_target_raw("params", 
-        quote({
-            settings[["params"]]
-        }), deps = "settings"), input_acpc_infile = targets::tar_target_raw("acpc_infile", 
-        quote({
-            settings[["acpc_infile"]]
-        }), deps = "settings"), input_afni_path = targets::tar_target_raw("afni_path", 
-        quote({
-            settings[["afni_path"]]
-        }), deps = "settings"), input_skip_recon = targets::tar_target_raw("skip_recon", 
-        quote({
-            settings[["skip_recon"]]
-        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
-        quote({
-            settings[["path_mri"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_freesurfer_path = targets::tar_target_raw("freesurfer_path", 
-        quote({
-            settings[["freesurfer_path"]]
+            settings[["subject_code"]]
         }), deps = "settings"), input_fsl_path = targets::tar_target_raw("fsl_path", 
         quote({
             settings[["fsl_path"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        }), deps = "settings"), input_freesurfer_path = targets::tar_target_raw("freesurfer_path", 
         quote({
-            settings[["subject_code"]]
+            settings[["freesurfer_path"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
+        quote({
+            settings[["path_mri"]]
+        }), deps = "settings"), input_skip_recon = targets::tar_target_raw("skip_recon", 
+        quote({
+            settings[["skip_recon"]]
+        }), deps = "settings"), input_afni_path = targets::tar_target_raw("afni_path", 
+        quote({
+            settings[["afni_path"]]
+        }), deps = "settings"), input_acpc_infile = targets::tar_target_raw("acpc_infile", 
+        quote({
+            settings[["acpc_infile"]]
+        }), deps = "settings"), input_params = targets::tar_target_raw("params", 
+        quote({
+            settings[["params"]]
+        }), deps = "settings"), input_dcm2niix_path = targets::tar_target_raw("dcm2niix_path", 
+        quote({
+            settings[["dcm2niix_path"]]
+        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
+        quote({
+            settings[["path_ct"]]
+        }), deps = "settings"), input_skip_coregistration = targets::tar_target_raw("skip_coregistration", 
+        quote({
+            settings[["skip_coregistration"]]
         }), deps = "settings"), check_commandline_tools = targets::tar_target_raw(name = "cmd_tools", 
         command = quote({
             .__target_expr__. <- quote({
@@ -64,7 +64,8 @@ rm(._._env_._.)
                     dcm2niix <- NULL
                   } else if (!identical(default_dcm2niix_path, 
                     dcm2niix)) {
-                    raveio::raveio_setopt("dcm2niix_path", dcm2niix)
+                    ravepipeline::raveio_setopt("dcm2niix_path", 
+                      dcm2niix)
                   }
                   dcm2niix
                 }, error = function(e) {
@@ -77,7 +78,7 @@ rm(._._env_._.)
                   if (!path_is_valid(freesurfer, dir_ok = TRUE)) {
                     freesurfer <- NULL
                   } else if (!identical(default_fs_path, freesurfer)) {
-                    raveio::raveio_setopt("freesurfer_path", 
+                    ravepipeline::raveio_setopt("freesurfer_path", 
                       freesurfer)
                   }
                   freesurfer
@@ -91,7 +92,8 @@ rm(._._env_._.)
                   flirt <- NULL
                   if (path_is_valid(fsl, dir_ok = TRUE)) {
                     if (!identical(default_fsl_path, fsl)) {
-                      raveio::raveio_setopt("fsl_path", fsl)
+                      ravepipeline::raveio_setopt("fsl_path", 
+                        fsl)
                     }
                     flirt <- file.path(fsl, "bin", "flirt")
                   }
@@ -105,7 +107,8 @@ rm(._._env_._.)
                     type = "afni", unset = default_afni_path)
                   if (path_is_valid(afni, dir_ok = TRUE)) {
                     if (!identical(default_afni_path, afni)) {
-                      raveio::raveio_setopt("afni_path", afni)
+                      ravepipeline::raveio_setopt("afni_path", 
+                        afni)
                     }
                   } else {
                     afni
@@ -121,10 +124,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(cmd_tools)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "cmd_tools", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "cmd_tools", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "cmd_tools", target_expr = quote({
                 {
                   default_dcm2niix_path <- raveio:::cmd_dcm2niix(error_on_missing = FALSE)
@@ -135,7 +138,7 @@ rm(._._env_._.)
                       dcm2niix <- NULL
                     } else if (!identical(default_dcm2niix_path, 
                       dcm2niix)) {
-                      raveio::raveio_setopt("dcm2niix_path", 
+                      ravepipeline::raveio_setopt("dcm2niix_path", 
                         dcm2niix)
                     }
                     dcm2niix
@@ -149,7 +152,7 @@ rm(._._env_._.)
                     if (!path_is_valid(freesurfer, dir_ok = TRUE)) {
                       freesurfer <- NULL
                     } else if (!identical(default_fs_path, freesurfer)) {
-                      raveio::raveio_setopt("freesurfer_path", 
+                      ravepipeline::raveio_setopt("freesurfer_path", 
                         freesurfer)
                     }
                     freesurfer
@@ -163,7 +166,8 @@ rm(._._env_._.)
                     flirt <- NULL
                     if (path_is_valid(fsl, dir_ok = TRUE)) {
                       if (!identical(default_fsl_path, fsl)) {
-                        raveio::raveio_setopt("fsl_path", fsl)
+                        ravepipeline::raveio_setopt("fsl_path", 
+                          fsl)
                       }
                       flirt <- file.path(fsl, "bin", "flirt")
                     }
@@ -177,7 +181,8 @@ rm(._._env_._.)
                       type = "afni", unset = default_afni_path)
                     if (path_is_valid(afni, dir_ok = TRUE)) {
                       if (!identical(default_afni_path, afni)) {
-                        raveio::raveio_setopt("afni_path", afni)
+                        ravepipeline::raveio_setopt("afni_path", 
+                          afni)
                       }
                     } else {
                       afni
@@ -203,10 +208,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(subject)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "subject", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "subject", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-subject", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject", 
             target_export = "subject", target_expr = quote({
                 {
                   subject <- raveio::RAVESubject$new(project_name = project_name, 
@@ -276,10 +281,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(check_result)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "check_result", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "check_result", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "check_result", target_expr = quote({
                 {
                   msgs <- character(0L)
@@ -372,10 +377,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(viewer_acpc)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "viewer_acpc", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "viewer_acpc", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-brain", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-brain", 
             target_export = "viewer_acpc", target_expr = quote({
                 {
                   path_root <- file.path(subject$preprocess_settings$raw_path, 
@@ -424,10 +429,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(import_T1)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "import_T1", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "import_T1", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "import_T1", target_expr = quote({
                 {
                   import_T1 <- tryCatch({
@@ -465,10 +470,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(import_CT)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "import_CT", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "import_CT", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "import_CT", target_expr = quote({
                 {
                   import_CT <- tryCatch({
@@ -530,7 +535,7 @@ rm(._._env_._.)
                             "rave-imaging", "ants")
                           raveio::ants_preprocessing(work_path = ants_dirpath, 
                             image_path = mri_src, resample = TRUE, 
-                            verbose = TRUE, template_subject = .(raveio::raveio_getopt("threeBrain_template_subject")))
+                            verbose = TRUE, template_subject = .(ravepipeline::raveio_getopt("threeBrain_template_subject")))
                           deriv_path <- file.path(subject$preprocess_settings$raw_path, 
                             "rave-imaging", "derivative")
                           raveio::dir_create2(deriv_path)
@@ -578,10 +583,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(image_segmentation)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "image_segmentation", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "image_segmentation", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "image_segmentation", target_expr = quote({
                 {
                   image_segmentation <- tryCatch({
@@ -624,7 +629,7 @@ rm(._._env_._.)
                             "rave-imaging", "ants")
                           raveio::ants_preprocessing(work_path = ants_dirpath, 
                             image_path = mri_src, resample = TRUE, 
-                            verbose = TRUE, template_subject = .(raveio::raveio_getopt("threeBrain_template_subject")))
+                            verbose = TRUE, template_subject = .(ravepipeline::raveio_getopt("threeBrain_template_subject")))
                           deriv_path <- file.path(subject$preprocess_settings$raw_path, 
                             "rave-imaging", "derivative")
                           raveio::dir_create2(deriv_path)
@@ -709,10 +714,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(coreg_flirt)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "coreg_flirt", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "coreg_flirt", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "coreg_flirt", target_expr = quote({
                 {
                   coreg_flirt <- tryCatch({
@@ -787,10 +792,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(coreg_nipy)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "coreg_nipy", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "coreg_nipy", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "coreg_nipy", target_expr = quote({
                 {
                   coreg_nipy <- tryCatch({
@@ -864,10 +869,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(coreg_niftyreg)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "coreg_niftyreg", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "coreg_niftyreg", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "coreg_niftyreg", target_expr = quote({
                 {
                   coreg_niftyreg <- tryCatch({
@@ -937,10 +942,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(coreg_ants)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "coreg_ants", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "coreg_ants", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "coreg_ants", target_expr = quote({
                 {
                   coreg_ants <- tryCatch({
@@ -1008,10 +1013,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(coreg_3dallineate)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "coreg_3dallineate", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "coreg_3dallineate", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "coreg_3dallineate", target_expr = quote({
                 {
                   coreg_3dallineate <- tryCatch({
@@ -1063,10 +1068,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(morphmri_ants)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "morphmri_ants", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "morphmri_ants", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "morphmri_ants", target_expr = quote({
                 {
                   morphmri_ants <- tryCatch({
