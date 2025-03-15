@@ -27,7 +27,7 @@ loader_server <- function(input, output, session, ...){
     stop("The output ID is blank or invalid.")
   }
 
-  standalone_viewer(
+  ravedash::standalone_viewer(
     outputId = output_id, rave_id = query_list$query$rave_id,
     wrapper_id = "viewer"
   )

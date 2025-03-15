@@ -1,9 +1,8 @@
-library(ravedash)
 # global variables for the module
 
 # Stores global variables. These are required
 module_id <- "standalone_viewer"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "standalone_viewer",
   settings_file = "settings.yaml",
   paths = "./modules")

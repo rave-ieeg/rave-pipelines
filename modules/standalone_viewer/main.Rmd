@@ -8,7 +8,7 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd(module_id = "standalone_viewer")
+ravepipeline::pipeline_setup_rmd(module_id = "standalone_viewer")
 ```
 
 ## Build, Visualize, & Run
@@ -25,15 +25,15 @@ Once the pipeline script `make-standalone_viewer.R` is built, you can visualize 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 try({
-  raveio::pipeline_visualize()
+  ravepipeline::pipeline_visualize()
 }, silent = TRUE)
 ```
 
 
 ```{r execute}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_run(type = "vanilla")
-raveio::pipeline_progress(method = 'details')
+ravepipeline::pipeline_run(type = "vanilla")
+ravepipeline::pipeline_progress(method = 'details')
 ```
 
 
