@@ -1148,6 +1148,21 @@ module_server <- function(input, output, session, ...){
       if(!length(mri_file)) {
         stop("No MRI file specified. Please select one.")
       }
+      dipsaus::updateActionButtonStyled(
+        session = session,
+        inputId = "param_acpc_start",
+        type = "default",
+        disabled = TRUE
+      )
+      ravedash::show_notification(
+        title = "Loading viewer",
+        message = "Loading viewer... This might take a while. Please be patient...",
+        type = "info",
+        autohide = FALSE
+      )
+      on.exit({
+        ravedash::clear_notifications()
+      }, add = TRUE, after = TRUE)
       pipeline$set_settings(
         acpc_infile = mri_file
       )
@@ -1159,12 +1174,22 @@ module_server <- function(input, output, session, ...){
   )
 
   output$acpc_3dviewer <- threeBrain::renderBrain({
-    if( is.null(local_reactives$viewer_acpc) ) { return() }
-    viewer_acpc <- local_reactives$viewer_acpc
-    viewer_acpc$plot(
-      control_presets = "acpcrealign",
-      background = "#000000",
-    )
+
+    on.exit({
+      dipsaus::updateActionButtonStyled(
+        session = session,
+        inputId = "param_acpc_start",
+        disabled = FALSE
+      )
+    }, add = TRUE, after = TRUE)
+
+    if( !is.null(local_reactives$viewer_acpc) ) {
+      viewer_acpc <- local_reactives$viewer_acpc
+      viewer_acpc$plot(
+        control_presets = "acpcrealign",
+        background = "#000000",
+      )
+    }
   })
 
   acpc_proxy <- threeBrain::brain_proxy('acpc_3dviewer', session = session)
@@ -1238,28 +1263,23 @@ module_server <- function(input, output, session, ...){
       path_mri <- file.path(path_root, "inputs", "MRI", acpc_infile)
       path_acpc_root <- file.path(path_root, "acpc-alignment")
       path_acpc_mri <- raveio::dir_create2(file.path(path_root, "acpc-alignment", "mri"))
-
-      # Create ACPC aligned image
-      orig <- RNifti::readNifti(path_mri, internal = TRUE)
-      sform <- RNifti::xform(orig, useQuaternionFirst = TRUE)
-      # New sform: IJK to ACPC
-      sform <- acpc$ras2acpc %*% sform
-      RNifti::sform(orig) <- sform
-      # save qform as well to avoid confusing ITK-base programs
-      RNifti::qform(orig) <- sform
-
-      # save
       path_acpc_img <- file.path(path_acpc_mri, "brain_acpc.nii.gz")
       path_acpc_trans <- file.path(path_acpc_root, "MR_Scanner_to_MR_ACPC.txt")
-      RNifti::writeNifti(orig, file = path_acpc_img)
-      RNifti::writeNifti(orig, file = file.path(path_root, "inputs", "MRI", "MRI_acpc.nii.gz"))
+
+      # Create ACPC aligned image
+      orig <- ieegio::read_volume(file = path_mri)
+      sform <- acpc$ras2acpc %*% orig$transforms$vox2ras
+
+      # save
+      ieegio::io_write_nii(x = orig[], con = path_acpc_img, vox2ras = sform, gzipped = TRUE)
+      file.copy(path_acpc_img, file.path(path_root, "inputs", "MRI", "MRI_acpc.nii.gz"))
       utils::write.table(acpc$ras2acpc, file = path_acpc_trans,
                          row.names = FALSE, col.names = FALSE)
 
       # Backup
       bkuppath_acpc_img <- file.path(path_deriv, "MRI_acpc.nii.gz")
       bkuppath_acpc_trans <- file.path(path_deriv, "MR_Scanner_to_MR_ACPC.txt")
-      RNifti::writeNifti(orig, file = bkuppath_acpc_img)
+      file.copy(path_acpc_img, bkuppath_acpc_img)
       utils::write.table(acpc$ras2acpc, file = bkuppath_acpc_trans,
                          row.names = FALSE, col.names = FALSE)
 
