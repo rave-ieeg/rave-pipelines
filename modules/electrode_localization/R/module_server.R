@@ -246,6 +246,8 @@ module_server <- function(input, output, session, ...){
           DT::dataTableOutput(ns("electrode_table_preview"), width = "auto")
         ),
         footer = shiny::tagList(
+          shiny::checkboxInput(ns("save_opt_volumetric_mni"), "Calculate MNI152 coordinates"),
+          shiny::checkboxInput(ns("save_opt_spherer_coords"), "Recalculate MNI152 coordinates"),
           shiny::modalButton("Dismiss"),
           dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
         )

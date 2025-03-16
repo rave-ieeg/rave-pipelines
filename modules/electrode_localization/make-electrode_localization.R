@@ -1,5 +1,5 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
 ._._env_._.$pipeline <- pipeline_from_path(".")
@@ -17,37 +17,37 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
+    input_transform_space = targets::tar_target_raw("transform_space", 
+        quote({
+            settings[["transform_space"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
+        quote({
+            settings[["path_transform"]]
+        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
+        quote({
+            settings[["path_mri"]]
+        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
+        quote({
+            settings[["path_ct"]]
+        }), deps = "settings"), `__extern_path_localization_plan` = targets::tar_target_raw("settings_path._localization_plan_", 
         "./data/localization_plan.json", format = "file"), input_localization_plan = targets::tar_target_raw("localization_plan", 
         quote({
-            asNamespace("raveio")$pipeline_load_extdata(name = "localization_plan", 
+            asNamespace("ravepipeline")$pipeline_load_extdata(name = "localization_plan", 
                 format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
                   class = "key_missing"), pipe_dir = ".")
         }), deps = "settings_path._localization_plan_"), `__extern_path_localization_list` = targets::tar_target_raw("settings_path._localization_list_", 
         "./data/localization_list.json", format = "file"), input_localization_list = targets::tar_target_raw("localization_list", 
         quote({
-            asNamespace("raveio")$pipeline_load_extdata(name = "localization_list", 
+            asNamespace("ravepipeline")$pipeline_load_extdata(name = "localization_list", 
                 format = "json", error_if_missing = FALSE, default_if_missing = structure(list(), 
                   class = "key_missing"), pipe_dir = ".")
-        }), deps = "settings_path._localization_list_"), input_transform_space = targets::tar_target_raw("transform_space", 
-        quote({
-            settings[["transform_space"]]
-        }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
-        quote({
-            settings[["path_transform"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
-        quote({
-            settings[["path_mri"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
-        quote({
-            settings[["path_ct"]]
-        }), deps = "settings"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
+        }), deps = "settings_path._localization_list_"), load_FreeSurfer_LUT = targets::tar_target_raw(name = "fslut", 
         command = quote({
             .__target_expr__. <- quote({
                 fslut_path <- system.file("palettes", "datacube2", 
@@ -60,10 +60,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(fslut)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "fslut", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "fslut", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "fslut", target_expr = quote({
                 {
                   fslut_path <- system.file("palettes", "datacube2", 
@@ -85,10 +85,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(subject)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "subject", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "subject", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-subject", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject", 
             target_export = "subject", target_expr = quote({
                 {
                   subject <- raveio::RAVESubject$new(project_name = project_name, 
@@ -123,10 +123,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(ct_candidates)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "ct_candidates", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "ct_candidates", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "ct_candidates", target_expr = quote({
                 {
                   fs_path <- subject$freesurfer_path
@@ -359,10 +359,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(plan_list)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "plan_list", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "plan_list", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "plan_list", target_expr = quote({
                 {
                   plan_list <- list()
@@ -619,10 +619,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(pial_envelope)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "pial_envelope", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "pial_envelope", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "pial_envelope", target_expr = quote({
                 {
                   pial_envelope <- 0
@@ -712,10 +712,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(brain)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "brain", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "brain", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "brain", target_expr = quote({
                 {
                   force(pial_envelope)
@@ -820,10 +820,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(localize_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "localize_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "localize_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "localize_data", target_expr = quote({
                 {
                   force(subject)
@@ -900,10 +900,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(ct_exists)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "ct_exists", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "ct_exists", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "ct_exists", target_expr = quote({
                 {
                   ct_exists <- isTRUE(!is.null(localize_data$ct_header) && 
@@ -925,10 +925,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(viewer)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "viewer", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "viewer", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "viewer", target_expr = quote({
                 {
                   force(ct_exists)
@@ -1068,10 +1068,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(localization_result_initial)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "localization_result_initial", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "localization_result_initial", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "localization_result_initial", target_expr = quote({
                 {
                   localization_result_initial <- NULL
@@ -1299,10 +1299,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(localization_result_final)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "localization_result_final", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "localization_result_final", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "localization_result_final", target_expr = quote({
                 {
                   localization_result_final <- list()

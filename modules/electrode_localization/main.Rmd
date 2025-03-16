@@ -10,7 +10,7 @@ editor_options:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("electrode_localization")
+ravepipeline::pipeline_setup_rmd("electrode_localization")
 ```
 
 
@@ -773,7 +773,7 @@ Once the pipeline script `make-electrode_localization.R` is built, you can visua
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
 
