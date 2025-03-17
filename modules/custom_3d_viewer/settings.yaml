@@ -1,26 +1,20 @@
-controllers:
-  Background Color: '#FFFFFF'
+annot_types: ~
+controllers: []
 data_source: Uploads
 data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
 data_source_pipeline_target: omnibus_results
 data_source_project: demo
-main_camera:
-  target:
-    x: 0.1824112
-    'y': 5.4496269
-    z: 29.8170767
-  position:
-  - -464.7486621
-  - 63.3923834
-  - -9.975475
-  up:
-  - -0.0066071
-  - 0.4619897
-  - 0.8868607
-  zoom: 1.0
-project_name: demo
+main_camera: []
+overlay_types: aparc+aseg
+override_radius: .na
+project_name: '[Auto]'
 shiny_outputId: custom_3d_viewer-viewer_ready
 subject_code: DemoSubject
-surface_types: ~
+surface_types:
+- smoothwm
+- inflated
+- white
+- pial-outer-smooth
 uploaded_source: electrode_value(3).fst
+use_spheres: no
 use_template: no

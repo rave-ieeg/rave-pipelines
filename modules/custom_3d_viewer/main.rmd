@@ -24,7 +24,7 @@ set.seed(100)
 Loading a RAVE 3D brain on a native single patient requires 3 types of data:
 
 1.  (Mandatory) `FreeSurfer` reconstruction: please copy and rename the folder to `<rave_dir>/raw_dir/<subject>/rave-imaging/fs`
-2.  (Mandatory for iEEG cases) Electrode coordinates in `tkrRAS` coordinate space. If you use RAVE electrode localization, this file will be automatically loaded. For more details on how to transform from scanner-RAS or MNI coordinates to `tkrRAS`, please see \[this documentation\](https://surfer.nmr.mgh.harvard.edu/fswiki/CoordinateSystems), or \[Github issue\](https://github.com/dipterix/threeBrain/issues/32).
+2.  (Mandatory for iEEG cases) Electrode coordinates in `tkrRAS` coordinate space. If you use RAVE electrode localization, this file will be automatically loaded. For more details on how to transform from scanner-RAS or MNI coordinates to `tkrRAS`, please see [this documentation](https://surfer.nmr.mgh.harvard.edu/fswiki/CoordinateSystems), or [Github issue](https://github.com/dipterix/threeBrain/issues/32).
 3.  (Optional) Electrode value table in `CSV` format.
 
 The electrode table should look like this:
@@ -65,7 +65,14 @@ brain$plot()
 loaded_brain <- load_brain_from_subject_code(
   subject_code = subject_code, 
   project_name = project_name,
+  
+  overlay_types = overlay_types,
   surface_types = surface_types,
+  annot_types = annot_types,
+  
+  use_spheres = use_spheres,
+  override_radius = override_radius,
+  
   use_template = use_template
 )
 ```
