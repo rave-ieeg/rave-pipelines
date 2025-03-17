@@ -24,16 +24,20 @@ modules:
     badge: Local|badge-warning
   notch_filter:
     label: Notch Filter
-    order: 3
+    group: LFP Processing
+    order: 2.1
   wavelet_module:
     label: Wavelet
-    order: 4
+    group: LFP Processing
+    order: 2.2
   epoch_generator:
     label: Generate Epoch
-    order: 5
+    group: Auxiliary Processing
+    order: 3.1
   reference_module:
     label: Reference Channels
-    order: 6
+    group: LFP Processing
+    order: 2.3
   surface_reconstruction:
     label: MRI/CT Preprocessing
     group: Images & Electrodes
@@ -68,6 +72,12 @@ modules:
 groups:
   Import Signals:
     order: 1
+    open: no
+  LFP Processing:
+    order: 2
+    open: no
+  Auxiliary Processing:
+    order: 3
     open: no
   Images & Electrodes:
     order: 7
