@@ -63,100 +63,178 @@ module_server <- function(input, output, session, ...){
 
 
   finalize_electrode_table <- function() {
-    ravedash::logger("Check and save electrode table to subject.", level = "trace")
 
-    dipsaus::shiny_alert2(
-      title = "Please wait...",
-      text = "Finalizing the electrode table...",
-      icon = "info", auto_close = FALSE, buttons = FALSE
-    )
+    # final_results <- pipeline$read('localization_result_final')
+    # subject <- component_container$data$subject
+    # electrode_table <- final_results$electrode_table
+    # electrode_table$SubjectCode <- subject$subject_code
+    # ct_table <- final_results$ct_table
+    #
+    # raveio::save_meta2(
+    #   data = electrode_table,
+    #   meta_type = "electrodes",
+    #   project_name = subject$project_name,
+    #   subject_code = subject$subject_code
+    # )
+    # brain <- component_container$data$brain
+    # if(length(final_results$prototype_definitions)) {
+    #   proto_defs <- final_results$prototype_definitions
+    #   for(nm in names(proto_defs)) {
+    #     target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
+    #     writeLines(proto_defs[[nm]], target_path)
+    #   }
+    # }
+    # ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
+    # if(is.data.frame(ct_table) && nrow(ct_table)) {
+    #   utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE)
+    # } else if(file.exists(ct_tablepath)) {
+    #   unlink(ct_tablepath)
+    # }
+    #
+    # # backup unsaved.csv as it's not useful anymore
+    # unlink(file.path(subject$meta_path, "electrodes_unsaved.csv"))
+    # unlink(file.path(subject$meta_path, "geometry_unsaved.json"))
+    #
+    # # also save it to subject custom-data path so users can view the results with colors
+    # custom_path <- file.path(subject$preprocess_settings$raw_path,
+    #                          "rave-imaging", "custom-data")
+    # custom_path <- raveio::dir_create2(custom_path)
+    # raveio::save_fst(electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
+    #
+    # # Save BIDS-compatible
+    # bids <- raveio::convert_electrode_table_to_bids(subject)
+    #
+    # # sub-<label>[_ses-<label>][_acq-<label>][_space-<label>]_coordsystem.json
+    # bids_prefix <- sprintf("sub-%s_space-%s", subject$subject_code, bids$meta$iEEGCoordinateSystem)
+    # utils::write.table(
+    #   x = bids$table,
+    #   file = file.path(subject$meta_path, sprintf("%s_electrodes.tsv", bids_prefix)),
+    #   sep = "\t",
+    #   na = "n/a",
+    #   row.names = FALSE
+    # )
+    # raveio::save_json(
+    #   x = bids$meta,
+    #   serialize = FALSE,
+    #   auto_unbox = TRUE,
+    #   con = file.path(
+    #     subject$meta_path,
+    #     sprintf("%s_coordsystem.json", bids_prefix)
+    #   )
+    # )
 
-    res <- pipeline$run(
-      as_promise = FALSE,
-      scheduler = "none",
-      type = "callr",
-      callr_function = NULL,
-      async = FALSE,
-      names = "localization_result_final"
-    )
 
-    Sys.sleep(0.5)
-    dipsaus::close_alert2()
-    final_results <- pipeline$read('localization_result_final')
-    subject <- component_container$data$subject
-    electrode_table <- final_results$electrode_table
-    electrode_table$SubjectCode <- subject$subject_code
-    ct_table <- final_results$ct_table
-
-    raveio::save_meta2(
-      data = electrode_table,
-      meta_type = "electrodes",
-      project_name = subject$project_name,
-      subject_code = subject$subject_code
-    )
-    brain <- component_container$data$brain
-    if(length(final_results$prototype_definitions)) {
-      proto_defs <- final_results$prototype_definitions
-      for(nm in names(proto_defs)) {
-        target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
-        writeLines(proto_defs[[nm]], target_path)
-      }
-    }
-    ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
-    if(is.data.frame(ct_table) && nrow(ct_table)) {
-      utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE)
-    } else if(file.exists(ct_tablepath)) {
-      unlink(ct_tablepath)
-    }
-
-    # backup unsaved.csv as it's not useful anymore
-    unlink(file.path(subject$meta_path, "electrodes_unsaved.csv"))
-    unlink(file.path(subject$meta_path, "geometry_unsaved.json"))
-
-    # also save it to subject custom-data path so users can view the results with colors
-    custom_path <- file.path(subject$preprocess_settings$raw_path,
-                             "rave-imaging", "custom-data")
-    custom_path <- raveio::dir_create2(custom_path)
-    raveio::save_fst(electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
-
-    # Save BIDS-compatible
-    bids <- raveio::convert_electrode_table_to_bids(subject)
-
-    # sub-<label>[_ses-<label>][_acq-<label>][_space-<label>]_coordsystem.json
-    bids_prefix <- sprintf("sub-%s_space-%s", subject$subject_code, bids$meta$iEEGCoordinateSystem)
-    utils::write.table(
-      x = bids$table,
-      file = file.path(subject$meta_path, sprintf("%s_electrodes.tsv", bids_prefix)),
-      sep = "\t",
-      na = "n/a",
-      row.names = FALSE
-    )
-    raveio::save_json(
-      x = bids$meta,
-      serialize = FALSE,
-      auto_unbox = TRUE,
-      con = file.path(
-        subject$meta_path,
-        sprintf("%s_coordsystem.json", bids_prefix)
-      )
-    )
-
-    dipsaus::shiny_alert2(
-      title = "Success!",
-      icon = 'success',
-      text = "Electrode table has been exported to subject > rave > meta > electrodes.csv",
-      auto_close = TRUE, buttons = list("OK" = TRUE),
-      on_close = function(...) {
-        shiny::removeModal()
-      }
-    )
 
   }
 
   shiny::bindEvent(
     ravedash::safe_observe(error_wrapper = "notification", {
 
-      finalize_electrode_table()
+      # finalize_electrode_table()
+      ravedash::logger("Check and save electrode table to subject.", level = "trace")
+
+      ravedash::clear_notifications()
+
+      dipsaus::shiny_alert2(
+        title = "Please wait...",
+        text = "Finalizing the electrode table...",
+        icon = "info", auto_close = FALSE, buttons = FALSE
+      )
+
+      postprocess_opt <- input$postprocess_opt
+
+      result_final <- pipeline$run(
+        as_promise = FALSE,
+        scheduler = "none",
+        type = "callr",
+        callr_function = NULL,
+        async = FALSE,
+        names = "localization_result_final"
+      )
+
+      electrode_table <- result_final$electrode_table
+      needs_update <- FALSE
+
+      if( "nonlinear_surface_mapping" %in% postprocess_opt ) {
+        tryCatch(
+          {
+            surface_mapping <- pipeline$run(
+              as_promise = FALSE,
+              scheduler = "none",
+              type = "callr",
+              callr_function = NULL,
+              async = FALSE,
+              names = "postprocess_surface_mapping"
+            )
+            electrode_table$Sphere_x <- surface_mapping$Sphere_x
+            electrode_table$Sphere_y <- surface_mapping$Sphere_y
+            electrode_table$Sphere_z <- surface_mapping$Sphere_z
+            electrode_table$DistanceShifted <- surface_mapping$DistanceShifted
+            needs_update <- TRUE
+          },
+          error = function(e) {
+            ravedash::show_notification(
+              title = "[WARN] Skipped: surface mapping",
+              message = paste(e$message, collapse = ""),
+              type = "warning",
+              autohide = FALSE
+            )
+          }
+        )
+      }
+
+      if( "nonlinear_volumetric_mapping" %in% postprocess_opt ) {
+        tryCatch(
+          {
+            volume_mapping <- pipeline$run(
+              as_promise = FALSE,
+              scheduler = "none",
+              type = "callr",
+              callr_function = NULL,
+              async = FALSE,
+              names = "postprocess_ants"
+            )
+            electrode_table$MNI152_x <- volume_mapping$MNI152_x
+            electrode_table$MNI152_y <- volume_mapping$MNI152_y
+            electrode_table$MNI152_z <- volume_mapping$MNI152_z
+            electrode_table$MNI305_x <- volume_mapping$MNI305_x
+            electrode_table$MNI305_y <- volume_mapping$MNI305_y
+            electrode_table$MNI305_z <- volume_mapping$MNI305_z
+            needs_update <- TRUE
+          },
+          error = function(e) {
+            ravedash::show_notification(
+              title = "[WARN] Skipped: non-linear MNI",
+              message = paste(e$message, collapse = ""),
+              type = "warning",
+              autohide = FALSE
+            )
+          }
+        )
+      }
+
+      if( needs_update ) {
+        subject <- pipeline$read("subject")
+        raveio::save_meta2(
+          data = electrode_table,
+          meta_type = "electrodes",
+          project_name = subject$project_name,
+          subject_code = subject$subject_code
+        )
+      }
+
+      Sys.sleep(0.5)
+      dipsaus::close_alert2()
+
+      dipsaus::shiny_alert2(
+        title = "Success!",
+        icon = 'success',
+        text = "Electrode table has been exported to subject > rave > meta > electrodes.csv",
+        auto_close = TRUE, buttons = list("OK" = TRUE),
+        on_close = function(...) {
+          shiny::removeModal()
+        }
+      )
 
     }),
     input$save_btn,
@@ -246,10 +324,32 @@ module_server <- function(input, output, session, ...){
           DT::dataTableOutput(ns("electrode_table_preview"), width = "auto")
         ),
         footer = shiny::tagList(
-          shiny::checkboxInput(ns("save_opt_volumetric_mni"), "Calculate MNI152 coordinates"),
-          shiny::checkboxInput(ns("save_opt_spherer_coords"), "Recalculate MNI152 coordinates"),
-          shiny::modalButton("Dismiss"),
-          dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
+          shiny::column(
+            width = 12L,
+
+            shiny::div(
+              shiny::checkboxGroupInput(
+                inputId = ns("postprocess_opt"),
+                label = "Post-process options:",
+                inline = FALSE,
+                choiceNames = c(
+                  "Surface mapping to inflated brain & fsaverage",
+                  "Non-linear MNI152 coordinates"
+                ),
+                choiceValues = c(
+                  "nonlinear_surface_mapping",
+                  "nonlinear_volumetric_mapping"
+                )
+              )
+            ),
+
+            shiny::div(
+              class = "float-right",
+              shiny::modalButton("Dismiss"),
+              dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
+            )
+          )
+
         )
       ))
 
