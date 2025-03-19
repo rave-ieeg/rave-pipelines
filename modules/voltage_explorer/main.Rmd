@@ -8,7 +8,7 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("voltage_explorer")
+ravepipeline::pipeline_setup_rmd("voltage_explorer")
 ```
 
 
@@ -238,7 +238,7 @@ Once the pipeline script `make-voltage_explorer.R` is built, you can visualize a
 ```{r visualize, echo=FALSE}
 # Fixed usage, show pipeline graph
 try({
-  asNamespace("raveio")$pipeline_dependency_graph(
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
     pipeline_path = ".", glimpse = TRUE)
 }, silent = TRUE)
 ```
