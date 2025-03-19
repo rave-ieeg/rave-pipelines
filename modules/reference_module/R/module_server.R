@@ -934,7 +934,7 @@ module_server <- function(input, output, session, ...){
 
       repo <- component_container$data$repository
       subject <- repo$subject
-      has_wavelet <- all(subject$has_wavelet)
+      has_wavelet <- any(subject$has_wavelet)
 
       shiny::validate(
         shiny::need(
@@ -1146,7 +1146,7 @@ module_server <- function(input, output, session, ...){
   #
   #     pipeline_set(.list = settings)
   #
-  #     results <- raveio::pipeline_run(
+  #     results <- ravepipeline::pipeline_run(
   #       pipe_dir = pipeline_path,
   #       scheduler = "none",
   #       type = "smart",
@@ -1227,12 +1227,15 @@ module_server <- function(input, output, session, ...){
       # Reset custom UI
       ref_tbl <- new_subject$get_reference('_unsaved')
       groups <- unique(ref_tbl$Group)
-      electrode_group <- lapply(groups, function(gname){
+      electrode_group <- dipsaus::drop_nulls(lapply(groups, function(gname){
+        if(!nzchar(trimws(gname))) { return() }
+        channels <- ref_tbl$Electrode[ref_tbl$Group == gname]
+        if(!length(channels)) { return() }
         list(
-          electrodes = dipsaus::deparse_svec(ref_tbl$Electrode[ref_tbl$Group == gname]),
+          electrodes = dipsaus::deparse_svec(channels),
           name = gname
         )
-      })
+      }))
 
       ravedash::logger("The initial reference table is generated, with {length(electrode_group)} groups.", level = "trace", use_glue = TRUE)
       dipsaus::updateCompoundInput2(

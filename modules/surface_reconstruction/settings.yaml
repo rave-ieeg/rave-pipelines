@@ -1,14 +1,9 @@
-subject_code: PAV006
-fsl_path: /usr/local/fsl
-freesurfer_path: /Applications/freesurfer/7.4.1
-project_name: devel
-path_mri: junk/MRI_reference.nii
-skip_recon: no
-afni_path: /Users/dipterix/abin
-acpc_infile: ~
+skip_coregistration: no
+path_ct: rave-uploads/CT/CT_RAW.nii.gz
+dcm2niix_path: /opt/homebrew/Cellar/dcm2niix/1.0.20230411/bin/dcm2niix
 params:
-  nii_t1: MRI_RAW.nii
-  nii_ct: POST_IMPLANT_CT_1_STEALTH_20220824232445_2.nii
+  nii_t1: MRI_RAW.nii.gz
+  nii_ct: CT_RAW.nii.gz
   template_brain: ~
   dcm2niix:
     merge: Auto
@@ -19,22 +14,22 @@ params:
     flag: -all
     fresh_start: no
   niftyreg:
-    reference: MRI_RAW.nii
+    reference: MRI_RAW.nii.gz
     reg_type: rigid
     interp: trilinear
   ants:
-    reference: MRI_RAW.nii
+    reference: MRI_RAW.nii.gz
     reg_type: Rigid
     aff_metric: mattes
     syn_metric: mattes
   flirt:
-    reference: MRI_RAW.nii
+    reference: MRI_RAW.nii.gz
     dof: 6
     cost: mutualinfo
     search: 90
     searchcost: mutualinfo
   nipy:
-    reference: MRI_RAW.nii
+    reference: MRI_RAW.nii.gz
     clean_source: yes
     inverse_target: yes
     precenter_source: yes
@@ -43,7 +38,12 @@ params:
     interp: pv
     optimizer: powell
   afni:
-    reference: MRI_RAW.nii
-dcm2niix_path: /opt/homebrew/Cellar/dcm2niix/1.0.20230411/bin/dcm2niix
-path_ct: junk/CT_RAW.nii.gz
-skip_coregistration: no
+    reference: MRI_RAW.nii.gz
+acpc_infile: ~
+afni_path: /Users/dipterix/abin
+skip_recon: no
+path_mri: rave-uploads/MRI/MRI_reference.nii.gz
+project_name: devel
+freesurfer_path: /Applications/freesurfer/7.4.1
+fsl_path: /usr/local/fsl
+subject_code: DBS01

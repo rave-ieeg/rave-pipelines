@@ -8,41 +8,41 @@ Sys.setenv("RAVE_PIPELINE" = normalizePath("/Users/dipterix/Dropbox (PennNeurosu
 ##' including its parent pipelines. This is useful is the current
 ##' pipeline is a combination of multiple sub-pipelines
 ##'
-raveio::pipeline_debug(quick = FALSE)
-# raveio::pipeline_debug()
+ravepipeline::pipeline_debug(quick = FALSE)
+# ravepipeline::pipeline_debug()
 
 ##' Visualize pipeline and the relationship between intermediate variables
 ##' This requires extra package `visNetwork`.
 ##' Please run `install.packages('visNetwork')` if missing packages
 ##'
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 
 ##' Test run the pipeline in production mode
 ##'
-# raveio::pipeline_run(async = TRUE)
-raveio::pipeline_run()
+# ravepipeline::pipeline_run(async = TRUE)
+ravepipeline::pipeline_run()
 
 ##' Check pipeline progress to see status (cached/skipped, built, errored...)
-##' Must run `raveio::pipeline_run()` first, otherwise error will occur
+##' Must run `ravepipeline::pipeline_run()` first, otherwise error will occur
 ##'
-raveio::pipeline_progress(method = 'details')
+ravepipeline::pipeline_progress(method = 'details')
 
 
-##' Get current variable table. Run `raveio::pipeline_run()` first
+##' Get current variable table. Run `ravepipeline::pipeline_run()` first
 ##'
-raveio::pipeline_vartable()
+ravepipeline::pipeline_vartable()
 
 ##' Get intermediate variables
 ##'
-raveio::pipeline_hasname("project_name")
-raveio::pipeline_read("project_name")
+ravepipeline::pipeline_hasname("project_name")
+ravepipeline::pipeline_read("project_name")
 
 
 ##' Launch a shiny app to watch the pipeline. Please install extra
 ##' packages first:
 ##' `install.packages(c('bs4Dash', 'gt', 'pingr', 'shinybusy'))`
 ##'
-raveio::pipeline_watch()
+ravepipeline::pipeline_watch()
 
 
 ##' Some useful calls to add shortcuts to debug/run the pipeline
@@ -54,9 +54,9 @@ raveio::pipeline_watch()
 ##' and `alt(option)+2` to run the pipeline in production mode (non-interactive)
 
 dipsaus::rs_add_shortcut(1, {
-  raveio::pipeline_debug(quick = FALSE, env = .GlobalEnv)
+  ravepipeline::pipeline_debug(quick = FALSE, env = .GlobalEnv)
 })
 
 dipsaus::rs_add_shortcut(2, {
-  raveio::pipeline_run()
+  ravepipeline::pipeline_run()
 }, force = FALSE)

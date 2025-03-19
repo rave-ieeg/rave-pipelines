@@ -8,11 +8,11 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("import_bids")
+ravepipeline::pipeline_setup_rmd("import_bids")
 ```
 
 ```{rave get_BIDS_subject_information, language = "R", export = "BIDS_subject_info", cue = "always"}
-bids_root <- raveio::raveio_getopt("bids_data_dir")
+bids_root <- ravepipeline::raveio_getopt("bids_data_dir")
 
 if(!checkmate::test_character(BIDS_subject, min.chars = 4, pattern = "^sub-", len = 1L, any.missing = FALSE)) {
   stop("BIDS format requires the subject code to start with `sub-`. Please add this prefix to the input.")
@@ -97,7 +97,7 @@ src_exist <- sapply(abs_src_paths, function(path) {
 })
 
 # check if dest exist
-raw_path <- raveio::raveio_getopt("raw_data_dir")
+raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
 dst_paths <- file.path(raw_path, BIDS_subject_info$subject_code, block_names)
 dst_exist <- dir.exists(dst_paths)
 
@@ -117,7 +117,7 @@ migrate_plan <- data.frame(
 
 
 ```{rave migrate_to_rave_raw, language = "R", export = "migrate_result", cue = "always"}
-raw_path <- raveio::raveio_getopt("raw_data_dir")
+raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
 subject_code <- BIDS_subject_info$subject_code
 data_types <- BIDS_subject_info$data_types
 bids_root <- BIDS_subject_info$path
@@ -219,7 +219,7 @@ Once the pipeline script `make-import_bids.R` is built, you can visualize and ex
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 try({
-  raveio::pipeline_visualize()
+  ravepipeline::pipeline_visualize()
 }, silent = TRUE)
 ```
 

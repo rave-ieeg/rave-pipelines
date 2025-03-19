@@ -4,20 +4,12 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
   shiny::div(
     class = "container",
     shiny::fluidRow(
+
       shiny::column(
         width = 6L,
         ravedash::input_card(
           title = "Data Selection",
           class_header = "",
-
-          footer = shiny::tagList(
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Load subject",
-              type = "primary",
-              width = "100%"
-            )
-          ),
 
           ravedash::flex_group_box(
             title = "Subject",
@@ -56,6 +48,35 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
               )
             )
 
+          )
+        ),
+
+        ravedash::input_card(
+          title = "Table preview",
+          tools = list(
+            shidashi::card_tool(widget = "maximize")
+          ),
+
+          shiny::div(
+            class = "fill-width overflow-x-scroll margin-bottom-10",
+            DT::DTOutput(outputId = ns("loader_electrode_table"), width = "100%")
+          )
+        )
+      ),
+
+      shiny::column(
+        width = 6L,
+        ravedash::input_card(
+          title = "Options",
+          class_header = "",
+
+          footer = shiny::tagList(
+            dipsaus::actionButtonStyled(
+              inputId = ns("loader_ready_btn"),
+              label = "Load subject",
+              type = "primary",
+              width = "100%"
+            )
           ),
 
           ravedash::flex_group_box(
@@ -63,17 +84,49 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
             shidashi::flex_item(
               shiny::selectInput(
+                inputId = ns("loader_volume_types"),
+                label = "Additional volumes",
+                choices = c("aparc.DKTatlas+aseg", "aparc.a2009s+aseg"),
+                selected = as.character(unlist(pipeline$get_settings("overlay_types"))),
+                multiple = TRUE
+              )
+            ),
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              shiny::selectInput(
                 inputId = ns("loader_surface_types"),
                 label = "Additional surface types",
-                choices = c("white", "smoothwm", "pial-outer-smooth"),
-                selected = local({
-                  v <- pipeline$get_settings("surface_types")
-                  if(!length(v)) {
-                    v <- character()
-                  }
-                  v
-                }),
+                choices = c("smoothwm", "inflated", "white", "pial-outer-smooth"),
+                selected = as.character(unlist(pipeline$get_settings("surface_types"))),
                 multiple = TRUE
+              )
+            ),
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              shiny::selectInput(
+                inputId = ns("loader_annot_types"),
+                label = "Additional surface annotations/measurements",
+                choices = character(0L),
+                selected = as.character(unlist(pipeline$get_settings("annot_types"))),
+                multiple = TRUE
+              )
+            ),
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              shiny::checkboxInput(
+                inputId = ns("loader_use_spheres"),
+                label = "Use spheres contacts",
+                value = isTRUE(pipeline$get_settings("use_spheres"))
+              )
+            ),
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              shiny::numericInput(
+                inputId = ns("loader_override_radius"),
+                label = "Override contact radius (sphere contact must be enabled)",
+                value = NA_real_,
+                step = 0.001,
+                min = 0, max = 10
               )
             ),
             shidashi::flex_break(),
@@ -88,20 +141,6 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
           )
 
           # shiny::textOutput(ns("loader_short_message"))
-        )
-      ),
-      shiny::column(
-        width = 6L,
-        ravedash::input_card(
-          title = "Table preview",
-          tools = list(
-            shidashi::card_tool(widget = "maximize")
-          ),
-
-          shiny::div(
-            class = "fill-width overflow-x-scroll margin-bottom-10",
-            DT::DTOutput(outputId = ns("loader_electrode_table"), width = "100%")
-          )
         )
       )
     )
@@ -147,6 +186,57 @@ loader_server <- function(input, output, session, ...){
         selected = input$loader_project_name %OF% choices
       )
 
+      if(length(projects)) {
+        project_name <- projects[[1]]
+      } else {
+        project_name <- "YAEL"
+      }
+      subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+      base_path <- subject$freesurfer_path
+      if(length(base_path) == 1 && !is.na(base_path) && file.exists(base_path)) {
+        # brain <- threeBrain::threeBrain(path = base_path, subject_code = subject_code)
+        # brain$base_path
+        overlay_types <- list.files(
+          path = file.path(base_path, "mri"),
+          recursive = FALSE,
+          all.files = FALSE,
+          full.names = FALSE,
+          include.dirs = FALSE,
+          ignore.case = TRUE,
+          pattern = "\\.(mgz|nii|nii\\.gz)$"
+        )
+        overlay_types <- gsub("\\.(mgz|nii|nii\\.gz)$", "", overlay_types, ignore.case = TRUE)
+        overlay_types <- overlay_types[!overlay_types %in% c("rave_slices", "brain.finalsurfs", "brain")]
+        overlay_types <- sort(overlay_types)
+        overlay_inputs <- unique(c(input$loader_volume_types, unlist(pipeline$get_settings("overlay_types"))))
+        shiny::updateSelectInput(
+          session = session,
+          inputId = "loader_volume_types",
+          choices = overlay_types,
+          selected = as.character(overlay_inputs)
+        )
+
+        # get annotations
+        annot_types <- list.files(
+          path = file.path(base_path, "label"),
+          recursive = FALSE,
+          all.files = FALSE,
+          full.names = FALSE,
+          include.dirs = FALSE,
+          ignore.case = TRUE,
+          pattern = "\\.(annot)$"
+        )
+        annot_types <- unique(gsub("(^[lr]h\\.|\\.annot$)", "", annot_types, ignore.case = TRUE))
+        annot_types <- sprintf("label/%s", sort(annot_types))
+        annot_inputs <- unique(c(input$loader_annot_types, unlist(pipeline$get_settings("annot_types"))))
+        shiny::updateSelectInput(
+          session = session,
+          inputId = "loader_annot_types",
+          choices = annot_types,
+          selected = as.character(annot_inputs),
+        )
+      }
+
     }),
     loader_subject$get_sub_element_input(),
     ignoreNULL = TRUE, ignoreInit = FALSE
@@ -172,46 +262,7 @@ loader_server <- function(input, output, session, ...){
     if(identical(project_name, "[None]")) { return() }
 
     re <- NULL
-    rave_path <- raveio::raveio_getopt("data_dir")
-
-    if(identical(project_name, "[Upload]")) {
-      re <- local_reactives$electrode_table
-    } else {
-
-      if(identical(project_name, "[Auto]")) {
-        all_projects <- raveio::get_projects()
-        dirs <- file.path(rave_path, all_projects, subject_code)
-        all_projects <- all_projects[dir.exists(dirs)]
-        if(!length(all_projects)) { return() }
-        project_name <- all_projects[[1]]
-      }
-
-      re <- raveio::load_meta2(meta_type = "electrodes",
-                               project_name = project_name,
-                               subject_code = subject_code)
-    }
-
-    return(re)
-
-  })
-
-
-  get_brain_path <- shiny::reactive({
-    project_name <- input$loader_project_name
-    subject_code <- loader_subject$get_sub_element_input()
-    if(!length(project_name) || !length(subject_code)) {
-      return()
-    }
-
-    rave_path <- raveio::raveio_getopt("data_dir")
-
-    dir <- file.path(rave_path, project_name, subject_code)
-    raveio::RAVESubject$new()
-
-    if(identical(project_name, "[None]")) { return() }
-
-    re <- NULL
-
+    rave_path <- ravepipeline::raveio_getopt("data_dir")
 
     if(identical(project_name, "[Upload]")) {
       re <- local_reactives$electrode_table
@@ -256,7 +307,10 @@ loader_server <- function(input, output, session, ...){
     )
 
     re <- DT::datatable(tbl, class = "display nowrap compact",
-                        selection = "none")
+                        selection = "none", options = list(
+                          pageLength = 5,
+                          lengthMenu = c(5, 20, 100, 1000)
+                        ))
 
     digit_nms <- c(
       'Coord_x', 'Coord_y', 'Coord_z', "MNI305_x", "MNI305_y", "MNI305_z",
@@ -269,7 +323,20 @@ loader_server <- function(input, output, session, ...){
 
   })
 
-
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      radius <- input$loader_override_radius
+      if(isTRUE(radius > 0)) {
+        shiny::updateCheckboxInput(
+          session = session,
+          inputId = "loader_use_spheres",
+          value = TRUE
+        )
+      }
+    }),
+    input$loader_override_radius,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
@@ -286,7 +353,11 @@ loader_server <- function(input, output, session, ...){
       pipeline$set_settings(
         subject_code = input$loader_subject_code,
         project_name = input$loader_project_name,
+        overlay_types = input$loader_volume_types,
         surface_types = input$loader_surface_types,
+        annot_types = input$loader_annot_types,
+        use_spheres = input$loader_use_spheres,
+        override_radius = input$loader_override_radius,
         use_template = input$loader_use_template,
         uploaded_source = NULL,
         controllers = list(),

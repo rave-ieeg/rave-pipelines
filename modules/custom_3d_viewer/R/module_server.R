@@ -14,7 +14,7 @@ module_server <- function(input, output, session, ...){
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweek
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
   # This is used by auto-recalculation feature
@@ -325,7 +325,7 @@ module_server <- function(input, output, session, ...){
         }
 
         # save to somewhere?
-        raw_path <- raveio::raveio_getopt("raw_data_dir")
+        raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
         root_path <- get_subject_imaging_datapath(subject_code = loaded_brain$subject_code, type = "uploads")
 
         raveio::dir_create2(root_path)
@@ -621,7 +621,7 @@ module_server <- function(input, output, session, ...){
       }
 
       tryCatch({
-        candidates <- unname(raveio::pipeline_target_names(pipepath))
+        candidates <- unname(ravepipeline::pipeline_target_names(pipepath))
         selected <- c(
           shiny::isolate(input$data_source_pipeline_target),
           pipeline$get_settings("data_source_pipeline_target")

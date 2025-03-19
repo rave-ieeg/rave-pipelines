@@ -51,7 +51,7 @@ Before digging into each file, let's take a look on how to run RAVE [notch filte
 
 ```r
 # Load pipeline
-pipeline <- raveio::pipeline("notch_filter")
+pipeline <- ravepipeline::pipeline("notch_filter")
 
 # Set inputs
 pipeline$set_settings(project_name = "devel", subject_code = "DemoSubject")
@@ -82,7 +82,7 @@ pipeline$run("apply_notch")
 #> • end pipeline [1.967 seconds]
 
 # Visualize pipeline
-raveio::pipeline_visualize(pipeline$pipeline_path)
+ravepipeline::pipeline_visualize(pipeline$pipeline_path)
 ```
 
 <img width="80%" alt="image" src="https://user-images.githubusercontent.com/8163576/226499317-0e674b33-c854-4c1b-98b6-799302451094.png">
@@ -133,13 +133,13 @@ Using [`modules/notch_filter`](modules/notch_filter) as an example,
 
 In the previous example script, 
 
-1. When we run `pipeline <- raveio::pipeline("notch_filter")`, RAVE collects the pipeline directory information and wrap it in the variable `pipeline`.
+1. When we run `pipeline <- ravepipeline::pipeline("notch_filter")`, RAVE collects the pipeline directory information and wrap it in the variable `pipeline`.
 
 2. `pipeline$set_settings(project_name = "devel", subject_code = "DemoSubject")` alters `project_name` and `subject_code` in the `settings.yaml`.
 
 3. `pipeline$run("apply_notch")` analyzes code dependence within `main.Rmd`, and ONLY runs the code blocks needed to generate variable `apply_notch`. (if you check the dependence graph, `diagnostic_plot` is not needed, hence not evaluated.
 
-4. `raveio::pipeline_visualize(pipeline$pipeline_path)` displays the dependency graph. Each node stands for an input in `settings.yaml` (e.g. `project_name`) or a code block in `main.Rmd` (e.g. `apply_notch`). 
+4. `ravepipeline::pipeline_visualize(pipeline$pipeline_path)` displays the dependency graph. Each node stands for an input in `settings.yaml` (e.g. `project_name`) or a code block in `main.Rmd` (e.g. `apply_notch`). 
 
 ### 3. Write your own pipeline
 
@@ -147,7 +147,7 @@ _*(This sub-section might be ambiguous. Please ask the RAVE team to schedule a w
 
 To start, open `rave-pipeline` project in `RStudio`, and enter the R command (please change `module_id` and `module_label` accordingly)
 
-`raveio::module_add(module_id = "my_module_id", module_label = "My Module Label")`
+`ravepipeline::module_add(module_id = "my_module_id", module_label = "My Module Label")`
 
 A sample module pipeline folder will be created under `modules/` named after the specified `module_id`.
 
@@ -165,7 +165,7 @@ The first block should look like this:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("my_module_id")
+ravepipeline::pipeline_setup_rmd("my_module_id")
 ```
 ````
 
@@ -205,7 +205,7 @@ build_pipeline(make_file = "make-electrode_localization.R")
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 ````
 

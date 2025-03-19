@@ -115,44 +115,66 @@ module_server <- function(input, output, session, ...){
       if(is.null(subject)) {
         error_notification(list(message = "Invalid subject (subject not loaded?)"))
       }
-      shidashi::clear_notifications(class = ns("error_notif"))
-      epoch_channel_file <- file.path(subject$preprocess_settings$raw_path, input$block, input$epoch_file)
-      if(length(epoch_channel_file) != 1 || !file.exists(epoch_channel_file)) {
-        error_notification(list(message = "Epoch channel file is invalid"))
-      }
 
-      # read signal
-      if(endsWith(tolower(epoch_channel_file), "edf")) {
-        header <- raveio::read_edf_header(epoch_channel_file)
-        varnames_choices <- header$sHeaders$label
-        varnames <- sprintf("DC%d", 1:12) %OF% varnames_choices
+      epoch_file <- input$epoch_file
+      block <- input$block
+      if(length(epoch_file) != 1) {
+        error_notification(list(message = "Invalid epoch file. Please choose a proper epoch file."))
+      }
+      shidashi::clear_notifications(class = ns("error_notif"))
+
+      if(startsWith(epoch_file, "[Channel")) {
+        aux_channel <- as.integer(gsub("[^0-9]", "", epoch_file))
+        repository <- raveio::prepare_subject_with_blocks(subject = subject, electrodes = aux_channel, blocks = block, raw = TRUE, time_frequency = FALSE, signal_type = "Auxiliary")
+        voltage <- repository$block_data[[block]]$voltage
         local_reactives$epoch_header <- list(
-          header = header,
-          type = "EDF"
+          header = list(
+            voltage = subset(voltage$data, Electrode ~ Electrode == aux_channel, drop = TRUE),
+            sample_rate = voltage$sample_rate
+          ),
+          type = "Imported"
         )
-      } else if(endsWith(tolower(epoch_channel_file), "nev")) {
-        header <- raveio::BlackrockFile$new(path = epoch_channel_file, block = input$block)
-        varnames_choices <- sprintf(
-          "Channel %d [%s] (%s)",
-          header$electrode_table$Electrode,
-          header$electrode_table$Label,
-          header$electrode_table$NSType
-        )
-        sel <- header$electrode_table$NSType == "ns5"
-        varnames <- varnames_choices[sel] %OF% varnames_choices
-        local_reactives$epoch_header <- list(
-          header = header,
-          type = "NEV"
-        )
+        varnames_choices <- "raw"
+        varnames <- "raw"
       } else {
-        header <- raveio::read_mat2(epoch_channel_file, ram = FALSE)
-        nm <- raveio:::guess_raw_trace(header, electrodes = subject$electrodes)
-        varnames_choices <- names(header)
-        varnames <- c(nm, "analogTraces") %OF% varnames_choices
-        local_reactives$epoch_header <- list(
-          header = header,
-          type = "MAT"
-        )
+        epoch_channel_file <- file.path(subject$preprocess_settings$raw_path, input$block, epoch_file)
+        if(length(epoch_channel_file) != 1 || !file.exists(epoch_channel_file)) {
+          error_notification(list(message = "Epoch channel file is invalid"))
+        }
+
+        # read signal
+        if(endsWith(tolower(epoch_channel_file), "edf")) {
+          header <- raveio::read_edf_header(epoch_channel_file)
+          varnames_choices <- header$sHeaders$label
+          varnames <- sprintf("DC%d", 1:12) %OF% varnames_choices
+          local_reactives$epoch_header <- list(
+            header = header,
+            type = "EDF"
+          )
+        } else if(endsWith(tolower(epoch_channel_file), "nev")) {
+          header <- raveio::BlackrockFile$new(path = epoch_channel_file, block = block)
+          varnames_choices <- sprintf(
+            "Channel %d [%s] (%s)",
+            header$electrode_table$Electrode,
+            header$electrode_table$Label,
+            header$electrode_table$NSType
+          )
+          sel <- header$electrode_table$NSType == "ns5"
+          varnames <- varnames_choices[sel] %OF% varnames_choices
+          local_reactives$epoch_header <- list(
+            header = header,
+            type = "NEV"
+          )
+        } else {
+          header <- raveio::read_mat2(epoch_channel_file, ram = FALSE)
+          nm <- raveio:::guess_raw_trace(header, electrodes = subject$electrodes)
+          varnames_choices <- names(header)
+          varnames <- c(nm, "analogTraces") %OF% varnames_choices
+          local_reactives$epoch_header <- list(
+            header = header,
+            type = "MAT"
+          )
+        }
       }
 
       shiny::updateSelectInput(
@@ -173,7 +195,7 @@ module_server <- function(input, output, session, ...){
       if(length(input$varname) != 1) { return() }
       epoch_header <- local_reactives$epoch_header
       if(!is.list(epoch_header) ||
-         !isTRUE(epoch_header$type %in% c("MAT", "EDF", "NEV"))) {
+         !isTRUE(epoch_header$type %in% c("MAT", "EDF", "NEV", "Imported"))) {
         return()
       }
       subject <- local_data$subject
@@ -184,41 +206,48 @@ module_server <- function(input, output, session, ...){
 
       sample_rate <- 1
 
-      if(type == "EDF") {
-        sample_rate <- header$sampleRate2[header$sHeaders == input$varname]
-      } else if (type == "NEV") {
-        # "Channel %d [%s] (%s)"
-        # get ns type
-        m <- gregexpr("(ns[0-9])\\)$", input$varname)[[1]]
-        nstype <- substr(input$varname, start = m, stop = nchar(input$varname) - 1)
-        if(nstype %in% names(header$sample_rates)) {
-          sample_rate <- header$sample_rates[[nstype]]
-        } else {
-          sample_rate <- 2000
+      switch(
+        type,
+        "EDF" = {
+          sample_rate <- header$sampleRate2[header$sHeaders == input$varname]
+        },
+        "NEV" = {
+          # "Channel %d [%s] (%s)"
+          # get ns type
+          m <- gregexpr("(ns[0-9])\\)$", input$varname)[[1]]
+          nstype <- substr(input$varname, start = m, stop = nchar(input$varname) - 1)
+          if(nstype %in% names(header$sample_rates)) {
+            sample_rate <- header$sample_rates[[nstype]]
+          } else {
+            sample_rate <- 2000
+          }
+        },
+        "MAT" = {
+          sample_rate <- input$sample_rate
+          if(isTRUE(sample_rate > 1)) { return() }
+
+          varname <- input$varname
+          if(length(varname) != 1 || !varname %in% names(header)) { return() }
+
+          s <- header[[varname]]
+          dlen <- length(s)
+          imported_electrodes <- subject$electrodes[subject$preprocess_settings$data_imported]
+          if(!length(imported_electrodes)) { return() }
+          e <- imported_electrodes[[1]]
+          efile <- file.path(subject$preprocess_path, "voltage", sprintf("electrode_%s.h5", e))
+          if(
+            !file.exists(efile) ||
+            !raveio::h5_valid(efile) ||
+            !sprintf("raw/%s", block) %in% gsub("^/", "", raveio::h5_names(efile))
+          ){ return() }
+
+          signal_len <- length(raveio::load_h5(efile, sprintf("raw/%s", block), ram = FALSE))
+          sample_rate <- dlen /signal_len * subject$raw_sample_rates[subject$electrodes == e]
+        },
+        "Imported" = {
+          sample_rate <- epoch_header$header$sample_rate
         }
-      } else if(type == "MAT") {
-        sample_rate <- input$sample_rate
-        if(isTRUE(sample_rate > 1)) { return() }
-
-        varname <- input$varname
-        if(length(varname) != 1 || !varname %in% names(header)) { return() }
-
-        s <- header[[varname]]
-        dlen <- length(s)
-        imported_electrodes <- subject$electrodes[subject$preprocess_settings$data_imported]
-        if(!length(imported_electrodes)) { return() }
-        e <- imported_electrodes[[1]]
-        efile <- file.path(subject$preprocess_path, "voltage", sprintf("electrode_%s.h5", e))
-        if(
-          !file.exists(efile) ||
-          !raveio::h5_valid(efile) ||
-          !sprintf("raw/%s", block) %in% gsub("^/", "", raveio::h5_names(efile))
-        ){ return() }
-
-        signal_len <- length(raveio::load_h5(efile, sprintf("raw/%s", block), ram = FALSE))
-        sample_rate <- dlen /signal_len * subject$raw_sample_rates[subject$electrodes == e]
-
-      }
+      )
 
       if(length(sample_rate) != 1 || is.na(sample_rate) || sample_rate <= 1){
         return()
@@ -263,10 +292,20 @@ module_server <- function(input, output, session, ...){
         include.dirs = FALSE, all.files = FALSE,
         ignore.case = TRUE, no.. = TRUE
       )
-      guess0 <- epoch_files[grepl("\\.(pd|aud|nev)$", tolower(epoch_files))]
+      # also include auxiliary channels
+      aux_channels <- subject$electrodes[subject$electrode_types %in% "Auxiliary"]
+      if(length(aux_channels)) {
+        epoch_files <- c(sprintf("[Channel %d]", aux_channels), epoch_files)
+        guess0 <- epoch_files[[1]]
+      } else {
+        guess0 <- epoch_files[grepl("\\.(pd|aud|nev)$", tolower(epoch_files))]
+      }
+
       guess1 <- epoch_files[grepl("[^0-9]1(29|30).(mat|h5)$", tolower(epoch_files))]
       guess2 <- epoch_files[endsWith(tolower(epoch_files), ".edf")]
       epoch_file <- input$epoch_file %OF% c(guess0, guess1, guess2, epoch_files)
+
+
       shiny::updateSelectInput(
         session = session, inputId = "epoch_file",
         choices = epoch_files, selected = epoch_file
@@ -282,7 +321,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       epoch_header <- local_reactives$epoch_header
 
-      if(!is.list(epoch_header) || !isTRUE(epoch_header$type %in% c("MAT", "EDF", "NEV"))) {
+      if(!is.list(epoch_header) || !isTRUE(epoch_header$type %in% c("MAT", "EDF", "NEV", "Imported"))) {
         error_notification(list(message = "Please load epoch file first"))
         return()
       }
@@ -307,34 +346,40 @@ module_server <- function(input, output, session, ...){
       header <- epoch_header$header
 
       raveio <- asNamespace("raveio")
-      if(type == "EDF") {
-        shidashi::show_notification(
-          title = "Loading...",
-          message = "Loading epoch signal in progress... Please wait a second.",
-          type = "default",
-          autohide = FALSE, class = ns("loading_notif")
-        )
+      switch(
+        type,
+        "EDF" = {
+          shidashi::show_notification(
+            title = "Loading...",
+            message = "Loading epoch signal in progress... Please wait a second.",
+            type = "default",
+            autohide = FALSE, class = ns("loading_notif")
+          )
 
-        idx <- which(header$sHeaders$label == varname)
-        s <- raveio$read_edf_signal2(header$fileName, convert_volt = NA,
-                                     signal_numbers = idx)
-        s <- s$get_signal(idx)
-        s <- s$signal
+          idx <- which(header$sHeaders$label == varname)
+          s <- raveio$read_edf_signal2(header$fileName, convert_volt = NA,
+                                       signal_numbers = idx)
+          s <- s$get_signal(idx)
+          s <- s$signal
 
-        shidashi::clear_notifications(class = ns("loading_notif"))
-      } else if(type == "NEV") {
-        m <- gregexec("^Channel ([0-9]+)\\ ", text = varname, ignore.case = TRUE)[[1]]
-        ml <- attr(m, "match.length")
-        channel <- substr(varname, m[[2]], m[[2]] + ml[[2]] - 1)
-        channel <- as.integer(channel)
-        header$refresh_data(verbose = TRUE)
-        s <- header$get_electrode(channel)
-      } else {
-        s <- header[[varname]][drop = TRUE]
-      }
-
+          shidashi::clear_notifications(class = ns("loading_notif"))
+        },
+        "NEV" = {
+          m <- gregexec("^Channel ([0-9]+)\\ ", text = varname, ignore.case = TRUE)[[1]]
+          ml <- attr(m, "match.length")
+          channel <- substr(varname, m[[2]], m[[2]] + ml[[2]] - 1)
+          channel <- as.integer(channel)
+          header$refresh_data(verbose = TRUE)
+          s <- header$get_electrode(channel)
+        },
+        "MAT" = {
+          s <- header[[varname]][drop = TRUE]
+        },
+        "Imported" = {
+          s <- header$voltage
+        }
+      )
       local_reactives$epoch_signal <- as.vector(s)
-
     }),
     input$load_signal_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE

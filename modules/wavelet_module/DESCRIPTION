@@ -15,5 +15,5 @@ Description:
     before and after wavelet. Please run 'Notch' filter module prior to wavelet.
     This module can run either before or after the reference.
     This module is part of 'RAVE preprocessing pipeline' and can run offline as 
-    a pipeline instance; see 'raveio::pipeline("wavelet_module")'.
+    a pipeline instance; see 'ravepipeline::pipeline("wavelet_module")'.
 BugReports: https://github.com/rave-ieeg/rave-pipelines/issues

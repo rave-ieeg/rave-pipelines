@@ -19,7 +19,7 @@ local_data  <- dipsaus::fastmap2()
 #' @return Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE){
 
-  if(isTRUE(raveio::raveio_getopt("jupyter_disabled"))){
+  if(isTRUE(ravepipeline::raveio_getopt("jupyter_disabled"))){
     ravedash::logger("Jupyter server is disabled", level = "error", use_glue = TRUE)
     return(FALSE)
   }

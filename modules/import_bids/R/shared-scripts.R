@@ -50,21 +50,21 @@ find_bids_runs <- function(subject_path, BIDS_subject, BIDS_sessions) {
 }
 
 get_BIDS_datasets <- function() {
-  BIDS_root <- raveio::raveio_getopt("bids_data_dir")
+  BIDS_root <- ravepipeline::raveio_getopt("bids_data_dir")
   dsets <- list.dirs(BIDS_root, full.names = FALSE, recursive = FALSE)
   dsets <- dsets[grepl("^[a-zA-Z0-9]", dsets)]
   dsets
 }
 
 get_BIDS_subject <- function(BIDS_dataset) {
-  BIDS_root <- raveio::raveio_getopt("bids_data_dir")
+  BIDS_root <- ravepipeline::raveio_getopt("bids_data_dir")
   subjects <- list.dirs(file.path(BIDS_root, BIDS_dataset), full.names = FALSE, recursive = FALSE)
   subjects <- subjects[grepl("^sub-", subjects)]
   subjects
 }
 
 get_BIDS_subject_sessions <- function(BIDS_dataset, BIDS_subject) {
-  BIDS_root <- raveio::raveio_getopt("bids_data_dir")
+  BIDS_root <- ravepipeline::raveio_getopt("bids_data_dir")
   sessions <- list.dirs(file.path(BIDS_root, BIDS_dataset, BIDS_subject), full.names = FALSE, recursive = FALSE)
   sessions <- sessions[grepl("^ses-", sessions)]
   sessions

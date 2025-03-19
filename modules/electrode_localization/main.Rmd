@@ -10,19 +10,21 @@ editor_options:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("electrode_localization")
+ravepipeline::pipeline_setup_rmd("electrode_localization")
+
+# setting debug=TRUE to make sure some errors are ignored
+options("raveio.debug" = TRUE)
 ```
 
+# Load and prepare data for electrode localization
+
+Load `FreeSurfer` [look-up table](https://surfer.nmr.mgh.harvard.edu/fswiki/FsTutorial/AnatomicalROI/FreeSurferColorLUT), used to calculate the DKT atlases for each contact, provided that `FreeSurfer` `recon-all` has been applied.
 
 ```{rave load_FreeSurfer_LUT, export = "fslut", cue = "never"}
-fslut_path <- system.file("palettes", "datacube2", "FreeSurferColorLUT.json", package = "threeBrain")
-cmap <- threeBrain::load_colormap(fslut_path)
-
-fslut <- list(
-  cmap = cmap,
-  labels = sapply(cmap$map, '[[', "Label")
-)
+fslut <- load_freesurfer_lookup_table()
 ```
+
+Load subject object from given RAVE project name and subject code
 
 ```{rave load_subject, language = "R", export = "subject", format = "rave-subject", cue = "always"}
 subject <- raveio::RAVESubject$new(
@@ -32,430 +34,85 @@ subject <- raveio::RAVESubject$new(
 )
 ```
 
+Look for images in subject's raw folder, under `rave-imaging/coregistration` for file names that are potentially `CT`, so the users can choose from these candidates. This target is built for module UI.
 
 ```{rave find_CT_Nifti_files, language = "R", export = "ct_candidates"}
-fs_path <- subject$freesurfer_path
-
-# nii/nii.gz files in fs_path/../coregistration, or fs_path/coregistration
-if(length(fs_path) != 1 || is.na(fs_path) || !dir.exists(fs_path)) {
-  stop("Cannot find surface/volume reconstruction folder.")
-}
-
-f1 <- list.files(file.path(fs_path, "coregistration"), pattern = "nii(?:\\.gz)?$", 
-                 recursive = FALSE, ignore.case = TRUE, include.dirs = FALSE,
-                 full.names = FALSE, all.files = FALSE)
-f2 <- list.files(file.path(fs_path, "..", "coregistration"), pattern = "nii(?:\\.gz)?$", 
-                 recursive = FALSE, ignore.case = TRUE, include.dirs = FALSE,
-                 full.names = FALSE, all.files = FALSE)
-files <- c(f1, f2)
-files[duplicated(files)] <- sprintf("%s (2)", files[duplicated(files)])
-
-ct_candidates <- structure(files, paths = list(
-  f1 = f1, f2 = f2
-))
+ct_candidates <- get_image_candidates_from_coregistration_folder(subject)
 ```
 
-The following code block only run once only when starting a new localization
+Given electrode localization plan, initialize and/or prepare a localization table `electrodes__unsaved.csv`, which is later saved to subject's meta folder. 
+
+The input `localization_plan` is a list of electrode surgical labels, dimension, type, and hemisphere, for e.g.:
+
+``` r
+list(
+  
+  # first electrode
+  list(
+    
+    # surgical label: left DBS lead
+    label = "LDBS",
+    
+    # using channel 1-8
+    dimension = "1-8",
+    
+    # electrode types, using `names(threeBrain::list_electrode_prototypes())`
+    # to query available types; if none is found, use "iEEG"
+    type = "DBS-BSC-DB-2202",
+    
+    # auto if undecided to save time, used to infer the FreeSurfer labels, 
+    # if the contact is too medial
+    hemisphere = "auto",
+  ), 
+  
+  # second electrode
+  list(
+    label = "RDBS",
+    dimension = "9-16",
+    type = "DBS-BSC-DB-2202",
+    hemisphere = "auto",
+  )
+  
+)
+```
+
+Function `make_localization_plan_list` translates `localization_plan` into a list of tables, where each table has $n\times p$ dimensions, where `n` is the number of contacts and `p` is the built-in columns used by RAVE
 
 ```{rave check_localization_plan, export = "plan_list", cue = "always"}
-plan_list <- list()
-
-# check if number of electrodes is consistent with the plan
-plans <- dipsaus::fastmap2()
-electrodes <- sort(subject$preprocess_settings$electrodes)
-
-lapply(summarize_plan_list(localization_plan), function(item) {
-  if(!length(item)) { return() }
-  if(!isTRUE(item$n > 0)) { return() }
-  label <- toupper(as.character(item$label))
-  part1 <- plans[[label]]
-  if(length(part1)) {
-    if(!identical(part1$type, item$type)) {
-      stop(sprintf("There exist multiple groups with the same group label [%s] (group labels are case-insensitive) but different electrode types [%s, %s]. I cannot determine which electrode prototype for the localization. Please check and correct.", label, part1$type, item$type))
-    }
-    part1$channels <- sprintf("%s,%s", part1$channels, item$channels)
-    part1$n <- part1$n + item$n
-    item <- part1
-  } 
-  plans[[label]] <- list(
-    n = item$n,
-    channels = item$channels,
-    type = item$type,
-    label = label,
-    hemisphere = item$hemisphere,
-    dimension = item$dimension
-  )
-})
-
-plan_table <- lapply(names(plans), function(nm) {
-  item <- plans[[nm]]
-  proto <- get_prototype(item$type)
-  channs <- parse_svec(item$channels, sort = FALSE, unique = FALSE, na_rm = FALSE)
-  
-  unplug <- is.na(channs)
-  n_unplug <- sum(unplug)
-  n_chans <- length(channs)
-  if(n_chans == n_unplug) { return() }
-  if(!is.null(proto)) {
-    if(n_chans > proto$n_channels) {
-      stop(sprintf("Electrode group [%s] (prototype: %s) has maximum of %d channels by design. However, you have entered %d channels (including %d unplugged channels). Please check & reduce the number of channels.", item$label, item$type, proto$n_channels, n_chans, n_unplug))
-    }
-  }
-  corder <- seq_along(channs)[!unplug]
-  channs <- channs[!unplug]
-  
-  if(item$type %in% raveio::LOCATION_TYPES) {
-    ltype <- item$type
-    pname <- ""
-  } else {
-    ltype <- raveio::LOCATION_TYPES[[1]]
-    pname <- item$type
-  }
-  data.frame(
-    Electrode = channs,
-    Label = sprintf("%s%d", item$label, corder),
-    LabelPrefix = item$label,
-    Dimension = item$dimension,
-    LocationType = ltype,
-    Hemisphere = item$hemisphere,
-    Prototype = pname,
-    ContactOrder = corder
-  )
-  
-})
-
-
-plan_table <- drop_nulls(plan_table)
-
-if(length(plan_table)) {
-  plan_table <- do.call('rbind', unname(plan_table))
-  
-  if(!nrow(plan_table)) { stop("No valid electrodes to localize.") }
-  
-  count <- table(plan_table$Electrode)
-  count <- names(count)[ count > 1 ]
-  
-  if(length(count)) {
-    stop(sprintf("Electrode contact [%s] has duplicated entries. Please remove and continue.", deparse_svec(as.integer(count))))
-  }
-  plan_table <- plan_table[order(plan_table$Electrode), ]
-  rownames(plan_table) <- NULL
-  
-  n_planned <- nrow(plan_table)
-  if( length(electrodes) > 0 ) {
-    if(length(electrodes) != n_planned ) {
-      stop(sprintf("The electrode planned (n=%d, for localization) has inconsistent length with registered channel size (n=%d) from the signal pipelines.", n_planned, length(electrodes)))
-    }
-    
-    plan_table$Electrode <- electrodes
-  }
-  
-  # Load existing electrodes_unsaved.csv or electrodes.csv, generate plan table
-  files <- file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv"))
-  files <- files[file.exists(files)]
-  
-  try({
-    if(length(files)) {
-      files <- files[[1]]
-      electrode_table <- raveio::safe_read_csv(files)
-      tname1 <- c("Electrode", "Coord_x", "Coord_y", "Coord_z")
-      tname2 <- c(
-        "Electrode", "Coord_x", "Coord_y", "Coord_z", "Radius", 
-        "MNI305_x", "MNI305_y", "MNI305_z", 
-        "FSIndex", "FSLabel", 
-        "FSLabel_aparc_a2009s_aseg", "FSLabel_aparc_aseg", 
-        "FSLabel_aparc_DKTatlas_aseg", "FSLabel_aseg", 
-        "OrigCoord_x", "OrigCoord_y", "OrigCoord_z", "SurfaceElectrode", 
-        "DistanceShifted", "DistanceToPial", 
-        "Sphere_x", "Sphere_y", "Sphere_z", "Interpolation"
-      )
-      if(all(tname1 %in% names(electrode_table))) {
-        tname2 <- tname2[tname2 %in% names(electrode_table)]
-        electrode_table <- electrode_table[, tname2]
-        
-        # check if there are electrodes missing
-        missing_electrodes <- as.integer(electrode_table$Electrode)
-        missing_electrodes <- missing_electrodes[!missing_electrodes %in% as.integer(plan_table$Electrode)]
-        
-        if(length(missing_electrodes)) {
-          stop("Detected channel ", dipsaus::deparse_svec(missing_electrodes), 
-               " from RAVE data. Please include them in the electrode plan.")
-        }
-        plan_table <- merge(electrode_table, plan_table, by = "Electrode", all.y = TRUE)
-      }
-    }
-  }, silent = TRUE)
-  
-  # "Coord_x", "Coord_y", "Coord_z", 
-  # "MNI305_x", "MNI305_y", "MNI305_z", 
-  # "Sphere_x", "Sphere_y", "Sphere_z"
-  # "OrigCoord_x", "OrigCoord_y", "OrigCoord_z", 
-  # "DistanceShifted", "DistanceToPial", 
-  
-  plan_table$Coord_x %?<-% 0
-  plan_table$Coord_y %?<-% 0
-  plan_table$Coord_z %?<-% 0
-  
-  plan_table$Interpolation %?<-% "default"
-  plan_table$Prototype %?<-% ""
-  
-  plan_table$MNI305_x %?<-% 0
-  plan_table$MNI305_y %?<-% 0
-  plan_table$MNI305_z %?<-% 0
-  
-  plan_table$Sphere_x %?<-% 0
-  plan_table$Sphere_y %?<-% 0
-  plan_table$Sphere_z %?<-% 0
-  
-  plan_table$OrigCoord_x %?<-% plan_table$Coord_x
-  plan_table$OrigCoord_y %?<-% plan_table$Coord_y
-  plan_table$OrigCoord_z %?<-% plan_table$Coord_z
-  
-  # make sure no NA is in Coord_xyz
-  has_NA <- is.na(plan_table$Coord_x) | is.na(plan_table$Coord_y) | is.na(plan_table$Coord_z)
-  if(any(has_NA)) {
-    plan_table$Coord_x[has_NA] <- 0
-    plan_table$Coord_y[has_NA] <- 0
-    plan_table$Coord_z[has_NA] <- 0
-  }
-  
-  has_NA_MNI <- has_NA | is.na(plan_table$MNI305_x) | is.na(plan_table$MNI305_y) | is.na(plan_table$MNI305_z)
-  if(any(has_NA_MNI)) {
-    plan_table$MNI305_x[has_NA_MNI] <- 0
-    plan_table$MNI305_y[has_NA_MNI] <- 0
-    plan_table$MNI305_z[has_NA_MNI] <- 0
-  }
-  
-  has_NA_sphere <- has_NA | is.na(plan_table$Sphere_x) | is.na(plan_table$Sphere_y) | is.na(plan_table$Sphere_z)
-  if(any(has_NA_sphere)) {
-    plan_table$Sphere_x[has_NA_sphere] <- 0
-    plan_table$Sphere_y[has_NA_sphere] <- 0
-    plan_table$Sphere_z[has_NA_sphere] <- 0
-    
-    plan_table$OrigCoord_x[has_NA_sphere] <- 0
-    plan_table$OrigCoord_y[has_NA_sphere] <- 0
-    plan_table$OrigCoord_z[has_NA_sphere] <- 0
-    
-    plan_table$DistanceShifted[has_NA_sphere] <- 0
-    plan_table$DistanceToPial[has_NA_sphere] <- 0
-  }
-  
-  # "Radius", 
-  default_radius <- local({
-    is_grid <- grepl("^(G$|Grid)", plan_table$LabelPrefix)
-    is_mini <- grepl("mini$", plan_table$LabelPrefix)
-    r <- rep(1, nrow(plan_table))
-    r[is_grid] <- 2
-    r[is_mini] <- 0.5
-    r
-  })
-  
-  plan_table$Radius %?<-% default_radius
-  has_NA <- is.na(plan_table$Radius) | !is.numeric(plan_table$Radius)
-  if(any(has_NA)) {
-    plan_table$Radius[has_NA] <- default_radius[has_NA]
-  }
-  
-  
-  # "SurfaceElectrode", 
-  is_surface <- plan_table$LocationType %in% c("ECoG")
-  plan_table$SurfaceElectrode %?<-% is_surface
-  has_NA <- is.na(plan_table$SurfaceElectrode)
-  if( any(has_NA) ) {
-    plan_table$SurfaceElectrode[has_NA] <- is_surface[has_NA]
-  }
-  
-  plan_table$SurfaceType %?<-% "pial"
-  has_NA <- is.na(plan_table$SurfaceType)
-  if( any(has_NA) ) {
-    plan_table$SurfaceType[has_NA] <- "pial"
-  }
-  
-  # "FSIndex", "FSLabel", 
-  # "FSLabel_aparc_a2009s_aseg", "FSLabel_aparc_aseg",
-  # "FSLabel_aparc_DKTatlas_aseg", "FSLabel_aseg",
-  plan_table$FSIndex %?<-% 0
-  plan_table$FSLabel %?<-% "Unknown"
-  has_NA <- is.na(plan_table$FSIndex) | is.na(plan_table$FSLabel)
-  if( any(has_NA) ) {
-    plan_table$FSIndex[has_NA] <- 0L
-    plan_table$FSLabel[has_NA] <- "Unknown"
-  }
-  
-  etypes <- subject$preprocess_settings$electrode_types
-  if(!length(etypes)) {
-    etypes <- ifelse(is.na(plan_table$LocationType) | plan_table$LocationType %in% c("EEG", "Others"), "Unknown", "LFP")
-  }
-  plan_table$SignalType <- etypes
-  
-  plan_list <- split(plan_table, plan_table$LabelPrefix)
-  
-  # save to "electrodes_unsaved.csv"
-  raveio::dir_create2(subject$meta_path)
-  utils::write.csv(
-    plan_table,
-    file = file.path(subject$meta_path, "electrodes_unsaved.csv"),
-    row.names = FALSE
-  )
-}
+plan_list <- make_localization_plan_list(subject = subject, localization_plan = localization_plan, write_table = TRUE)
 ```
+
+For surface electrodes, we ensure that pial-envelope `pial-outer-smoothed` surface is available
 
 ```{rave check_load_pial_envelop, language = "R", export = "pial_envelope", cue = "always"}
-
-pial_envelope <- 0
-tryCatch({
-  fs_path <- subject$freesurfer_path
-  if(!is.na(fs_path) && length(fs_path) == 1 && file.exists(fs_path)) {
-    
-    # check if pial-outer-smoothed exist
-    lh_envelope_path <- file.path(fs_path, "surf", "lh.pial-outer-smoothed")
-    rh_envelope_path <- file.path(fs_path, "surf", "rh.pial-outer-smoothed")
-    
-    lh_pial_path <- file.path(fs_path, "surf", "lh.pial.T1")
-    rh_pial_path <- file.path(fs_path, "surf", "rh.pial.T1")
-    
-    if(!file.exists(lh_envelope_path) || !file.exists(rh_envelope_path)) {
-      
-      if(!file.exists(lh_pial_path)) { lh_pial_path <- file.path(fs_path, "surf", "lh.pial") }
-      if(!file.exists(rh_pial_path)) { rh_pial_path <- file.path(fs_path, "surf", "rh.pial") }
-      
-      if( file.exists(lh_pial_path) ) {
-        threeBrain::generate_smooth_envelope(
-          surface_path = lh_pial_path,
-          save_as = lh_envelope_path, inflate = 3, 
-          verbose = TRUE, save_format = "bin")
-        pial_envelope <- 1
-      }
-      if( file.exists(rh_pial_path) ) {
-        threeBrain::generate_smooth_envelope(
-          surface_path = rh_pial_path,
-          save_as = rh_envelope_path, inflate = 3, 
-          verbose = TRUE, save_format = "bin")
-        pial_envelope <- pial_envelope + 1
-      }
-      
-    } else {
-      pial_envelope <- 2
-    }
-    
-  }
-}, error = function(e) { warning(e) })
-
+pial_envelope <- ensure_pial_envelope(subject = subject)
 ```
+
+Now load the brain with prototypes, such that when the viewer is generated, all the electrode geometry prototypes are available 
 
 ```{rave load_brain_and_generate_pial_envelope, language = "R", export = "brain", cue = "always"}
+# make sure the pial envelope runs before loading the brain
 force(pial_envelope)
-brain <- tryCatch({
-  threeBrain::threeBrain(path = subject$freesurfer_path, 
-                         subject_code = subject$subject_code)
-}, error = function(e) {
-  threeBrain::freesurfer_brain2(
-    fs_subject_folder = subject$freesurfer_path,
-    subject_name = subject$subject_code, 
-    use_141 = FALSE
-  )
-})
-geom_def_path <- file.path(subject$meta_path, "geometry_unsaved.json")
-geom_defs <- list()
-if(file.exists(geom_def_path)) {
-  tryCatch({
-    geom_defs <- raveio::load_json(geom_def_path)
-  }, error = function(e) {})
-}
-
-if(!is.null(brain)) {
-  # Add electrode geometry prototypes
-  lapply(plan_list, function(sub) {
-    if(is.data.frame(sub) && nrow(sub)) {
-      proto <- brain$electrodes$add_geometry(
-        label_prefix = sub$LabelPrefix[[1]], 
-        prototype_name = sub$Prototype[[1]]
-      )
-      if(!is.null(proto)) {
-        unsaved_def <- geom_defs[[ proto$name ]]
-        if(length(unsaved_def) == 1 && is.character(unsaved_def)) {
-          proto$from_json( unsaved_def )
-        }
-        # set channel mapping
-        proto$set_contact_channels(sub$Electrode, sub$ContactOrder)
-      }
-    }
-  })
-}
-brain
+brain <- load_brain_with_electrode_prototypes(subject = subject, plan_list = plan_list)
 ```
 
+Collect localization data 
 
 ```{rave Loading_brain_and_CT_if_exists, language = "R", export = "localize_data", cue = "always"}
-force(subject)
-
-resolve_path <- function(path) {
-  if(length(path) != 1) {
-    stop("Cannot resolve path: ", paste(format(path), collapse = "\n"))
-  }
-  if(startsWith(path, "{")) {
-    s <- strsplit(path, "/|\\\\")[[1]]
-    s[[1]] <- raveio::glue(s[[1]])
-    s <- do.call(file.path, as.list(s))
-    path <- normalizePath(s, mustWork = TRUE)
-  } else {
-    path <- normalizePath(path, mustWork = TRUE)
-  }
-  path
-}
-
-has_ct <- FALSE
-ct_path <- character(0L)
-mri_path <- character(0L)
-mri_data <- NULL
-transform_matrix <- NULL
-if(length(path_ct)) {
-  ct_path <- resolve_path(path_ct)
-  has_ct <- TRUE
-  subject$set_default("path_ct", path_ct, namespace = "electrode_localization")
-  ct_header <- threeBrain:::read_nii2(ct_path, head_only = TRUE)
-  
-  # check if method is MRI
-  transform_space <- tolower(transform_space)
-  if(transform_space %in% c("fsl")) {
-    mri_path <- resolve_path(path_mri)
-    mri_data <- threeBrain:::read_nii2(mri_path, head_only = TRUE)
-  }
-  subject$set_default("path_mri", path_mri, namespace = "electrode_localization")
-  
-  if(transform_space %in% c("fsl", "ijk2ras")) {  
-    transform_matrix <- as.matrix(read.table(resolve_path(path_transform)))
-    dimnames(transform_matrix) <- NULL
-    
-    if(length(transform_matrix) != 16L || !is.numeric(transform_matrix)) {
-      stop("Invalid transform matrix. Must be a 4x4 matrix.")
-    }
-    subject$set_default("path_transform", path_transform, namespace = "electrode_localization")
-  } else {
-    transform_space <- "resampled"
-  }
-  
-} else {
-  subject$set_default("path_ct", NULL, namespace = "electrode_localization")
-  ct_header <- NULL
-  transform_space <- "no_ct"
-}
-
-subject$set_default("transform_space", transform_space, namespace = "electrode_localization")
-
-localize_data <- list(
-  transform_space = transform_space,
-  ct_header = ct_header,
-  ct_path = ct_path,
-  mri_path = mri_path,
-  mri_data = mri_data,
-  transform_matrix = transform_matrix
+localize_data <- collect_localization_data(
+  subject = subject,
+  path_mri = path_mri,
+  path_ct = path_ct,
+  path_transform = path_transform,
+  transform_space = transform_space
 )
 ```
 
 ```{rave generate_indicator, language = "R", export = "ct_exists", cue = "always"}
 ct_exists <- isTRUE(!is.null(localize_data$ct_header) && is.list(localize_data$ct_header))
 ```
+
+Using the localization data to calculate the transform from CT to MR image and generate the 3D viewer.
 
 ```{rave generate_localization_viewer, language = "R", export = "viewer", cue = "always"}
 force(ct_exists)
@@ -467,298 +124,170 @@ viewer <- brain$localize(
 )
 ```
 
+# Stage and save the localization
+
+Temporarily save (stage) the localization to avoid data loss.
 
 ```{rave merge_localization_list, export = "localization_result_initial"}
-localization_result_initial <- NULL
-
-prototype_list <- dipsaus::fastmap2()
-
-re <- lapply(localization_list, function(item) {
-  
-  if(!is.data.frame(item) || !nrow(item)) {
-    return()
-  }
-  prototype_def <- attr(item, "prototype")
-  prototype <- NULL
-  prototype_name <- ""
-  label_prefix <- item$LabelPrefix[[1]]
-  if(!is.null(prototype_def)) {
-    if(!length(item$Prototype) && length(prototype_def$type)) {
-      # when saved in pipeline, the prototype name is prototype's name
-      # itself, without postfix `_labelprefix`
-      item$Prototype <- prototype_def$type
-    }
-    prototype <- brain$electrodes$add_geometry(
-      label_prefix = label_prefix, 
-      prototype_name = item$Prototype[[1]]
-    )
-    prototype_name <- prototype$name
-    prototype_def$name <- prototype$name
-    prototype$from_list(prototype_def)
-    if(length(item$ContactOrder)) {
-      prototype$set_contact_channels(item$Electrode, item$ContactOrder)
-    }
-    prototype_list[[ prototype_name ]] <- prototype$as_json(flattern = TRUE)
-  } else {
-    item$Prototype %?<-% ""
-  }
-  
-  item$FSIndex %?<-% 0
-  item$FSLabel %?<-% "Unknown"
-  item$FSLabel_aparc_a2009s_aseg %?<-% "Unknown"
-  item$FSLabel_aparc_aseg %?<-% "Unknown"
-  item$FSLabel_aparc_DKTatlas_aseg %?<-% "Unknown"
-  item$FSLabel_aseg %?<-% "Unknown"
-  item$Radius %?<-% 1
-  item$Sphere_x %?<-% 0
-  item$Sphere_y %?<-% 0
-  item$Sphere_z %?<-% 0
-  item$DistanceShifted %?<-% NA
-  item$DistanceToPial %?<-% NA
-  item$SurfaceElectrode %?<-% FALSE
-  item$Interpolation %?<-% "default"
-  
-  # check if the geometry exists
-  # proto_dir <- file.path(brain$base_path, "RAVE", "geometry")
-  if(!is.null(prototype)) {
-    # In the final step we save to subject folder
-    # prototype$as_json( file.path(proto_dir, sprintf("%s.json", prototype$name)) )
-    # get contact center positions
-    
-    contact_tkrras <- t(prototype$get_contact_positions(
-      channels = item$Electrode, apply_transform = TRUE))
-    # contact_vox <- solve(brain$Torig) %*% rbind(contact_tkrras, 1)
-    # contact_t1ras <- brain$Norig %*% contact_vox
-    # contact_mni305 <- brain$xfm %*% contact_t1ras
-    # contact_mni152 <- raveio::MNI305_to_MNI152 %*% contact_mni305
-    
-    contact_tkrras[is.na(contact_tkrras)] <- 0
-    # contact_vox[is.na(contact_vox)] <- 0
-    # contact_t1ras[is.na(contact_t1ras)] <- 0
-    # contact_mni305[is.na(contact_mni305)] <- 0
-    # contact_mni152[is.na(contact_mni152)] <- 0
-    
-    item$Coord_x <- contact_tkrras[1,]
-    item$Coord_y <- contact_tkrras[2,]
-    item$Coord_z <- contact_tkrras[3,]
-    
-    item$OrigCoord_x <- contact_tkrras[1,]
-    item$OrigCoord_y <- contact_tkrras[2,]
-    item$OrigCoord_z <- contact_tkrras[3,]
-    
-    # item$MNI305_x <- contact_mni305[1, ]
-    # item$MNI305_y <- contact_mni305[2, ]
-    # item$MNI305_z <- contact_mni305[3, ]
-    
-  }
-  
-  item$OrigCoord_x %?<-% item$Coord_x
-  item$OrigCoord_y %?<-% item$Coord_y
-  item$OrigCoord_z %?<-% item$Coord_z
-  
-  
-  tbl <- data.frame(
-    Electrode = item$Electrode,
-    Coord_x = item$Coord_x, Coord_y = item$Coord_y, Coord_z = item$Coord_z,
-    Label = item$Label, LabelPrefix = item$LabelPrefix,
-    Prototype = item$Prototype,
-    ContactOrder = item$ContactOrder,
-    Dimension = item$Dimension, 
-    Interpolation = item$Interpolation,
-    LocationType = item$LocationType, Radius = item$Radius, 
-    Hemisphere = item$Hemisphere,
-    MNI305_x = item$MNI305_x, MNI305_y = item$MNI305_y, MNI305_z = item$MNI305_z,
-    FSIndex = item$FSIndex, 
-    FSLabel = item$FSLabel,
-    FSLabel_aparc_a2009s_aseg = item$FSLabel_aparc_a2009s_aseg,
-    FSLabel_aparc_aseg = item$FSLabel_aparc_aseg,
-    FSLabel_aparc_DKTatlas_aseg = item$FSLabel_aparc_DKTatlas_aseg,
-    FSLabel_aseg = item$FSLabel_aseg,
-    
-    OrigCoord_x = item$OrigCoord_x, 
-    OrigCoord_y = item$OrigCoord_y, 
-    OrigCoord_z = item$OrigCoord_z,
-    
-    SurfaceElectrode = item$SurfaceElectrode, 
-    DistanceShifted = item$DistanceShifted, 
-    DistanceToPial = item$DistanceToPial,
-    SurfaceType = "pial",
-    VertexNumber = -1,
-    
-    Sphere_x = item$Sphere_x, 
-    Sphere_y = item$Sphere_y, 
-    Sphere_z = item$Sphere_z
-  )
-  if(!nrow(tbl)) { return(NULL) }
-  tbl
-})
-re <- do.call("rbind", drop_nulls(re))
-
-if(length(re) && nrow(re)) {
-  rownames(re) <- NULL
-  re <- re[order(re$Electrode), ]
-  
-  # Calculate T1, MNI152
-  empty_sel <- (re$Coord_x)^2 + (re$Coord_y)^2 + (re$Coord_z)^2
-  empty_sel <- is.na(empty_sel) | empty_sel == 0
-  tkrRAS <- rbind(re$Coord_x, re$Coord_y, re$Coord_z, 1)
-  mr_voxel <- solve(brain$Torig) %*% tkrRAS
-  t1 <- brain$Norig %*% mr_voxel
-  mni305 <- brain$xfm %*% brain$Norig %*% solve(brain$Torig) %*% tkrRAS
-  mni152 <- raveio:::MNI305_to_MNI152 %*% mni305
-  
-  mni305[, empty_sel] <- 0
-  mni152[, empty_sel] <- 0
-  t1[, empty_sel] <- 0
-  mr_voxel[, empty_sel] <- 0
-  
-  re$MNI305_x <- mni305[1, ]
-  re$MNI305_y <- mni305[2, ]
-  re$MNI305_z <- mni305[3, ]
-  re$T1R <- t1[1, ]
-  re$T1A <- t1[2, ]
-  re$T1S <- t1[3, ]
-  re$MNI152_x <- mni152[1, ]
-  re$MNI152_y <- mni152[2, ]
-  re$MNI152_z <- mni152[3, ]
-  re$MRVoxel_I <- round(mr_voxel[1, ])
-  re$MRVoxel_J <- round(mr_voxel[2, ])
-  re$MRVoxel_K <- round(mr_voxel[3, ])
-  
-  # save to electrodes_unsaved.csv
-  raveio::dir_create2(subject$meta_path)
-  utils::write.csv(
-    x = re,
-    file.path(subject$meta_path, "electrodes_unsaved.csv"),
-    row.names = FALSE
-  )
-  
-  # save to "geometry_unsaved.json"
-  prototype_list <- as.list(prototype_list)
-  raveio::save_json(
-    x = prototype_list,
-    con = file.path(subject$meta_path, "geometry_unsaved.json"),
-    serialize = TRUE
-  )
-  
-  localization_result_initial <- list(
-    electrode_table = re,
-    prototype_list = prototype_list
-  )
-}
+localization_result_initial <- stage_localization(
+  subject = subject, brain = brain, 
+  localization_list = localization_list
+)
 ```
 
-Make sure you run target `localization_result_initial` first
+Generate the final electrode table, rename the `electrodes__unsaved.csv` to `electrodes.csv`, which is recognized by RAVE.
+
+To make the pipeline simpler, `localization_result_final` does not call `localization_result_initial`, but you should always evaluate `localization_result_initial` first.
 
 ```{rave get_finalized_table, export = "localization_result_final", cue="always"}
-localization_result_final <- list()
-src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
-prot <- file.path(subject$meta_path, "geometry_unsaved.json")
-if(file.exists(prot)) {
-  proto_defs <- raveio::load_json(prot)
-  localization_result_final$prototype_definitions <- proto_defs
+# Make sure you stage the localization first so that
+# electrodes__unsaved.csv and corresponding electrode geometry prototypes
+# are saved
+force(localization_result_initial)
+localization_result_final <- save_localization(
+  subject = subject,
+  brain = brain,
+  localize_data = localize_data
+)
+```
+
+# Post-processing
+
+Make sure the electrodes are saved (run `localization_result_final`) first
+
+### Post-processing using `ANTs`
+
+Calculate non-linear MNI coordinates. This optional target requires `Python` for RAVE be configured via `ravemanager::configure_python()`, and run `raveio::cmd_run_yael_preprocess(...)` first. To calculate non-linear mapping from T1 to MNI templates, run the following command or choose `YAEL+recon-all` in imaging preprocessing module.
+
+``` r
+raveio::cmd_run_yael_preprocess(
+  subject_code,
+  t1w_path = path_mri,
+  normalize_template = "mni_icbm152_nlin_asym_09b",
+  run_recon_all = FALSE,
+  verbose = TRUE
+)
+```
+
+```{rave postprocess_using_ANTs, export = "postprocess_ants", cue = "always"}
+# YAEL post process
+electrode_table <- subject$get_electrode_table()
+
+is_debug <- getOption("raveio.debug", FALSE)
+
+if(!is.data.frame(electrode_table)) {
+  stop("Invalid electrode table. Please save the electrode localization results first.")
+}
+
+if(!rpyANTs::ants_available()) {
+  stop("ANTs is not configured for RAVE. Python environment must be configured through `ravemanager::configure_python()` first.")
+}
+
+if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
+  brain <- raveio::rave_brain(subject)
+  if(is.null(brain)) {
+    stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
+  }
   
-  if(length(proto_defs)) {
-    geometry_dir <- raveio::dir_create2(file.path(subject$freesurfer_path, "RAVE", "geometry"))
-    # save to brain
-    for(nm in names(proto_defs)) {
-      target <- file.path(geometry_dir, sprintf("%s.json", nm))
-      writeLines(proto_defs[[nm]], target)
+  tkr_ras <- as.matrix(electrode_table[, c("Coord_x", "Coord_y", "Coord_z")])
+  t1_ras <- brain$electrodes$apply_transform_points(
+    positions = tkr_ras,
+    from = "tkrRAS", to = "scannerRAS"
+  )
+  valids <- rowSums(tkr_ras ^ 2) > 0  
+} else {
+  t1_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
+  valids <- rowSums(t1_ras ^ 2) > 0  
+}
+
+
+
+if(any(valids)) {
+  yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+  # get template mapping
+  mapping <- NULL
+  mni152 <- NULL
+  template_name <- NULL
+  for(template_name in c(
+    "mni_icbm152_nlin_asym_09b",
+    "mni_icbm152_nlin_asym_09a",
+    "mni_icbm152_nlin_asym_09c"
+  )) {
+    mapping <- yael_process$get_template_mapping(template_name = template_name)
+    if(!is.null(mapping)) {
+      break
     }
   }
   
-}
-if(file.exists(src)) {
-  localization_result_final$electrode_table <- utils::read.csv(src)
-  
-  try({
-    if( isTRUE(localize_data$transform_space %in% c('fsl', 'ijk2ras', 'resampled')) ) {
-      electrode_table <- localization_result_final$electrode_table
-      scan_ras <- rbind(electrode_table$T1R, electrode_table$T1A, electrode_table$T1S, 1)
-      
-      switch(
-        localize_data$transform_space,
-        'fsl' = {
-          ct_ijk2fsl <- localize_data$ct_header$get_IJK_to_FSL()
-          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
-          mr_ijk2fsl <- localize_data$mri_data$get_IJK_to_FSL()
-          mr_ijk2ras <- localize_data$mri_data$get_IJK_to_RAS()$matrix
-          
-          # CT vox -> CT fsl -> MR fsl -> MR vox -> MR ras
-          ct_ijk_to_mr_ras <- mr_ijk2ras %*% solve(mr_ijk2fsl) %*% localize_data$transform_matrix %*% ct_ijk2fsl
-          ct_ijk <- solve(ct_ijk_to_mr_ras) %*% scan_ras
-          ct_ras <- ct_ijk2ras %*% ct_ijk
-        },
-        'ijk2ras' = {
-          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
-          ct_ijk2mr_ras <- localize_data$transform_matrix
-          ct_ijk <- solve(ct_ijk2mr_ras) %*% scan_ras
-          ct_ras <- ct_ijk2ras %*% ct_ijk
-        },
-        {
-          ct_ijk2ras <- localize_data$ct_header$get_IJK_to_RAS()$matrix
-          ct_ijk <- solve(ct_ijk2ras) %*% scan_ras
-          ct_ras <- scan_ras
-        }
-      )
-      
-      localization_result_final$ct_table <- data.frame(
-        Electrode = electrode_table$Electrode,
-        CTVoxel_I = ct_ijk[1, ],
-        CTVoxel_J = ct_ijk[2, ],
-        CTVoxel_K = ct_ijk[3, ],
-        CT_R = ct_ras[1, ],
-        CT_A = ct_ras[2, ],
-        CT_S = ct_ras[3, ]
-      )
+  if(is.null(mapping)) {
+    if( !is_debug ) {
+      stop("Unable to find any non-linear mapping files. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
     }
-  })
+  } else {
+    mni152 <- yael_process$transform_points_to_template(
+      native_ras = t1_ras, template_name = template_name
+    )
+    mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
+    mni152[!valids, ] <- 0
+    mni305[!valids, ] <- 0
+    electrode_table$MNI305_x <- mni305[, 1]
+    electrode_table$MNI305_y <- mni305[, 2]
+    electrode_table$MNI305_z <- mni305[, 3]
   
-  # YAEL post process
-  try({
-    electrode_table <- localization_result_final$electrode_table
-    if(
-      nrow(electrode_table) > 1 &&
-      all(c("T1R", "T1A", "T1S") %in% names(electrode_table)) &&
-      rpyANTs::ants_available()
-    ) {
-      t1_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
-      valids <- rowSums(t1_ras^2) > 0
-      if(any(valids)) {
-        mni152 <- NULL
-        yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
-        for(template_name in c(
-          "mni_icbm152_nlin_asym_09b",
-          "mni_icbm152_nlin_asym_09a",
-          "mni_icbm152_nlin_asym_09c"
-        )) {
-          mapping <- yael_process$get_template_mapping(template_name = template_name)
-          if(!is.null(mapping)) {
-            mni152 <- yael_process$transform_points_to_template(
-              native_ras = t1_ras, template_name = template_name
-            )
-            mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
-            mni152[!valids, ] <- 0
-            mni305[!valids, ] <- 0
-            electrode_table$MNI305_x <- mni305[, 1]
-            electrode_table$MNI305_y <- mni305[, 2]
-            electrode_table$MNI305_z <- mni305[, 3]
-            
-            electrode_table$MNI152_x <- mni152[, 1]
-            electrode_table$MNI152_y <- mni152[, 2]
-            electrode_table$MNI152_z <- mni152[, 3]
-            localization_result_final$electrode_table <- electrode_table
-            break
-          }
-        }
-        
-      }
-    }
-  })
+    electrode_table$MNI152_x <- mni152[, 1]
+    electrode_table$MNI152_y <- mni152[, 2]
+    electrode_table$MNI152_z <- mni152[, 3]
+  }
 }
+
+postprocess_ants <- electrode_table[, c(
+  "Electrode", 
+  "T1R", "T1A", "T1S", 
+  "MNI152_x", "MNI152_y", "MNI152_z", 
+  "MNI305_x", "MNI305_y", "MNI305_z"
+)]
 ```
 
 
+### Post-processing by calculating the template mapping via surface registration
+
+```{rave postprocess_surface_mapping, export = "postprocess_surface_mapping", cue="always"}
+electrode_table <- subject$get_electrode_table()
+
+if(!is.data.frame(electrode_table)) {
+  stop("Invalid electrode table. Please save the electrode localization results first.")
+}
+
+if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
+  brain <- raveio::rave_brain(subject)
+  if(is.null(brain)) {
+    stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
+  }
+  
+  tkr_ras <- as.matrix(electrode_table[, c("Coord_x", "Coord_y", "Coord_z")])
+  t1_ras <- brain$electrodes$apply_transform_points(
+    positions = tkr_ras,
+    from = "tkrRAS", to = "scannerRAS"
+  )
+  valids <- rowSums(tkr_ras ^ 2) > 0  
+} else {
+  t1_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
+  valids <- rowSums(t1_ras ^ 2) > 0  
+}
+
+surface_mapping <- raveio::transform_point_to_template(
+  subject = subject,
+  positions = t1_ras,
+  space = "scannerRAS",
+  mapping_method = "surface",
+  flip_hemisphere = FALSE,
+  verbose = TRUE,
+  project_surface = postprocess_surface_target
+)
+surface_mapping[!valids, ] <- 0
+surface_mapping$Electrode <- electrode_table$Electrode
+postprocess_surface_mapping <- surface_mapping
+```
 
 ## Build, Visualize, & Run
 
@@ -773,7 +302,7 @@ Once the pipeline script `make-electrode_localization.R` is built, you can visua
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
 

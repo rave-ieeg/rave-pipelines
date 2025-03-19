@@ -3,7 +3,7 @@ library(ravedash)
 
 # Stores global variables. These are required
 module_id <- "wavelet_module"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "wavelet_module",
   settings_file = "settings.yaml",
   paths = "./modules"

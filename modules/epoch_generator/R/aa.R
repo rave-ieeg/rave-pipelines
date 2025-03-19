@@ -3,7 +3,7 @@ library(ravedash)
 
 # Stores global variables. These are required
 module_id <- "epoch_generator"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "epoch_generator",
   paths = "./modules"
 )

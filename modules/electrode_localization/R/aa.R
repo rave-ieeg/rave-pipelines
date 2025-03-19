@@ -2,7 +2,7 @@ library(ravedash)
 # global variables for the module
 
 # Stores global variables. These are required
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "electrode_localization",
   paths = "./modules"
 )

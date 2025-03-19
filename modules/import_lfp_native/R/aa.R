@@ -23,7 +23,7 @@ if(exists('debug') && isTRUE(get('debug'))){
   ravedash::logger_threshold("info", module_id = module_id)
 }
 
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = pipeline_name,
   settings_file = pipeline_settings_file,
   paths = "./modules"

@@ -10,7 +10,7 @@ editor_options:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("surface_reconstruction")
+ravepipeline::pipeline_setup_rmd("surface_reconstruction")
 ```
 
 ```{rave check_commandline_tools, language = "R", export = "cmd_tools", cue = "always"}
@@ -24,7 +24,7 @@ dcm2niix <- tryCatch({
   if(!path_is_valid(dcm2niix)) {
     dcm2niix <- NULL 
   } else if (!identical(default_dcm2niix_path, dcm2niix)) {
-    raveio::raveio_setopt("dcm2niix_path", dcm2niix)
+    ravepipeline::raveio_setopt("dcm2niix_path", dcm2niix)
   }
   dcm2niix
 }, error = function(e){ NULL })
@@ -39,7 +39,7 @@ freesurfer <- tryCatch({
   if(!path_is_valid(freesurfer, dir_ok = TRUE)) {
     freesurfer <- NULL 
   } else if(!identical(default_fs_path, freesurfer)) {
-    raveio::raveio_setopt("freesurfer_path", freesurfer)
+    ravepipeline::raveio_setopt("freesurfer_path", freesurfer)
   }
   freesurfer
 }, error = function(e){ NULL })
@@ -55,7 +55,7 @@ flirt <- tryCatch({
   flirt <- NULL
   if(path_is_valid(fsl, dir_ok = TRUE)) {
     if(!identical(default_fsl_path, fsl)) {
-      raveio::raveio_setopt('fsl_path', fsl)
+      ravepipeline::raveio_setopt('fsl_path', fsl)
     }
     flirt <- file.path(fsl, "bin", "flirt")
   }
@@ -71,7 +71,7 @@ afni <- tryCatch({
   )
   if(path_is_valid(afni, dir_ok = TRUE)) {
     if(!identical(default_afni_path, afni)) {
-      raveio::raveio_setopt('afni_path', afni)
+      ravepipeline::raveio_setopt('afni_path', afni)
     }
   } else {
     afni
@@ -351,7 +351,7 @@ image_segmentation <- tryCatch({
             image_path = mri_src,
             resample = TRUE,
             verbose = TRUE,
-            template_subject = .(raveio::raveio_getopt("threeBrain_template_subject"))
+            template_subject = .(ravepipeline::raveio_getopt("threeBrain_template_subject"))
           )
           
           # Backup, also used by coreg
@@ -709,7 +709,7 @@ Once the pipeline script `make-surface_reconstruction.R` is built, you can visua
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
 

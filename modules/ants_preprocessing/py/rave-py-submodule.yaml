@@ -1,5 +1,0 @@
-name: ants_preprocessing
-dependencies:
-- pip:
-  - antspyx
-  - antspynet

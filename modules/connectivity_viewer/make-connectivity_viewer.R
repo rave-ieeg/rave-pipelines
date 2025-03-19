@@ -1,5 +1,5 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
 ._._env_._.$pipeline <- pipeline_from_path(".")
@@ -84,10 +84,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(template_details)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "template_details", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "template_details", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "template_details", target_expr = quote({
                 {
                   template_details <- list(selected_template = selected_template, 

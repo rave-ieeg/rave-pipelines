@@ -1,5 +1,5 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
 ._._env_._.$pipeline <- pipeline_from_path(".")
@@ -17,74 +17,89 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_controllers = targets::tar_target_raw("controllers", 
-        quote({
-            settings[["controllers"]]
-        }), deps = "settings"), input_data_source = targets::tar_target_raw("data_source", 
-        quote({
-            settings[["data_source"]]
-        }), deps = "settings"), input_data_source_pipeline = targets::tar_target_raw("data_source_pipeline", 
-        quote({
-            settings[["data_source_pipeline"]]
-        }), deps = "settings"), input_data_source_pipeline_target = targets::tar_target_raw("data_source_pipeline_target", 
-        quote({
-            settings[["data_source_pipeline_target"]]
-        }), deps = "settings"), input_data_source_project = targets::tar_target_raw("data_source_project", 
-        quote({
-            settings[["data_source_project"]]
-        }), deps = "settings"), input_main_camera = targets::tar_target_raw("main_camera", 
-        quote({
-            settings[["main_camera"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
-        quote({
-            settings[["project_name"]]
-        }), deps = "settings"), input_shiny_outputId = targets::tar_target_raw("shiny_outputId", 
-        quote({
-            settings[["shiny_outputId"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
-        quote({
-            settings[["subject_code"]]
-        }), deps = "settings"), input_surface_types = targets::tar_target_raw("surface_types", 
-        quote({
-            settings[["surface_types"]]
-        }), deps = "settings"), input_use_template = targets::tar_target_raw("use_template", 
+    input_use_template = targets::tar_target_raw("use_template", 
         quote({
             settings[["use_template"]]
+        }), deps = "settings"), input_use_spheres = targets::tar_target_raw("use_spheres", 
+        quote({
+            settings[["use_spheres"]]
         }), deps = "settings"), input_uploaded_source = targets::tar_target_raw("uploaded_source", 
         quote({
             settings[["uploaded_source"]]
-        }), deps = "settings"), input_enable_cache = targets::tar_target_raw("enable_cache", 
+        }), deps = "settings"), input_surface_types = targets::tar_target_raw("surface_types", 
         quote({
-            settings[["enable_cache"]]
+            settings[["surface_types"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+        quote({
+            settings[["subject_code"]]
+        }), deps = "settings"), input_shiny_outputId = targets::tar_target_raw("shiny_outputId", 
+        quote({
+            settings[["shiny_outputId"]]
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
+        quote({
+            settings[["project_name"]]
+        }), deps = "settings"), input_override_radius = targets::tar_target_raw("override_radius", 
+        quote({
+            settings[["override_radius"]]
+        }), deps = "settings"), input_overlay_types = targets::tar_target_raw("overlay_types", 
+        quote({
+            settings[["overlay_types"]]
+        }), deps = "settings"), input_main_camera = targets::tar_target_raw("main_camera", 
+        quote({
+            settings[["main_camera"]]
+        }), deps = "settings"), input_data_source_project = targets::tar_target_raw("data_source_project", 
+        quote({
+            settings[["data_source_project"]]
+        }), deps = "settings"), input_data_source_pipeline_target = targets::tar_target_raw("data_source_pipeline_target", 
+        quote({
+            settings[["data_source_pipeline_target"]]
+        }), deps = "settings"), input_data_source_pipeline = targets::tar_target_raw("data_source_pipeline", 
+        quote({
+            settings[["data_source_pipeline"]]
+        }), deps = "settings"), input_data_source = targets::tar_target_raw("data_source", 
+        quote({
+            settings[["data_source"]]
+        }), deps = "settings"), input_controllers = targets::tar_target_raw("controllers", 
+        quote({
+            settings[["controllers"]]
+        }), deps = "settings"), input_annot_types = targets::tar_target_raw("annot_types", 
+        quote({
+            settings[["annot_types"]]
         }), deps = "settings"), get_valid_project_name = targets::tar_target_raw(name = "loaded_brain", 
         command = quote({
             .__target_expr__. <- quote({
                 loaded_brain <- load_brain_from_subject_code(subject_code = subject_code, 
-                  project_name = project_name, surface_types = surface_types, 
+                  project_name = project_name, overlay_types = overlay_types, 
+                  surface_types = surface_types, annot_types = annot_types, 
+                  use_spheres = use_spheres, override_radius = override_radius, 
                   use_template = use_template)
             })
             tryCatch({
                 eval(.__target_expr__.)
                 return(loaded_brain)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "loaded_brain", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "loaded_brain", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "loaded_brain", target_expr = quote({
                 {
                   loaded_brain <- load_brain_from_subject_code(subject_code = subject_code, 
-                    project_name = project_name, surface_types = surface_types, 
+                    project_name = project_name, overlay_types = overlay_types, 
+                    surface_types = surface_types, annot_types = annot_types, 
+                    use_spheres = use_spheres, override_radius = override_radius, 
                     use_template = use_template)
                 }
                 loaded_brain
             }), target_depends = c("subject_code", "project_name", 
-            "surface_types", "use_template")), deps = c("subject_code", 
-        "project_name", "surface_types", "use_template"), cue = targets::tar_cue("always"), 
-        pattern = NULL, iteration = "list"), render_initial_viewer = targets::tar_target_raw(name = "initial_brain_widget", 
+            "overlay_types", "surface_types", "annot_types", 
+            "use_spheres", "override_radius", "use_template")), 
+        deps = c("subject_code", "project_name", "overlay_types", 
+        "surface_types", "annot_types", "use_spheres", "override_radius", 
+        "use_template"), cue = targets::tar_cue("always"), pattern = NULL, 
+        iteration = "list"), render_initial_viewer = targets::tar_target_raw(name = "initial_brain_widget", 
         command = quote({
             .__target_expr__. <- quote({
-                library(dipsaus)
                 force(shiny_outputId)
                 controllers <- as.list(controllers)
                 main_camera <- as.list(main_camera)
@@ -121,13 +136,12 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(initial_brain_widget)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "initial_brain_widget", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "initial_brain_widget", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "initial_brain_widget", target_expr = quote({
                 {
-                  library(dipsaus)
                   force(shiny_outputId)
                   controllers <- as.list(controllers)
                   main_camera <- as.list(main_camera)
@@ -202,10 +216,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(path_datatable)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "path_datatable", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "path_datatable", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "path_datatable", target_expr = quote({
                 {
                   if (!length(data_source)) {
@@ -260,7 +274,7 @@ rm(._._env_._.)
                         as.data.table = TRUE)
                     }
                   }, `Saved pipelines/modules` = {
-                    var <- raveio::pipeline_read(var_names = attr(path_datatable, 
+                    var <- ravepipeline::pipeline_read(var_names = attr(path_datatable, 
                       "target"), pipe_dir = path_datatable, ifnotfound = NULL)
                     if (length(var)) {
                       try({
@@ -286,7 +300,7 @@ rm(._._env_._.)
                     loaded_datatable <- data.table::as.data.table(loaded_datatable)
                   }
                   if ("Subject" %in% nms) {
-                    template_subject <- raveio::raveio_getopt("threeBrain_template_subject", 
+                    template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", 
                       default = "N27")
                     if (!identical(loaded_brain$brain$subject_code, 
                       template_subject)) {
@@ -304,6 +318,7 @@ rm(._._env_._.)
                     }, simplify = FALSE, USE.NAMES = TRUE)
                     new_table <- lapply(split(loaded_datatable, 
                       fct), function(sub) {
+                      sub <- as.data.frame(sub)
                       if (nrow(sub) == 1) {
                         return(sub[, c(nms, "Electrode", "Time"), 
                           drop = FALSE])
@@ -354,10 +369,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(brain_with_data)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "brain_with_data", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "brain_with_data", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "brain_with_data", target_expr = quote({
                 {
                   loaded_datatable <- NULL
@@ -371,7 +386,7 @@ rm(._._env_._.)
                           as.data.table = TRUE)
                       }
                     }, `Saved pipelines/modules` = {
-                      var <- raveio::pipeline_read(var_names = attr(path_datatable, 
+                      var <- ravepipeline::pipeline_read(var_names = attr(path_datatable, 
                         "target"), pipe_dir = path_datatable, 
                         ifnotfound = NULL)
                       if (length(var)) {
@@ -399,7 +414,7 @@ rm(._._env_._.)
                       loaded_datatable <- data.table::as.data.table(loaded_datatable)
                     }
                     if ("Subject" %in% nms) {
-                      template_subject <- raveio::raveio_getopt("threeBrain_template_subject", 
+                      template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", 
                         default = "N27")
                       if (!identical(loaded_brain$brain$subject_code, 
                         template_subject)) {
@@ -417,6 +432,7 @@ rm(._._env_._.)
                       }, simplify = FALSE, USE.NAMES = TRUE)
                       new_table <- lapply(split(loaded_datatable, 
                         fct), function(sub) {
+                        sub <- as.data.frame(sub)
                         if (nrow(sub) == 1) {
                           return(sub[, c(nms, "Electrode", "Time"), 
                             drop = FALSE])
@@ -470,7 +486,6 @@ rm(._._env_._.)
         iteration = "list"), render_viewer = targets::tar_target_raw(name = "brain_widget", 
         command = quote({
             .__target_expr__. <- quote({
-                library(dipsaus)
                 force(shiny_outputId)
                 controllers <- as.list(controllers)
                 main_camera <- as.list(main_camera)
@@ -516,13 +531,12 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(brain_widget)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "brain_widget", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "brain_widget", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL, 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "brain_widget", target_expr = quote({
                 {
-                  library(dipsaus)
                   force(shiny_outputId)
                   controllers <- as.list(controllers)
                   main_camera <- as.list(main_camera)

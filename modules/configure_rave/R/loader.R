@@ -28,7 +28,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   shinyWidgets::searchInput(
                     inputId = ns("raw_data_dir"),
                     label = "Raw data directory",
-                    value = raveio::raveio_getopt("raw_data_dir", default = ""),
+                    value = ravepipeline::raveio_getopt("raw_data_dir", default = ""),
                     placeholder = "Root folder containing raw signals & imaging data",
                     btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
                     width = "100%"
@@ -36,7 +36,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   shinyWidgets::searchInput(
                     inputId = ns("data_dir"),
                     label = "Main data directory",
-                    value = raveio::raveio_getopt("data_dir", default = ""),
+                    value = ravepipeline::raveio_getopt("data_dir", default = ""),
                     placeholder = "Where RAVE should store its generated files",
                     btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
                     width = "100%"
@@ -44,7 +44,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   shinyWidgets::searchInput(
                     inputId = ns("temp_dir"),
                     label = "Session & cache directory",
-                    value = raveio::raveio_getopt("tensor_temp_path", default = ""),
+                    value = ravepipeline::raveio_getopt("tensor_temp_path", default = ""),
                     placeholder = "Removable temporary session files",
                     btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
                     width = "100%"
@@ -61,7 +61,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   shinyWidgets::searchInput(
                     inputId = ns("template_subject"),
                     label = "Template Brain",
-                    value = raveio::raveio_getopt("threeBrain_template_subject",
+                    value = ravepipeline::raveio_getopt("threeBrain_template_subject",
                                                   default = "N27"),
                     placeholder = "N27, fsaverage, bert, ...",
                     btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
@@ -71,7 +71,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   shinyWidgets::searchInput(
                     inputId = ns("max_worker"),
                     label = "Max parallel cores",
-                    value = raveio::raveio_getopt("max_worker", default = 1L),
+                    value = ravepipeline::raveio_getopt("max_worker", default = 1L),
                     placeholder = "Recommended 2GB RAM per CPU core",
                     btnSearch = shiny::tagList(ravedash::shiny_icons$arrow_right),
                     width = "100%"
@@ -85,7 +85,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                     offStatus = "danger",
                     onLabel = "Enabled",
                     offLabel = "Disabled",
-                    value = isFALSE(raveio::raveio_getopt("disable_fork_clusters", default = FALSE))
+                    value = isFALSE(ravepipeline::raveio_getopt("disable_fork_clusters", default = FALSE))
                   )
 
                 )
@@ -756,9 +756,9 @@ loader_server <- function(input, output, session, ...){
           "Trying to set RAVE option [{opt_key}] <- {val}",
           level = "debug", use_glue = TRUE
         )
-        raveio::raveio_setopt(opt_key, value = val, .save = TRUE)
+        ravepipeline::raveio_setopt(opt_key, value = val, .save = TRUE)
 
-        current_val <- raveio::raveio_getopt(opt_key)
+        current_val <- ravepipeline::raveio_getopt(opt_key)
 
         ravedash::logger("RAVE option [{opt_key}] is set: {current_val}", level = "info",  use_glue = TRUE)
         shidashi::show_notification(
@@ -830,9 +830,9 @@ loader_server <- function(input, output, session, ...){
           "Trying to set RAVE option [max_worker] <- {max_worker}",
           level = "debug", use_glue = TRUE
         )
-        raveio::raveio_setopt("max_worker", max_worker)
+        ravepipeline::raveio_setopt("max_worker", max_worker)
 
-        current_val <- raveio::raveio_getopt("max_worker")
+        current_val <- ravepipeline::raveio_getopt("max_worker")
 
         ravedash::logger("RAVE option [max_worker] is set: {current_val}",
                          level = "info",  use_glue = TRUE)
@@ -868,9 +868,9 @@ loader_server <- function(input, output, session, ...){
         "Trying to set RAVE option [disable_fork_clusters] <- {disable_fork_clusters}",
         level = "debug", use_glue = TRUE
       )
-      raveio::raveio_setopt("disable_fork_clusters", disable_fork_clusters)
+      ravepipeline::raveio_setopt("disable_fork_clusters", disable_fork_clusters)
 
-      current_val <- raveio::raveio_getopt("disable_fork_clusters", default = FALSE)
+      current_val <- ravepipeline::raveio_getopt("disable_fork_clusters", default = FALSE)
 
       ravedash::logger("RAVE option [disable_fork_clusters] is set: {current_val}",
                        level = "info",  use_glue = TRUE)
@@ -915,7 +915,7 @@ loader_server <- function(input, output, session, ...){
       path <- file.path(root_path, template_subject)
 
       if(dir.exists(path)) {
-        raveio::raveio_setopt("threeBrain_template_subject", value = template_subject)
+        ravepipeline::raveio_setopt("threeBrain_template_subject", value = template_subject)
         shidashi::show_notification("New template is set!", title = "Succeed!", type = "success")
       } else {
         templates <- get_available_templates()
@@ -941,11 +941,11 @@ loader_server <- function(input, output, session, ...){
             threeBrain::download_template_subject(subject_code = template_subject,
                                                   url = templates[[template_subject]],
                                                   template_dir = root_path)
-            raveio::raveio_setopt("threeBrain_template_subject", value = template_subject)
+            ravepipeline::raveio_setopt("threeBrain_template_subject", value = template_subject)
             shidashi::show_notification("New template is set!", title = "Succeed!", type = "success")
             template_subject
           }, error = function(e){
-            old_template <- raveio::raveio_getopt("threeBrain_template_subject",
+            old_template <- ravepipeline::raveio_getopt("threeBrain_template_subject",
                                                   default = "N27")
             shidashi::show_notification(sprintf(
               "Cannot download template subject [%s] due to the following reason: \n'%s'. Rewinding to previous subject [%s]",

@@ -1,20 +1,21 @@
-subject_code: PAV020
-project_name: YAEL
-notch_filter_upperbound:
-- 61.0
-- 122.0
-- 182.0
-notch_filter_lowerbound:
-- 59.0
-- 118.0
-- 178.0
+background: '#ffffff'
 diagnostic_plot_params:
-  path: /var/folders/bs/n0q8wqv931g89ppshhgp2m2m0000gn/T//RtmpPoysNZ/file29594ccf28a7.pdf
-  window_length: 4000
+  window_length: 2
   max_frequency: 300
   histogram_bins: 60
   background: '#ffffff'
   foreground: '#212529'
   font_size: 2.0
   quiet: no
-background: '#ffffff'
+diagnostic_plot_path: '{subject$note_path}/notch_filter.pdf'
+notch_filter_lowerbound:
+- 59.0
+- 118.0
+- 178.0
+notch_filter_upperbound:
+- 61.0
+- 122.0
+- 182.0
+project_name: test
+subject_code: DemoSubject
+channel_types: LFP

@@ -6,6 +6,6 @@ targets::tar_config_set(
   project = target_name,
   script = "make-main.R",
   store = target_directory,
-  workers = raveio::raveio_getopt("max_worker", 1)
+  workers = ravepipeline::raveio_getopt("max_worker", 1)
 )
 

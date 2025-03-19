@@ -4,7 +4,7 @@ library(targets)
   source("common.R", local = TRUE)
 
   # load & combine pipelines
-  targets <- raveio::load_targets(
+  targets <- ravepipeline::load_targets(
     # "make-shared.R",
     "make-import_lfp_native.R"
   )
@@ -34,4 +34,4 @@ library(targets)
 })
 ...targets
 
-# raveio::pipeline_visualize()
+# ravepipeline::pipeline_visualize()

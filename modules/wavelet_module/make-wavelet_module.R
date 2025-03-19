@@ -1,7 +1,8 @@
 library(targets)
-library(raveio)
+library(ravepipeline)
 source("common.R", local = TRUE, chdir = TRUE)
 ._._env_._. <- environment()
+._._env_._.$pipeline <- pipeline_from_path(".")
 lapply(sort(list.files(
   "R/", ignore.case = TRUE,
   pattern = "^shared-.*\\.R",
@@ -47,10 +48,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(subject)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "subject",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "subject",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = "rave-subject",
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject",
             target_export = "subject", target_expr = quote({
                 {
                   stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", project_name))
@@ -71,10 +72,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(clear_cache)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "clear_cache",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "clear_cache",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "clear_cache", target_expr = quote({
                 {
                   clear_cache <- raveio::clear_cached_files(subject_code = subject$subject_code)
@@ -85,21 +86,21 @@ rm(._._env_._.)
     get_notch_filter_timestamp = targets::tar_target_raw(name = "notch_filtere_stamp",
         command = quote({
             .__target_expr__. <- quote({
-                notch_filtere_stamp <- subject$get_default(namespace = "notch_filter",
-                  "parameters", default_if_missing = Sys.time())
+                notch_filtere_stamp <- subject$get_default("parameters",
+                  namespace = "notch_filter", default_if_missing = Sys.time())
             })
             tryCatch({
                 eval(.__target_expr__.)
                 return(notch_filtere_stamp)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "notch_filtere_stamp",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "notch_filtere_stamp",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "notch_filtere_stamp", target_expr = quote({
                 {
-                  notch_filtere_stamp <- subject$get_default(namespace = "notch_filter",
-                    "parameters", default_if_missing = Sys.time())
+                  notch_filtere_stamp <- subject$get_default("parameters",
+                    namespace = "notch_filter", default_if_missing = Sys.time())
                 }
                 notch_filtere_stamp
             }), target_depends = "subject"), deps = "subject",
@@ -119,10 +120,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(notch_filtered_electrodes)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "notch_filtered_electrodes",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "notch_filtered_electrodes",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "notch_filtered_electrodes", target_expr = quote({
                 {
                   electrodes <- subject$electrodes
@@ -154,10 +155,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(sample_rates)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "sample_rates",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "sample_rates",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "sample_rates", target_expr = quote({
                 {
                   sample_rates <- subject$preprocess_settings$sample_rates
@@ -207,10 +208,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(kernels)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "kernels",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "kernels",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "kernels", target_expr = quote({
                 {
                   freqs <- unlist(kernel_table$Frequency)
@@ -255,10 +256,10 @@ rm(._._env_._.)
                 eval(.__target_expr__.)
                 return(wavelet_params)
             }, error = function(e) {
-                asNamespace("raveio")$resolve_pipeline_error(name = "wavelet_params",
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "wavelet_params",
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("raveio")$target_format_dynamic(name = NULL,
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "wavelet_params", target_expr = quote({
                 {
                   wavelet_params <- raveio:::run_wavelet(subject = subject,

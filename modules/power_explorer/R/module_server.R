@@ -489,7 +489,7 @@ module_server <- function(input, output, session, ...){
 
 
     if(isTRUE(input$quick_omnibus_only)) {
-      local_reactives$update_pes_plot <- runif(1)
+      local_reactives$update_pes_plot <- Sys.time()
     } else {
       ## set the plot time range limits for plots
       newly_available_time <- get_recursive_summary(
@@ -533,13 +533,13 @@ module_server <- function(input, output, session, ...){
         spec_choices = names(aes$stratified_contrasts)
       }
 
-      local_reactives$update_outputs <- runif(1)
+      local_reactives$update_outputs <- Sys.time()
       # pes plots have a separate update cycle
-      local_reactives$update_pes_plots <- runif(1)
+      local_reactives$update_pes_plots <- Sys.time()
     }
 
     if(trigger_3dviewer) {
-      local_reactives$update_3dviewer <- runif(1)
+      local_reactives$update_3dviewer <- Sys.time()
     }
 
     return()

@@ -4,4 +4,4 @@ Sys.setenv(
     root_dir = rstudioapi::getActiveProject())
 )
 
-raveio::pipeline_run()
+ravepipeline::pipeline_run()

@@ -4,7 +4,7 @@ require(testthat)
 
 test_that("Notch filter", {
 
-  pipeline <- raveio::pipeline("notch_filter", paths = file.path(rstudioapi::getActiveProject(),
+  pipeline <- ravepipeline::pipeline("notch_filter", paths = file.path(rstudioapi::getActiveProject(),
                                                                       "modules"))
 
   # pipeline path is correct

@@ -8,7 +8,7 @@ output:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd(module_id = "epoch_generator")
+ravepipeline::pipeline_setup_rmd(module_id = "epoch_generator")
 ```
 
 ## Build, Visualize, & Run
@@ -24,14 +24,14 @@ Once the pipeline script `make-epoch_generator.R` is built, you can visualize an
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```
 
 
 ```{r execute}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_run(type = "vanilla")
-raveio::pipeline_progress(method = 'details')
+ravepipeline::pipeline_run(type = "vanilla")
+ravepipeline::pipeline_progress(method = 'details')
 ```
 
 

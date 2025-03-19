@@ -10,7 +10,7 @@ editor_options:
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("connectivity_viewer")
+ravepipeline::pipeline_setup_rmd("connectivity_viewer")
 ```
 
 ```{rave get_template_details, language = "R", export = "template_details", cue = "always", collapse=FALSE}
@@ -34,7 +34,7 @@ Once the pipeline script `make-connectivity_viewer.R` is built, you can visualiz
 ```{r visualize, echo=FALSE}
 # Fixed usage, show pipeline graph
 try({
-  asNamespace("raveio")$pipeline_dependency_graph(
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
     pipeline_path = ".", glimpse = TRUE)
 }, silent = TRUE)
 ```

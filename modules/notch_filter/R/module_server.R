@@ -36,11 +36,53 @@ module_server <- function(input, output, session, ...){
         notch_filtered[subject$electrodes == e]
       })
 
-      if(isTRUE(all(notch_filtered))) {
-        shidashi::card_operate(title = "Filter settings", method = "collapse")
-      } else {
-        shidashi::card_operate(title = "Filter settings", method = "expand")
-      }
+      notch_params <- as.list(subject$get_default(
+        "parameters",
+        namespace = "notch_filter",
+        default_if_missing = NULL
+      ))
+
+      channel_types <- unique(subject$electrode_types[subject$electrodes %in% notch_params$filter_applied])
+      channel_types <- as.character(channel_types[!channel_types %in% "LFP"])
+
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "notch_filter_channel_types",
+        selected = channel_types
+      )
+
+      try({
+        if(
+          length(notch_params$notch_filter_lowerbound) == length(notch_params$notch_filter_upperbound) &&
+          length(notch_params$notch_filter_upperbound) > 0
+        ) {
+          filter_center <- (notch_params$notch_filter_upperbound + notch_params$notch_filter_lowerbound) / 2
+          filter_bandwidth <- abs(notch_params$notch_filter_upperbound - notch_params$notch_filter_lowerbound)
+
+          base_freq <- min(filter_center, na.rm = TRUE)
+          if(is.finite(base_freq) && base_freq > 0) {
+            times <- filter_center / base_freq
+            half_bandwidth <- filter_bandwidth / 2
+            shiny::updateNumericInput(
+              session = session,
+              inputId = "notch_filter_base_freq",
+              value = base_freq
+            )
+            shiny::updateTextInput(
+              session = session,
+              inputId = "notch_filter_times",
+              value = paste(times, collapse = ",")
+            )
+            shiny::updateTextInput(
+              session = session,
+              inputId = "notch_filter_bandwidth",
+              value = paste(half_bandwidth, collapse = ",")
+            )
+
+          }
+
+        }
+      })
 
 
       shiny::updateSelectInput(
@@ -59,17 +101,23 @@ module_server <- function(input, output, session, ...){
         selected = selected_electrode
       )
       current_srate <- sample_rates[imported_electrodes == selected_electrode]
-      shiny::updateSliderInput(
-        session = session,
-        inputId = "pwelch_winlen",
-        max = floor(current_srate * 2),
-        value = floor(current_srate * 2)
-      )
+      # shiny::updateSliderInput(
+      #   session = session,
+      #   inputId = "pwelch_winlen",
+      #   max = floor(current_srate * 2),
+      #   value = floor(current_srate * 2)
+      # )
       shiny::updateSliderInput(
         session = session,
         inputId = "pwelch_freqlim",
         max = floor(current_srate / 2)
       )
+
+      if(isTRUE(all(notch_filtered))) {
+        shidashi::card_operate(title = "Filter settings", method = "collapse")
+      } else {
+        shidashi::card_operate(title = "Filter settings", method = "expand")
+      }
 
 
       local_reactives$refresh <- Sys.time()
@@ -94,11 +142,11 @@ module_server <- function(input, output, session, ...){
       sample_rates <- subject$preprocess_settings$sample_rates
       sample_rate <- sample_rates[local_data$imported_electrodes == electrode]
 
-      shiny::updateSliderInput(
-        session = session,
-        inputId = "pwelch_winlen",
-        max = floor(sample_rate * 2)
-      )
+      # shiny::updateSliderInput(
+      #   session = session,
+      #   inputId = "pwelch_winlen",
+      #   max = floor(sample_rate * 2)
+      # )
       shiny::updateSliderInput(
         session = session,
         inputId = "pwelch_freqlim",
@@ -259,6 +307,7 @@ module_server <- function(input, output, session, ...){
         base_freq <- input$notch_filter_base_freq
         mult_times <- input$notch_filter_times
         bandwidths <- input$notch_filter_bandwidth
+        channel_types <- c("LFP", input$notch_filter_channel_types)
 
         mult_times <- as.numeric(strsplit(mult_times, "[, ]+")[[1]])
         bandwidths <- as.numeric(strsplit(bandwidths, "[, ]+")[[1]])
@@ -269,16 +318,25 @@ module_server <- function(input, output, session, ...){
 
         pipeline$set_settings(
           notch_filter_lowerbound = notch_filter_lowerbound,
-          notch_filter_upperbound = notch_filter_upperbound
+          notch_filter_upperbound = notch_filter_upperbound,
+          channel_types = channel_types
         )
 
-        res <- pipeline$run(scheduler = 'none', type = "vanilla", callr_function = NULL, names = "filter_settings", async = FALSE, as_promise = TRUE)
+        res <- pipeline$run(
+          scheduler = 'none',
+          type = "vanilla",
+          callr_function = NULL,
+          names = c("filter_settings", "channels_to_apply_filters"),
+          async = FALSE,
+          as_promise = TRUE
+        )
 
         res$promise$then(
           onFulfilled = function(...){
 
             subject <- pipeline$read(var_names = "subject")
             filter_settings <- pipeline$read(var_names = "filter_settings")
+            channels_to_apply_filters <- pipeline$read(var_names = "channels_to_apply_filters")
 
             shiny::showModal(shiny::modalDialog(
               title = "Confirmation",
@@ -289,8 +347,8 @@ module_server <- function(input, output, session, ...){
                   subject$subject_id
                 ),
                 shiny::tags$li(
-                  shiny::strong("Electrodes: "),
-                  dipsaus::deparse_svec(local_data$imported_electrodes)
+                  shiny::strong("Electrode channels: "),
+                  dipsaus::deparse_svec(channels_to_apply_filters)
                 ),
                 shiny::tags$li(
                   shiny::strong("Frequencies to remove: "),
@@ -436,7 +494,6 @@ module_server <- function(input, output, session, ...){
 
       pipeline$set_settings(
         diagnostic_plot_params = list(
-          path = conn,
           window_length = input$pwelch_winlen,
           max_frequency = input$pwelch_freqlim,
           histogram_bins = input$pwelch_nbins,
@@ -466,6 +523,7 @@ module_server <- function(input, output, session, ...){
           "settings",
           "project_name",
           "subject_code",
+          "diagnostic_plot_path",
           "diagnostic_plot_params",
           "subject",
           "imported_electrodes",
@@ -473,10 +531,15 @@ module_server <- function(input, output, session, ...){
         ),
         as_promise = TRUE
       )
+
       # results$await(names = "diagnostic_plots")
       return(results$promise$then(
         onFulfilled = function(...){
           dipsaus::close_alert2()
+          plot_path <- pipeline$read("diagnostic_plots")
+          if(is.character(plot_path) && file.exists(plot_path)) {
+            file.copy(plot_path, conn)
+          }
         },
         onRejected = function(e){
           dipsaus::close_alert2()

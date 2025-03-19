@@ -12,7 +12,7 @@ chunk_output_type: console
 ```{r setup, include = FALSE}
 # This code block sets up the engine environment
 # Please do not remove me
-raveio::pipeline_setup_rmd("power_explorer")
+ravepipeline::pipeline_setup_rmd("power_explorer")
 
 options(knit_rave_pipelines = TRUE)
 ```
@@ -1556,5 +1556,5 @@ build_pipeline(make_file = "make-power_explorer.R")
 
 ```{r visualize, echo=FALSE}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
-raveio::pipeline_visualize()
+ravepipeline::pipeline_visualize()
 ```

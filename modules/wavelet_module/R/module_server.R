@@ -171,9 +171,11 @@ module_server <- function(input, output, session, ...){
             raveio::backup_file(fork_path, remove = TRUE)
           }
           pipeline$fork(fork_path)
-          raveio::with_future_parallel({
-            raveio::rave_subject_format_conversion(subject = subject)
-          })
+
+          # RAVE 1.0 is over... We do not need them anymore
+          # raveio::with_future_parallel({
+          #   raveio::rave_subject_format_conversion(subject = subject)
+          # })
           dipsaus::close_alert2()
           dipsaus::shiny_alert2(
             title = "Done!",
@@ -264,7 +266,7 @@ module_server <- function(input, output, session, ...){
       fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
       if(dir.exists(fork_path)) {
         try(silent = FALSE, expr = {
-          forked_pipeline <- raveio::pipeline(pipeline_name = pipeline$pipeline_name,
+          forked_pipeline <- ravepipeline::pipeline(pipeline_name = pipeline$pipeline_name,
                                               paths = subject$pipeline_path)
           # set default settings
           previous_settings <- forked_pipeline$get_settings()

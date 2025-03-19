@@ -51,8 +51,17 @@ diagnose_notch_filters <- function(
 
 
     if(isTRUE(winlen == "auto")) {
-      winlen <- floor(srate * 2)
+      winlen <- 2
     }
+
+    if( winlen >= min(srate, 1000)) {
+      # winlen should be in seconds, not timepoints
+      winlen <- winlen / srate
+    }
+    if( winlen <= 0.05 ) {
+      winlen <- 0.05
+    }
+    winlen_npts <- floor(winlen * srate)
 
     for(block in blocks){
       # get signal
@@ -73,7 +82,7 @@ diagnose_notch_filters <- function(
           srate = srate,
           max_freq = max_freq,
           try_compress = TRUE,
-          window = winlen,
+          window = winlen_npts,
           name = c("Original", "Filtered"),
           col = c(fg, "red"),
           nclass = nbins,
@@ -90,7 +99,7 @@ diagnose_notch_filters <- function(
           srate = srate,
           max_freq = max_freq,
           try_compress = TRUE,
-          window = winlen,
+          window = winlen_npts,
           name = c("Original", ""),
           col = c(fg, NA),
           nclass = nbins,

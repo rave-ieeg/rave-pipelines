@@ -3,7 +3,7 @@ library(ravedash)
 
 # Stores global variables. These are required
 module_id <- "voltage_explorer"
-pipeline <- raveio::pipeline(
+pipeline <- ravepipeline::pipeline(
   pipeline_name = "voltage_explorer",
   settings_file = "settings.yaml",
   paths = "./modules")

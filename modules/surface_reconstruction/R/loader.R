@@ -245,7 +245,7 @@ loader_server <- function(input, output, session, ...){
 
         selected <- file.path("rave-uploads", toupper(type), finfo$name)
 
-        upload_path <- file.path(raveio::raveio_getopt("raw_data_dir"),
+        upload_path <- file.path(ravepipeline::raveio_getopt("raw_data_dir"),
                                  subject_code, "rave-uploads", toupper(type))
         upload_path <- raveio::dir_create2(upload_path)
 

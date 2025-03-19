@@ -1,3 +1,0 @@
-phase_explorer:
-  script: make-main.R
-  store: shared
