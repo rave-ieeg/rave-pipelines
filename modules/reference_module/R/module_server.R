@@ -934,7 +934,7 @@ module_server <- function(input, output, session, ...){
 
       repo <- component_container$data$repository
       subject <- repo$subject
-      has_wavelet <- all(subject$has_wavelet)
+      has_wavelet <- any(subject$has_wavelet)
 
       shiny::validate(
         shiny::need(
