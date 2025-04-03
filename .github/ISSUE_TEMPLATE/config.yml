@@ -3,6 +3,3 @@ contact_links:
   - name: RAVE Community Support & Feature Requests
     url: https://github.com/orgs/rave-ieeg/discussions
     about: Please ask questions here, including installation issues, feature requests, and general questions.
-  - name: Bug Report (Programming Errors)
-    url: https://github.com/rave-ieeg/rave-pipelines/issues
-    about: Please report bugs & errors here.
