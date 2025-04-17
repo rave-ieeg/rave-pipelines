@@ -6,6 +6,7 @@
 .pyc
 __pycache__
 modules/*/shared/
+!modules/*/py/*
 _rs_job.R
 Rplots.pdf
 .Rhistory*
@@ -13,7 +14,6 @@ node_modules
 modules_\[backup_*\].yaml
 modules/*/main.html
 README.html
-shared
 adhoc
 data
 /app.R
