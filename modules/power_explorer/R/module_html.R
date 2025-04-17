@@ -119,12 +119,15 @@ module_html <- function(){
                     step = 1 / 100,
                     dragRange = TRUE
                   ),
+                  shiny::selectInput('frequency_dd', 'Choose preset band',
+                                     choices=c('delta (1-4)', 'theta (4-8)', 'alpha (8-12)', 'beta (13-30)',
+                                               'gamma (30-70)', 'high gamma (70-150)', 'Select one'), selected='Select one'),
                   shiny::sliderInput(
                     inputId = "frequency",
                     label = "Frequency",
                     min = 0,
                     max = 200,
-                    value = c(70, 100),
+                    value = c(70, 150),
                     step = 1
                   )
                 )

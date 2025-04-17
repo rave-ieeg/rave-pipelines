@@ -836,7 +836,7 @@ over_time_by_trial_data <- data_builder(
 ```
 
 ```{rave build_internal_omnibus_results, language="R", export="internal_omnibus_results"}
-if(omnibus_includes_all_electrodes) {
+if(isTRUE(omnibus_includes_all_electrodes)) {
   # first baseline all the electrodes
   raveio::power_baseline(
     repository,
@@ -1018,7 +1018,7 @@ stats <- all_data_clean %>% split((.)$Electrode) %>%
   raveio::lapply_async(function(el){
     # lapply(function(el) {
       # print(el$Electrode[1])
-      if(var(el$y) < 1e-12) {
+      if(length(el$y) < 2 || var(el$y) < 1e-12) {
         return(NULL)
       }
     # tryCatch({
@@ -1035,8 +1035,9 @@ stats <- all_data_clean %>% split((.)$Electrode) %>%
 
 # add in electrode labels as an attribute of the stats block.
 # don't add as row, otherwise we lose numeric-ness
-attr(stats, 'electrode_labels') = repository$electrode_table$Label
-
+if(!is.null(stats)) {
+  attr(stats, 'electrode_labels') = repository$electrode_table$Label
+}
 # add in the Block information from the epoch file, could be useful to assess 
 # large changes in effect size over time 
 all_data %<>% merge(repository$epoch$table[,c('Block', 'Trial')], sort=FALSE)
@@ -1156,26 +1157,34 @@ frm <- as.formula(
   paste('y ~', paste(c(fe, re_str), collapse=' + '))
 )
 
-FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
-
-mod <- do.call(FUN, list(formula=frm, data=dd))
-
-
-ravedash::logger('built linear model, starting post hoc tests', calc_delta = TRUE)
-# est. marg means initial object, used by other
-# functions to get all the contrasts
-
-em <- emmeans::emmeans(
-  mod, as.formula(sprintf(" ~ %s", fe)), infer=c(F,T)
-)
-
-ravedash::logger('Got emm', calc_delta = TRUE)
-
-pairwise <- emmeans::contrast(
-  em, 'pairwise'
-)
-
-ravedash::logger('Got pairwise contrasts', calc_delta = TRUE)
+if(length(unique(dd$Trial)) < 2) {
+  # can't do any stats
+  mod <- NULL
+  .aov <- NULL
+  em <- NULL
+  pairwise <- NULL
+} else {
+  FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
+  mod <- do.call(FUN, list(formula=frm, data=dd))
+  
+  .aov <- car::Anova(mod, type=ifelse(fe[1] == "1", 'III', 'II'))
+  
+  ravedash::logger('built linear model, starting post hoc tests', calc_delta = TRUE)
+  # est. marg means initial object, used by other
+  # functions to get all the contrasts
+  
+  em <- emmeans::emmeans(
+    mod, as.formula(sprintf(" ~ %s", fe)), infer=c(F,T)
+  )
+  
+  ravedash::logger('Got emm', calc_delta = TRUE)
+  
+  pairwise <- emmeans::contrast(
+    em, 'pairwise'
+  )
+  ravedash::logger('Got pairwise contrasts', calc_delta = TRUE)
+ravedash::logger('Got ANOVA', calc_delta = TRUE)
+}
 
 # here we have a chance to stratify rather than do
 # all-possible pairwise comparisons (save your alpha!)
@@ -1207,11 +1216,11 @@ if (length(fe) > 2) {
 
 ravedash::logger('Got other contrasts', calc_delta = TRUE)
 
-.aov <- car::Anova(mod, type=ifelse(
-  fe[1] == "1", 'III', 'II')
-)
-
-ravedash::logger('Got ANOVA', calc_delta = TRUE)
+# .aov <- car::Anova(mod, type=ifelse(
+#   fe[1] == "1", 'III', 'II')
+# )
+# 
+# ravedash::logger('Got ANOVA', calc_delta = TRUE)
 
 across_electrode_statistics <- list(
   condition_means = condition_means,
