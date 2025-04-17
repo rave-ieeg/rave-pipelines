@@ -344,7 +344,7 @@ rm(._._env_._.)
                   }
                   if (is.null(mapping)) {
                     if (!is_debug) {
-                      stop("Unable to perform non-linear mapping: No mapping was performed. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
+                      stop("Unable to find any non-linear mapping files. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
                     }
                   } else {
                     mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
@@ -411,7 +411,7 @@ rm(._._env_._.)
                     }
                     if (is.null(mapping)) {
                       if (!is_debug) {
-                        stop("Unable to perform non-linear mapping: No mapping was performed. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
+                        stop("Unable to find any non-linear mapping files. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
                       }
                     } else {
                       mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
