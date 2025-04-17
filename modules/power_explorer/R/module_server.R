@@ -1929,11 +1929,39 @@ module_server <- function(input, output, session, ...){
   # # # tracking frequency window changes
   shiny::bindEvent(
     ravedash::safe_observe({
+
+      tmp = input$ui_analysis_settings
+
+      # check if any frequency drop-downs were chosen
+      for(ii in seq_along(tmp)) {
+        if(tmp[[ii]]$frequency_dd != 'Select one') {
+
+          freq <- list('delta (1-4)' = c(1,4),
+                       'theta (4-8)' = c(4,8),
+                       'alpha (8-12)' = c(8,12),
+                       'beta (13-30)' = c(13,30),
+                       'gamma (30-70)' = c(30,70),
+                       'high gamma (70-150)' = c(70,150)
+          )[[
+            tmp[[ii]]$frequency_dd
+          ]]
+
+          tmp[[ii]]$frequency = freq
+
+          # set it back to select one so we don't have to track changes
+          tmp[[ii]]$frequency_dd <- 'Select one'
+
+          # refresh the whole component
+          dipsaus::updateCompoundInput2(session, 'ui_analysis_settings', tmp, ncomp=length(tmp))
+        }
+      }
+
       local_reactives$current_analysis_settings = input$ui_analysis_settings
-      # print(dput(input$ui_analysis_settings))
     }),
     input$ui_analysis_settings, ignoreNULL = TRUE, ignoreInit = TRUE
   )
+
+
 
   basic_checks <- function(flag, check_uni=TRUE) {
     cond <- !is.null(flag)
@@ -2531,6 +2559,7 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       # basic_checks(local_reactives$update_outputs)
       basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
+      force(local_reactives$update_outputs)
       force(local_reactives$update_by_electrode_custom_plot)
       force(local_reactives$update_line_plots)
 
@@ -2545,6 +2574,7 @@ module_server <- function(input, output, session, ...){
 
   output$per_electrode_results_table <- DT::renderDataTable({
     basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
+    force(local_reactives$update_outputs)
 
     force(local_reactives$update_per_electrode_results_table)
 
@@ -2840,6 +2870,8 @@ module_server <- function(input, output, session, ...){
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
 
+      force(local_reactives$update_outputs)
+
       # force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
@@ -2866,7 +2898,7 @@ module_server <- function(input, output, session, ...){
     outputId = "per_electrode_statistics_tstat",
     render_function = shiny::renderPlot({
       basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
-
+      force(local_reactives$update_outputs)
       # force(local_reactives$update_pes_plot)
 
       stats <- local_data$results$omnibus_results$stats
@@ -2894,7 +2926,7 @@ module_server <- function(input, output, session, ...){
       # basic_checks(local_reactives$update_outputs)
       # force(local_reactives$update_pes_plot)
       basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
-
+      force(local_reactives$update_outputs)
       stats <- local_data$results$omnibus_results$stats
 
       lbl_elecs = NULL
