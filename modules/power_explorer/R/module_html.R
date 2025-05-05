@@ -208,7 +208,7 @@ module_html <- function(){
             # ---- Input tab: Export Electrodes --------------------------------
 
             ravedash::input_card(
-              class_header = "shidashi-anchor", title = "Export Electrodes",
+              class_header = "shidashi-anchor", title = "Export electrodes to csv",
               shiny::p("All exported data are baseline corrected according to ",
                        "the current analysis settings.",
                        "Use the options below to fine-tune the export."),
@@ -245,7 +245,7 @@ module_html <- function(){
                 inputId = ns("times_to_export"),
                 label = "How to export time",
                 choices = c(
-                  'Collapsed, analysis window(s) only',
+                  'Collapsed, Analysis window(s) only',
                   'Raw, Analysis window(s) only',
                   'Raw, All available times'
                 ),
@@ -263,17 +263,17 @@ module_html <- function(){
 
                 selected = 'Raw, only Conditions used in grouping factors'
               ),
-              shiny::selectInput(
-                inputId = ns('electrode_export_file_type'),
-                label = "Export format",
-                choices = c('HDF5', 'FST',
-                            'Compressed CSV', 'RDS')
-              ),
-              shiny::selectInput(
-                inputId = ns('electrode_export_data_type'),
-                label = "Data structure",
-                choices = c('tensor', 'flat')
-              ),
+              # shiny::selectInput(
+              #   inputId = ns('electrode_export_file_type'),
+              #   label = "Export format",
+              #   choices = c('HDF5', 'FST',
+              #               'Compressed CSV', 'RDS')
+              # ),
+              # shiny::selectInput(
+              #   inputId = ns('electrode_export_data_type'),
+              #   label = "Data structure",
+              #   choices = c('tensor', 'flat')
+              # ),
               shiny::actionButton(
                 inputId = ns('btn_export_electrodes'),
                 label = "Export",
@@ -658,6 +658,7 @@ module_html <- function(){
               class_body='',
               append_tools = FALSE,
               tools = list(
+                clipboardOutput(outputId=ns('by_condition_tabset_clipboard'), as_card_tool = TRUE, message='copy data'),
                 shidashi::card_tool(
                   widget = "custom", icon = ravedash::shiny_icons$puzzle,
                   inputId = ns("by_condition_tabset_config")

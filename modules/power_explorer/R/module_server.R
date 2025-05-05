@@ -273,8 +273,8 @@ module_server <- function(input, output, session, ...){
         window = c(0, 1)
       ),
       trial_outliers_list = local_data$trial_outliers_list,
-      electrode_export_file_type = input$electrode_export_file_type,
-      electrode_export_data_type = input$electrode_export_data_type,
+      # electrode_export_file_type = input$electrode_export_file_type,
+      # electrode_export_data_type = input$electrode_export_data_type,
       electrodes_to_export_roi_name = input$electrodes_to_export_roi_name,
       electrodes_to_export_roi_categories = input$electrodes_to_export_roi_categories,
       frequencies_to_export = input$frequencies_to_export,
@@ -2073,19 +2073,19 @@ module_server <- function(input, output, session, ...){
     }), input$electrode_export_file_type, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      if(input$electrode_export_data_type == 'tensor' &&
-         input$electrode_export_file_type %in% c('Compressed CSV', 'FST')) {
-
-        ravedash::show_notification('Only flattened data are supported with FST | CSV output',
-                                    title='Export data type updated')
-
-        shiny::updateSelectInput(inputId ='electrode_export_data_type', selected = 'flat')
-      }
-    }),
-    input$electrode_export_data_type, ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+  # shiny::bindEvent(
+  #   ravedash::safe_observe({
+  #     if(input$electrode_export_data_type == 'tensor' &&
+  #        input$electrode_export_file_type %in% c('Compressed CSV', 'FST')) {
+  #
+  #       ravedash::show_notification('Only flattened data are supported with FST | CSV output',
+  #                                   title='Export data type updated')
+  #
+  #       shiny::updateSelectInput(inputId ='electrode_export_data_type', selected = 'flat')
+  #     }
+  #   }),
+  #   input$electrode_export_data_type, ignoreNULL = TRUE, ignoreInit = TRUE
+  # )
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -2093,10 +2093,6 @@ module_server <- function(input, output, session, ...){
       dipsaus::shiny_alert2(title = "Preparing for exporting",
                             text = "...", icon = "info",
                             danger_mode = FALSE, auto_close = FALSE, buttons = FALSE)
-      on.exit({
-        Sys.sleep(0.5)
-        dipsaus::close_alert2()
-      })
 
       # make sure we have something to export
       els <- dipsaus::parse_svec(input$electrodes_to_export)
@@ -2114,13 +2110,13 @@ module_server <- function(input, output, session, ...){
       }
 
       pipeline$set_settings(
-        electrode_export_file_type = input$electrode_export_file_type,
+        # electrode_export_file_type = input$electrode_export_file_type,
+        # electrode_export_data_type = input$electrode_export_data_type,
         frequencies_to_export = input$frequencies_to_export,
         condition_variable = input$condition_variable,
         times_to_export = input$times_to_export,
         trials_to_export = input$trials_to_export,
         electrodes_to_export = input$electrodes_to_export,
-        electrode_export_data_type = input$electrode_export_data_type,
         electrodes_to_export_roi_name = input$electrodes_to_export_roi_name,
         electrodes_to_export_roi_categories = input$electrodes_to_export_roi_categories
       )
@@ -2130,46 +2126,60 @@ module_server <- function(input, output, session, ...){
                    force_settings = list(electrode_text=input$electrodes_to_export)
       )
 
+      # close the previous alert
+      dipsaus::close_alert2()
+
+      dipsaus::shiny_alert2(title = "Done with exporting!",
+                            text = sprintf('Check %s for your files. Remember to remove unused exports as they can quickly take up disk space!', local_data$results$data_for_export),
+                            icon = "info",
+                            danger_mode = FALSE, auto_close = FALSE, buttons = TRUE)
+
+
+      # clear out the previous on.exit if we've made it this far
+      on.exit({}, add = FALSE)
+
+
       # make sure this is available for export later
-      env <- pipeline$eval('data_for_export', shortcut=TRUE)
-      dfe <- env$data_for_export
-
-      kv <- list(
-        'Output type' = pretty(dfe$type)
-      )
-      key = ifelse(dfe$type == 'tensor', 'Data size (Freq, Time, Trial, Elec)',
-                   'Data size (Rows, Columns)')
-
-      kv[[key]] = sapply(dfe$data_names, function(nm) {
-        dd = unname(dim(dfe[[nm]]$data))
-
-        paste0(c('[', paste(dd, collapse=', '), ']'), collapse='')
-      }) %>% paste(collapse=', ')
-
-      kv[['Output file type']] = env$electrode_export_file_type
-
-      # description_str = "<h2>Data Description</h2>";
-      tokens <- mapply(function(x,y) {
-        sprintf("<p><strong>%s</strong>: %s</p>", x, y)
-      }, names(kv), kv, SIMPLIFY =F, USE.NAMES = FALSE)
-
-      str = do.call(paste, tokens)
-
-      shiny::showModal(shiny::modalDialog(
-        title = "Download export data",
-        size = "l",
-        easyClose = FALSE,
-        footer = shiny::tagList(
-          shiny::modalButton("Cancel"),
-          shiny::downloadButton(
-            outputId = ns("do_download_export"),
-            label = "Download data",
-            class = "btn-primary"
-          )
-        ),
-        shiny::HTML(str)
-      ))
-    }),
+      #   env <- pipeline$eval('data_for_export', shortcut=TRUE)
+      #   dfe <- env$data_for_export
+      #
+      #   kv <- list(
+      #     'Output type' = pretty(dfe$type)
+      #   )
+      #   key = ifelse(dfe$type == 'tensor', 'Data size (Freq, Time, Trial, Elec)',
+      #                'Data size (Rows, Columns)')
+      #
+      #   kv[[key]] = sapply(dfe$data_names, function(nm) {
+      #     dd = unname(dim(dfe[[nm]]$data))
+      #
+      #     paste0(c('[', paste(dd, collapse=', '), ']'), collapse='')
+      #   }) %>% paste(collapse=', ')
+      #
+      #   kv[['Output file type']] = env$electrode_export_file_type
+      #
+      #   # description_str = "<h2>Data Description</h2>";
+      #   tokens <- mapply(function(x,y) {
+      #     sprintf("<p><strong>%s</strong>: %s</p>", x, y)
+      #   }, names(kv), kv, SIMPLIFY =F, USE.NAMES = FALSE)
+      #
+      #   str = do.call(paste, tokens)
+      #
+      #   shiny::showModal(shiny::modalDialog(
+      #     title = "Download export data",
+      #     size = "l",
+      #     easyClose = FALSE,
+      #     footer = shiny::tagList(
+      #       shiny::modalButton("Cancel"),
+      #       shiny::downloadButton(
+      #         outputId = ns("do_download_export"),
+      #         label = "Download data",
+      #         class = "btn-primary"
+      #       )
+      #     ),
+      #     shiny::HTML(str)
+      #   ))
+    })
+    ,
     input$btn_export_electrodes,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -2987,6 +2997,21 @@ module_server <- function(input, output, session, ...){
         local_data$over_time_by_trial_plot_options
       )
     })
+  )
+
+  ravedash::register_output(
+    outputId = 'by_condition_tabset_clipboard',
+    render_function = shidashi::renderClipboard(
+      {
+        basic_checks(local_reactives$update_outputs)
+
+        ## need to get tab separate values from the data frame
+        utils::capture.output(
+          write.table(local_data$results$by_condition_by_trial_data_with_outliers,
+                      file = "", sep = '\t', row.names =FALSE)
+        )
+      }
+    )
   )
 
   ravedash::register_output(
