@@ -512,9 +512,9 @@ build_data <- function(data, analysis_settings, condition_group, baseline_settin
 }
 
 over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power,
-                                            condition_group = analysis_groups, 
-                                            baseline_settings = baseline_settings,
-                                            build_data)
+                                                      condition_group = analysis_groups, 
+                                                      baseline_settings = baseline_settings,
+                                                      build_data)
 
 
 ```
@@ -1017,10 +1017,10 @@ run_stats <- function(el) {
 stats <- all_data_clean %>% split((.)$Electrode) %>% 
   raveio::lapply_async(function(el){
     # lapply(function(el) {
-      # print(el$Electrode[1])
-      if(length(el$y) < 2 || var(el$y) < 1e-12) {
-        return(NULL)
-      }
+    # print(el$Electrode[1])
+    if(length(el$y) < 2 || var(el$y) < 1e-12) {
+      return(NULL)
+    }
     # tryCatch({
     # return(suppressMessages(
     run_stats(el)
@@ -1143,8 +1143,8 @@ if(length(re) > 0) {
 # ravedash::logger('Trying data.table collapse. checking DTA: ', data.table:::cedta(), calc_delta = TRUE)
 dt <- data.table::as.data.table(dd)
 condition_means <- dt[ ,list('y'=mean(y), 'sd' = sd(y),
-                                                        'se'=rutabaga:::se(y),'n'=.N),
-                                                  keyby=fe]
+                             'se'=rutabaga:::se(y),'n'=.N),
+                       keyby=fe]
 
 ravedash::logger('got condition means', calc_delta = TRUE)
 
@@ -1183,7 +1183,7 @@ if(length(unique(dd$Trial)) < 2) {
     em, 'pairwise'
   )
   ravedash::logger('Got pairwise contrasts', calc_delta = TRUE)
-ravedash::logger('Got ANOVA', calc_delta = TRUE)
+  ravedash::logger('Got ANOVA', calc_delta = TRUE)
 }
 
 # here we have a chance to stratify rather than do
@@ -1261,287 +1261,280 @@ if(enable_second_condition_groupings) {
 ```
 
 ```{rave build_data_for_export, language="R", export='data_for_export', cue = "always"}
-
-warning("Overlapping time/frequency windows will not be coded properly in the export file")
-
+# do nothing if we're just knitting this pipeline
 if( getOption("knit_rave_pipelines", default = FALSE) ) {
-  list2env(list("electrodes_to_export" = repository$power$dimnames$Electrode[1]), envir = environment())
+  # list2env(list("electrodes_to_export" = repository$power$dimnames$Electrode[1]), envir = environment())
+  data_for_export <- NULL
 } else {
-}
-# ravedash::logger("1024::Electrodes to export:[", electrodes_to_export, ']', level = 'warning')
-
-prog <- shidashi::shiny_progress("Building export data", max=4,
-                                 shiny_auto_close = TRUE)
-
-data_for_export = FALSE
-
-electrodes_to_keep <- dipsaus::parse_svec(electrodes_to_export, sep=',|;', connect  = ':-')
-
-electrodes_to_keep %<>% remove_from_arr(repository$power$dimnames$Electrode, `%in%`, negate=TRUE)
-
-
-## check for ROI exclusion criteria
-if(electrodes_to_export_roi_name!='none') {
-  v = if(electrodes_to_export_roi_name== 'Custom ROI') {
-    
-  } else {
-    electrodes_to_export_roi_name
-  }
-  lbls <- subset(repository$electrode_table, Electrode %in% electrodes_to_keep, select=v, drop=TRUE)
-  electrodes_to_keep = electrodes_to_keep[lbls %in% electrodes_to_export_roi_categories]
-}
-
-if(!length(electrodes_to_keep)){ 
-  stop("No electrodes were found passing all selection criteria")
-} 
-
-prog$inc("Baseline data [export loop]")
-
-## ensure the data are available
-raveio::power_baseline(
-  repository,
-  baseline_windows = baseline_settings$window,
-  method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
-  units = get_baseline_scope(baseline_settings$scope),
-  signal_type = "LFP",
-  electrodes = electrodes_to_keep
-)
-
-# 
-# We're ensuring in the module that the electrodes have already 
-# been baselined etc by calling run() with our requested electrodes
-# we can grab the data directly from pluriform power
-# first we work on the tensor (one per analysis setting,
-# because of potential overlap), then flatten if requested at the end
-tensors <- lapply(analysis_settings_clean, function(asc) {
-  # asc = analysis_settings_clean[[1]]
-  ravedash::logger('Working on ', asc$label)
   
-  current_tensor = subset(repository$power$baselined, 
-                          Electrode ~ Electrode %in% electrodes_to_keep)
+  # ravedash::logger("1024::Electrodes to export:[", electrodes_to_export, ']', level = 'warning')
   
-  # 
-  # Work on the TRIAL dimension
-  tet <- trial_export_types()
-  # first assume keeping all the trials
-  trials_to_keep = repository$power$dimnames$Trial
+  prog <- shidashi::shiny_progress("Building export data", max=4,
+                                   shiny_auto_close = TRUE)
   
-  # if subset requested
-  if(trials_to_export %in% c(tet$RAW_GRP, tet$CLP_GRP, tet$CLP_CND) ) {
-    trials_to_keep <- sort(
-      unique(c(unlist(sapply(analysis_groups, `[[`, 'trials'))))
-    )
-  }
+  data_for_export = FALSE
   
-  #
-  # Here we shift the data using pluriform power function
-  shifted_tensor <- get_pluriform_power(
-    baselined_data=current_tensor,
-    trial_indices = trials_to_keep,
-    events = repository$epoch$table,
-    epoch_event_types = get_available_events(repository$epoch$columns),
-    trial_outliers_list=unlist(trial_outliers_list),
-    event_of_interest = asc$event,
-    sample_rate = repository$subject$power_sample_rate,
-    final_data_only = TRUE
-  )
-  # rm(current_tensor)
+  electrodes_to_keep <- dipsaus::parse_svec(electrodes_to_export, sep=',|;', connect  = ':-')
   
-  # by default dimnames are character
-  dn = lapply(dimnames(shifted_tensor), as.numeric)
+  electrodes_to_keep %<>% remove_from_arr(repository$power$dimnames$Electrode, `%in%`, negate=TRUE)
   
-  # do we need to collapse?
-  if(trials_to_export == tet$CLP_GRP) {
-    with_trials <- which_have_trials(analysis_groups)
-    
-    # note the sapply here to concat the result
-    by_group <- sapply(analysis_groups[with_trials], function(ag) {
-      # here we have to rely on dn$Trial because subsetting may have occurred
-      # vs. the original tensor
-      ind <- (dn$Trial %in% ag$trials)
-      ravetools::collapse(shifted_tensor[,,ind,,drop=FALSE], keep=c(1,2,4))
-    })
-    
-    # this loses dimnames, so add them back
-    shifted_tensor = tensor_reshape(mat = by_group, 
-                                    orig_dim = dim(shifted_tensor), pivot=3)
-    
-    dn$Trial = unname(sapply(analysis_groups[with_trials], `[[`, 'label'))
-    dimnames(shifted_tensor) = dn
-  }
-  
-  # add a name for the trial groups, the default label is
-  # taken from the Condition Column (in the epoch table)
-  attr_TrialLabel = subset(repository$epoch$table, 
-                           Trial %in% dn$Trial, 
-                           select=c('Trial', condition_variable)
-  ) %>% data.table::setorder('Trial')
-  
-  attr_TrialLabel$OrigCondition = attr_TrialLabel[[condition_variable]]
-  
-  # add trial groups if we have them  
-  for(ag in which_have_trials(analysis_groups)) {
-    ind = attr_TrialLabel$Trial %in% analysis_groups[[ag]]$trials
-    attr_TrialLabel$Condition[ind] = names(analysis_groups)[ag]
-  }
-  
-  # TIME DIMENSION
-  tmet <- time_export_types()
-  # see if any time points can be dropped
-  if(times_to_export %in% c(tmet$CLP_AWO, tmet$RAW_AWO)) {
-    ind <- dn$Time %within% asc$time
-    
-    shifted_tensor = shifted_tensor[,ind,,,drop=FALSE]
-    dn$Time = as.numeric(dimnames(shifted_tensor)$Time)
-  }
-  
-  if(times_to_export == tmet$CLP_AWO) {
-    tmp = ravetools::collapse(shifted_tensor, keep=c(1,3:4))
-    
-    dim(tmp) = c(dim(tmp), 1)
-    
-    # perm to put time dimension back in it's place
-    shifted_tensor <- aperm(tmp, c(1,4,2,3))
-    
-    # all(0==range(shifted_tensor[,1,,] - tmp[,,,1]))
-    dn$Time = asc$label
-    dimnames(shifted_tensor) = dn
-  }
-  
-  #
-  # Frequency dimension
-  fet = frequency_export_types()
-  if(frequencies_to_export %in% c(fet$CLP_AWO, fet$RAW_AWO)) {
-    ff <- dn$Frequency %within% asc$frequency
-    shifted_tensor = shifted_tensor[ff,,,,drop=FALSE]
-  }
-  dn$Frequency = as.numeric(dimnames(shifted_tensor)$Frequency)
-  
-  if(frequencies_to_export == fet$CLP_AWO) {
-    tmp = ravetools::collapse(shifted_tensor, keep = 2:4)
-    dim(tmp) = c(dim(tmp),1)
-    
-    # perm to put time dimension back in it's place
-    shifted_tensor <- aperm(tmp, c(4,1:3))
-    # all(0==range(current_tensor[1,,,] - tmp[,,,1]))
-    dn$Frequency = asc$label
-    dimnames(shifted_tensor) = dn
-  }
-  
-  ## add in the trial label last
-  # checks here to make sure nothing weird happened. 
-  if(length(attr_TrialLabel$Condition) == length(dn$Trial) &&
-     all(0 == (dn$Trial - attr_TrialLabel$Trial))) {
-    attr(shifted_tensor, 'TrialLabel') = attr_TrialLabel$Condition
-    attr(shifted_tensor, 'OrigTrialLabel') = attr_TrialLabel$OrigCondition
-    
-  } else {
-    ravedash::logger(level='warning', "Could not apply trial labels. Length mismatch between labels (", nrow(attr_TrialLabel),
-                     ") and  trials (", length(dn$Trial), "), or trial numbers didn't line up")
-  }
-  
-  return(shifted_tensor)
-})
-
-uoa = get_unit_of_analysis_varname(baseline_settings$unit_of_analysis)
-
-if(electrode_export_data_type == 'tensor') {
-  data_for_export =  mapply(function(tensor, asc) {
-    
-    dn <- dimnames(tensor)
-    
-    ## try to convert to numeric
-    dn %<>% lapply(function(d) {
-      nd <- suppressWarnings(as.numeric(d))
-      if(any(is.na(nd))) return(d) 
+  ## check for ROI exclusion criteria
+  if(electrodes_to_export_roi_name!='none') {
+    v = if(electrodes_to_export_roi_name== 'Custom ROI') {
       
-      nd
+    } else {
+      electrodes_to_export_roi_name
+    }
+    lbls <- subset(repository$electrode_table, Electrode %in% electrodes_to_keep, select=v, drop=TRUE)
+    electrodes_to_keep = electrodes_to_keep[lbls %in% electrodes_to_export_roi_categories]
+  }
+  
+  if(!length(electrodes_to_keep)){ 
+    stop("No electrodes were found passing all selection criteria")
+  } 
+  
+  prog$inc("Baseline data [export loop]")
+  
+  ## ensure the data are available
+  raveio::power_baseline(
+    repository,
+    baseline_windows = baseline_settings$window,
+    method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
+    units = get_baseline_scope(baseline_settings$scope),
+    signal_type = repository$signal_type,
+    electrodes = electrodes_to_keep
+  )
+  
+  # We're ensuring in the module that the electrodes have already 
+  # been baselined etc by calling run() with our requested electrodes
+  # we can grab the data directly from pluriform power
+  # first we work on the tensor (one per analysis setting,
+  # because of potential overlap), then flatten if requested at the end
+  
+  dd <- paste0('pe_export_', stringr::str_replace_all(format(Sys.time(), "%X__%b_%d_%Y"), stringr::fixed(':'), '_'))
+  out_path <- file.path(repository$subject$path, 'power_explorer', dd)
+  
+  raveio::dir_create2(out_path)
+  
+  uoa <- get_unit_of_analysis_varname(baseline_settings$unit_of_analysis)
+  for(current_electrode in electrodes_to_keep) {
+    
+    tensors <- lapply(analysis_settings_clean, function(asc) {
+      # asc = analysis_settings_clean[[1]]
+      ravedash::logger('Working on ', asc$label)
+      
+      current_tensor = subset(repository$power$baselined, 
+                              Electrode ~ Electrode %in% current_electrode)
+      
+      # 
+      # Work on the TRIAL dimension
+      tet <- trial_export_types()
+      # first assume keeping all the trials
+      trials_to_keep = repository$power$dimnames$Trial
+      
+      # if subset requested
+      if(trials_to_export %in% c(tet$RAW_GRP, tet$CLP_GRP, tet$CLP_CND) ) {
+        trials_to_keep <- sort(
+          unique(c(unlist(sapply(analysis_groups, `[[`, 'trials'))))
+        )
+      }
+      
+      # Here we shift the data using pluriform power function
+      shifted_tensor <- get_pluriform_power(
+        baselined_data=current_tensor,
+        trial_indices = trials_to_keep,
+        events = repository$epoch$table,
+        epoch_event_types = get_available_events(repository$epoch$columns),
+        trial_outliers_list=unlist(trial_outliers_list),
+        event_of_interest = asc$event,
+        sample_rate = repository$subject$power_sample_rate,
+        final_data_only = TRUE
+      )
+      # rm(current_tensor)
+      
+      # by default dimnames are character
+      dn = lapply(dimnames(shifted_tensor), as.numeric)
+      
+      # do we need to collapse?
+      if(trials_to_export == tet$CLP_GRP) {
+        with_trials <- which_have_trials(analysis_groups)
+        
+        # note the sapply here to concat the result
+        by_group <- sapply(analysis_groups[with_trials], function(ag) {
+          # here we have to rely on dn$Trial because subsetting may have occurred
+          # vs. the original tensor
+          ind <- (dn$Trial %in% ag$trials)
+          ravetools::collapse(shifted_tensor[,,ind,,drop=FALSE], keep=c(1,2,4))
+        })
+        
+        # this loses dimnames, so add them back
+        shifted_tensor = tensor_reshape(mat = by_group, 
+                                        orig_dim = dim(shifted_tensor), pivot=3)
+        
+        dn$Trial = unname(sapply(analysis_groups[with_trials], `[[`, 'label'))
+        dimnames(shifted_tensor) = dn
+      }
+      
+      # add a name for the trial groups, the default label is
+      # taken from the Condition Column (in the epoch table)
+      attr_TrialLabel = subset(repository$epoch$table, 
+                               Trial %in% dn$Trial, 
+                               select=c('Trial', condition_variable)
+      ) %>% data.table::setorder('Trial')
+      
+      attr_TrialLabel$OrigCondition = attr_TrialLabel[[condition_variable]]
+      
+      # add trial groups if we have them  
+      for(ag in which_have_trials(analysis_groups)) {
+        ind = attr_TrialLabel$Trial %in% analysis_groups[[ag]]$trials
+        attr_TrialLabel$Condition[ind] = names(analysis_groups)[ag]
+      }
+      
+      # TIME DIMENSION
+      tmet <- time_export_types()
+      # see if any time points can be dropped
+      if(times_to_export %in% c(tmet$CLP_AWO, tmet$RAW_AWO)) {
+        ind <- dn$Time %within% asc$time
+        
+        shifted_tensor = shifted_tensor[,ind,,,drop=FALSE]
+        dn$Time = as.numeric(dimnames(shifted_tensor)$Time)
+      }
+      
+      if(times_to_export == tmet$CLP_AWO) {
+        tmp = ravetools::collapse(shifted_tensor, keep=c(1,3:4))
+        
+        dim(tmp) = c(dim(tmp), 1)
+        
+        # perm to put time dimension back in it's place
+        shifted_tensor <- aperm(tmp, c(1,4,2,3))
+        
+        # all(0==range(shifted_tensor[,1,,] - tmp[,,,1]))
+        dn$Time = asc$label
+        dimnames(shifted_tensor) = dn
+      }
+      
+      #
+      # Frequency dimension
+      fet = frequency_export_types()
+      if(frequencies_to_export %in% c(fet$CLP_AWO, fet$RAW_AWO)) {
+        ff <- dn$Frequency %within% asc$frequency
+        shifted_tensor = shifted_tensor[ff,,,,drop=FALSE]
+      }
+      dn$Frequency = as.numeric(dimnames(shifted_tensor)$Frequency)
+      
+      if(frequencies_to_export == fet$CLP_AWO) {
+        tmp = ravetools::collapse(shifted_tensor, keep = 2:4)
+        dim(tmp) = c(dim(tmp),1)
+        
+        # perm to put time dimension back in it's place
+        shifted_tensor <- aperm(tmp, c(4,1:3))
+        # all(0==range(current_tensor[1,,,] - tmp[,,,1]))
+        dn$Frequency = asc$label
+        dimnames(shifted_tensor) = dn
+      }
+      
+      ## add in the trial label last
+      # checks here to make sure nothing weird happened. 
+      if(length(attr_TrialLabel$Condition) == length(dn$Trial) &&
+         all(0 == (dn$Trial - attr_TrialLabel$Trial))) {
+        attr(shifted_tensor, 'TrialLabel') = attr_TrialLabel$Condition
+        attr(shifted_tensor, 'OrigTrialLabel') = attr_TrialLabel$OrigCondition
+        
+      } else {
+        ravedash::logger(level='warning', "Could not apply trial labels. Length mismatch between labels (", nrow(attr_TrialLabel),
+                         ") and  trials (", length(dn$Trial), "), or trial numbers didn't line up")
+      }
+      
+      return(shifted_tensor)
     })
     
-    res <- list(data=tensor)
-    res[names(dn)] = dn
-    
-    res$unit = uoa
-    
-    res$baseline_window = baseline_settings$window[[1]]
-    res$baseline_scope = baseline_settings$scope[[1]]
-    
-    # add in the trial label if one was calculated above
-    if(!is.null(attributes(tensor)[['TrialLabel']])) {
-      res$TrialLabel = attr(tensor, 'TrialLabel')
-      res$OrigTrialLabel = attr(tensor, 'OrigTrialLabel')
-    }
-    
-    return(res)
-  }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
-  
-  names(data_for_export) = names(analysis_settings_clean)
-  data_for_export$data_names=names(data_for_export)
-  data_for_export$type='tensor_data'
-  
-} else {
-  ## flattened data requested
-  flat_tables <- mapply(function(tensor, asc) {
-    
-    tbl <- data.table::as.data.table(
-      reshape2::melt(tensor[drop = FALSE], value.name = uoa)
-    )
-    
-    tbl$AnalysisGroup = asc$label
-    
-    # Add in necessary meta data
-    
-    # add in the trial label if one was calculated above
-    if(!is.null(attributes(tensor)[['TrialLabel']])) {
-      df <- data.table::data.table(
-        Trial = as.numeric(dimnames(tensor)$Trial),
-        TrialLabel = attributes(tensor)[['TrialLabel']],
-        OrigTrialLabel = attributes(tensor)[['OrigTrialLabel']]
+    flat_tables <- mapply(function(tensor, asc) {
+      
+      tbl <- data.table::as.data.table(
+        reshape2::melt(tensor[drop = FALSE], value.name = uoa)
       )
       
-      tbl %<>% merge(df, all.y=FALSE, all.x=TRUE)
+      tbl$AnalysisGroup = asc$label
+      
+      # Add in necessary meta data
+      
+      # add in the trial label if one was calculated above
+      if(!is.null(attributes(tensor)[['TrialLabel']])) {
+        df <- data.table::data.table(
+          Trial = as.numeric(dimnames(tensor)$Trial),
+          TrialLabel = attributes(tensor)[['TrialLabel']],
+          OrigTrialLabel = attributes(tensor)[['OrigTrialLabel']]
+        )
+        
+        tbl %<>% merge(df, all.y=FALSE, all.x=TRUE)
+      }
+      
+      return(tbl)
+    }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
+    
+    if(!data.table::is.data.table(flat_tables)) {
+      flat_tables <- rutabaga::rbind_list(flat_tables)
     }
     
-    return(tbl)
-  }, tensors, analysis_settings_clean, SIMPLIFY = FALSE)
-  
-  
-  if(!data.table::is.data.table(flat_tables)) {
-    # flat_tables %<>% rbind_list
-    flat_tables <- rutabaga::rbind_list(flat_tables)
+    # convert factors back to characters
+    flat_tables %<>% lapply(function(x) {
+      if(is.factor(x)) {
+        x <- as.character(x)
+      }
+      x
+    }) %>% as.data.frame
+    
+    # if frequency or Time is just a label redundant with analysis group, then remove to save space
+    if(identical(flat_tables$Frequency, flat_tables$AnalysisGroup)) {
+      flat_tables$Frequency <- NULL
+    }
+    
+    if(identical(flat_tables$Time, flat_tables$AnalysisGroup)) {
+      flat_tables$Time <- NULL
+    }
+    
+    data.table::fwrite(
+      row.names = FALSE,
+      flat_tables,
+      file=file.path(out_path, sprintf('%s_%s_e%04d.csv', repository$subject$project_name, repository$subject$subject_code, current_electrode))
+    )
   }
   
-  # convert factors back to characters
-  flat_tables %<>% lapply(function(x) {
-    if(is.factor(x)) {
-      x <- as.character(x)
-    }
-    x
-  }) %>% as.data.frame
+  # strip out redundant/uninformative details
+  clean_settings <- function(ascs) {
+    lapply(ascs, function(asc) {
+      asc$frequency_dd <- NULL
+      asc$subject_code <- NULL
+      asc$project_name <- NULL
+      
+      if(!isTRUE(asc$censor_info$enabled)) {
+        asc$censor_info <- NULL
+      }
+      
+      asc
+    })
+  }
   
-  # merge in the electrode level data
-  # this greatly increases the size of the file,
-  # but it's compressed while downloading
-  all_elecs <- as.integer(unique(
-    sapply(tensors, function(tn) dimnames(tn)$Electrode)
-  ))
-  
-  et <- subset(repository$electrode_table, Electrode %in% all_elecs)
-  
-  flat_tables %<>% merge(et)
-  
-  data_for_export = list(
-    type='flat_data',
-    data_names = 'all_data',
-    all_data = list(data=flat_tables),
-    metadata=list(
-      unit = uoa,
-      baseline_window = paste0(collapse=':', baseline_settings$window[[1]]), 
-      baseline_scope = baseline_settings$scope[[1]]
-    )
+  # details on how electrodes were processed / anatomy 
+  metadata=list(
+    subject = repository$subject$subject_code,
+    project = repository$subject$project_name,
+    baseline_window = paste0(collapse=':', baseline_settings$window[[1]]), 
+    baseline_scope = baseline_settings$scope[[1]],
+    unit = uoa,
+    signal_type = repository$signal_type,
+    analyis_settings = clean_settings(analysis_settings_clean),
+    reference = subset(repository$reference_table, Electrode %in% electrodes_to_keep),
+    electrodes = subset(repository$electrode_table, Electrode %in% electrodes_to_keep)
   )
+  
+  raveio::save_yaml(
+    metadata, file = file.path(out_path, 'metadata.yaml')
+  )
+  
+  # target result for this block is the path to the exported data
+  data_for_export <- out_path
 }
-
 ```
 
 ```{rave build_data_for_group_analysis, language="R", export='data_for_group_analysis'}
