@@ -335,12 +335,13 @@ module_server <- function(input, output, session, ...){
         async = FALSE,
         # check_interval = 0.1,
         shortcut = FALSE,
-        names = 'omnibus_results'
+        names = c('over_time_by_electrode_data', 'omnibus_results')
       )
 
-      local_data$results = list(
-        omnibus_results = results
-      )
+      local_data$results <- results
+      # list(
+      #   omnibus_results = results
+      # )
 
     } else {
       target_names <- unique(c(normal_names, extra_names, eval_names))
@@ -2799,7 +2800,10 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "over_time_by_electrode",
     shiny::renderPlot({
-      basic_checks(local_reactives$update_outputs)
+      # basic_checks(local_reactives$update_outputs, check_uni = F)
+
+      basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
+      force(local_reactives$update_outputs)
       force(local_reactives$update_heatmap_plots)
 
       plot_over_time_by_electrode(local_data$results$over_time_by_electrode_data)
