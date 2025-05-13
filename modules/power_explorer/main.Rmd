@@ -463,24 +463,85 @@ build_data <- function(data, analysis_settings, condition_group, baseline_settin
   return(res)
 }
 
-over_time_by_electrode_data <- data_builder(pluriform_power = pluriform_power,
-                                            condition_group = analysis_groups, 
-                                            baseline_settings = baseline_settings,
-                                            build_data)
-
-
+over_time_by_electrode_data <- data_builder(
+  pluriform_power = pluriform_power,
+  condition_group = analysis_groups, 
+  baseline_settings = baseline_settings,
+  build_data
+)
 ```
 
-```{rave plot_over_time_by_electrode_data_data, language='R', export='betfd_success', cue="always"}
+```{rave build_over_time_by_electrode_similiarity_data, language="R", export ="by_electrode_similarity_data"}
+# get the pairwise distances for electrodes, the combination rules will be done in the GUI 
+# average dist, max dist, min, 
 
-betfd_success <- tryCatch({
-  draw_many_heat_maps(over_time_by_electrode_data)
+curr_electrodes <- subset(repository$electrode_table, Electrode %in% over_time_by_electrode_data[[1]]$electrodes)
+
+if(nrow(curr_electrodes) < 3) {
+  by_electrode_similarity_data = NULL
+} else {
   
-  TRUE
-}, error=function(e) {
-  e
-})
+  rownames(curr_electrodes) = curr_electrodes$Electrode
+  
+  all_distances <- lapply(over_time_by_electrode_data, function(dd) {
+    
+    etbl <- curr_electrodes[as.character(dd$electrodes),]
+    
+    correlation_distance <- as.dist(
+      1 - cor(dd$data)
+    )
+    
+    euclidean_distance <- dist(t(dd$data), method = 'euclidean')
+    
+    coordinate_distance <- dist(etbl[,c('Coord_x', 'Coord_y', 'Coord_z')])
+    
+    # assign all electrode the average coordinate of their FS label,
+    # then calculate coordinate distance
+    fslabel_distance = NULL
+    if(!is.null(etbl[['FSLabel']])) {
+      tmp <- merge(etbl,
+                   aggregate(cbind('CX'=Coord_x, 'CY'=Coord_y, 'CZ'=Coord_z) ~ FSLabel, FUN = mean, data=etbl)
+      )
+      
+      fslabel_distance <- dist(tmp[,c('CX', 'CY', 'CZ')])
+    }
+    
+    list(
+      'correlation' = correlation_distance,
+      'euclidean' = euclidean_distance,
+      'coordinate' = coordinate_distance,
+      'FSLabel' = fslabel_distance
+    )
+    
+  })
+  
+  distance_names <- names(all_distances[[1]])
+  
+  all_dist_mats <- sapply(c('total', 'max', 'min'), function(metric) {
+    sapply(distance_names, function(dn) {
+      FUN <- switch(metric, 
+                    'total' = `+`,
+                    'max' = pmax,
+                    'min' = pmin
+      )
+      
+      Reduce(FUN, lapply(all_distances, `[[`, dn))
+    }, simplify = FALSE)
+  }, simplify = FALSE)
+  
+  by_electrode_similarity_data <- lapply(all_dist_mats, function(x) {
+    lapply(x, function(xx) {
+      
+      if(is.null(xx)) {
+        return(NULL)
+      }
+      
+      force(hclust(xx, method = 'ward.D2'))
+    })
+  })
+}
 ```
+
 
 ```{rave build_over_time_by_electrode_and_trial_data, language="R", export ="over_time_by_electrode_and_trial_data"}
 build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {

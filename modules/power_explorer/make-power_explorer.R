@@ -937,37 +937,120 @@ rm(._._env_._.)
             "analysis_groups", "baseline_settings")), deps = c("subject_code", 
         "pluriform_power", "analysis_groups", "baseline_settings"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), plot_over_time_by_electrode_data_data = targets::tar_target_raw(name = "betfd_success", 
+        iteration = "list"), build_over_time_by_electrode_similiarity_data = targets::tar_target_raw(name = "by_electrode_similarity_data", 
         command = quote({
             .__target_expr__. <- quote({
-                betfd_success <- tryCatch({
-                  draw_many_heat_maps(over_time_by_electrode_data)
-                  TRUE
-                }, error = function(e) {
-                  e
-                })
+                curr_electrodes <- subset(repository$electrode_table, 
+                  Electrode %in% over_time_by_electrode_data[[1]]$electrodes)
+                if (nrow(curr_electrodes) < 3) {
+                  by_electrode_similarity_data = NULL
+                } else {
+                  rownames(curr_electrodes) = curr_electrodes$Electrode
+                  all_distances <- lapply(over_time_by_electrode_data, 
+                    function(dd) {
+                      etbl <- curr_electrodes[as.character(dd$electrodes), 
+                        ]
+                      correlation_distance <- as.dist(1 - cor(dd$data))
+                      euclidean_distance <- dist(t(dd$data), 
+                        method = "euclidean")
+                      coordinate_distance <- dist(etbl[, c("Coord_x", 
+                        "Coord_y", "Coord_z")])
+                      fslabel_distance = NULL
+                      if (!is.null(etbl[["FSLabel"]])) {
+                        tmp <- merge(etbl, aggregate(cbind(CX = Coord_x, 
+                          CY = Coord_y, CZ = Coord_z) ~ FSLabel, 
+                          FUN = mean, data = etbl))
+                        fslabel_distance <- dist(tmp[, c("CX", 
+                          "CY", "CZ")])
+                      }
+                      list(correlation = correlation_distance, 
+                        euclidean = euclidean_distance, coordinate = coordinate_distance, 
+                        FSLabel = fslabel_distance)
+                    })
+                  distance_names <- names(all_distances[[1]])
+                  all_dist_mats <- sapply(c("total", "max", "min"), 
+                    function(metric) {
+                      sapply(distance_names, function(dn) {
+                        FUN <- switch(metric, total = `+`, max = pmax, 
+                          min = pmin)
+                        Reduce(FUN, lapply(all_distances, `[[`, 
+                          dn))
+                      }, simplify = FALSE)
+                    }, simplify = FALSE)
+                  by_electrode_similarity_data <- lapply(all_dist_mats, 
+                    function(x) {
+                      lapply(x, function(xx) {
+                        if (is.null(xx)) {
+                          return(NULL)
+                        }
+                        force(hclust(xx, method = "ward.D2"))
+                      })
+                    })
+                }
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(betfd_success)
+                return(by_electrode_similarity_data)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "betfd_success", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "by_electrode_similarity_data", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "betfd_success", target_expr = quote({
+            target_export = "by_electrode_similarity_data", target_expr = quote({
                 {
-                  betfd_success <- tryCatch({
-                    draw_many_heat_maps(over_time_by_electrode_data)
-                    TRUE
-                  }, error = function(e) {
-                    e
-                  })
+                  curr_electrodes <- subset(repository$electrode_table, 
+                    Electrode %in% over_time_by_electrode_data[[1]]$electrodes)
+                  if (nrow(curr_electrodes) < 3) {
+                    by_electrode_similarity_data = NULL
+                  } else {
+                    rownames(curr_electrodes) = curr_electrodes$Electrode
+                    all_distances <- lapply(over_time_by_electrode_data, 
+                      function(dd) {
+                        etbl <- curr_electrodes[as.character(dd$electrodes), 
+                          ]
+                        correlation_distance <- as.dist(1 - cor(dd$data))
+                        euclidean_distance <- dist(t(dd$data), 
+                          method = "euclidean")
+                        coordinate_distance <- dist(etbl[, c("Coord_x", 
+                          "Coord_y", "Coord_z")])
+                        fslabel_distance = NULL
+                        if (!is.null(etbl[["FSLabel"]])) {
+                          tmp <- merge(etbl, aggregate(cbind(CX = Coord_x, 
+                            CY = Coord_y, CZ = Coord_z) ~ FSLabel, 
+                            FUN = mean, data = etbl))
+                          fslabel_distance <- dist(tmp[, c("CX", 
+                            "CY", "CZ")])
+                        }
+                        list(correlation = correlation_distance, 
+                          euclidean = euclidean_distance, coordinate = coordinate_distance, 
+                          FSLabel = fslabel_distance)
+                      })
+                    distance_names <- names(all_distances[[1]])
+                    all_dist_mats <- sapply(c("total", "max", 
+                      "min"), function(metric) {
+                      sapply(distance_names, function(dn) {
+                        FUN <- switch(metric, total = `+`, max = pmax, 
+                          min = pmin)
+                        Reduce(FUN, lapply(all_distances, `[[`, 
+                          dn))
+                      }, simplify = FALSE)
+                    }, simplify = FALSE)
+                    by_electrode_similarity_data <- lapply(all_dist_mats, 
+                      function(x) {
+                        lapply(x, function(xx) {
+                          if (is.null(xx)) {
+                            return(NULL)
+                          }
+                          force(hclust(xx, method = "ward.D2"))
+                        })
+                      })
+                  }
                 }
-                betfd_success
-            }), target_depends = "over_time_by_electrode_data"), 
-        deps = "over_time_by_electrode_data", cue = targets::tar_cue("always"), 
-        pattern = NULL, iteration = "list"), build_over_time_by_electrode_and_trial_data = targets::tar_target_raw(name = "over_time_by_electrode_and_trial_data", 
+                by_electrode_similarity_data
+            }), target_depends = c("repository", "over_time_by_electrode_data"
+            )), deps = c("repository", "over_time_by_electrode_data"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), build_over_time_by_electrode_and_trial_data = targets::tar_target_raw(name = "over_time_by_electrode_and_trial_data", 
         command = quote({
             .__target_expr__. <- quote({
                 build_data <- function(data, analysis_settings, 

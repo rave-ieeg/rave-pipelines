@@ -360,8 +360,66 @@ module_html <- function(){
                 )
               ),
 
+              `Over Time` = shiny::tagList(
+                shiny::div(
+                  # opens a fluid container
+                  class = "container-fluid",
+                  make_heatmap_control_panel(prefix = 'otbe', config = 'by_electrode_tabset_config', do_xlim=FALSE),
+                  shiny::conditionalPanel(
+                    condition = sprintf("input['%s'] %% 2 == 1", 'by_electrode_tabset_config'),
+                    ns = ns,
+                    shiny::div(
+                      class = "container-fluid",
+                      shiny::fluidRow(
+                        shiny::column(width = 3L,
+                                      shiny::selectInput(ns('otbe_yaxis_sort'), label = 'How to sort electrodes',
+                                                         choices = c('Electrode #',
+                                                                     'Activity Correlation',
+                                                                     'Activity distance (Euclidean)',
+                                                                     'Coordinate distance','Coordinate distance (ignore Hemi)',
+                                                                     'ROI distance', 'ROI distance (ignore Hemi)')
+                                      )),
+                        shiny::column(width = 4L,
+                                      shiny::selectInput(ns('otbe_yaxis_sort_combine_rule'),
+                                                         label = 'How to combine distances across conditions',
+                                                         choices = c('total (sum across conditions)', 'min (smallest distance wins)', 'max (largest distance wins)')
+                                      )
+                        ),
+                        shiny::column(width = 1L,
+                                      shiny::numericInput(ns('otbe_yaxis_cluster_k'),
+                                                          label = '# Clusters', value = 2, min = 2, max = 8
+                                      )
+
+                        ),
+                        shiny::column(width = 2L,
+                                      shiny::selectInput(ns('otbe_yaxis_cluster_palette'),
+                                                         label = 'Cluster colors',
+                                                         choices = rev(get_line_palette(get_palette_names = T)), selected ='Set2'
+                                      )
+                        ),
+                        shiny::column(width = 2L,
+                                      shiny::actionButton(ns('otbe_update_3dviewer'),
+                                                          label = 'Send to brain viewer',class='btn-small',
+                                                          icon = ravedash::shiny_icons$arrow_up
+                                      )
+                        )
+                      )
+                    )
+                  )
+                ),
+                shiny::div(
+                  class = "fill-width no-padding min-height-400 resize-vertical",
+                  ravedash::output_gadget_container(
+                    ravedash::plotOutput2(
+                      outputId = ns('over_time_by_electrode'),
+                      min_height = 400
+                    )
+                  )
+                )
+              ),
+
               # ---- Output tab: By Electrode > Graphical Results -----
-              `Graphical Results` = shiny::div(
+              `By Condition` = shiny::div(
                 shiny::conditionalPanel(
                   condition = "input['by_electrode_tabset_config']%2 == 1",
                   ns = ns,
@@ -624,17 +682,6 @@ module_html <- function(){
                     ravedash::plotOutput2(
                       outputId = ns('over_time_by_condition'),
                       min_height = 400)
-                  )
-                )
-              ),
-              `By Electrode` = shiny::tagList(
-                shiny::div(
-                  class = "fill-width no-padding min-height-400 resize-vertical",
-                  ravedash::output_gadget_container(
-                    ravedash::plotOutput2(
-                      outputId = ns('over_time_by_electrode'),
-                      min_height = 400
-                    )
                   )
                 )
               ),

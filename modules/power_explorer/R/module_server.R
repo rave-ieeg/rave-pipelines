@@ -7,6 +7,7 @@ module_server <- function(input, output, session, ...){
     update_heatmap_plots = NULL,
     update_by_frequency_over_time_plot = NULL,
     update_over_time_by_trial_plot = NULL,
+    update_over_time_by_electrode_plot = NULL,
     update_by_frequency_correlation_plot = NULL,
     update_3dviewer = NULL,
     update_by_condition_plot = NULL,
@@ -80,10 +81,15 @@ module_server <- function(input, output, session, ...){
   # this is used to get ROI variables and provide extra columns for table
   local_data$electrode_meta_data <- NULL
 
+  # data frame to store electrode clusters, can be merged
+  # into 3dViewer when needed
+  local_data$electrode_quick_cluster <- NULL
+
   # All of these heat map plots should have the same settings
   local_data$by_frequency_correlation_plot_options <- list(
     max_zlim = 1,
     percentile_range = FALSE,
+    global_scale = TRUE,
     ncol = 3, byrow=TRUE,
     show_window = TRUE,
     xlim = c(0,1)
@@ -92,6 +98,7 @@ module_server <- function(input, output, session, ...){
   local_data$by_frequency_over_time_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
+    global_scale = TRUE,
     ncol = 3, byrow=TRUE,
     show_window = TRUE,
     xlim = c(0,1)
@@ -100,10 +107,29 @@ module_server <- function(input, output, session, ...){
   local_data$over_time_by_trial_plot_options <- list(
     max_zlim = 99,
     percentile_range = TRUE,
+    global_scale = TRUE,
     ncol = 3, byrow=TRUE,
     show_window = TRUE,
     xlim = c(0,1)
   )
+
+  local_data$over_time_by_electrode_plot_options <- list(
+    max_zlim = 99,
+    percentile_range = TRUE,
+    global_scale = TRUE,
+    ncol = 3, byrow=TRUE,
+    show_window = TRUE,
+    xlim = c(0,1),
+
+    cluster_label_colors=get_line_palette('Set3'),
+    cluster_label_font = 2,
+    cluster_label_cex = 1,
+    cluster_k = 2,
+    yaxis_sort = 'Electrode #',
+    yaxis_sort_combine_rule = 'total (sum across conditions)'
+  )
+
+  names(local_data$over_time_by_electrode_plot_options$cluster_label_colors) = paste0('C', seq_along(local_data$over_time_by_electrode_plot_options$cluster_label_colors))
 
   ### ---
 
@@ -289,6 +315,7 @@ module_server <- function(input, output, session, ...){
                     'by_frequency_correlation_data',
                     'over_time_by_trial_data',
                     'over_time_by_electrode_data',
+                    'by_electrode_similarity_data',
                     # 'over_time_by_electrode_dataframe',
                     'omnibus_results',
                     'over_time_by_condition_data',
@@ -335,7 +362,7 @@ module_server <- function(input, output, session, ...){
         async = FALSE,
         # check_interval = 0.1,
         shortcut = FALSE,
-        names = c('over_time_by_electrode_data', 'omnibus_results')
+        names = c('over_time_by_electrode_data', 'omnibus_results', 'by_electrode_similarity_data')
       )
 
       local_data$results <- results
@@ -503,7 +530,7 @@ module_server <- function(input, output, session, ...){
       )
 
       # update the timing range variable for heatmap plots
-      sapply(c('bfot', 'otbt'), function(nm) {
+      sapply(c('bfot', 'otbt', 'otbe'), function(nm) {
         shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
                                  value = range(newly_available_time),
                                  min = min(newly_available_time),
@@ -983,9 +1010,10 @@ module_server <- function(input, output, session, ...){
       # update the timing range variable for heatmap plots
       pnames = c('bfot' = 'by_frequency_over_time_plot',
                  'bfc' = 'by_frequency_correlation_plot',
-                 'otbt' = 'over_time_by_trial_plot')
+                 'otbt' = 'over_time_by_trial_plot',
+                 'otbe' = 'over_time_by_electrode')
 
-      sapply(c('bfot', 'otbt'), function(nm) {
+      sapply(c('bfot', 'otbt', 'otbe'), function(nm) {
         shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
                                  value = range(new_repository$time_points),
                                  min = min(new_repository$time_points),
@@ -1049,7 +1077,7 @@ module_server <- function(input, output, session, ...){
       ## update ROI variable choices
       # any variable with between 2 and 20 unique values can be an ROI
       tbl <- new_repository$electrode_table
-      local_data$electrode_meta_data = tbl[tbl$Electrode %in% new_repository$power$dimnames$Electrode,]
+      local_data$electrode_meta_data <- tbl[tbl$Electrode %in% new_repository$power$dimnames$Electrode,]
 
       # let the Subject column be added
       local_data$electrode_meta_data$Subject = new_repository$subject$subject_code
@@ -1101,9 +1129,16 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$update_by_frequency_over_time_plot <- NULL
       local_reactives$update_over_time_by_trial_plot <- NULL
+      local_reactives$update_over_time_by_electrode_plot <- NULL
       local_reactives$update_by_frequency_correlation_plot <- NULL
 
       local_data$bcbt_click_log <- NULL
+
+
+
+      ravedash::logger(
+        str(local_data$electrode_meta_data), level = 'info'
+      )
 
       #TODO update UI selectors to possibly cached values
     }, priority = 1001),
@@ -1436,6 +1471,10 @@ module_server <- function(input, output, session, ...){
     local_data[[optname]]$percentile_range =
       isTRUE(input[[prefix %&% '_range_is_percentile']])
 
+    local_data[[optname]]$global_scale =
+      isTRUE(input[[prefix %&% '_scale_is_global']])
+
+
     local_data[[optname]]$ncol = input[[prefix %&% '_ncol']]
 
     local_data[[optname]]$byrow = input[[prefix %&% '_byrow']]
@@ -1450,13 +1489,14 @@ module_server <- function(input, output, session, ...){
   # controls for heatmaps
   pnames = c('bfot' = 'by_frequency_over_time_plot',
              'bfc' = 'by_frequency_correlation_plot',
-             'otbt' = 'over_time_by_trial_plot')
+             'otbt' = 'over_time_by_trial_plot',
+             'otbe' = 'over_time_by_electrode_plot')
 
   mapply(function(prf, po) {
     shiny::bindEvent(
       ravedash::safe_observe({
         update_heatmap_controls(prf, po_name = po)
-      }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_range']],
+      }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_scale_is_global']], input[[prf %&% '_range']],
       input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
       input[[prf %&% '_show_window']], input[[prf %&% '_xlim']],
       ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1980,13 +2020,48 @@ module_server <- function(input, output, session, ...){
     cond
   }
 
+  # putting this observer here because it relates to the 3dviewer
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_reactives$update_3dviewer = Sys.time()
+    }), input$otbe_update_3dviewer, ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      local_data$over_time_by_electrode_plot_options$cluster_label_colors <- get_line_palette(input$otbe_yaxis_cluster_palette)
+
+      # we need to have names for the colors because the clusters aren't plotted in order :(
+      names(local_data$over_time_by_electrode_plot_options$cluster_label_colors) = paste0('C', seq_along(local_data$over_time_by_electrode_plot_options$cluster_label_colors))
+
+      local_data$over_time_by_electrode_plot_options$cluster_k = input$otbe_yaxis_cluster_k
+      local_data$over_time_by_electrode_plot_options$yaxis_sort_combine_rule = input$otbe_yaxis_sort_combine_rule
+      local_data$over_time_by_electrode_plot_options$yaxis_sort = input$otbe_yaxis_sort
+
+      # now way to change thse currently
+      local_data$over_time_by_electrode_plot_options$cluster_label_font <- 2
+      local_data$over_time_by_electrode_plot_options$cluster_label_cex <- 1
+
+      # trigger the update
+      local_reactives$update_over_time_by_electrode_plot = Sys.time()
+
+    }), input$otbe_yaxis_cluster_palette, input$otbe_yaxis_cluster_k, input$otbe_yaxis_sort_combine_rule, input$otbe_yaxis_sort,
+    ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+
+
   # Register outputs
+
 
   #### 3d brain viewer
   ravedash::register_output(
     outputId = "brain_viewer",
     output_type = "threeBrain",
     render_function = threeBrain::renderBrain({
+
       cond <- basic_checks(local_reactives$update_3dviewer, check_uni = FALSE)
 
       brain <- raveio::rave_brain(component_container$data$repository$subject)
@@ -2018,7 +2093,14 @@ module_server <- function(input, output, session, ...){
 
       df$Electrode = as.integer(rownames(df))
 
+
       res <- build_palettes_and_ranges_for_omnibus_data(df)
+
+      if(!is.null(local_data$electrode_quick_cluster)) {
+        df %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE)
+
+        res$palettes[['PE_Cluster']] = local_data$over_time_by_electrode_plot_options$cluster_label_colors
+      }
 
       brain$set_electrode_values(df)
 
@@ -2054,7 +2136,6 @@ module_server <- function(input, output, session, ...){
           title = 'Click "Play/Pause" to start animation'
         )
       }
-
     })
   )
 
@@ -2481,6 +2562,11 @@ module_server <- function(input, output, session, ...){
         args$plot_options = local_data$over_time_by_trial_plot_options
       }
 
+      if(dset == 'over_time_by_electrode_data') {
+        args$plot_options = local_data$over_time_by_electrode_plot_options
+      }
+
+
       if(dset == 'by_condition_by_trial_data') {
         args$grouped_plot_options = local_data$grouped_plot_options
         args$ylab = local_data$results$baseline_settings$unit_of_analysis
@@ -2804,9 +2890,102 @@ module_server <- function(input, output, session, ...){
 
       basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
       force(local_reactives$update_outputs)
-      force(local_reactives$update_heatmap_plots)
 
-      plot_over_time_by_electrode(local_data$results$over_time_by_electrode_data)
+      force(local_reactives$update_heatmap_plots)
+      force(local_reactives$update_over_time_by_electrode_plot)
+      force(local_reactives$outliers_updated)
+
+      # local_data = list(results = list(
+      #   over_time_by_electrode_data=pipeline$read('over_time_by_electrode_data')
+      # ))
+
+      besd <- local_data$results$by_electrode_similarity_data
+
+      po <- local_data$over_time_by_electrode_plot_options
+
+      if(is.null(besd)) {
+        plot_over_time_by_electrode(
+          local_data$results$over_time_by_electrode_data,
+          plot_options = po
+        )
+      } else {
+
+
+        # get all these from local reactives instead of directly from input
+        # so they can be more easily saved
+        agg_method = c(
+          'total (sum across conditions)' = 'total',
+          'min (smallest distance wins)' = 'min',
+          'max (largest distance wins)' = 'max'
+        )[po$yaxis_sort_combine_rule]
+
+        dist_method = c('Electrode #' = 'electrode',
+                        'Activity Correlation' = 'correlation',
+                        'Activity distance (Euclidean)' = 'euclidean',
+                        'Coordinate distance' = 'coordinate',
+                        'Coordinate distance (ignore Hemi)' = 'coordinate',
+                        'ROI distance' = 'FSLabel',
+                        'ROI distance (ignore Hemi)' = 'FSLabel'
+        )[po$yaxis_sort]
+
+        # otbed$electrodes stores the original order
+        # otbed$y
+        # otbed <- local_data$results$over_time_by_electrode_data[[1]]
+
+        # ravedash::logger(
+        #   paste(sep=', ', agg_method, dist_method), level='info'
+        # )
+
+        reorder <- NULL
+        cids <- NULL
+
+        if(dist_method != 'electrode') {
+          cids <- cutree(besd[[agg_method]][[dist_method]], po$cluster_k)
+          reorder <- besd[[agg_method]][[dist_method]]$order
+        }
+
+        if(!is.null(cids)) {
+          local_data$electrode_quick_cluster <- data.frame(
+            Electrode = local_data$results$over_time_by_electrode_data[[1]]$electrodes,
+            PE_Cluster = paste0('C', cids)
+          )
+        } else {
+          local_data$electrode_quick_cluster <- NULL
+        }
+
+        local_data$results$over_time_by_electrode_data <- sapply(
+          local_data$results$over_time_by_electrode_data, function(otbed) {
+
+            # first check to make sure the data are aligned by electrode
+            # because that is how the reorder variable works
+            if(!identical(otbed$y, otbed$electrodes)) {
+              .ord <- order(otbed$y)
+              otbed$data <- otbed$data[,.ord]
+              otbed$y <- otbed$y[.ord]
+            }
+
+            # we sorted to above, so don't do it again
+            if(dist_method != 'electrode') {
+              otbed$data <- otbed$data[,reorder]
+              otbed$ylab <- sprintf('Electrode # (clust by %s)', dist_method)
+              otbed$y <- otbed$y[reorder]
+              otbed$cluster = paste0('C', cids[reorder])
+
+            } else {
+              otbed$ylab <- 'Electrode #'
+              otbed$cluster = NULL
+            }
+
+            otbed
+          }, simplify = FALSE
+        )
+
+        plot_over_time_by_electrode(
+          local_data$results$over_time_by_electrode_data,
+          plot_options = local_data$over_time_by_electrode_plot_options,
+          cluster_ids = cids
+        )
+      }
     })
   )
 
@@ -2842,12 +3021,10 @@ module_server <- function(input, output, session, ...){
       }
 
       ravedash::logger(level='info', "plot_by_frequency_over_time")
-
       plot_by_frequency_over_time(
         by_frequency_over_time_data,
         plot_args = local_data$by_frequency_over_time_plot_options
       )
-
     })
   )
 
@@ -2989,6 +3166,7 @@ module_server <- function(input, output, session, ...){
   ravedash::register_output(
     outputId = "over_time_by_trial",
     render_function = shiny::renderPlot({
+
       basic_checks(local_reactives$update_outputs)
 
       force(local_reactives$update_heatmap_plots)

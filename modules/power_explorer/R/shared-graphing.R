@@ -91,7 +91,7 @@ build_palettes_and_ranges_for_omnibus_data <- function(omnidata) {
 }
 
 draw_many_heat_maps <- function (hmaps,
-                                 max_zlim = 0, percentile_range = FALSE, log_scale = FALSE,
+                                 max_zlim = 0, percentile_range = FALSE, global_scale = TRUE, log_scale = FALSE,
                                  show_color_bar = TRUE, useRaster = TRUE, PANEL.FIRST = NULL,
                                  PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL,
                                  axes = c(TRUE, TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
@@ -129,6 +129,7 @@ draw_many_heat_maps <- function (hmaps,
   }
   #some people were passing in NULL for max_zlim
   max_zlim %?<-% 0
+  orig.max_zlim <- force(max_zlim)
 
   # if (any(par("mfrow") > 1)) {
   #   default_mar <- c(5.1, 4.1, 4.1, 2.1)
@@ -146,6 +147,7 @@ draw_many_heat_maps <- function (hmaps,
   # }
 
   actual_lim = rutabaga::get_data_range(hmaps)
+
   needs_round = FALSE
   if (max_zlim <= 0) {
     max_zlim <- max(abs(actual_lim), na.rm = TRUE)
@@ -253,8 +255,19 @@ draw_many_heat_maps <- function (hmaps,
     if (is.function(PANEL.FIRST)) {
       PANEL.FIRST(map)
     }
-    make_image(map$data, x = x, y = y, log = ifelse(log_scale,
-                                                    "y", ""), zlim = c(-1, 1) * max_zlim)
+
+    #
+    # if we're doing per-map scaling, then adjust max_zlim to be based on the current map
+    if(global_scale || isFALSE(percentile_range)) {
+      zlim = c(-1,1) * max_zlim
+    } else {
+      zlim = NULL
+      # ravedash::logger('setting zlim to NULL', level='trace')
+    }
+    make_image(map$data, x = x, y = y,
+               log = ifelse(log_scale, "y", ""),
+               zlim = zlim, zlim_percentile = orig.max_zlim
+    )
 
 
     ### draw the axis labels (no drawn axes/ticks on the spectrogram: lwd=0, tcl=0)
@@ -306,9 +319,15 @@ draw_many_heat_maps <- function (hmaps,
     }
     .ylab = ""
     .ylab <- hmaps[[has_data[1]]]$zlab
+
+    if(!global_scale && isTRUE(percentile_range)) {
+      .ylab <- stringr::str_replace(.ylab, 'Mean', 'Local Percentile')
+      max_zlim = orig.max_zlim
+    }
+
     # par(mar=rep(2.5,4))
     par('mar'=.mar)
-    print(paste("using mar: ", paste0(collapse=',', .mar)))
+    # print(paste("using mar: ", paste0(collapse=',', .mar)))
 
     rave_color_bar(max_zlim, actual_lim, ylab = .ylab, mar = .mar,
                    ylab.line = yline
@@ -418,23 +437,40 @@ plotting_to_file <- function() {
 #' @param add logical, whether to overlay current plot to an existing image
 #' @description The idea here is to to separate the plotting of the heatmap from all the accoutrements that are done in the decorators.
 #' We are just plotting image(mat) Rather Than t(mat) as you might expect. The built-in calculators know this so we can save a few transposes along the way.
-make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_to_zlim=TRUE, add=TRUE) {
+make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_to_zlim=TRUE,
+                       add=TRUE, zlim_percentile=FALSE) {
 
-  if(missing(zlim)) {
-    zlim <- c(-1,1)*max(abs(mat))
-  } else {
-    # if zlim is missing, then the zlim will be set symmetrically based on the range
-    # of the data (in the 'if' block above), so we only have to worry about clipping if the range is passed in
-    if(clip_to_zlim) {
-      # mat %<>% clip_x(zlim)
-      mat <- rutabaga::clip_x(mat, zlim)
+  # ravedash::logger(level='info', "calling make_image", zlim, zlim_percentile)
+
+  if(missing(zlim) || is.null(zlim)) {
+
+    if(is.numeric(zlim_percentile)) {
+
+      if(!(zlim_percentile %within% c(0,100))) {
+
+        ravedash::logger(level='warning', "Invalid zlim percentile sent to make image, defaulting to 99. ensure value is in 0:100")
+
+        zlim_percentile = 99
+      }
+      zlim <- c(-1,1)*quantile(abs(mat), zlim_percentile * 0.01)
+
+
+    } else {
+      zlim <- c(-1,1)*max(abs(mat))
     }
+  }
+
+  # if zlim is missing, then the zlim will be set symmetrically based on the range
+  # of the data (in the 'if' block above), so we only have to worry about clipping if the range is passed in, unless we're also doing percentile scaling...
+  if(clip_to_zlim) {
+    # mat %<>% clip_x(zlim)
+    mat <- rutabaga::clip_x(mat, zlim)
   }
 
   col %?<-% get_currently_active_heatmap()
 
   if(!('matrix' %in% class(mat))) {
-    stop('mat is not a matrix... check it out: make_image_mat')
+    stop('mat is not a matrix... make_image')
     # assign('make_image_mat', mat, globalenv())
   }
 
@@ -442,11 +478,8 @@ make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_t
     log = ''
   }
 
-  # with(make_image_mat, {
-
   image(x=x, y=y, z=mat, zlim=zlim, col=col, useRaster=useRaster, log=log,
         add=add, axes=F, xlab='', ylab='', main='')
-  # })
 
   # return the clipped zmat
   invisible(mat)
@@ -2287,24 +2320,26 @@ stack_decorators <- function(...) {
 }
 
 
-build_heatmap_condition_label_decorator <- function(all_maps, ...) {
+build_heatmap_condition_label_decorator <- function(all_maps, ..., var='y',
+                                                    show_text=TRUE, text_side=2, text_col=par('fg'), text_cex = 0.8, text_font=1) {
   o.mar <- par('mar')
 
   ## make sure we have sufficient left-margin
   max_char_count <- sapply(all_maps, function(m) {
-    nchar(unique(as.character(m$y)))
+    nchar(unique(as.character(m[[var]])))
   }) %>% unlist %>% max
 
   mar2 <- 5.1 + max(0, (max_char_count - 5) * 0.8)
   new_mar <- o.mar
-  new_mar[2] = max(mar2, o.mar[2])
+
+  new_mar[text_side] = max(mar2, o.mar[text_side])
 
   par('mar' = new_mar)
 
   # function that does the decorating
   hcld <- function(data, Xmap, Ymap, ...) {
 
-    diff_cond = rle(data$y)
+    diff_cond = rle(data[[var]])
     len <- diff_cond$lengths
     cs_len <- cumsum(len)
 
@@ -2316,28 +2351,73 @@ build_heatmap_condition_label_decorator <- function(all_maps, ...) {
     }
     midpoints <- len/2 + c(0, cs_len)
 
-    mtext(diff_cond$values, side = 2,
-          at = midpoints,
-          cex = 0.8*get_cex_for_multifigure(), las=1, line = 0.25)
+    if(show_text) {
+
+
+      ravedash::logger(
+        "Using text: ", str(diff_cond$values), level='info'
+      )
+      ravedash::logger(
+        "Using colors: ", str(text_col), level='info'
+      )
+
+      if(all(diff_cond$values %in% names(text_col))) {
+        text_col = text_col[diff_cond$values]
+      }
+
+      mtext(diff_cond$values, side = text_side, col=text_col,
+            at = midpoints + 0.5, font = text_font,
+            cex = text_cex*get_cex_for_multifigure(), las=1, line = 0.25)
+    }
 
   }
 
   return (hcld)
 }
 
-plot_over_time_by_electrode <- function(by_electrode_tf_data) {
+plot_over_time_by_electrode <- function(by_electrode_tf_data, plot_options, cluster_ids=NULL) {
   apply_current_theme()
 
-  decorators <- stack_decorators(
-    build_heatmap_analysis_window_decorator(),
-    build_axis_label_decorator(push_X=3),
-    build_title_decorator()
+  if(!is.null(cluster_ids)) {
+    decorators <- stack_decorators(
+      build_heatmap_analysis_window_decorator(
+        type = ifelse(isFALSE(plot_options$show_window), 'none', 'line')
+      ),
+      build_heatmap_condition_label_decorator(
+        by_electrode_tf_data,
+        var = 'cluster', text_side = 4,
+        text_col = plot_options$cluster_label_colors,
+        text_font = plot_options$cluster_label_font,
+        text_cex = plot_options$cluster_label_cex,
+      ),
+      build_axis_label_decorator(push_X=3),
+      build_title_decorator()
+    )
+
+  } else {
+    decorators <- stack_decorators(
+      build_heatmap_analysis_window_decorator(
+        type = ifelse(isFALSE(plot_options$show_window), 'none', 'line')
+      ),
+      build_axis_label_decorator(push_X=3),
+      build_title_decorator()
+    )
+
+  }
+
+  args <- list(
+    hmaps = by_electrode_tf_data,
+    PANEL.LAST = decorators,
+    PANEL.COLOR_BAR = color_bar_title_decorator,
+    axes=c(T,T)
   )
 
-  draw_many_heat_maps(
-    hmaps = by_electrode_tf_data,
-    PANEL.LAST = decorators
-  )
+  if(length(plot_options) > 0) {
+    args[names(plot_options)] = plot_options[names(plot_options)]
+  }
+
+  do.call(draw_many_heat_maps, args)
+
 }
 
 build_title_decorator <- function(to_include=c('analysis_group',
