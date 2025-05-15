@@ -4,7 +4,7 @@ module_html <- function(){
   line_palettes <- get_line_palette(get_palette_names = TRUE)
   heatmap_palettes <- get_heatmap_palette(get_palette_names = TRUE)
 
-  shiny::fluidPage(
+  shiny::fluidPage(shinyjs::useShinyjs(),
     shiny::fluidRow(
 
       # ---- Input tabs (width = 3) -------------------------------
@@ -28,7 +28,7 @@ module_html <- function(){
               title = shiny::checkboxInput(ns('enable_custom_ROI'), 'Custom ROI', value = FALSE),
               shiny::conditionalPanel(
                 condition = 'input["power_explorer-enable_custom_ROI"] == 1',
-                shiny::p('ROI variables are read from electrodes.csv and are based on currently available electrodes'),
+                shiny::p('ROI variables are read from electrodes.csv and are based on currently available electrodes.', shiny::br(), 'Choices here will override selected eletrode(s) above. Any changes require re-RAVE! to update.'),
                 shiny::selectInput(
                   inputId = ns('custom_roi_variable'), label='ROI Variable',
                   selected = character(0), choices=character(0)),
@@ -38,6 +38,9 @@ module_html <- function(){
                   choices = c('Filter only',
                               'Group/Stratify results',
                               'Interaction model')),
+                shiny::actionButton(ns('auto_assign_levels_to_roi_groupings'),
+                                    'Assign all ROI levels to groups', icon = ravedash::shiny_icons$magic),
+                shiny::HTML("<p>&nbsp;</p>"),
                 dipsaus::compoundInput2(
                   inputId = ns('custom_roi_groupings'),
                   label = "ROI Group", initial_ncomp = 1L, min_ncomp = 1L,
@@ -376,12 +379,13 @@ module_html <- function(){
                                                          choices = c('Electrode #',
                                                                      'Activity Correlation',
                                                                      'Activity distance (Euclidean)',
-                                                                     'Coordinate distance','Coordinate distance (ignore Hemi)',
-                                                                     'ROI distance', 'ROI distance (ignore Hemi)')
+                                                                     'Coordinate distance', #'Coordinate distance (ignore Hemi)',
+                                                                     'ROI distance'#, 'ROI distance (ignore Hemi)'
+                                                                     )
                                       )),
-                        shiny::column(width = 4L,
+                        shiny::column(width = 3L,
                                       shiny::selectInput(ns('otbe_yaxis_sort_combine_rule'),
-                                                         label = 'How to combine distances across conditions',
+                                                         label = 'Combine across conditions with:',
                                                          choices = c('total (sum across conditions)', 'min (smallest distance wins)', 'max (largest distance wins)')
                                       )
                         ),
@@ -391,9 +395,9 @@ module_html <- function(){
                                       )
 
                         ),
-                        shiny::column(width = 2L,
+                        shiny::column(width = 1L,
                                       shiny::selectInput(ns('otbe_yaxis_cluster_palette'),
-                                                         label = 'Cluster colors',
+                                                         label = 'Palette',
                                                          choices = rev(get_line_palette(get_palette_names = T)), selected ='Set2'
                                       )
                         ),
@@ -401,6 +405,17 @@ module_html <- function(){
                                       shiny::actionButton(ns('otbe_update_3dviewer'),
                                                           label = 'Send to brain viewer',class='btn-small',
                                                           icon = ravedash::shiny_icons$arrow_up
+                                      ),
+                                      shiny::actionButton(ns('otbe_create_roi'),
+                                                          label = 'Cluster -> ROI',class='btn-small',
+                                                          icon = ravedash::shiny_icons$magic
+                                      )
+                        ),
+                        shiny::column(width=2,
+                                      clipboardOutput(outputId=ns('otbe_cluster_clipboard'), as_card_tool = FALSE,
+                                                      message='to clipboard', class='btn-small'),
+                                      shiny::actionButton(ns('otbe_cluster_to_electrodes_csv'), width = "75%",
+                                                          label = 'to electrodes.csv', class='clipboard-btn btn btn-default'
                                       )
                         )
                       )

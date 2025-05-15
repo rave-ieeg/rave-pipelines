@@ -588,16 +588,28 @@ rm(._._env_._.)
                 epoch_event_types = get_available_events(repository$epoch$columns)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
-                pluriform_power <- lapply(analysis_groups, FUN = function(ag) {
-                  sapply(analysis_settings_clean, function(as) {
+                data_by_asc <- sapply(analysis_settings_clean, 
+                  function(as) {
                     p <- get_pluriform_power(baselined_data = baselined_power_data, 
-                      trial_indices = ag$trials, events = repository$epoch$table, 
+                      trial_indices = trial_details$Trial, events = repository$epoch$table, 
                       epoch_event_types = epoch_event_types, 
                       trial_outliers_list = unlist(trial_outliers_list), 
                       event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
-                    list(data = p, settings = as, outliers = trial_outliers_list)
+                    return(list(data = p, settings = as, outliers = trial_outliers_list))
                   }, simplify = FALSE, USE.NAMES = TRUE)
-                })
+                data_vars <- c("data", "shifted_data", "clean_data", 
+                  "shifted_clean_data")
+                pluriform_power <- sapply(analysis_groups, function(ag) {
+                  re <- sapply(data_by_asc, function(dba) {
+                    ti <- as.numeric(dimnames(dba$data$data)$Trial) %in% 
+                      ag$trials
+                    dba$data[data_vars] <- lapply(dba$data[data_vars], 
+                      function(dd) {
+                        dd[, , ti, , drop = FALSE]
+                      })
+                    dba
+                  }, simplify = FALSE, USE.NAMES = TRUE)
+                }, simplify = FALSE, USE.NAMES = TRUE)
                 for (gg in seq_along(pluriform_power)) {
                   for (aa in seq_along(pluriform_power[[gg]])) {
                     fi <- as.numeric(dimnames(pluriform_power[[gg]][[aa]]$data$shifted_data)$Frequency) %within% 
@@ -622,17 +634,29 @@ rm(._._env_._.)
                   epoch_event_types = get_available_events(repository$epoch$columns)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
-                  pluriform_power <- lapply(analysis_groups, 
-                    FUN = function(ag) {
-                      sapply(analysis_settings_clean, function(as) {
-                        p <- get_pluriform_power(baselined_data = baselined_power_data, 
-                          trial_indices = ag$trials, events = repository$epoch$table, 
-                          epoch_event_types = epoch_event_types, 
-                          trial_outliers_list = unlist(trial_outliers_list), 
-                          event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
-                        list(data = p, settings = as, outliers = trial_outliers_list)
+                  data_by_asc <- sapply(analysis_settings_clean, 
+                    function(as) {
+                      p <- get_pluriform_power(baselined_data = baselined_power_data, 
+                        trial_indices = trial_details$Trial, 
+                        events = repository$epoch$table, epoch_event_types = epoch_event_types, 
+                        trial_outliers_list = unlist(trial_outliers_list), 
+                        event_of_interest = as$event, sample_rate = repository$subject$power_sample_rate)
+                      return(list(data = p, settings = as, outliers = trial_outliers_list))
+                    }, simplify = FALSE, USE.NAMES = TRUE)
+                  data_vars <- c("data", "shifted_data", "clean_data", 
+                    "shifted_clean_data")
+                  pluriform_power <- sapply(analysis_groups, 
+                    function(ag) {
+                      re <- sapply(data_by_asc, function(dba) {
+                        ti <- as.numeric(dimnames(dba$data$data)$Trial) %in% 
+                          ag$trials
+                        dba$data[data_vars] <- lapply(dba$data[data_vars], 
+                          function(dd) {
+                            dd[, , ti, , drop = FALSE]
+                          })
+                        dba
                       }, simplify = FALSE, USE.NAMES = TRUE)
-                    })
+                    }, simplify = FALSE, USE.NAMES = TRUE)
                   for (gg in seq_along(pluriform_power)) {
                     for (aa in seq_along(pluriform_power[[gg]])) {
                       fi <- as.numeric(dimnames(pluriform_power[[gg]][[aa]]$data$shifted_data)$Frequency) %within% 
@@ -646,10 +670,11 @@ rm(._._env_._.)
                 }
                 pluriform_power
             }), target_depends = c("repository", "baselined_power", 
-            "requested_electrodes", "analysis_groups", "analysis_settings_clean", 
-            "trial_outliers_list")), deps = c("repository", "baselined_power", 
-        "requested_electrodes", "analysis_groups", "analysis_settings_clean", 
-        "trial_outliers_list"), cue = targets::tar_cue("thorough"), 
+            "requested_electrodes", "analysis_settings_clean", 
+            "trial_details", "trial_outliers_list", "analysis_groups"
+            )), deps = c("repository", "baselined_power", "requested_electrodes", 
+        "analysis_settings_clean", "trial_details", "trial_outliers_list", 
+        "analysis_groups"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_overall_tf_data = targets::tar_target_raw(name = "by_frequency_over_time_data", 
         command = quote({
             .__target_expr__. <- quote({
@@ -955,8 +980,14 @@ rm(._._env_._.)
                         method = "euclidean")
                       coordinate_distance <- dist(etbl[, c("Coord_x", 
                         "Coord_y", "Coord_z")])
+                      fslabel = "FSLabel"
+                      if (is.null(etbl[[fslabel]])) {
+                        if (!is.null(etbl["Area_fs"])) {
+                          etbl[[fslabel]] = etbl$Area_fs
+                        }
+                      }
                       fslabel_distance = NULL
-                      if (!is.null(etbl[["FSLabel"]])) {
+                      if (!is.null(etbl[[fslabel]])) {
                         tmp <- merge(etbl, aggregate(cbind(CX = Coord_x, 
                           CY = Coord_y, CZ = Coord_z) ~ FSLabel, 
                           FUN = mean, data = etbl))
@@ -980,10 +1011,12 @@ rm(._._env_._.)
                   by_electrode_similarity_data <- lapply(all_dist_mats, 
                     function(x) {
                       lapply(x, function(xx) {
-                        if (is.null(xx)) {
+                        if (is.null(xx) || length(xx) == 0) {
                           return(NULL)
                         }
-                        force(hclust(xx, method = "ward.D2"))
+                        re <- hclust(xx, method = "ward.D2")
+                        re$distances <- xx
+                        return(re)
                       })
                     })
                 }
@@ -1013,8 +1046,14 @@ rm(._._env_._.)
                           method = "euclidean")
                         coordinate_distance <- dist(etbl[, c("Coord_x", 
                           "Coord_y", "Coord_z")])
+                        fslabel = "FSLabel"
+                        if (is.null(etbl[[fslabel]])) {
+                          if (!is.null(etbl["Area_fs"])) {
+                            etbl[[fslabel]] = etbl$Area_fs
+                          }
+                        }
                         fslabel_distance = NULL
-                        if (!is.null(etbl[["FSLabel"]])) {
+                        if (!is.null(etbl[[fslabel]])) {
                           tmp <- merge(etbl, aggregate(cbind(CX = Coord_x, 
                             CY = Coord_y, CZ = Coord_z) ~ FSLabel, 
                             FUN = mean, data = etbl))
@@ -1038,10 +1077,12 @@ rm(._._env_._.)
                     by_electrode_similarity_data <- lapply(all_dist_mats, 
                       function(x) {
                         lapply(x, function(xx) {
-                          if (is.null(xx)) {
+                          if (is.null(xx) || length(xx) == 0) {
                             return(NULL)
                           }
-                          force(hclust(xx, method = "ward.D2"))
+                          re <- hclust(xx, method = "ward.D2")
+                          re$distances <- xx
+                          return(re)
                         })
                       })
                   }

@@ -8,6 +8,7 @@ module_server <- function(input, output, session, ...){
     update_by_frequency_over_time_plot = NULL,
     update_over_time_by_trial_plot = NULL,
     update_over_time_by_electrode_plot = NULL,
+    update_cluster_table = NULL,
     update_by_frequency_correlation_plot = NULL,
     update_3dviewer = NULL,
     update_by_condition_plot = NULL,
@@ -705,13 +706,10 @@ module_server <- function(input, output, session, ...){
                                     type='info', delay = 2000)
       }
     }
-
   }), input$pes_selected_action, ignoreNULL = TRUE, ignoreInit = TRUE)
 
 
-
   ### track changes to by_electrode_custom_plot -- NB: can't change state of hidden input
-
 
   # handle adding plot decorations
   shiny::bindEvent(ravedash::safe_observe({
@@ -1079,33 +1077,14 @@ module_server <- function(input, output, session, ...){
       tbl <- new_repository$electrode_table
       local_data$electrode_meta_data <- tbl[tbl$Electrode %in% new_repository$power$dimnames$Electrode,]
 
-      # let the Subject column be added
+      # let a Subject column be added
       local_data$electrode_meta_data$Subject = new_repository$subject$subject_code
 
-      roi_vars <- names(which(sapply(local_data$electrode_meta_data, count_elements) %within% c(2, nrow(local_data$electrode_meta_data)-1)))
-      roi_vars = roi_vars[!(roi_vars %in% c('isLoaded'))]
-
-      local_data$available_roi_vars = roi_vars
-
-      shiny::updateSelectInput(session=session,
-                               inputId = 'custom_roi_variable',
-                               selected="none",
-                               choices = c("none", roi_vars)
-      )
+      update_custom_roi_var_list()
 
       # grab new brain
       brain <- raveio::rave_brain(new_repository$subject$subject_id)
       local_data$available_electrodes = new_repository$power$dimnames$Electrode
-
-      # update export electrode categories
-      new_choices = c('none', roi_vars)
-      if(isTRUE(input$enable_custom_ROI)) {
-        new_choices %<>% c('custom ROI')
-      }
-
-      shiny::updateSelectInput(inputId='electrodes_to_export_roi_name',
-                               selected = 'none', choices = new_choices
-      )
 
       # update the list of available forked pipelines
       update_available_forked_pipelines()
@@ -1134,11 +1113,9 @@ module_server <- function(input, output, session, ...){
 
       local_data$bcbt_click_log <- NULL
 
-
-
-      ravedash::logger(
-        str(local_data$electrode_meta_data), level = 'info'
-      )
+      # ravedash::logger(
+      #   str(local_data$electrode_meta_data), level = 'info'
+      # )
 
       #TODO update UI selectors to possibly cached values
     }, priority = 1001),
@@ -1146,6 +1123,32 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = FALSE,
     ignoreInit = FALSE
   )
+
+  update_custom_roi_var_list <- function() {
+    roi_vars <- names(which(sapply(local_data$electrode_meta_data, count_elements) %within% c(2, nrow(local_data$electrode_meta_data)-1)))
+    roi_vars = roi_vars[!(roi_vars %in% c('isLoaded'))]
+
+    local_data$available_roi_vars = roi_vars
+
+    shiny::updateSelectInput(session=session,
+                             inputId = 'custom_roi_variable',
+                             selected="none",
+                             choices = c("none", roi_vars)
+    )
+
+
+    # update export electrode categories
+    new_choices = c('none', roi_vars)
+    if(isTRUE(input$enable_custom_ROI)) {
+      new_choices %<>% c('custom ROI')
+    }
+
+    shiny::updateSelectInput(inputId='electrodes_to_export_roi_name',
+                             selected = 'none', choices = new_choices
+    )
+
+
+  }
 
 
   #### tracking clicks on 3dViewer
@@ -1297,7 +1300,11 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       if(isTRUE(input$enable_custom_ROI)) {
+
+        ravedash::logger('triggered load_roi_conditions through input$enable_custom_ROI, input$custom_roi_variable,')
+
         load_roi_conditions()
+
       } else {
         # remove Custom ROI from choices in Export window
         shiny::updateSelectInput(inputId = 'electrodes_to_export_roi_name',
@@ -1305,6 +1312,40 @@ module_server <- function(input, output, session, ...){
 
       }
     }), input$enable_custom_ROI, input$custom_roi_variable,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+
+  do_auto_assign_levels_to_roi_groupings <- function() {
+    # take the current ROI variable and update the groupings so that each
+    # unique value of the ROI is its own group
+
+    # get ROI variable
+    vv <- input$custom_roi_variable
+
+    # get unique values of PE_Cluster
+    roi_choices <- unique(local_data$electrode_meta_data[[vv]])
+
+    newval <- lapply(roi_choices, function(rc) {
+      list('conditions' = rc, 'label' = rc)
+    })
+
+    dipsaus::updateCompoundInput2(
+      session=session,
+      inputId = 'custom_roi_groupings',
+      value = newval,
+      ncomp = length(newval)
+    )
+
+    ravedash::logger('trying to update custom ROI groups', level='debug')
+  }
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if(isTRUE(input$enable_custom_ROI) & !is.null(local_data$electrode_meta_data)) {
+        do_auto_assign_levels_to_roi_groupings()
+      }
+    }), input$auto_assign_levels_to_roi_groupings,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
@@ -1320,7 +1361,8 @@ module_server <- function(input, output, session, ...){
     old_val = input$custom_roi_groupings
 
     # if(!all(roi_choices %in% sapply(old_val, `[[`, 'conditions'))) {
-    ravedash::logger("LOAD ROI COND into SEL")
+    ravedash::logger(sprintf("LOAD %s into SEL", vv), level='debug')
+    ravedash::logger(str(old_val), level='debug')
 
     # load into selector
     dipsaus::updateCompoundInput2(session=session,
@@ -1679,7 +1721,6 @@ module_server <- function(input, output, session, ...){
       local_data$pes$pes_selected_electrodes = NULL
     }
 
-
     local_reactives$update_pes_plot <- Sys.time()
   }
 
@@ -2028,6 +2069,35 @@ module_server <- function(input, output, session, ...){
     }), input$otbe_update_3dviewer, ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      # make sure there are clusters available
+      if(!is.null(local_data$electrode_quick_cluster)) {
+        # we need to 0) Enable custom ROI box so we can 1) add the PE_Cluster variable to the variables used
+        # for creating a custom ROI, then 2) trigger an event that says
+        # 3a) assign all unique levels of the variable to an ROI, and 3b) set the name
+        # of each group to the cluster name (e.g., C1, C2, ..., Ck)
+
+        # don't create any dependencies
+        # shiny::isolate({
+          # remove the cluster variable if it's already there, otherwise the merge can fail
+          local_data$electrode_meta_data$PE_Cluster <- NULL
+
+          local_data$electrode_meta_data %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE, all.y=FALSE)
+          update_custom_roi_var_list()
+          shiny::updateCheckboxInput(inputId = 'enable_custom_ROI', value = TRUE)
+          shiny::updateSelectInput(inputId = 'custom_roi_variable', selected = 'PE_Cluster')
+          load_roi_conditions()
+        # })
+
+          on.exit(shinyjs::delay(100, {do_auto_assign_levels_to_roi_groupings()}))
+      }
+    }), input$otbe_create_roi, ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+
+
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -2040,7 +2110,7 @@ module_server <- function(input, output, session, ...){
       local_data$over_time_by_electrode_plot_options$yaxis_sort_combine_rule = input$otbe_yaxis_sort_combine_rule
       local_data$over_time_by_electrode_plot_options$yaxis_sort = input$otbe_yaxis_sort
 
-      # now way to change thse currently
+      # now way to change these currently
       local_data$over_time_by_electrode_plot_options$cluster_label_font <- 2
       local_data$over_time_by_electrode_plot_options$cluster_label_cex <- 1
 
@@ -2049,6 +2119,86 @@ module_server <- function(input, output, session, ...){
 
     }), input$otbe_yaxis_cluster_palette, input$otbe_yaxis_cluster_k, input$otbe_yaxis_sort_combine_rule, input$otbe_yaxis_sort,
     ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      if (!is.null(local_data$electrode_quick_cluster)) {
+        shiny::showModal(shiny::modalDialog(
+          title = "Save cluster table to electrodes.csv",
+          size = "l",
+          easyClose = FALSE,
+          footer = shiny::tagList(
+            shiny::textInput(inputId = ns('cluster_column_name'), label = 'Column name'),
+            shiny::span(style='text-align: left; margin-top:17px; margin-left:0px; margin-right:30px', shiny::checkboxInput(inputId = ns('cluster_do_overwrite'),
+                                                                                                                            label = 'Overwrite current electrodes.csv',value = FALSE)),
+            shiny::modalButton("Cancel"),
+            shiny::actionButton(inputId = ns("do_write_clusters_to_columns"),
+                                label = "Save",
+                                class = "btn-primary"
+            )
+          ),
+          shiny::HTML(paste0("<p>Cluster labels will be C1, C2, ..., Ck. A backup of electrodes.csv will be made in the subject's",
+                             " rave/meta folder with today's date unless you check the Overwrite box.</p><p> Provided column name will be prefixed PE_CLUST_ .",
+                             " Use only alphanumeric characters in your column name (and underscores)"))
+        ))
+      } else {
+        ravedash::show_notification('No clusters available', type='warning', autohide = TRUE, delay = 2000)
+      }
+    }), input$otbe_cluster_to_electrodes_csv, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  output$electrode_text__download <- shiny::downloadHandler(
+    filename=function(...) {
+      'electrodes.csv'
+    },
+    content = function(conn){
+      repository <- pipeline$read('repository')
+      ff <- file.path(repository$subject$meta_path, 'electrodes.csv')
+
+
+      file.copy(ff, conn)
+    })
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      on.exit({
+        shiny::removeModal()
+      })
+
+      cname <- stringr::str_remove_all(stringr::str_replace_all(
+        input$cluster_column_name, stringr::fixed(" "), "_"), "[^([:alnum:]|_) ]"
+      )
+
+      eqc <- local_data$electrode_quick_cluster
+      eqc[[paste0('PE_CLUST_', cname)]] <- eqc$PE_Cluster
+      # remove the original name
+      eqc$PE_Cluster <- NULL
+
+      repository <- pipeline$read('repository')
+      fname <- file.path(repository$subject$meta_path, 'electrodes.csv')
+
+      if(file.exists(fname)) {
+        etbl <- read.csv(fname)
+
+        x <- merge(etbl, eqc, all.x=TRUE, all.y=FALSE)
+
+        if(isTRUE(input$cluster_do_overwrite)) {
+          utils::write.csv(x, file = fname)
+        } else {
+          raveio::safe_write_csv(x, file = fname, quiet = TRUE)
+        }
+
+        ravedash::show_notification(paste("Clusters written to: ", fname, ' in column: ', cname),
+                                    title = "Electrodes.csv file updated", type = "success", autohide=TRUE)
+
+      } else {
+        ravedash::show_notification(paste("Could not locate electrodes.csv.... something has gone very wrong. I looked here: ", fname),
+                                    title = "Failed to find file", type = "danger", autohide=FALSE)
+      }
+    }), input$do_write_clusters_to_columns, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
 
@@ -2092,13 +2242,10 @@ module_server <- function(input, output, session, ...){
       }
 
       df$Electrode = as.integer(rownames(df))
-
-
       res <- build_palettes_and_ranges_for_omnibus_data(df)
 
       if(!is.null(local_data$electrode_quick_cluster)) {
         df %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE)
-
         res$palettes[['PE_Cluster']] = local_data$over_time_by_electrode_plot_options$cluster_label_colors
       }
 
@@ -2884,6 +3031,33 @@ module_server <- function(input, output, session, ...){
 
 
   ravedash::register_output(
+    outputId = 'otbe_cluster_clipboard',
+    render_function = shidashi::renderClipboard(
+      {
+        basic_checks(local_reactives$update_cluster_table, check_uni=FALSE)
+        force(local_reactives$update_pes_plot)
+        force(local_reactives$update_outputs)
+        force(local_reactives$update_over_time_by_electrode_plot)
+
+        if(!is.null(local_data$electrode_quick_cluster)) {
+          ## need to get tab separate values from the data frame
+          utils::capture.output(
+            write.table(local_data$electrode_quick_cluster,
+                        file = "", sep = '\t', row.names =FALSE)
+          )
+        } else {
+          utils::capture.output(
+            data.frame(Electrode=NA, Cluster=NA)
+          )
+        }
+      }
+    )
+  )
+
+
+
+
+  ravedash::register_output(
     outputId = "over_time_by_electrode",
     shiny::renderPlot({
       # basic_checks(local_reactives$update_outputs, check_uni = F)
@@ -2953,6 +3127,8 @@ module_server <- function(input, output, session, ...){
           local_data$electrode_quick_cluster <- NULL
         }
 
+        local_reactives$update_cluster_table <- Sys.time()
+
         local_data$results$over_time_by_electrode_data <- sapply(
           local_data$results$over_time_by_electrode_data, function(otbed) {
 
@@ -3020,7 +3196,7 @@ module_server <- function(input, output, session, ...){
         }
       }
 
-      ravedash::logger(level='info', "plot_by_frequency_over_time")
+      # ravedash::logger(level='info', "plot_by_frequency_over_time")
       plot_by_frequency_over_time(
         by_frequency_over_time_data,
         plot_args = local_data$by_frequency_over_time_plot_options

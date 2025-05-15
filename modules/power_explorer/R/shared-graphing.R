@@ -2353,14 +2353,6 @@ build_heatmap_condition_label_decorator <- function(all_maps, ..., var='y',
 
     if(show_text) {
 
-
-      ravedash::logger(
-        "Using text: ", str(diff_cond$values), level='info'
-      )
-      ravedash::logger(
-        "Using colors: ", str(text_col), level='info'
-      )
-
       if(all(diff_cond$values %in% names(text_col))) {
         text_col = text_col[diff_cond$values]
       }

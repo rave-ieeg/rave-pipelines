@@ -270,37 +270,93 @@ if(length(analysis_groups) < 1) stop('No trials available in condition groups')
 names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 ```
 
-
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
 # Depends on baselined_power, 
 epoch_event_types = get_available_events(repository$epoch$columns)
 
 baselined_power_data <- subset(baselined_power,
                                Electrode ~ Electrode %in% requested_electrodes)
+# 
+# microbenchmark('a'={
+# 
+# pluriform_power <- lapply(
+#   analysis_groups,
+#   # callback = function(x) {
+#   #   paste('[build_pluriform_power] working on:', x$label, 'data')
+#   # }, 
+#   FUN = function(ag) {
+#     # ag = analysis_groups[[2]]
+#     # for each analysis group, run through each analysis setting
+#     sapply(analysis_settings_clean, function(as) {
+#       # as <- analysis_settings_clean[[1]]
+#       p <- get_pluriform_power(
+#         baselined_data=baselined_power_data,
+#         trial_indices = ag$trials,
+#         events = repository$epoch$table,
+#         epoch_event_types = epoch_event_types,
+#         trial_outliers_list=unlist(trial_outliers_list),
+#         event_of_interest = as$event,
+#         sample_rate = repository$subject$power_sample_rate
+#       )
+#       list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list)
+#     }, simplify = FALSE, USE.NAMES = TRUE)
+#   })
+# 
+# }, 'b' = {
+#   
 
-pluriform_power <- lapply(
-  analysis_groups,
-  # callback = function(x) {
-  #   paste('[build_pluriform_power] working on:', x$label, 'data')
-  # }, 
-  
-  FUN = function(ag) {
-    # ag = analysis_groups[[2]]
-    # for each analysis group, run through each analysis setting
-    sapply(analysis_settings_clean, function(as) {
+## time shifting is very slow, so do it all at once. Time shift all necessary trials first (much like how we baseline everything)
+# then split into trial groups
+
+# this is slower when you only have one analysis setting, but not by much? I guess we could detect how many analysis settings you have
+# and then use the different function? if it's 65 ms, maybe doesn't matter 
+
+# str(pluriform_power[[1]]$TO$data$events)
+# str(asc$TO$data$data)
+
+data_by_asc <- sapply(analysis_settings_clean, function(as) {
       # as <- analysis_settings_clean[[1]]
       p <- get_pluriform_power(
         baselined_data=baselined_power_data,
-        trial_indices = ag$trials,
+        trial_indices = trial_details$Trial,
         events = repository$epoch$table,
         epoch_event_types = epoch_event_types,
         trial_outliers_list=unlist(trial_outliers_list),
         event_of_interest = as$event,
         sample_rate = repository$subject$power_sample_rate
       )
-      list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-  })
+      return(list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list))
+}, simplify = FALSE, USE.NAMES = TRUE)
+
+  
+data_vars <- c('data', 'shifted_data', 'clean_data', 'shifted_clean_data')
+pluriform_power <- sapply(analysis_groups, function(ag) {
+  # ag <- analysis_groups[[1]]
+  re <- sapply(data_by_asc, function(dba) {
+    # dba <- data_by_asc[[1]]
+    
+    # dba$data$events %<>% subset((.)$Trial %in% ag$trials)
+    
+    ti <- as.numeric(dimnames(dba$data$data)$Trial) %in% ag$trials
+    # for(dv in data_vars) {
+    #   # dv = 'data'
+    #   dba$data[[dv]] <- dba$data[[dv]][,,ti,,drop=FALSE]
+    # }
+    
+    dba$data[data_vars] <- lapply(dba$data[data_vars], function(dd) {
+      dd[,,ti,,drop=FALSE]
+    })
+    
+    # make sure everything lines up (this is fatal, so don't allow continuation on error)
+    # stopifnot(
+    #   all(nrow(dba$data$events) == unique(unlist(sapply(data_vars, function(dv) dim(dba$data[[dv]])[3]))))
+    # )
+
+    dba    
+  }, simplify=FALSE, USE.NAMES=TRUE)
+}, simplify = FALSE, USE.NAMES = TRUE)
+
+# }, times=50, check='equal')
 
 # now create frequency-subsetted versions of the data
 for(gg in seq_along(pluriform_power)) {
@@ -495,14 +551,20 @@ if(nrow(curr_electrodes) < 3) {
     
     coordinate_distance <- dist(etbl[,c('Coord_x', 'Coord_y', 'Coord_z')])
     
+    fslabel = 'FSLabel'
+    if(is.null(etbl[[fslabel]])) {
+      if(!is.null(etbl['Area_fs'])) {
+        etbl[[fslabel]] = etbl$Area_fs
+      }
+    }
+    
     # assign all electrode the average coordinate of their FS label,
     # then calculate coordinate distance
     fslabel_distance = NULL
-    if(!is.null(etbl[['FSLabel']])) {
+    if(!is.null(etbl[[fslabel]])) {
       tmp <- merge(etbl,
                    aggregate(cbind('CX'=Coord_x, 'CY'=Coord_y, 'CZ'=Coord_z) ~ FSLabel, FUN = mean, data=etbl)
       )
-      
       fslabel_distance <- dist(tmp[,c('CX', 'CY', 'CZ')])
     }
     
@@ -532,11 +594,14 @@ if(nrow(curr_electrodes) < 3) {
   by_electrode_similarity_data <- lapply(all_dist_mats, function(x) {
     lapply(x, function(xx) {
       
-      if(is.null(xx)) {
+      if(is.null(xx) || length(xx) == 0) {
         return(NULL)
       }
       
-      force(hclust(xx, method = 'ward.D2'))
+      re <- hclust(xx, method = 'ward.D2')
+      re$distances <- xx
+      
+      return(re)
     })
   })
 }
