@@ -4,8 +4,7 @@ module_html <- function(){
   line_palettes <- get_line_palette(get_palette_names = TRUE)
   heatmap_palettes <- get_heatmap_palette(get_palette_names = TRUE)
 
-  shiny::fluidPage(shinyjs::useShinyjs(),
-    shiny::fluidRow(
+  shiny::fluidPage(shiny::fluidRow(
 
       # ---- Input tabs (width = 3) -------------------------------
 

@@ -134,6 +134,7 @@ determine_relative_shift_amount <- function(available_shift, event_time, sample_
   return(new_0_ind - new_range_ind[1])
 }
 
+
 get_pluriform_power <- function(
     baselined_data, trial_indices, events, epoch_event_types,
     event_of_interest, trial_outliers_list, sample_rate,
@@ -236,6 +237,75 @@ get_pluriform_power <- function(
 
   return(res)
 }
+
+shift_baselined_power <- function(
+    baselined_data, events, epoch_event_types, event_of_interest, sample_rate,
+    final_data_only = FALSE) {
+
+  dn.orig <- dimnames(baselined_data)
+  stopifnot(names(dn.orig)[3] == 'Trial', 'Time' == names(dn.orig)[2])
+
+  shift_amount = NULL
+
+  re <- baselined_data
+
+  # event_of_interest = 'Lag_1'
+  if(event_of_interest != epoch_event_types[1]) {
+    # stop("shifting data not supported yet!")
+    ravedash::logger('Shifting data to: ' %&% event_of_interest, level='debug')
+
+    # get the times for the trials needed
+    ti <- events$Trial %in% as.numeric(dimnames(baselined_data)$Trial)
+    event_column_name = paste0('Event_', event_of_interest)
+    event_offsets = events[[event_column_name]][ti] - events$Time[ti]
+
+    times = as.numeric(dn.orig$Time)
+
+    new_range = determine_available_shift(event_offsets,
+                                          available_time = range(times),
+                                          sample_rate = sample_rate
+    )
+
+    # ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+
+    shift_amount = determine_relative_shift_amount(
+      event_time = event_offsets,
+      available_shift=new_range,
+      available_time_points = times,
+      sample_rate = sample_rate
+    )
+
+    if(length(shift_amount) != length(dn.orig$Trial)) {
+      # assign('shift_amt', shift_amount, envir = globalenv())
+      # assign('event_mat', events, envir = globalenv())
+      stop('shift amount != # trials... stopping')
+    }
+
+    re = get_shifted_data(data = baselined_data, shift_amount = shift_amount)
+
+    ## now we need to update the time dimension to reflect the new data range
+    # fill out times, then subset if we need to
+    new_time = round(seq(from=new_range[1], by = 1/sample_rate, length.out = length(dn.orig$Time)), 7)
+    to_keep = new_time %within% new_range
+    if(any(!to_keep)) {
+      re = re[,to_keep,,,drop=FALSE]
+    }
+    dimnames(re)$Time = new_time[new_time %within% new_range]
+
+    # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
+    # ravedash::logger('updating events file')
+    nms <- paste0('Event_', epoch_event_types[-1])
+    events[nms] <- events[nms] - events[[event_column_name]]
+
+
+    ravedash::logger('done!', level='debug')
+  }
+
+  # make sure to save out the updated time stamps to be used later
+  return(list(events = events, data=re))
+
+}
+
 
 get_shifted_data <- function(data, shift_amount, new_range) {
   dn <- names(dimnames(data))
@@ -462,6 +532,7 @@ build_scatter_bar_data <- function(data, data_wrapper,
 
   return(sbd)
 }
+
 build_scatter_bar_correlation_data <- function(sb1, sb2, data_wrapper, ...) {
   dv <- attr(sb1$data, 'ylab')
   do_str <- function(d) {

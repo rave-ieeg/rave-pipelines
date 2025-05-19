@@ -271,11 +271,14 @@ names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 ```
 
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
-# Depends on baselined_power, 
-epoch_event_types = get_available_events(repository$epoch$columns)
 
-baselined_power_data <- subset(baselined_power,
-                               Electrode ~ Electrode %in% requested_electrodes)
+
+pluriform_power <- NULL
+# Depends on baselined_power, 
+# epoch_event_types = get_available_events(repository$epoch$columns)
+# 
+# baselined_power_data <- subset(baselined_power,
+#                                Electrode ~ Electrode %in% requested_electrodes)
 # 
 # microbenchmark('a'={
 # 
@@ -313,218 +316,354 @@ baselined_power_data <- subset(baselined_power,
 
 # str(pluriform_power[[1]]$TO$data$events)
 # str(asc$TO$data$data)
+# 
+# data_by_asc <- sapply(analysis_settings_clean, function(as) {
+#   # as <- analysis_settings_clean[[1]]
+#   p <- get_pluriform_power(
+#     baselined_data=baselined_power_data,
+#     trial_indices = trial_details$Trial,
+#     events = repository$epoch$table,
+#     epoch_event_types = epoch_event_types,
+#     trial_outliers_list=unlist(trial_outliers_list),
+#     event_of_interest = as$event,
+#     sample_rate = repository$subject$power_sample_rate
+#   )
+#   return(list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list))
+# }, simplify = FALSE, USE.NAMES = TRUE)
+# 
+# data_vars <- c('data', 'shifted_data', 'clean_data', 'shifted_clean_data')
+# pluriform_power <- sapply(analysis_groups, function(ag) {
+#   # ag <- analysis_groups[[1]]
+#   re <- sapply(data_by_asc, function(dba) {
+#     # dba <- data_by_asc[[1]]
+#     
+#     # dba$data$events %<>% subset((.)$Trial %in% ag$trials)
+#     
+#     ti <- as.numeric(dimnames(dba$data$data)$Trial) %in% ag$trials
+#     # for(dv in data_vars) {
+#     #   # dv = 'data'
+#     #   dba$data[[dv]] <- dba$data[[dv]][,,ti,,drop=FALSE]
+#     # }
+#     
+#     dba$data[data_vars] <- lapply(dba$data[data_vars], function(dd) {
+#       dd[,,ti,,drop=FALSE]
+#     })
+#     
+#     # make sure everything lines up (this is fatal, so don't allow continuation on error)
+#     # stopifnot(
+#     #   all(nrow(dba$data$events) == unique(unlist(sapply(data_vars, function(dv) dim(dba$data[[dv]])[3]))))
+#     # )
+#     
+#     dba    
+#   }, simplify=FALSE, USE.NAMES=TRUE)
+# }, simplify = FALSE, USE.NAMES = TRUE)
+# 
+# # }, times=50, check='equal')
+# 
+# # now create frequency-subsetted versions of the data
+# for(gg in seq_along(pluriform_power)) {
+#   for(aa in seq_along(pluriform_power[[gg]])) {
+#     fi <- as.numeric(dimnames(pluriform_power[[gg]][[aa]]$data$shifted_data)$Frequency) %within% 
+#       unlist(pluriform_power[[gg]][[aa]]$settings$frequency)
+#     
+#     pluriform_power[[gg]][[aa]]$data$shifted_data_Fsub <- pluriform_power[[gg]][[aa]]$data$shifted_data[fi,,,,drop=FALSE]
+#     
+#     pluriform_power[[gg]][[aa]]$data$shifted_clean_data_Fsub <-  pluriform_power[[gg]][[aa]]$data$shifted_clean_data[fi,,,,drop=FALSE]
+#   }
+# }
 
-data_by_asc <- sapply(analysis_settings_clean, function(as) {
-      # as <- analysis_settings_clean[[1]]
-      p <- get_pluriform_power(
-        baselined_data=baselined_power_data,
-        trial_indices = trial_details$Trial,
-        events = repository$epoch$table,
-        epoch_event_types = epoch_event_types,
-        trial_outliers_list=unlist(trial_outliers_list),
-        event_of_interest = as$event,
-        sample_rate = repository$subject$power_sample_rate
-      )
-      return(list('data'=p, 'settings'=as, 'outliers' = trial_outliers_list))
-}, simplify = FALSE, USE.NAMES = TRUE)
 
-  
-data_vars <- c('data', 'shifted_data', 'clean_data', 'shifted_clean_data')
-pluriform_power <- sapply(analysis_groups, function(ag) {
-  # ag <- analysis_groups[[1]]
-  re <- sapply(data_by_asc, function(dba) {
-    # dba <- data_by_asc[[1]]
-    
-    # dba$data$events %<>% subset((.)$Trial %in% ag$trials)
-    
-    ti <- as.numeric(dimnames(dba$data$data)$Trial) %in% ag$trials
-    # for(dv in data_vars) {
-    #   # dv = 'data'
-    #   dba$data[[dv]] <- dba$data[[dv]][,,ti,,drop=FALSE]
-    # }
-    
-    dba$data[data_vars] <- lapply(dba$data[data_vars], function(dd) {
-      dd[,,ti,,drop=FALSE]
-    })
-    
-    # make sure everything lines up (this is fatal, so don't allow continuation on error)
-    # stopifnot(
-    #   all(nrow(dba$data$events) == unique(unlist(sapply(data_vars, function(dv) dim(dba$data[[dv]])[3]))))
-    # )
 
-    dba    
-  }, simplify=FALSE, USE.NAMES=TRUE)
-}, simplify = FALSE, USE.NAMES = TRUE)
-
-# }, times=50, check='equal')
-
-# now create frequency-subsetted versions of the data
-for(gg in seq_along(pluriform_power)) {
-  for(aa in seq_along(pluriform_power[[gg]])) {
-    fi <- as.numeric(dimnames(pluriform_power[[gg]][[aa]]$data$shifted_data)$Frequency) %within% 
-      unlist(pluriform_power[[gg]][[aa]]$settings$frequency)
-    
-    pluriform_power[[gg]][[aa]]$data$shifted_data_Fsub <- pluriform_power[[gg]][[aa]]$data$shifted_data[fi,,,,drop=FALSE]
-    
-    pluriform_power[[gg]][[aa]]$data$shifted_clean_data_Fsub <-  pluriform_power[[gg]][[aa]]$data$shifted_clean_data[fi,,,,drop=FALSE]
-  }
-}
 ```
 
-```{rave build_overall_tf_data, language="R", export ="by_frequency_over_time_data"}
-build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
-  dn <- dimnames(data)
-  stopifnot(c('Time', 'Frequency') == names(dn)[2:1])
-  
-  res <- list(
-    data = raveio::collapse2(data, keep = 2:1, method = "mean"),
-    
-    x = as.numeric(dn$Time),
-    y = as.numeric(dn$Frequency),
-    
-    xlab='Time (s)', ylab='Frequency',
-    zlab='Mean ' %&% baseline_settings$unit_of_analysis
-  )
-  
-  # determine range under censoring
-  if(isTRUE(analysis_settings$censor_info$enabled)) {
-    ti = res$x %within% settings$censor_info$window
-    res$range <- range(res$data[!ti,])
-  } else {
-    res$range <- range(res$data)
-  }
-  
-  return(res)
-}
 
-by_frequency_over_time_data <- data_builder(pluriform_power = pluriform_power,
-                                            condition_group = analysis_groups, 
-                                            baseline_settings = baseline_settings,
-                                            build_data, data_type = 'shifted_clean_data')
+```{rave build_by_frequency_over_time_data, language="R", export="by_frequency_over_time_data"}
+# the idea is that we don't need the full tensor for any given analysis,
+# and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
+
+# grab only the electrodes we need
+baselined_power_data <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+epoch_event_types = get_available_events(repository$epoch$columns)
+
+# flatten the settings / trial group hierarchy with the do.call(c, ...)
+by_frequency_over_time_data <- do.call(
+  c,
+  
+  sapply(analysis_settings_clean, function(asc) {
+    # asc <- analysis_settings_clean$TO
+    
+    # 1) collapse over electrode
+    # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
+    # 3) then collapse over trial
+    collapse_e <- raveio::collapse2(baselined_power_data, keep = 1:3, method = "mean")
+    
+    # add back in the 4th dimension (electrode) b/c the shift function expects it
+    dim(collapse_e) = c(dim(baselined_power_data)[1:3], 1)
+    dimnames(collapse_e) <- append(dimnames(baselined_power_data)[1:3], list('Electrode'='Avg'))
+    
+    # 2
+    re <- shift_baselined_power(
+      baselined_data=collapse_e,
+      events = repository$epoch$table,
+      epoch_event_types = epoch_event_types,
+      event_of_interest = asc$event,
+      sample_rate = repository$subject$power_sample_rate
+    )
+    
+    # now that we've shifted the data, split into analysis groups and then collapse over trial 
+    all_ag <- sapply(analysis_groups, function(ag) {
+      # get the trials we need
+      
+      trials_to_keep <- ag$trials
+      if(!is.null(trial_outliers_list)) {
+        trials_to_keep <- trials_to_keep[! trials_to_keep %in% trial_outliers_list]
+      }
+      
+      ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
+      
+      # 3 now collapse over trial (and drop the electrode dimension)
+      ag$data = raveio::collapse2(re$data[,,ti,,drop=FALSE], keep = 2:1, method = "mean")
+      
+      # dimnames(ag$data) <-
+      ag$x = as.numeric(dimnames(re$data)$Time)
+      ag$y = as.numeric(dimnames(re$data)$Frequency)
+      ag$xlab = 'Time (s)'
+      ag$ylab = 'Frequency'
+      ag$zlab = "Mean " %&% baseline_settings$unit_of_analysis
+      
+      ag$condition_group = ag$label
+      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      
+      # ag$settings = asc
+      ag$outliers = trial_outliers_list
+      ag$events = subset(re$events, Trial %in% ag$trials)
+      
+      ag %<>% add_analysis_settings(asc, baseline_settings)
+      
+      ag$range = range(ag$data)
+      
+      ag
+    }, simplify=FALSE)
+    
+    return(all_ag)
+    
+  }, simplify = FALSE, USE.NAMES = TRUE)
+)
+
 ```
 
-```{rave build_tf_correlation_data, language="R", export = "by_frequency_correlation_data"}
-
+```{rave build_by_frequency_correlation_data, language="R", export = "by_frequency_correlation_data"}
 # for each analysis settings in the by_frequency_over_time_data, get the correlation within the time window
 
 # get the average response for _each_ frequency on _each_ trial,
 # averaged across electrodes and time points within the analysis window
 
-build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
-  dn <- dimnames(data)
-  tm <- as.numeric(dn$Time)
-  
-  ti <- tm %within% analysis_settings$time
-  if(isTRUE(analysis_settings$censor_info$enabled)) {
-    ti = ti & !(tm %within% analysis_settings$censor_info$window)
-  }
-  rawdata <- ravetools::collapse(data[,ti,,,drop=FALSE], keep = c(3,1))
-  
-  res <- list(
-    data = cor(rawdata),
-    xlab='Frequency',
-    ylab='Frequency',
-    zlab='Pearson correlation across trials',
-    x = as.numeric(dn$Frequency),
-    y = as.numeric(dn$Frequency),
-    rawdata <- rawdata
-  )
-  res$range = range(res$data)
-  
-  return(res)  
-}
 
-by_frequency_correlation_data <- data_builder(
-  pluriform_power = pluriform_power,
-  condition_group = analysis_groups, 
-  baseline_settings = baseline_settings,
-  build_data, data_type = 'shifted_clean_data'
+# grab only the electrodes we need
+baselined_power_data <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+
+epoch_event_types = get_available_events(repository$epoch$columns)
+
+# flatten the settings / trial group hierarchy with the do.call(c, ...)
+by_frequency_correlation_data <- do.call(
+  c,
+  
+  sapply(analysis_settings_clean, function(asc) {
+    # asc <- analysis_settings_clean$TO
+    
+    # 1) collapse over electrode
+    # 2) shift the data in time
+    # 3) collapse in analysis window
+    collapse_e <- raveio::collapse2(baselined_power_data, keep = 1:3, method = "mean")
+    
+    # add back in the 4th dimension (electrode) b/c the shift function expects it
+    dim(collapse_e) = c(dim(baselined_power_data)[1:3], 1)
+    dimnames(collapse_e) <- append(dimnames(baselined_power_data)[1:3], list('Electrode'='Avg'))
+    
+    # 2
+    re <- shift_baselined_power(
+      baselined_data=collapse_e,
+      events = repository$epoch$table,
+      epoch_event_types = epoch_event_types,
+      event_of_interest = asc$event,
+      sample_rate = repository$subject$power_sample_rate
+    )
+    
+    # now that we've shifted the data, split into analysis groups average analysis window and correlate across trials
+    all_ag <- sapply(analysis_groups, function(ag) {
+      # get the trials we need
+      
+      trials_to_keep <- ag$trials
+      if(!is.null(trial_outliers_list)) {
+        trials_to_keep <- trials_to_keep[! trials_to_keep %in% trial_outliers_list]
+      }
+      
+      ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
+      aw <- as.numeric(dimnames(re$data)$Time) %within% asc$time
+      
+      # 3 now collapse over trial (and drop the electrode dimension)
+      tmp = raveio::collapse2(re$data[,aw,ti,,drop=FALSE], keep = c(3,1), method = "mean")
+      ag$data = cor(tmp)
+      
+      ag$y = as.numeric(dimnames(re$data)$Frequency)
+      ag$x = ag$y
+      ag$xlab = 'Frequency'
+      ag$ylab = 'Frequency'
+      ag$zlab = "Pearson correlation, Trial-level response"
+      
+      
+      ag$range =c(-1,1)
+      
+      
+      ag$condition_group = ag$label
+      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      
+      
+      
+      
+      # ag$settings = asc
+      ag$outliers = trial_outliers_list
+      ag$events = subset(re$events, Trial %in% ag$trials)
+      
+      ag %<>% add_analysis_settings(asc, baseline_settings)
+      
+      ag
+    }, simplify=FALSE)
+    
+    return(all_ag)
+    
+  }, simplify = FALSE, USE.NAMES = TRUE)
 )
-```
 
-```{rave plot_bfcd, language='R', export='plot_bfcd_success'}
-plot_bfcd_success = FALSE
-# plot_by_frequency_correlation(by_frequency_correlation_data)
-
-plot_bfcd_success = TRUE
 ```
 
 ```{rave build_by_trial_tf_data, language="R", export ="by_trial_tf_data"}
-build_data <- function(dd, settings) {
-  to_keep <- sapply(c('Time', 'Trial'), which.equal, names(dimnames(dd)))
-  res <- list(
-    data = ravetools::collapse(dd, keep = to_keep),
-    xlab='Time (s)', ylab='Original Trial #',
-    zlab='Mean ' %&% baseline_settings$unit_of_analysis
-  )
-  
-  res[c('x', 'y')] <- dimnames(dd)[to_keep] %>% lapply(as.numeric)
-  
-  res$N = dim(dd)[4L]
-  
-  if(isTRUE(settings$censor_info$enabled)) {
-    ti = res$x %within% settings$censor_info$window
-    res$range <- range(res$data[!ti,])
-  } else {
-    res$range <- range(res$data)
-  }
-  
-  return(res)
-}
+by_trial_tf_data = NULL
 
-by_trial_tf_data <- lapply(pluriform_power, function(pp) {
-  # rm(pp) <- pluriform_power[[1]]
-  if(all(
-    1 == length(table(sapply(pp, function(pi) pi$settings$event))),
-    1 == length(table(sapply(pp, function(pi) str_collapse(pi$settings$frequency))))
-  )) {
-    # all analysis groups have the same time=0 and the same frequency range,
-    # so we can show them on the same plot      
-    build_data(pp[[1]]$data$shifted_data_Fsub, pp[[1]]$settings)
-  } else {
-    # analysis groups have different time shifts/frequencies, so they can not be shown on the same plot
-    sapply(pp, function(ppa) {
-      build_data(ppa$data$shifted_data_Fsub, ppa$settings)
-    }, simplify = FALSE, USE.NAMES = TRUE)
-  }
-})
+# build_data <- function(dd, settings) {
+#   to_keep <- sapply(c('Time', 'Trial'), which.equal, names(dimnames(dd)))
+#   res <- list(
+#     data = ravetools::collapse(dd, keep = to_keep),
+#     xlab='Time (s)', ylab='Original Trial #',
+#     zlab='Mean ' %&% baseline_settings$unit_of_analysis
+#   )
+#   
+#   res[c('x', 'y')] <- dimnames(dd)[to_keep] %>% lapply(as.numeric)
+#   
+#   res$N = dim(dd)[4L]
+#   
+#   if(isTRUE(settings$censor_info$enabled)) {
+#     ti = res$x %within% settings$censor_info$window
+#     res$range <- range(res$data[!ti,])
+#   } else {
+#     res$range <- range(res$data)
+#   }
+#   
+#   return(res)
+# }
+# 
+# by_trial_tf_data <- lapply(pluriform_power, function(pp) {
+#   
+#   
+#   # rm(pp) <- pluriform_power[[1]]
+#   if(all(
+#     1 == length(table(sapply(pp, function(pi) pi$settings$event))),
+#     1 == length(table(sapply(pp, function(pi) str_collapse(pi$settings$frequency))))
+#   )) {
+#     # all analysis groups have the same time=0 and the same frequency range,
+#     # so we can show them on the same plot      
+#     build_data(pp[[1]]$data$shifted_data_Fsub, pp[[1]]$settings)
+#   } else {
+#     # analysis groups have different time shifts/frequencies, so they can not be shown on the same plot
+#     sapply(pp, function(ppa) {
+#       build_data(ppa$data$shifted_data_Fsub, ppa$settings)
+#     }, simplify = FALSE, USE.NAMES = TRUE)
+#   }
+# })
 
 ```
 
-```{rave build_over_time_by_electrode_data, language="R", export ="over_time_by_electrode_data"}
-build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
-  dm <- dimnames(data)
-  to_keep <- sapply(c('Time', 'Electrode'), which.equal, names(dm))
-  res <- list(
-    data = ravetools::collapse(data, keep = to_keep),
-    xlab='Time (s)',
-    ylab='Electrode #',
-    zlab='Mean ' %&% baseline_settings$unit_of_analysis,
-    condition_group = condition_group$label,
-    electrodes = as.integer(dm$Electrode),
-    subject_code = subject_code
-  )
-  
-  res[c('x', 'y')] <- dimnames(data)[to_keep] %>% lapply(as.numeric)
-  
-  res$N = length(dm$Trial)
-  
-  if(isTRUE(analysis_settings$censor_info$enabled)) {
-    ti = res$x %within% analysis_settings$censor_info$window
-    res$range <- range(res$data[!ti,])
-  } else {
-    res$range <- range(res$data)
-  }
-  
-  return(res)
-}
 
-over_time_by_electrode_data <- data_builder(
-  pluriform_power = pluriform_power,
-  condition_group = analysis_groups, 
-  baseline_settings = baseline_settings,
-  build_data
+
+```{rave build_over_time_by_electrode_data, language="R", export ="over_time_by_electrode_data"}
+# the idea is that we don't need the full tensor for any given analysis,
+# and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
+
+
+# grab only the electrodes we need
+baselined_power_data <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+epoch_event_types = get_available_events(repository$epoch$columns)
+
+# flatten the settings / trial group hierarchy with the do.call(c, ...)
+over_time_by_electrode_data <- do.call(
+  c,
+  
+  sapply(analysis_settings_clean, function(asc) {
+    # asc <- analysis_settings_clean$TO
+    
+    # 1) collapse over frequencies in the analysis window
+    # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
+    # 3) then collapse over trial
+    fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
+    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,,drop=FALSE], keep = 2:4, method = "mean")
+    # 
+    # # add back in the 1st dimension (freq) b/c the shift function expects it
+    dim(collapse_f) = c(1, dim(baselined_power_data)[2:4])
+    dimnames(collapse_f) <- append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:4])
+    
+    # 2
+    re <- shift_baselined_power(
+      baselined_data=collapse_f,
+      events = repository$epoch$table,
+      epoch_event_types = epoch_event_types,
+      event_of_interest = asc$event,
+      sample_rate = repository$subject$power_sample_rate
+    )
+    
+    # now that we've shifted the data, split into analysis groups and then collapse over trial 
+    all_ag <- sapply(analysis_groups, function(ag) {
+      # get the trials we need
+      
+      trials_to_keep <- ag$trials
+      if(!is.null(trial_outliers_list)) {
+        trials_to_keep <- trials_to_keep[! trials_to_keep %in% trial_outliers_list]
+      }
+      
+      ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
+      
+      # 3 now collapse over trial (and drop the frequency dimension)
+      ag$data = raveio::collapse2(re$data[,,ti,,drop=FALSE], keep = c(2,4), method = "mean")
+      
+      # dimnames(ag$data) <-
+      ag$x = as.numeric(dimnames(re$data)$Time)
+      ag$y = as.numeric(dimnames(re$data)$Electrode)
+      ag$xlab = 'Time (s)'
+      ag$ylab = 'Electrode'
+      ag$zlab = "Mean " %&% baseline_settings$unit_of_analysis
+      ag$N <- sum(ti)
+      
+      ag$condition_group = ag$label
+      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      
+      # ag$settings = asc
+      ag$outliers = trial_outliers_list
+      ag$events = subset(re$events, Trial %in% ag$trials)
+      
+      ag %<>% add_analysis_settings(asc, baseline_settings)
+      
+      ag$range = range(ag$data)
+      
+      ag
+    }, simplify=FALSE)
+    
+    return(all_ag)
+    
+  }, simplify = FALSE, USE.NAMES = TRUE)
 )
+
 ```
 
 ```{rave build_over_time_by_electrode_similiarity_data, language="R", export ="by_electrode_similarity_data"}
@@ -607,8 +746,10 @@ if(nrow(curr_electrodes) < 3) {
 }
 ```
 
-
 ```{rave build_over_time_by_electrode_and_trial_data, language="R", export ="over_time_by_electrode_and_trial_data"}
+
+# not implemented yet
+over_time_by_electrode_and_trial_data <- NULL
 build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
   dm <- dimnames(data)
   to_keep <- sapply(c('Time', 'Electrode', 'Trial'), which.equal, names(dm))
@@ -637,60 +778,105 @@ build_data <- function(data, analysis_settings, condition_group, baseline_settin
   return(res)
 }
 
-over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power,
-                                                      condition_group = analysis_groups, 
-                                                      baseline_settings = baseline_settings,
-                                                      build_data)
+# over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power,
+#                                                       condition_group = analysis_groups, 
+#                                                       baseline_settings = baseline_settings,
+#                                                       build_data)
 
 
 ```
 
-
-
 ```{rave build_over_time_by_condition_data, language="R", export ="over_time_by_condition_data"}
-build_data <- function(dd, settings) {
-  to_keep <- sapply(c('Time', 'Electrode'), which.equal, names(dimnames(dd)))
-  res <- list(
-    data = ravetools::collapse(dd, keep = to_keep),
-    xlab='Time (s)',
-    ylab='Mean ' %&% baseline_settings$unit_of_analysis,
-    zlab=NA
-  )
-  
-  # no get m_se across electrode at each time point
-  res$data <- cbind(
-    .rowMeans(res$data, nrow(res$data), ncol(res$data)),
-    sqrt(diag(dipsaus::fastcov2(t(res$data))) / ncol(res$data))
-  )
-  
-  ind <- is.nan(res$data[,2]) | !is.finite(res$data[,2])
-  if(length(ind) > 0) {
-    res$data[ind,2] = 0
-  }
-  
-  res$x <- as.numeric(dimnames(dd)$Time)
-  res$y <- NA
-  res$N = length(dimnames(dd)$Electrode)
-  
-  if(isTRUE(settings$censor_info$enabled)) {
-    ti = res$x %within% settings$censor_info$window
-    res$range <- range(rutabaga::plus_minus(res$data[!ti,]))
-  } else {
-    res$range <- range(rutabaga::plus_minus(res$data))
-  }
-  
-  res$electrodes = dimnames(dd)$Electrode
-  
-  res$settings = settings
-  
-  return(res)
-}
 
-over_time_by_condition_data <- lapply(pluriform_power, function(pp) {
-  sapply(pp, function(ppa) {
-    build_data(dd = ppa$data$shifted_clean_data_Fsub, settings = ppa$settings)
+# the idea is that we don't need the full tensor for any given analysis,
+# and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
+
+# grab only the electrodes we need
+baselined_power_data <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+epoch_event_types = get_available_events(repository$epoch$columns)
+
+# otbc data are not flattened... it probably should be? we rely on the structure in plotting to determine
+# event vs. condition grouping, fix this
+re <- #do.call(
+  #c,
+  sapply(analysis_settings_clean, function(asc) {
+    # asc <- analysis_settings_clean$TO
+    
+    # 1) collapse over frequencies in the analysis window
+    # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
+    # 3) then collapse over trial and get m_se by electrode
+    fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
+    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,,drop=FALSE], keep = 2:4, method = "mean")
+    # 
+    # # add back in the 4th dimension (electrode) b/c the shift function expects it
+    dim(collapse_f) = c(1, dim(baselined_power_data)[2:4])
+    dimnames(collapse_f) <- append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:4])
+    
+    # 2
+    re <- shift_baselined_power(
+      baselined_data=collapse_f,
+      events = repository$epoch$table,
+      epoch_event_types = epoch_event_types,
+      event_of_interest = asc$event,
+      sample_rate = repository$subject$power_sample_rate
+    )
+    
+    # now that we've shifted the data, split into analysis groups and then collapse over trial 
+    all_ag <- sapply(analysis_groups, function(ag) {
+      # ag <- analysis_groups[[1]]
+      
+      # get the trials we need
+      trials_to_keep <- ag$trials
+      if(!is.null(trial_outliers_list)) {
+        trials_to_keep <- trials_to_keep[! trials_to_keep %in% trial_outliers_list]
+      }
+      
+      ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
+      
+      # 3 now collapse over trial, drop the frequency dimension, but keep electrode for now
+      coll_trial = raveio::collapse2(re$data[,,ti,,drop=FALSE], keep = c(2,4), method = "mean")
+      
+      ag$data <- cbind(
+        .rowMeans(coll_trial, nrow(coll_trial), ncol(coll_trial)),
+        sqrt(diag(dipsaus::fastcov2(t(coll_trial))) / ncol(coll_trial))
+      )
+      
+      ag$x = as.numeric(dimnames(re$data)$Time)
+      ag$y = NA
+      ag$xlab = 'Time (s)'
+      ag$ylab = "Mean " %&% baseline_settings$unit_of_analysis
+      ag$N <- dim(re$data)[4]
+      
+      ag$condition_group = ag$label
+      ag$electrodes <- as.integer(dimnames(re$data)$Electrode)
+      
+      # ag$settings = asc
+      ag$outliers = trial_outliers_list
+      ag$events = subset(re$events, Trial %in% ag$trials)
+      
+      ag %<>% add_analysis_settings(asc, baseline_settings)
+      
+      ag$range = range(rutabaga::plus_minus(ag$data))
+      
+      ag
+    }, simplify=FALSE)
+    
+    return(all_ag)
+    
   }, simplify = FALSE, USE.NAMES = TRUE)
-})
+#)
+
+
+# flip the order of conditions / events
+over_time_by_condition_data <- vector('list', length = length(re[[1]]))
+names(over_time_by_condition_data) = names(re[[1]])
+  
+for(ii in names(over_time_by_condition_data)) {
+  for(jj in names(re)) {
+    over_time_by_condition_data[[ii]][[jj]] = re[[jj]][[ii]]
+  }
+}
 
 # bring down the meta data to the plotting level for ease of use
 for(ii in seq_along(over_time_by_condition_data)) {
@@ -703,116 +889,6 @@ for(ii in seq_along(over_time_by_condition_data)) {
   }
 }
 ```
-
-```{rave plot_over_time_data, language='R', export='plot_over_time_by_condition_result', cue='always'}
-plot_over_time_by_condition_result = TRUE
-# plot_over_time_by_condition(over_time_by_condition_data, F, F)
-```
-
-```{rave build_scatter_bar_data, language="R", export ="scatter_bar_data"}
-build_data <- function(dd, settings) {
-  dm <- dimnames(dd)
-  to_keep <- which.equal('Trial', names(dm))
-  
-  # make sure the time dimension is index 2
-  stopifnot(which.equal('Time', names(dm)) == 2)
-  
-  t_ind <- as.numeric(dm$Time) %within% unlist(settings$time)
-  
-  if(isTRUE(settings$censor_info$enabled)) {
-    t_ind = t_ind & !(
-      as.numeric(dm$Time) %within% unlist(settings$censor_info$window)
-    )
-  }
-  
-  res <- list(
-    data = ravetools::collapse(dd[,t_ind,,,drop=FALSE], keep = to_keep),
-    xlab='Group',
-    ylab='Mean ' %&% baseline_settings$unit_of_analysis,
-    zlab=NA
-  )
-  res$range <- range(res$data)
-  
-  # here maybe store the jitter?
-  #FIXME
-  res$x <- NA
-  res$y <- NA
-  res$N = length(dimnames(dd)$Trial)
-  
-  return(res)
-}
-
-# scatter_bar_data <- lapply(pluriform_power, function(pp) {
-#   sapply(pp, function(ppa) {
-#     build_data(ppa$data$shifted_clean_data_Fsub, ppa$settings)
-#   }, simplify = FALSE, USE.NAMES = TRUE)
-# })
-scatter_bar_data=FALSE
-
-```
-
-```{rave build_analysis_data, language="R", export="analysis_data"}
-# build a dataframe for each analysis type and (within trial grouping)
-# and then rbind the result
-
-# building the data frame basically means combining information from
-# the settings and the trial-collapsed data
-
-# first determine if there are any 0-trial groups
-has_data <- which(sapply(analysis_groups, `[[`, 'has_trials'))
-
-analysis_data <- list()
-# analysis_data$data <- mapply(function(pp, nm) {
-#   
-#   sapply(pp, function(ppi) {
-#     freq <- "FW" %&% str_collapse(ppi$settings$frequency, '_')
-#     aw <- "AW" %&% str_collapse(ppi$settings$time, '_')
-#     lbl <- ppi$settings$label
-#     
-#     data <- ppi$data$shifted_data_Fsub
-#     
-#     ##make sure the time dimension is 2
-#     dm <- dimnames(data)
-#     to_keep <- which.equal('Trial', names(dm))
-#     
-#     # make sure the time dimension is index 2
-#     stopifnot(which.equal('Time', names(dm)) == 2 && which.equal('Electrode', names(dm)) == 4)
-#     
-#     t_ind <- as.numeric(dm$Time) %within% ppi$settings$time
-#     
-#     if(isTRUE(ppi$settings$censor_info$enabled)) {
-#       t_ind = t_ind & !(
-#         as.numeric(dm$Time) %within% ppi$settings$censor_info$window
-#       )
-#     }
-#     
-#     d <- ravetools::collapse(data[,t_ind,,,drop=FALSE], keep=3:4)
-#     rep_numeric <- function(str, ...) rep(as.numeric(str), ...)
-#     
-#     df <- data.frame(
-#       Trial_Group = nm,
-#       Electrode = rep_numeric(dm$Electrode, each=nrow(d)),
-#       Trial = rep_numeric(dm$Trial, times=ncol(d)),
-#       Frequency = freq,
-#       Window = aw,
-#       Name = lbl,
-#       y = c(d)
-#     )
-# 
-#     df
-#   }, simplify = FALSE, USE.NAMES = TRUE)
-#   
-# }, pluriform_power[has_data], names(pluriform_power)[has_data]) %>% rbind_list
-
-# # set outlier column
-# analysis_data$data$is_clean = TRUE
-# if(length(trial_outliers_list)) {
-#   analysis_data$data$is_clean[analysis_data$data$Trial %in% trial_outliers_list] = FALSE
-# }
-
-analysis_data$datatype <- baseline_settings$unit_of_analysis
-```
-
 
 ```{rave build_over_time_by_electrode_dataframe, language='R', export = 'over_time_by_electrode_dataframe'}
 over_time_by_electrode_dataframe <- NULL
@@ -851,7 +927,8 @@ by_condition_group <- lapply(
       p <- get_pluriform_power(
         baselined_data=repository$power$baselined[fi,,,,drop=FALSE],
         trial_indices = ag$trials, events = repository$epoch$table,
-        epoch_event_types = get_available_events(repository$epoch$columns), trial_outliers_list=unlist(trial_outliers_list),
+        epoch_event_types = get_available_events(repository$epoch$columns),
+        trial_outliers_list=unlist(trial_outliers_list),
         event_of_interest = as$event, final_data_only=TRUE,
         sample_rate = repository$subject$power_sample_rate
       )
@@ -907,61 +984,98 @@ if(length(by_condition_group) > 1) {
 ```
 
 ```{rave build_over_time_by_trial, language="R", export ="over_time_by_trial_data"}
+# grab only the electrodes we need
+baselined_power_data <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+epoch_event_types = get_available_events(repository$epoch$columns)
 
-build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
-  
-  dm <- dimnames(data)
-  
-  to_keep <- c(
-    which.equal('Time', names(dm)),
-    which.equal('Trial', names(dm))
-  )
-  
-  res <- list(
-    data = ravetools::collapse(data[,drop=FALSE], keep = to_keep),
-    x = as.numeric(dm$Time),
-    xlab='Time',
-    ylab='Trial (sorted by condition)',
-    zlab=sprintf('Mean %s', baseline_settings$unit_of_analysis)
-  )
-  
-  res$range <- range(res$data)
-  # ind <- which(sapply(first_condition_groupings, `[[`, 'label')==condition_group[[1]])
-  # cnds <- first_condition_groupings[[ind]]$conditions
-  
-  cnds <- condition_group$conditions
-  tt <- condition_group$trials
-  
-  res$y <-trial_details[as.character(tt), condition_variable]
-  cf <- factor(res$y, levels = cnds)
-  ord = order(cf, tt)
-  
-  # sort the trial labels
-  res$y <- res$y[ord]
-  
-  # now add in trial nunber and outlier status, using the sorted order
-  res$trial_number = tt[ord]
-  res$is_outlier = tt[ord] %in% trial_outliers_list
-  
-  # NB: the condition data are stored in the COLUMNS of the data, so sort appropriately
-  # this may feel odd, but this is because of how image(...) function works
-  res$data <- res$data[,ord]
-  
-  return(res)
-}
-
-over_time_by_trial_data <- data_builder(
-  pluriform_power, condition_groups = analysis_groups,
-  baseline_settings = baseline_settings,
-  BUILDER_FUN = build_data, 
-  data_type = 'shifted_data_Fsub'
-  # we want the uncleaned data so we can highlight outliers on this plot
-  # data_type = 'shifted_clean_data_Fsub'
+over_time_by_trial_data <- do.call(
+  c,
+  sapply(analysis_settings_clean, function(asc) {
+    # asc <- analysis_settings_clean$TO
+    
+    # 1) collapse over frequencies in the analysis window & electrodes
+    # 2) shift the data in time
+    # 3) make sure the data are sorted as needed
+    fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
+    collapse_fe <- raveio::collapse2(baselined_power_data[fi,,,,drop=FALSE], keep = 2:3, method = "mean")
+    # 
+    # # add back in the 4th dimension (electrode) b/c the shift function expects it
+    dim(collapse_fe) = c(1, dim(baselined_power_data)[2:3], 1)
+    dimnames(collapse_fe) <- append(append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:3]), list('Electrode'='Avg'))
+    
+    # 2
+    re <- shift_baselined_power(
+      baselined_data=collapse_fe,
+      events = repository$epoch$table,
+      epoch_event_types = epoch_event_types,
+      event_of_interest = asc$event,
+      sample_rate = repository$subject$power_sample_rate
+    )
+    
+    # now that we've shifted the data, split into analysis groups and then collapse over trial 
+    all_ag <- sapply(analysis_groups, function(ag) {
+      # ag <- analysis_groups[[1]]
+      
+      # get the trials we need
+      ti <- as.numeric(dimnames(re$data)$Trial) %in% ag$trials
+      
+      # 3 now extract the trials we need, dropping the frequency and electrode dimensions
+      ag$data = re$data[,,ti,,drop=TRUE]#, keep = c(2,4), method = "mean")
+      
+      ag$x = as.numeric(dimnames(re$data)$Time)
+      ag$xlab = 'Time (s)'
+      ag$ylab='Trial (sorted by condition)'
+      ag$zlab=sprintf('Mean %s', baseline_settings$unit_of_analysis)
+      
+      ag$range <- range(ag$data)
+      # ind <- which(sapply(first_condition_groupings, `[[`, 'label')==condition_group[[1]])
+      # cnds <- first_condition_groupings[[ind]]$conditions
+      
+      cnds <- ag$conditions
+      tt <- ag$trials
+      
+      ag$y <- trial_details[as.character(tt), condition_variable]
+      
+      cf <- factor(ag$y, levels = cnds)
+      ord = order(cf, tt)
+      
+      # sort the trial labels
+      ag$y <- ag$y[ord]
+      
+      # now add in trial number and outlier status, using the sorted order
+      ag$trial_number = tt[ord]
+      ag$is_outlier = tt[ord] %in% trial_outliers_list
+      
+      # NB: the condition data are stored in the COLUMNS of the data, so sort appropriately
+      # this may feel odd, but this is because of how image(...) function works
+      ag$data <- ag$data[,ord]
+      
+      ag$N <- dim(baselined_power_data)[4]
+      
+      ag$condition_group = ag$label
+      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      
+      # ag$settings = asc
+      ag$outliers = trial_outliers_list
+      ag$events = subset(re$events, Trial %in% ag$trials)
+      
+      ag %<>% add_analysis_settings(asc, baseline_settings)
+      
+      ag
+    }, simplify=FALSE)
+    
+    return(all_ag)
+    
+  }, simplify = FALSE, USE.NAMES = TRUE)
 )
+
 
 ```
 
 ```{rave build_internal_omnibus_results, language="R", export="internal_omnibus_results"}
+ravedash::logger('top of IOR', level='debug')
+
 if(isTRUE(omnibus_includes_all_electrodes)) {
   # first baseline all the electrodes
   raveio::power_baseline(
@@ -981,33 +1095,42 @@ if(isTRUE(omnibus_includes_all_electrodes)) {
                                Electrode ~ Electrode %in% requested_electrodes)
 }
 
+
+epoch_event_types = get_available_events(repository$epoch$columns)
+
 # for each condition group and for each analysis setting
 # get one value per trial per electrode
 non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 'has_trials'))
+
 by_condition_group <- lapply(
   analysis_groups[non_empty_groups],
   function(ag) {
     lapply(analysis_settings_clean, function(as) {
       # as <- analysis_settings_clean[[1]]
       # freq needed
-      fi <- repository$frequency %within% as$frequency
+      fi <- as.integer(dimnames(ob_baselined_power)$Frequency) %within% as$frequency
+      trials <- as.integer(dimnames(ob_baselined_power)$Trial) %in% ag$trials
       
-      # ei <- repository$electrode_list %in% ag$electrodes
-      
-      # shift the data and subset on trials/freq
-      # Note: we're subsetting frequency in the call
-      all_p <- get_pluriform_power(
-        baselined_data=ob_baselined_power[fi,,,,drop=FALSE],
-        trial_indices = ag$trials, events = repository$epoch$table,
-        epoch_event_types = get_available_events(repository$epoch$columns),
-        trial_outliers_list=unlist(trial_outliers_list),
-        event_of_interest = as$event, 
-        # final_data_only=TRUE,
+      collapse_f <- raveio::collapse2(ob_baselined_power[fi,,trials,,drop=FALSE], keep = 2:4, method = "mean")
+       
+      # # add back in the 1st dimension (freq) b/c the shift function expects it
+      dn <- dimnames(ob_baselined_power)[-1]
+      dn$Trial <- dn$Trial[trials]
+      dim(collapse_f) = c(1, dim(collapse_f))
+      dimnames(collapse_f) <- append(list('Frequency'='Avg'), dn)
+ 
+      # 2
+      re <- shift_baselined_power(
+        baselined_data=collapse_f,
+        events = repository$epoch$table,
+        epoch_event_types = epoch_event_types,
+        event_of_interest = as$event,
         sample_rate = repository$subject$power_sample_rate
       )
       
-      p <- all_p$shifted_data
+      p <- re$data
       ti = as.numeric(dimnames(p)$Time) %within% as$time
+      
       stopifnot(names(dimnames(p))[2] == 'Time')
       
       # average within Time and Freq windows. Freq has already been subsetted
@@ -1139,6 +1262,9 @@ run_stats <- function(el) {
   return(res)
 }
 
+
+ravedash::logger('starting pes', level='debug')
+
 # now we want to calculate the stats for each electrode
 stats <- all_data_clean %>% split((.)$Electrode) %>% 
   raveio::lapply_async(function(el){
@@ -1159,6 +1285,8 @@ stats <- all_data_clean %>% split((.)$Electrode) %>%
   }) %>%
   rutabaga::cbind_list()
 
+ravedash::logger('done pes', level='debug')
+
 # add in electrode labels as an attribute of the stats block.
 # don't add as row, otherwise we lose numeric-ness
 if(!is.null(stats)) {
@@ -1175,8 +1303,9 @@ internal_omnibus_results = list(
   'data' = all_data_clean,
   'stats' = stats
 )
-```
 
+ravedash::logger('done with IOR', level='debug')
+```
 
 ```{rave build_omnibus_results, language="R", export="omnibus_results"}
 omnibus_results = internal_omnibus_results
@@ -1205,7 +1334,6 @@ val = matrix(nrow=1,
              dimnames=list(rn))
 omnibus_results$stats %<>% rbind(val)
 ```
-
 
 ```{rave build_across_electrode_statistics, language="R", export="across_electrode_statistics"}
 require(data.table)

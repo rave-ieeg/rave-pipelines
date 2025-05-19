@@ -1193,12 +1193,14 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
     if (st == 'match') st = graph_num
 
     if('fill' %in% window_type) {
-      render_analysis_window(graph_data$settings, do_label=window_label,
+      render_analysis_window(settings = list(time = graph_data$analysis_window, label=graph_data$time_window_label),
+                             do_label=window_label,
                              x=graph_data$x, y=graph_data$data[,1],
                              shade.color = sh,
                              stroke.color = st)
     } else {
-      render_analysis_window(graph_data$settings, do_label=window_label,
+      render_analysis_window(settings = list(time = graph_data$analysis_window, label=graph_data$time_window_label),
+                             do_label=window_label,
                              shade.color = sh,
                              stroke.color = st)
     }
@@ -1210,7 +1212,7 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
     if(par('usr')[3] < 0) abline(h=0, col='lightgray')
   }
 
-  # many situations merge into a 1,1 plot type, so have an function for that
+  # many situations merge into a 1,1 plot type, so have a function for that
   plot_all_in_one <- function() {
     par(mfrow=c(1,1), oma=c(2, 2.25, 0, 0), mar=c(2,2,2,1))
     rutabaga::plot_clean(xlim, ylim)

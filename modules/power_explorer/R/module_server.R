@@ -1361,8 +1361,8 @@ module_server <- function(input, output, session, ...){
     old_val = input$custom_roi_groupings
 
     # if(!all(roi_choices %in% sapply(old_val, `[[`, 'conditions'))) {
-    ravedash::logger(sprintf("LOAD %s into SEL", vv), level='debug')
-    ravedash::logger(str(old_val), level='debug')
+    # ravedash::logger(sprintf("LOAD %s into SEL", vv), level='debug')
+    # ravedash::logger(str(old_val), level='debug')
 
     # load into selector
     dipsaus::updateCompoundInput2(session=session,
@@ -2091,7 +2091,7 @@ module_server <- function(input, output, session, ...){
           load_roi_conditions()
         # })
 
-          on.exit(shinyjs::delay(100, {do_auto_assign_levels_to_roi_groupings()}))
+          on.exit(later::later(do_auto_assign_levels_to_roi_groupings, 100))
       }
     }), input$otbe_create_roi, ignoreNULL = TRUE, ignoreInit = FALSE
   )
