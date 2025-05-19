@@ -2081,23 +2081,24 @@ module_server <- function(input, output, session, ...){
 
         # don't create any dependencies
         # shiny::isolate({
-          # remove the cluster variable if it's already there, otherwise the merge can fail
-          local_data$electrode_meta_data$PE_Cluster <- NULL
+        # remove the cluster variable if it's already there, otherwise the merge can fail
+        local_data$electrode_meta_data$PE_Cluster <- NULL
 
-          local_data$electrode_meta_data %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE, all.y=FALSE)
-          update_custom_roi_var_list()
-          shiny::updateCheckboxInput(inputId = 'enable_custom_ROI', value = TRUE)
-          shiny::updateSelectInput(inputId = 'custom_roi_variable', selected = 'PE_Cluster')
-          load_roi_conditions()
+        local_data$electrode_meta_data %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE, all.y=FALSE)
+        update_custom_roi_var_list()
+        shiny::updateCheckboxInput(inputId = 'enable_custom_ROI', value = TRUE)
+        shiny::updateSelectInput(inputId = 'custom_roi_variable', selected = 'PE_Cluster')
+        load_roi_conditions()
         # })
 
-          on.exit(later::later(do_auto_assign_levels_to_roi_groupings, 100))
+        do_auto_assign_levels_to_roi_groupings()
+
+        # this can create some issues because it's access variables outside
+        # of the reactive context. maybe wrap with shiny::reactive(...)
+        # on.exit(later::later(, 100))
       }
     }), input$otbe_create_roi, ignoreNULL = TRUE, ignoreInit = FALSE
   )
-
-
-
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -2220,41 +2221,60 @@ module_server <- function(input, output, session, ...){
         return(threeBrain::threejs_brain(title = "No 3D model found"))
       }
 
-      df <- data.frame(t(local_data$results$omnibus_results$stats))
+      if(length(local_data$results$omnibus_results$stats) > 1) {
 
-      # fix some column names
-      # Avoid changing `df` multiple times
-      # names(df) = stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
-      cnames <- stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
+        ravedash::logger(dput(local_data$results$omnibus_results$stats), level='debug')
 
-      # names(df) = stringr::str_replace_all(names(df), '\\.', ' ')
-      cnames <- stringr::str_replace_all(cnames, '\\.', ' ')
+        df <- data.frame(t(local_data$results$omnibus_results$stats))
 
-      # names(df) = stringr::str_replace_all(names(df), '\\ $', '')
-      cnames <- stringr::str_replace_all(cnames, '\\ $', '')
-      names(df) <- cnames
+        # fix some column names
+        # Avoid changing `df` multiple times
+        # names(df) = stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
+        cnames <- stringr::str_replace_all(names(df), '\\.\\.\\.', ' vs ')
 
-      if("currently_selected" %in% cnames) {
-        df$currently_selected <- factor(
-          c("Yes", "No")[ 2L - as.integer(df$currently_selected) ],
-          levels = c("Yes", "No")
-        )
+        # names(df) = stringr::str_replace_all(names(df), '\\.', ' ')
+        cnames <- stringr::str_replace_all(cnames, '\\.', ' ')
+
+        # names(df) = stringr::str_replace_all(names(df), '\\ $', '')
+        cnames <- stringr::str_replace_all(cnames, '\\ $', '')
+        names(df) <- cnames
+
+        if("currently_selected" %in% cnames) {
+          df$currently_selected <- factor(
+            c("Yes", "No")[ 2L - as.integer(df$currently_selected) ],
+            levels = c("Yes", "No")
+          )
+        }
+
+        df$Electrode = as.integer(rownames(df))
+        res <- build_palettes_and_ranges_for_omnibus_data(df)
+
+        if(!is.null(local_data$electrode_quick_cluster)) {
+          df %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE)
+          res$palettes[['PE_Cluster']] = local_data$over_time_by_electrode_plot_options$cluster_label_colors
+        }
+
+        brain$set_electrode_values(df)
+
+        brain$render(outputId = "brain_viewer", session = session,
+                     palettes=res$palettes, value_ranges=res$val_ranges,
+                     control_display = FALSE, side_display=FALSE,
+                     timestamp=FALSE)
+
+
+      } else {
+        if(!is.null(local_data$electrode_quick_cluster)) {
+          df  <- local_data$electrode_quick_cluster
+          res <- list(palettes = list('PE_Cluster' = local_data$over_time_by_electrode_plot_options$cluster_label_colors), val_ranges=list())
+          brain$set_electrode_values(df)
+
+          brain$render(outputId = "brain_viewer", session = session,
+                       palettes=res$palettes, value_ranges=res$val_ranges,
+                       control_display = FALSE, side_display=FALSE,
+                       timestamp=FALSE)
+        }
+
       }
-
-      df$Electrode = as.integer(rownames(df))
-      res <- build_palettes_and_ranges_for_omnibus_data(df)
-
-      if(!is.null(local_data$electrode_quick_cluster)) {
-        df %<>% merge(local_data$electrode_quick_cluster, all.x=TRUE)
-        res$palettes[['PE_Cluster']] = local_data$over_time_by_electrode_plot_options$cluster_label_colors
-      }
-
-      brain$set_electrode_values(df)
-
-      brain$render(outputId = "brain_viewer", session = session,
-                   palettes=res$palettes, value_ranges=res$val_ranges,
-                   control_display = FALSE, side_display=FALSE,
-                   timestamp=FALSE)
     })
   )
 
@@ -3095,6 +3115,7 @@ module_server <- function(input, output, session, ...){
 
         dist_method = c('Electrode #' = 'electrode',
                         'Activity Correlation' = 'correlation',
+                        'Activity Correlation (spearman)' = 'spearman',
                         'Activity distance (Euclidean)' = 'euclidean',
                         'Coordinate distance' = 'coordinate',
                         'Coordinate distance (ignore Hemi)' = 'coordinate',

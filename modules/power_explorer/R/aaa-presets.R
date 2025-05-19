@@ -488,6 +488,8 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
   pre_varname <- comp$get_sub_element_varnames("trial_starts")
   post_varname <- comp$get_sub_element_varnames("trial_ends")
 
+  lst_varname <- comp$get_sub_element_varnames("load_single_trial")
+
   allow_stitch <- isTRUE(as.logical(allow_stitch))
   pre_event_varname <- comp$get_sub_element_varnames("trial_starts_rel_to_event")
   post_event_varname <- comp$get_sub_element_varnames("trial_ends_rel_to_event")
@@ -497,6 +499,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
     post <- comp$get_settings_value(key = post_varname, default = 2)
     pre_event <- comp$get_settings_value(key = pre_event_varname, default = "Trial Onset")
     post_event <- comp$get_settings_value(key = post_event_varname, default = "Trial Onset")
+    lst <- comp$get_settings_value(key = lst_varname, default = FALSE)
 
     ravedash::flex_group_box(title = label,
       shidashi::flex_item(size = 2,
@@ -509,6 +512,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
       shidashi::flex_item(shiny::numericInput(inputId = comp$get_sub_element_id("trial_starts",
         with_namespace = TRUE), label = "Pre", min = -10, step = .1,
         value = pre)),
+
       local({
         if(allow_stitch) {
           shiny::tagList(
@@ -547,13 +551,23 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
       shidashi::flex_item(shinyWidgets::prettyCheckbox(inputId = comp$get_sub_element_id("default",
         with_namespace = TRUE), label = "Set as the default",
         status = "success", shape = "square", animation = "smooth")
+      ),
+      shidashi::flex_break(),
+      shidashi::flex_item(shinyWidgets::prettyCheckbox(
+        inputId = comp$get_sub_element_id("load_single_trial",
+                                          with_namespace = TRUE), label = "Load first block as single trial",
+        status = "success", shape = "square", animation = "smooth", value=lst)
       )
     )
+
+
+
   }
   comp$server_func <- function(input, output, session) {
     loader_project <- comp$get_dependent_component(loader_project_id)
     loader_subject <- comp$get_dependent_component(loader_subject_id)
     get_subject <- loader_subject$get_tool("get_subject")
+
     get_time_window <- function() {
       subject <- get_subject()
       if (inherits(subject, "RAVESubject")) {
@@ -572,9 +586,9 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
         post <- comp$get_settings_value(key = post_varname,
           default = 2)
       }
-      raveio::validate_time_window(as.vector(rbind(pre,
-        post)))
+      raveio::validate_time_window(as.vector(rbind(pre,post)))
     }
+
     shiny::bindEvent(ravedash::safe_observe({
       open_loader <- ravedash::watch_loader_opened(session = session)
       if (!open_loader) {

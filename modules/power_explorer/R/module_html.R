@@ -377,6 +377,7 @@ module_html <- function(){
                                       shiny::selectInput(ns('otbe_yaxis_sort'), label = 'How to sort electrodes',
                                                          choices = c('Electrode #',
                                                                      'Activity Correlation',
+                                                                     'Activity Correlation (spearman)',
                                                                      'Activity distance (Euclidean)',
                                                                      'Coordinate distance', #'Coordinate distance (ignore Hemi)',
                                                                      'ROI distance'#, 'ROI distance (ignore Hemi)'

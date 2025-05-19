@@ -20,10 +20,35 @@ options(knit_rave_pipelines = TRUE)
 ```{rave check_load_power, language = "R", export = "repository", format = "rave_prepare_power"}
 subject <- raveio::as_rave_subject(subject_id = sprintf("%s/%s", project_name, subject_code))
 
-repository <- raveio::prepare_subject_power(
-  subject = subject, electrodes = loaded_electrodes, 
-  epoch_name = epoch_choice, reference_name = reference_name,
-  time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends))
+if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
+  
+  to_ep <- function(en) {
+    file.path(subject$meta_path, paste0('epoch_', en, '.csv'))
+  }
+  
+  # write out a single trial epoch file
+  ec2 <- paste0('single_trial_', epoch_choice)
+  ec2_path <- to_ep(ec2)
+  
+  ep <- read.csv(to_ep(epoch_choice))
+  block1 <- subset(ep, ep$Block == ep$Block[1])
+  mx_time <- max(block1$Time) + epoch_choice__trial_ends
+  
+  # write out a dummy epoch file that passes the necessary checks  
+  write.csv(x = block1[1, , drop=FALSE], 
+            file=ec2_path, row.names = FALSE)
+  
+  repository <- raveio::prepare_subject_power(
+    subject = subject, electrodes = loaded_electrodes, 
+    epoch_name = ec2, reference_name = reference_name,
+    time_windows = c(epoch_choice__trial_starts, mx_time + epoch_choice__trial_ends))
+  
+} else {
+  repository <- raveio::prepare_subject_power(
+    subject = subject, electrodes = loaded_electrodes, 
+    epoch_name = epoch_choice, reference_name = reference_name,
+    time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends))
+}
 
 repository
 ```
@@ -72,9 +97,16 @@ if(!baseline_settings$scope %in% ua) {
 }
 
 # ensure analysis choices are valid
+epoch_event_types = get_available_events(repository$epoch$columns)
 lapply(analysis_settings_clean, function(setting) {
+  # setting <- analysis_settings_clean$TO
+  
   check_range(setting$frequency, unlist(repository$frequency), 'frequency')
   check_range(setting$time, unlist(repository$time_windows), 'analysis time')
+  
+  if(!(setting$event %in% epoch_event_types)){
+    stop(sprintf('Requested event "%s" must be one of: %s', setting$event, str_collapse(epoch_event_types)))
+  }
 })
 
 names(analysis_settings_clean) <- sapply(analysis_settings_clean, `[[`, 'label')
@@ -142,15 +174,47 @@ analysis_checks_passed=TRUE
 ```
 
 ```{rave calculate_baseline, language = "R", export = "baselined_power", cue = "always", format = "user-defined-r"}
-raveio::power_baseline(
-  x = repository,
-  baseline_windows = baseline_settings$window,
-  method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
-  units = get_baseline_scope(baseline_settings$scope),
-  signal_type = "LFP",
-  electrodes = requested_electrodes
-)
+
+if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
+  raveio::power_baseline(
+    x = repository,
+    baseline_windows = list(
+      range(repository$time_points)
+      # c(min(repository$time_points), 0)
+    ),
+    method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
+    units = get_baseline_scope(baseline_settings$scope),
+    signal_type = "LFP",
+    electrodes = requested_electrodes
+  )
+  
+  
+  # els <- which(repository$electrode_list %in% requested_electrodes)
+  # bpdim <- dim(repository$power$data_list[[els[1]]])
+  # bpdim[4] <- length(els)
+  # baselined_power <- array(0, dim = bpdim)
+  # for(ei in seq_along(els)) {
+  #   
+  #   baselined_power[,,,ei] <- repository$power$data_listrepository$electrode_list[els]
+  # }
+  # 
+  # lapply(repository$power$data_list[els], function(ee) {
+  #   els
+  # })
+  
+  
+} else {
+  raveio::power_baseline(
+    x = repository,
+    baseline_windows = baseline_settings$window,
+    method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
+    units = get_baseline_scope(baseline_settings$scope),
+    signal_type = "LFP",
+    electrodes = requested_electrodes
+  )
+}
 baselined_power <- repository$power$baselined
+
 ```
 
 ```{rave build_trial_details, language = "R", export = "trial_details"}
@@ -264,15 +328,17 @@ if(isTRUE(enable_second_condition_groupings)) {
   analysis_groups = analysis_groups[has_trials]
 }
 
-if(length(analysis_groups) < 1) stop('No trials available in condition groups')
+if(!exists('epoch_choice__load_single_trial') || !isTRUE(epoch_choice__load_single_trial)) {
+  if(length(analysis_groups) < 1) {
+    stop('No trials available in condition groups')
+  }
+}
 
 # bring up the label as the element name for ease of use
 names(analysis_groups) <- sapply(analysis_groups, `[[`, 'label')
 ```
 
 ```{rave build_pluriform_power, language = "R", export = "pluriform_power", format = "user-defined-r"}
-
-
 pluriform_power <- NULL
 # Depends on baselined_power, 
 # epoch_event_types = get_available_events(repository$epoch$columns)
@@ -375,7 +441,6 @@ pluriform_power <- NULL
 
 
 ```
-
 
 ```{rave build_by_frequency_over_time_data, language="R", export="by_frequency_over_time_data"}
 # the idea is that we don't need the full tensor for any given analysis,
@@ -670,7 +735,10 @@ over_time_by_electrode_data <- do.call(
 # get the pairwise distances for electrodes, the combination rules will be done in the GUI 
 # average dist, max dist, min, 
 
-curr_electrodes <- subset(repository$electrode_table, Electrode %in% over_time_by_electrode_data[[1]]$electrodes)
+curr_electrodes <- data.frame(NA)
+if(length(over_time_by_electrode_data) > 0) {
+  curr_electrodes <- subset(repository$electrode_table, Electrode %in% over_time_by_electrode_data[[1]]$electrodes)
+}
 
 if(nrow(curr_electrodes) < 3) {
   by_electrode_similarity_data = NULL
@@ -685,6 +753,11 @@ if(nrow(curr_electrodes) < 3) {
     correlation_distance <- as.dist(
       1 - cor(dd$data)
     )
+    
+    spearman_distance <- as.dist(
+      1 - cor(dd$data, method='spearman')
+    )
+    
     
     euclidean_distance <- dist(t(dd$data), method = 'euclidean')
     
@@ -709,6 +782,7 @@ if(nrow(curr_electrodes) < 3) {
     
     list(
       'correlation' = correlation_distance,
+      'spearman' = spearman_distance,
       'euclidean' = euclidean_distance,
       'coordinate' = coordinate_distance,
       'FSLabel' = fslabel_distance
@@ -871,7 +945,7 @@ re <- #do.call(
 # flip the order of conditions / events
 over_time_by_condition_data <- vector('list', length = length(re[[1]]))
 names(over_time_by_condition_data) = names(re[[1]])
-  
+
 for(ii in names(over_time_by_condition_data)) {
   for(jj in names(re)) {
     over_time_by_condition_data[[ii]][[jj]] = re[[jj]][[ii]]
@@ -905,8 +979,7 @@ raveio::power_baseline(
 
 # for each condition group and for each analysis setting
 # get one value per TIME per electrode
-non_empty_groups <- which(rutabaga::get_list_elements(
-  analysis_groups, 'has_trials'))
+# non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 'has_trials'))
 
 by_condition_group <- lapply(
   analysis_groups,
@@ -972,13 +1045,17 @@ by_condition_group <- lapply(
 )
 
 #merge the resulting data sets
-over_time_by_electrode_dataframe <- by_condition_group[[1]]
+over_time_by_electrode_dataframe <- NULL
 
-if(length(by_condition_group) > 1) {
-  for(ii in seq_along(by_condition_group)[-1]){
-    over_time_by_electrode_dataframe = merge(over_time_by_electrode_dataframe,
-                                             by_condition_group[[ii]],
-                                             all=TRUE)
+if(length(by_condition_group) > 0) {
+  over_time_by_electrode_dataframe <- by_condition_group[[1]]
+  
+  if(length(by_condition_group) > 1) {
+    for(ii in seq_along(by_condition_group)[-1]){
+      over_time_by_electrode_dataframe = merge(over_time_by_electrode_dataframe,
+                                               by_condition_group[[ii]],
+                                               all=TRUE)
+    }
   }
 }
 ```
@@ -1023,6 +1100,11 @@ over_time_by_trial_data <- do.call(
       # 3 now extract the trials we need, dropping the frequency and electrode dimensions
       ag$data = re$data[,,ti,,drop=TRUE]#, keep = c(2,4), method = "mean")
       
+      # if we only have 1 trial, this will collapse to a vector with length == time
+      if(!is.matrix(ag$data)) {
+        dim(ag$data) = c(length(ag$data), 1) 
+      }
+      
       ag$x = as.numeric(dimnames(re$data)$Time)
       ag$xlab = 'Time (s)'
       ag$ylab='Trial (sorted by condition)'
@@ -1049,7 +1131,7 @@ over_time_by_trial_data <- do.call(
       
       # NB: the condition data are stored in the COLUMNS of the data, so sort appropriately
       # this may feel odd, but this is because of how image(...) function works
-      ag$data <- ag$data[,ord]
+      ag$data <- ag$data[ , ord, drop=FALSE]
       
       ag$N <- dim(baselined_power_data)[4]
       
@@ -1100,10 +1182,10 @@ epoch_event_types = get_available_events(repository$epoch$columns)
 
 # for each condition group and for each analysis setting
 # get one value per trial per electrode
-non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 'has_trials'))
+# non_empty_groups <- which(rutabaga::get_list_elements(analysis_groups, 'has_trials'))
 
 by_condition_group <- lapply(
-  analysis_groups[non_empty_groups],
+  analysis_groups,#[non_empty_groups],
   function(ag) {
     lapply(analysis_settings_clean, function(as) {
       # as <- analysis_settings_clean[[1]]
@@ -1112,13 +1194,13 @@ by_condition_group <- lapply(
       trials <- as.integer(dimnames(ob_baselined_power)$Trial) %in% ag$trials
       
       collapse_f <- raveio::collapse2(ob_baselined_power[fi,,trials,,drop=FALSE], keep = 2:4, method = "mean")
-       
+      
       # # add back in the 1st dimension (freq) b/c the shift function expects it
       dn <- dimnames(ob_baselined_power)[-1]
       dn$Trial <- dn$Trial[trials]
       dim(collapse_f) = c(1, dim(collapse_f))
       dimnames(collapse_f) <- append(list('Frequency'='Avg'), dn)
- 
+      
       # 2
       re <- shift_baselined_power(
         baselined_data=collapse_f,
@@ -1196,7 +1278,10 @@ if(!is.null(all_data$AnalysisLabel)) {
 }
 
 # copy of the data with the outliers removed (for stats etc)
-all_data_clean <- subset(all_data, is_clean)
+all_data_clean <- all_data
+if(!is.null(all_data[['is_clean']])) {
+  all_data_clean <- subset(all_data, is_clean)
+}
 
 # collapsed_data <- cbind_list(sapply(by_condition_group, 
 # get_list_elements, 'collapsed', use_sapply=FALSE))
@@ -1266,24 +1351,28 @@ run_stats <- function(el) {
 ravedash::logger('starting pes', level='debug')
 
 # now we want to calculate the stats for each electrode
-stats <- all_data_clean %>% split((.)$Electrode) %>% 
-  raveio::lapply_async(function(el){
-    # lapply(function(el) {
-    # print(el$Electrode[1])
-    if(length(el$y) < 2 || var(el$y) < 1e-12) {
-      return(NULL)
-    }
-    # tryCatch({
-    # return(suppressMessages(
-    run_stats(el)
-    # )
-    # )
-    # }, error = function(...) {
-    # The data contains NA/NaN
-    # NULL
-    # })
-  }) %>%
-  rutabaga::cbind_list()
+stats <- NULL
+if(length(all_data_clean) > 1) {
+  
+  stats <- all_data_clean %>% split((.)$Electrode) %>% 
+    raveio::lapply_async(function(el){
+      # lapply(function(el) {
+      # print(el$Electrode[1])
+      if(length(el$y) < 2 || var(el$y) < 1e-12) {
+        return(NULL)
+      }
+      # tryCatch({
+      # return(suppressMessages(
+      run_stats(el)
+      # )
+      # )
+      # }, error = function(...) {
+      # The data contains NA/NaN
+      # NULL
+      # })
+    }) %>%
+    rutabaga::cbind_list()
+}
 
 ravedash::logger('done pes', level='debug')
 
@@ -1339,178 +1428,183 @@ omnibus_results$stats %<>% rbind(val)
 require(data.table)
 .datatable.aware = TRUE
 
-dd <- subset(omnibus_results$data, currently_selected)
-
-# emmeans::emm_options(lmerTest.limit = 1000)
-# emmeans::emm_options(pbkrtest.limit = 1000)
-
-# seems to be faster for large models
-emmeans::emm_options(lmer.df = "satterthwaite")
-
-# Need to think about how to handle very low trial counts for a given level of a factor
-ravedash::logger('top of BAES', calc_delta = TRUE)
-# the intersect handles variables that don't exist. We'll add Trial to RE later if possible
-rand_effects <- c('Block', 'Electrode') %>% intersect(names(dd))
-
-# we don't need "Freq" or "Event" because that is part of AnalysisLabel
-fixed_effects <- c('Factor1', 'Factor2', 
-                   #'Freq', 'Event', 
-                   'AnalysisLabel') %>% intersect(names(dd))
-
-for(ff in c(rand_effects, fixed_effects)) {
-  dd[[ff]] %<>% as.factor
-}
-
-# how many effects do we have (i.e., vars with more than one unique label)
-fe <- names(which(sapply(dd[fixed_effects], nlevels) > 1))
-re <- names(which(sapply(dd[rand_effects], nlevels) > 1))
-
-# We need to add Trial as a random effect if AnalysisLabel is a
-# fixed effect because that means a trial is used twice
-if('AnalysisLabel' %in% fe) {
-  if('Block' %in% re) {
-    # if we have multiple electrodes, then we can have a block/trial, 
-    # otherwise we can only have 'Block'
-    if('Electrode' %in% re) {
-      re[which(re == 'Block')] = 'Block/Trial'
-    }
-  } else {
-    re %<>% c('Trial')
+across_electrode_statistics <- NULL
+if(length(omnibus_results$data) > 3) {
+  
+  dd <- subset(omnibus_results$data, currently_selected)
+  
+  # emmeans::emm_options(lmerTest.limit = 1000)
+  # emmeans::emm_options(pbkrtest.limit = 1000)
+  
+  # seems to be faster for large models
+  emmeans::emm_options(lmer.df = "satterthwaite")
+  
+  # Need to think about how to handle very low trial counts for a given level of a factor
+  ravedash::logger('top of BAES', calc_delta = TRUE)
+  # the intersect handles variables that don't exist. We'll add Trial to RE later if possible
+  rand_effects <- c('Block', 'Electrode') %>% intersect(names(dd))
+  
+  # we don't need "Freq" or "Event" because that is part of AnalysisLabel
+  fixed_effects <- c('Factor1', 'Factor2', 
+                     #'Freq', 'Event', 
+                     'AnalysisLabel') %>% intersect(names(dd))
+  
+  for(ff in c(rand_effects, fixed_effects)) {
+    dd[[ff]] %<>% as.factor
   }
-}
-
-re_str = NULL
-if(length(re) > 0) {
-  re_str <- paste(collapse='+',
-                  sapply(re, function(x) sprintf("(1|%s)", x))
-  )
-}
-
-
-# saveRDS('~/Desktop/v.RDS', object=list('dd'=dd, 'fe'=fe, 're_str'=re_str))
-# v <- readRDS('~/Desktop/v.RDS')
-# dd <- v$dd
-# fe <- v$fe
-# re_str <- v$re_str
-
-## get means and trial counts. data.table is way faster than aggregate
-# ravedash::logger('Trying data.table collapse. checking DTA: ', data.table:::cedta(), calc_delta = TRUE)
-dt <- data.table::as.data.table(dd)
-condition_means <- dt[ ,list('y'=mean(y), 'sd' = sd(y),
-                             'se'=rutabaga:::se(y),'n'=.N),
-                       keyby=fe]
-
-ravedash::logger('got condition means', calc_delta = TRUE)
-
-# set fe to "1" (intercept only model) if there are no fixed effects. Do this 
-# after obtaining experimental means because you can't key on the number 1
-fe <- paste0(fe, collapse='*')
-if(!nzchar(fe)) { fe <- "1" }
-
-frm <- as.formula(
-  paste('y ~', paste(c(fe, re_str), collapse=' + '))
-)
-
-if(length(unique(dd$Trial)) < 2) {
-  # can't do any stats
-  mod <- NULL
-  .aov <- NULL
-  em <- NULL
-  pairwise <- NULL
-} else {
-  FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
-  mod <- do.call(FUN, list(formula=frm, data=dd))
   
-  .aov <- car::Anova(mod, type=ifelse(fe[1] == "1", 'III', 'II'))
+  # how many effects do we have (i.e., vars with more than one unique label)
+  fe <- names(which(sapply(dd[fixed_effects], nlevels) > 1))
+  re <- names(which(sapply(dd[rand_effects], nlevels) > 1))
   
-  ravedash::logger('built linear model, starting post hoc tests', calc_delta = TRUE)
-  # est. marg means initial object, used by other
-  # functions to get all the contrasts
+  # We need to add Trial as a random effect if AnalysisLabel is a
+  # fixed effect because that means a trial is used twice
+  if('AnalysisLabel' %in% fe) {
+    if('Block' %in% re) {
+      # if we have multiple electrodes, then we can have a block/trial, 
+      # otherwise we can only have 'Block'
+      if('Electrode' %in% re) {
+        re[which(re == 'Block')] = 'Block/Trial'
+      }
+    } else {
+      re %<>% c('Trial')
+    }
+  }
   
-  em <- emmeans::emmeans(
-    mod, as.formula(sprintf(" ~ %s", fe)), infer=c(F,T)
-  )
-  
-  ravedash::logger('Got emm', calc_delta = TRUE)
-  
-  pairwise <- emmeans::contrast(
-    em, 'pairwise'
-  )
-  ravedash::logger('Got pairwise contrasts', calc_delta = TRUE)
-  ravedash::logger('Got ANOVA', calc_delta = TRUE)
-}
-
-# here we have a chance to stratify rather than do
-# all-possible pairwise comparisons (save your alpha!)
-stratified_contrasts <- NULL
-if(length(fe) > 1) {
-  stratified_contrasts <- get_stratified_contrasts(em)
-}
-
-## get the interaction contrasts
-itx_contrasts <- NULL
-if(length(fe) == 2) {
-  nm <- paste0(fe, collapse='_')
-  
-  itx_contrasts <- list(
-    emmeans::contrast(em, interaction=c('pairwise', 'pairwise'))
-  ) %>% setNames(nm)
-  
-}
-
-if (length(fe) > 2) {
-  fe_combn <- combn(fe, 2, simplify = FALSE)
-  
-  itx_contrasts <- sapply(fe_combn, function(groups) {
-    emmeans::contrast(em,
-                      interaction=c('pairwise', 'pairwise'), by=fe[!fe %in% groups]
+  re_str = NULL
+  if(length(re) > 0) {
+    re_str <- paste(collapse='+',
+                    sapply(re, function(x) sprintf("(1|%s)", x))
     )
-  }) %>% setNames(sapply(fe_combn, paste0, collapse='.'))
+  }
+  
+  
+  # saveRDS('~/Desktop/v.RDS', object=list('dd'=dd, 'fe'=fe, 're_str'=re_str))
+  # v <- readRDS('~/Desktop/v.RDS')
+  # dd <- v$dd
+  # fe <- v$fe
+  # re_str <- v$re_str
+  
+  ## get means and trial counts. data.table is way faster than aggregate
+  # ravedash::logger('Trying data.table collapse. checking DTA: ', data.table:::cedta(), calc_delta = TRUE)
+  dt <- data.table::as.data.table(dd)
+  condition_means <- dt[ ,list('y'=mean(y), 'sd' = sd(y),
+                               'se'=rutabaga:::se(y),'n'=.N),
+                         keyby=fe]
+  
+  ravedash::logger('got condition means', calc_delta = TRUE)
+  
+  # set fe to "1" (intercept only model) if there are no fixed effects. Do this 
+  # after obtaining experimental means because you can't key on the number 1
+  fe <- paste0(fe, collapse='*')
+  if(!nzchar(fe)) { fe <- "1" }
+  
+  frm <- as.formula(
+    paste('y ~', paste(c(fe, re_str), collapse=' + '))
+  )
+  
+  if(length(unique(dd$Trial)) < 2) {
+    # can't do any stats
+    mod <- NULL
+    .aov <- NULL
+    em <- NULL
+    pairwise <- NULL
+  } else {
+    FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
+    mod <- do.call(FUN, list(formula=frm, data=dd))
+    
+    .aov <- car::Anova(mod, type=ifelse(fe[1] == "1", 'III', 'II'))
+    
+    ravedash::logger('built linear model, starting post hoc tests', calc_delta = TRUE)
+    # est. marg means initial object, used by other
+    # functions to get all the contrasts
+    
+    em <- emmeans::emmeans(
+      mod, as.formula(sprintf(" ~ %s", fe)), infer=c(F,T)
+    )
+    
+    ravedash::logger('Got emm', calc_delta = TRUE)
+    
+    pairwise <- emmeans::contrast(
+      em, 'pairwise'
+    )
+    ravedash::logger('Got pairwise contrasts', calc_delta = TRUE)
+    ravedash::logger('Got ANOVA', calc_delta = TRUE)
+  }
+  
+  # here we have a chance to stratify rather than do
+  # all-possible pairwise comparisons (save your alpha!)
+  stratified_contrasts <- NULL
+  if(length(fe) > 1) {
+    stratified_contrasts <- get_stratified_contrasts(em)
+  }
+  
+  ## get the interaction contrasts
+  itx_contrasts <- NULL
+  if(length(fe) == 2) {
+    nm <- paste0(fe, collapse='_')
+    
+    itx_contrasts <- list(
+      emmeans::contrast(em, interaction=c('pairwise', 'pairwise'))
+    ) %>% setNames(nm)
+    
+  }
+  
+  if (length(fe) > 2) {
+    fe_combn <- combn(fe, 2, simplify = FALSE)
+    
+    itx_contrasts <- sapply(fe_combn, function(groups) {
+      emmeans::contrast(em,
+                        interaction=c('pairwise', 'pairwise'), by=fe[!fe %in% groups]
+      )
+    }) %>% setNames(sapply(fe_combn, paste0, collapse='.'))
+  }
+  
+  ravedash::logger('Got other contrasts', calc_delta = TRUE)
+  
+  # .aov <- car::Anova(mod, type=ifelse(
+  #   fe[1] == "1", 'III', 'II')
+  # )
+  # 
+  # ravedash::logger('Got ANOVA', calc_delta = TRUE)
+  
+  across_electrode_statistics <- list(
+    condition_means = condition_means,
+    model = mod,
+    model_type = class(mod)[1],
+    aov = .aov,
+    emmeans = em,
+    pairwise_contrasts = pairwise,
+    fixed_effects = fe,
+    random_effects = re,
+    stratified_contrasts = stratified_contrasts,
+    itx_contrasts = itx_contrasts,
+    trials_not_included = sort(trial_outliers_list)
+  )
 }
-
-ravedash::logger('Got other contrasts', calc_delta = TRUE)
-
-# .aov <- car::Anova(mod, type=ifelse(
-#   fe[1] == "1", 'III', 'II')
-# )
-# 
-# ravedash::logger('Got ANOVA', calc_delta = TRUE)
-
-across_electrode_statistics <- list(
-  condition_means = condition_means,
-  model = mod,
-  model_type = class(mod)[1],
-  aov = .aov,
-  emmeans = em,
-  pairwise_contrasts = pairwise,
-  fixed_effects = fe,
-  random_effects = re,
-  stratified_contrasts = stratified_contrasts,
-  itx_contrasts = itx_contrasts,
-  trials_not_included = sort(trial_outliers_list)
-)
-
 ```
 
 ```{rave build_by_trial_electrode_similarity_data, language="R", export="by_trial_electrode_similarity_data"}
 dd <- omnibus_results$data
-
 by_trial_electrode_similarity_data <- NULL
 
-if(enable_second_condition_groupings) {
+if(!is.null(dd[['AnalysisLabel']])) {
   
-} else {
-  # for each condition group, correlate the electrode responses across trials
-  by_trial_electrode_similarity_data <- 
-    lapply(split(dd, list(dd$AnalysisLabel, dd$Factor1)),
-           function(bb) {
-             bb <- bb[order(bb$Electrode, bb$Trial),]
-             
-             mat <- matrix(c(bb$y), nrow=length(unique(bb$Trial)),
-                           dimnames = list(NULL, unique(bb$Electrode)))
-             
-             cor(mat)
-           })
+  if(enable_second_condition_groupings) {
+    
+  } else {
+    # for each condition group, correlate the electrode responses across trials
+    by_trial_electrode_similarity_data <- 
+      lapply(split(dd, list(dd$AnalysisLabel, dd$Factor1)),
+             function(bb) {
+               bb <- bb[order(bb$Electrode, bb$Trial),]
+               
+               mat <- matrix(c(bb$y), nrow=length(unique(bb$Trial)),
+                             dimnames = list(NULL, unique(bb$Electrode)))
+               
+               cor(mat)
+             })
+  }
 }
 ```
 
