@@ -32,7 +32,7 @@ if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single
   
   ep <- read.csv(to_ep(epoch_choice))
   block1 <- subset(ep, ep$Block == ep$Block[1])
-  mx_time <- max(block1$Time) + epoch_choice__trial_ends
+  mx_time <- max(block1$Time) - min(block1$Time) + epoch_choice__trial_ends
   
   # write out a dummy epoch file that passes the necessary checks  
   write.csv(x = block1[1, , drop=FALSE], 
@@ -41,7 +41,9 @@ if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single
   repository <- raveio::prepare_subject_power(
     subject = subject, electrodes = loaded_electrodes, 
     epoch_name = ec2, reference_name = reference_name,
-    time_windows = c(epoch_choice__trial_starts, mx_time + epoch_choice__trial_ends))
+    
+    time_windows = c(epoch_choice__trial_starts, mx_time)
+  )
   
 } else {
   repository <- raveio::prepare_subject_power(

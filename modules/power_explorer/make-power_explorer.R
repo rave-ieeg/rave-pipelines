@@ -128,13 +128,14 @@ rm(._._env_._.)
                   ec2_path <- to_ep(ec2)
                   ep <- read.csv(to_ep(epoch_choice))
                   block1 <- subset(ep, ep$Block == ep$Block[1])
-                  mx_time <- max(block1$Time) + epoch_choice__trial_ends
+                  mx_time <- max(block1$Time) - min(block1$Time) + 
+                    epoch_choice__trial_ends
                   write.csv(x = block1[1, , drop = FALSE], file = ec2_path, 
                     row.names = FALSE)
                   repository <- raveio::prepare_subject_power(subject = subject, 
                     electrodes = loaded_electrodes, epoch_name = ec2, 
                     reference_name = reference_name, time_windows = c(epoch_choice__trial_starts, 
-                      mx_time + epoch_choice__trial_ends))
+                      mx_time))
                 } else {
                   repository <- raveio::prepare_subject_power(subject = subject, 
                     electrodes = loaded_electrodes, epoch_name = epoch_choice, 
@@ -165,13 +166,14 @@ rm(._._env_._.)
                     ec2_path <- to_ep(ec2)
                     ep <- read.csv(to_ep(epoch_choice))
                     block1 <- subset(ep, ep$Block == ep$Block[1])
-                    mx_time <- max(block1$Time) + epoch_choice__trial_ends
+                    mx_time <- max(block1$Time) - min(block1$Time) + 
+                      epoch_choice__trial_ends
                     write.csv(x = block1[1, , drop = FALSE], 
                       file = ec2_path, row.names = FALSE)
                     repository <- raveio::prepare_subject_power(subject = subject, 
                       electrodes = loaded_electrodes, epoch_name = ec2, 
                       reference_name = reference_name, time_windows = c(epoch_choice__trial_starts, 
-                        mx_time + epoch_choice__trial_ends))
+                        mx_time))
                   } else {
                     repository <- raveio::prepare_subject_power(subject = subject, 
                       electrodes = loaded_electrodes, epoch_name = epoch_choice, 
