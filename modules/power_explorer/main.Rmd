@@ -1355,25 +1355,20 @@ ravedash::logger('starting pes', level='debug')
 # now we want to calculate the stats for each electrode
 stats <- NULL
 if(length(all_data_clean) > 1) {
-  
-  stats <- all_data_clean %>% split((.)$Electrode) %>% 
-    raveio::lapply_async(function(el){
-      # lapply(function(el) {
-      # print(el$Electrode[1])
-      if(length(el$y) < 2 || var(el$y) < 1e-12) {
-        return(NULL)
-      }
-      # tryCatch({
-      # return(suppressMessages(
-      run_stats(el)
-      # )
-      # )
-      # }, error = function(...) {
-      # The data contains NA/NaN
-      # NULL
-      # })
-    }) %>%
-    rutabaga::cbind_list()
+  # make sure we have more than 1 trial per electrode
+  if(mean(aggregate(Trial ~ Electrode, length, data=all_data_clean)$Trial) > 1.5) {
+    
+    stats <- all_data_clean %>% split((.)$Electrode) %>% 
+      raveio::lapply_async(function(el){
+        print(el$Electrode[1])
+        if(length(el$y) < 2 || var(el$y) < 1e-12) {
+          return(NULL)
+        }
+        run_stats(el)
+      }) %>%
+      rutabaga::cbind_list()
+    
+  }
 }
 
 ravedash::logger('done pes', level='debug')
