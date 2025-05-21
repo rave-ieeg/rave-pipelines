@@ -170,10 +170,31 @@ module_server <- function(input, output, session, ...){
 
 
 
+    # if we're forcing settings, then we'll override even the custom ROI settings
+    # (which themselves override the "normal" method of setting electrode_text)
     if ('electrode_text' %in% names(force_settings)) {
       settings$analysis_electrodes = paste0(force_settings$electrode_text)
     } else {
-      settings$analysis_electrodes <- input$electrode_text
+
+      # custom ROI overrides selected electrodes
+      if(isTRUE(input$enable_custom_ROI) && input$custom_roi_variable != 'none') {
+
+        selected_levels <- unlist(sapply(input$custom_roi_groupings, function(crg) {
+          unlist(crg$conditions)
+        }))
+
+        ravedash::logger('restricting to electrodes in ', str_collapse(selected_levels), level='debug')
+
+        els <- local_data$electrode_meta_data$Electrode[
+          local_data$electrode_meta_data[[input$custom_roi_variable]] %in% selected_levels
+        ]
+
+        # the pipeline is expecting a string, so we deparse the integer vector
+        settings$analysis_electrodes <- dipsaus::deparse_svec(els)
+
+      } else {
+        settings$analysis_electrodes <- input$electrode_text
+      }
     }
 
 
@@ -1326,6 +1347,11 @@ module_server <- function(input, output, session, ...){
     # get unique values of PE_Cluster
     roi_choices <- unique(local_data$electrode_meta_data[[vv]])
 
+    # drop any NA (occurs because not all data are available for all electrodes)
+    roi_choices <- roi_choices[!is.na(roi_choices)]
+
+    ravedash::logger('available groups: ', str(roi_choices), level='debug')
+
     newval <- lapply(roi_choices, function(rc) {
       list('conditions' = rc, 'label' = rc)
     })
@@ -1334,7 +1360,28 @@ module_server <- function(input, output, session, ...){
       session=session,
       inputId = 'custom_roi_groupings',
       value = newval,
-      ncomp = length(newval)
+      ncomp = length(roi_choices)
+    )
+  }
+
+  do_clear_roi_grouping_levels <- function() {
+    # reset the groupings to have a single group with all values in that group
+
+    # get ROI variable
+    vv <- input$custom_roi_variable
+
+    # get unique values of PE_Cluster
+    roi_choices <- unique(local_data$electrode_meta_data[[vv]])
+
+    newval <- list(
+      list('conditions' = roi_choices, 'label' = 'All levels')
+    )
+
+    dipsaus::updateCompoundInput2(
+      session=session,
+      inputId = 'custom_roi_groupings',
+      value = newval,
+      ncomp = 1
     )
 
     ravedash::logger('trying to update custom ROI groups', level='debug')
@@ -1346,6 +1393,15 @@ module_server <- function(input, output, session, ...){
         do_auto_assign_levels_to_roi_groupings()
       }
     }), input$auto_assign_levels_to_roi_groupings,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if(isTRUE(input$enable_custom_ROI) & !is.null(local_data$electrode_meta_data)) {
+        do_clear_roi_grouping_levels()
+      }
+    }), input$clear_roi_grouping_levels,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
@@ -2091,7 +2147,9 @@ module_server <- function(input, output, session, ...){
         load_roi_conditions()
         # })
 
-        do_auto_assign_levels_to_roi_groupings()
+        # I think we don't want auto assign because of large clusters it's annoying to have to uncheck them all,
+        # instead let people just click the button to add them
+        # do_auto_assign_levels_to_roi_groupings()
 
         # this can create some issues because it's access variables outside
         # of the reactive context. maybe wrap with shiny::reactive(...)
@@ -2223,7 +2281,7 @@ module_server <- function(input, output, session, ...){
 
       if(length(local_data$results$omnibus_results$stats) > 1) {
 
-        ravedash::logger(dput(local_data$results$omnibus_results$stats), level='debug')
+        # ravedash::logger(dput(local_data$results$omnibus_results$stats), level='debug')
 
         df <- data.frame(t(local_data$results$omnibus_results$stats))
 
@@ -2272,8 +2330,13 @@ module_server <- function(input, output, session, ...){
                        palettes=res$palettes, value_ranges=res$val_ranges,
                        control_display = FALSE, side_display=FALSE,
                        timestamp=FALSE)
-        }
+        } else {
 
+          # just render a brain with electrodes
+          brain$render(outputId = "brain_viewer", session = session,
+                       control_display = FALSE, side_display=FALSE,
+                       timestamp=FALSE)
+        }
       }
     })
   )

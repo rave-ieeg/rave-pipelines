@@ -1260,6 +1260,8 @@ rm(._._env_._.)
                       method = "mean")
                     ag$data <- cbind(.rowMeans(coll_trial, nrow(coll_trial), 
                       ncol(coll_trial)), sqrt(diag(dipsaus::fastcov2(t(coll_trial)))/ncol(coll_trial)))
+                    ag$data[, 2] <- ifelse(is.nan(ag$data[, 2]), 
+                      0, ag$data[, 2])
                     ag$x = as.numeric(dimnames(re$data)$Time)
                     ag$y = NA
                     ag$xlab = "Time (s)"
@@ -1271,7 +1273,8 @@ rm(._._env_._.)
                     ag$events = subset(re$events, Trial %in% 
                       ag$trials)
                     ag %<>% add_analysis_settings(asc, baseline_settings)
-                    ag$range = range(rutabaga::plus_minus(ag$data))
+                    ag$range = range(rutabaga::plus_minus(ag$data), 
+                      na.rm = TRUE)
                     ag
                   }, simplify = FALSE)
                   return(all_ag)
@@ -1329,6 +1332,8 @@ rm(._._env_._.)
                       ag$data <- cbind(.rowMeans(coll_trial, 
                         nrow(coll_trial), ncol(coll_trial)), 
                         sqrt(diag(dipsaus::fastcov2(t(coll_trial)))/ncol(coll_trial)))
+                      ag$data[, 2] <- ifelse(is.nan(ag$data[, 
+                        2]), 0, ag$data[, 2])
                       ag$x = as.numeric(dimnames(re$data)$Time)
                       ag$y = NA
                       ag$xlab = "Time (s)"
@@ -1340,7 +1345,8 @@ rm(._._env_._.)
                       ag$events = subset(re$events, Trial %in% 
                         ag$trials)
                       ag %<>% add_analysis_settings(asc, baseline_settings)
-                      ag$range = range(rutabaga::plus_minus(ag$data))
+                      ag$range = range(rutabaga::plus_minus(ag$data), 
+                        na.rm = TRUE)
                       ag
                     }, simplify = FALSE)
                     return(all_ag)
@@ -1628,6 +1634,8 @@ rm(._._env_._.)
                   ob_baselined_power <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                 }
+                ravedash::logger("done baseline correction", 
+                  level = "debug")
                 epoch_event_types = get_available_events(repository$epoch$columns)
                 by_condition_group <- lapply(analysis_groups, 
                   function(ag) {
@@ -1675,6 +1683,7 @@ rm(._._env_._.)
                   })
                 all_data <- rutabaga::rbind_list(sapply(by_condition_group, 
                   rutabaga::get_list_elements, "df", use_sapply = FALSE))
+                ravedash::logger("built data frame", level = "debug")
                 if (isTRUE(enable_second_condition_groupings)) {
                   meta_table <- attr(analysis_groups, "meta")
                   stopifnot(is.data.frame(meta_table))
@@ -1695,25 +1704,28 @@ rm(._._env_._.)
                 if (!is.null(all_data[["is_clean"]])) {
                   all_data_clean <- subset(all_data, is_clean)
                 }
-                get_factor_length <- function(x) length(unique(all_data_clean[[x]]))
-                repeated_factors <- "AnalysisLabel"
-                unrepeated_factors <- c("Factor1", "Factor2")
-                factor_lengths <- sapply(c(repeated_factors, 
-                  unrepeated_factors), get_factor_length)
-                fixed_effects <- names(factor_lengths[factor_lengths > 
-                  1])
-                formula_str <- paste0("y ~ ", str_collapse(fixed_effects, 
-                  "*"))
-                if (formula_str == "y ~ ") formula_str = "y ~ 1"
-                has_re <- any(repeated_factors %in% fixed_effects)
-                stat_fun <- stats::lm
-                if (has_re) {
-                  formula_str %<>% paste("+ (1|Trial)")
-                  stat_fun <- lmerTest::lmer
-                }
-                formula_frm = as.formula(formula_str)
                 run_stats <- function(el) {
-                  mod <- stat_fun(formula_frm, data = el)
+                  get_factor_length <- function(x) length(unique(el[[x]]))
+                  repeated_factors <- "AnalysisLabel"
+                  unrepeated_factors <- c("Factor1", "Factor2")
+                  factor_lengths <- sapply(c(repeated_factors, 
+                    unrepeated_factors), get_factor_length)
+                  fixed_effects <- names(factor_lengths[factor_lengths > 
+                    1])
+                  formula_str <- paste0("y ~ ", str_collapse(fixed_effects, 
+                    "*"))
+                  if (formula_str == "y ~ ") formula_str = "y ~ 1"
+                  has_re <- any(repeated_factors %in% fixed_effects)
+                  stat_FUN <- stats::lm
+                  if (has_re) {
+                    formula_str %<>% paste("+ (1|Trial)")
+                    stat_FUN <- lmerTest::lmer
+                  }
+                  formula_frm = as.formula(formula_str)
+                  if (length(el$y) < 2 || var(el$y) < 1e-12) {
+                    return(NULL)
+                  }
+                  mod <- stat_FUN(formula_frm, data = el)
                   if (length(coef(mod)) == 1 && class(mod) != 
                     "lmerModLmerTest") {
                     lsm <- emmeans::emmeans(mod, specs = "1")
@@ -1755,13 +1767,12 @@ rm(._._env_._.)
                 ravedash::logger("starting pes", level = "debug")
                 stats <- NULL
                 if (length(all_data_clean) > 1) {
-                  stats <- all_data_clean %>% split((.)$Electrode) %>% 
-                    raveio::lapply_async(function(el) {
-                      if (length(el$y) < 2 || var(el$y) < 1e-12) {
-                        return(NULL)
-                      }
-                      run_stats(el)
-                    }) %>% rutabaga::cbind_list()
+                  if (mean(aggregate(Trial ~ Electrode, length, 
+                    data = all_data_clean)$Trial) > 1.5) {
+                    data_by_el <- split(all_data_clean, all_data_clean$Electrode)
+                    stats <- rutabaga::cbind_list(lapply(data_by_el, 
+                      run_stats))
+                  }
                 }
                 ravedash::logger("done pes", level = "debug")
                 if (!is.null(stats)) {
@@ -1794,6 +1805,8 @@ rm(._._env_._.)
                     ob_baselined_power <- subset(baselined_power, 
                       Electrode ~ Electrode %in% requested_electrodes)
                   }
+                  ravedash::logger("done baseline correction", 
+                    level = "debug")
                   epoch_event_types = get_available_events(repository$epoch$columns)
                   by_condition_group <- lapply(analysis_groups, 
                     function(ag) {
@@ -1842,6 +1855,7 @@ rm(._._env_._.)
                     })
                   all_data <- rutabaga::rbind_list(sapply(by_condition_group, 
                     rutabaga::get_list_elements, "df", use_sapply = FALSE))
+                  ravedash::logger("built data frame", level = "debug")
                   if (isTRUE(enable_second_condition_groupings)) {
                     meta_table <- attr(analysis_groups, "meta")
                     stopifnot(is.data.frame(meta_table))
@@ -1862,25 +1876,28 @@ rm(._._env_._.)
                   if (!is.null(all_data[["is_clean"]])) {
                     all_data_clean <- subset(all_data, is_clean)
                   }
-                  get_factor_length <- function(x) length(unique(all_data_clean[[x]]))
-                  repeated_factors <- "AnalysisLabel"
-                  unrepeated_factors <- c("Factor1", "Factor2")
-                  factor_lengths <- sapply(c(repeated_factors, 
-                    unrepeated_factors), get_factor_length)
-                  fixed_effects <- names(factor_lengths[factor_lengths > 
-                    1])
-                  formula_str <- paste0("y ~ ", str_collapse(fixed_effects, 
-                    "*"))
-                  if (formula_str == "y ~ ") formula_str = "y ~ 1"
-                  has_re <- any(repeated_factors %in% fixed_effects)
-                  stat_fun <- stats::lm
-                  if (has_re) {
-                    formula_str %<>% paste("+ (1|Trial)")
-                    stat_fun <- lmerTest::lmer
-                  }
-                  formula_frm = as.formula(formula_str)
                   run_stats <- function(el) {
-                    mod <- stat_fun(formula_frm, data = el)
+                    get_factor_length <- function(x) length(unique(el[[x]]))
+                    repeated_factors <- "AnalysisLabel"
+                    unrepeated_factors <- c("Factor1", "Factor2")
+                    factor_lengths <- sapply(c(repeated_factors, 
+                      unrepeated_factors), get_factor_length)
+                    fixed_effects <- names(factor_lengths[factor_lengths > 
+                      1])
+                    formula_str <- paste0("y ~ ", str_collapse(fixed_effects, 
+                      "*"))
+                    if (formula_str == "y ~ ") formula_str = "y ~ 1"
+                    has_re <- any(repeated_factors %in% fixed_effects)
+                    stat_FUN <- stats::lm
+                    if (has_re) {
+                      formula_str %<>% paste("+ (1|Trial)")
+                      stat_FUN <- lmerTest::lmer
+                    }
+                    formula_frm = as.formula(formula_str)
+                    if (length(el$y) < 2 || var(el$y) < 1e-12) {
+                      return(NULL)
+                    }
+                    mod <- stat_FUN(formula_frm, data = el)
                     if (length(coef(mod)) == 1 && class(mod) != 
                       "lmerModLmerTest") {
                       lsm <- emmeans::emmeans(mod, specs = "1")
@@ -1922,13 +1939,12 @@ rm(._._env_._.)
                   ravedash::logger("starting pes", level = "debug")
                   stats <- NULL
                   if (length(all_data_clean) > 1) {
-                    stats <- all_data_clean %>% split((.)$Electrode) %>% 
-                      raveio::lapply_async(function(el) {
-                        if (length(el$y) < 2 || var(el$y) < 1e-12) {
-                          return(NULL)
-                        }
-                        run_stats(el)
-                      }) %>% rutabaga::cbind_list()
+                    if (mean(aggregate(Trial ~ Electrode, length, 
+                      data = all_data_clean)$Trial) > 1.5) {
+                      data_by_el <- split(all_data_clean, all_data_clean$Electrode)
+                      stats <- rutabaga::cbind_list(lapply(data_by_el, 
+                        run_stats))
+                    }
                   }
                   ravedash::logger("done pes", level = "debug")
                   if (!is.null(stats)) {

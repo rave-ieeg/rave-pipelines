@@ -652,8 +652,6 @@ by_trial_tf_data = NULL
 
 ```
 
-
-
 ```{rave build_over_time_by_electrode_data, language="R", export ="over_time_by_electrode_data"}
 # the idea is that we don't need the full tensor for any given analysis,
 # and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
@@ -877,7 +875,7 @@ epoch_event_types = get_available_events(repository$epoch$columns)
 re <- #do.call(
   #c,
   sapply(analysis_settings_clean, function(asc) {
-    # asc <- analysis_settings_clean$TO
+    # asc <- analysis_settings_clean[[1]]
     
     # 1) collapse over frequencies in the analysis window
     # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
@@ -918,6 +916,8 @@ re <- #do.call(
         sqrt(diag(dipsaus::fastcov2(t(coll_trial))) / ncol(coll_trial))
       )
       
+      ag$data[,2] <- ifelse(is.nan(ag$data[,2]), 0, ag$data[,2])
+      
       ag$x = as.numeric(dimnames(re$data)$Time)
       ag$y = NA
       ag$xlab = 'Time (s)'
@@ -933,7 +933,7 @@ re <- #do.call(
       
       ag %<>% add_analysis_settings(asc, baseline_settings)
       
-      ag$range = range(rutabaga::plus_minus(ag$data))
+      ag$range = range(rutabaga::plus_minus(ag$data), na.rm = TRUE)
       
       ag
     }, simplify=FALSE)
@@ -1178,7 +1178,7 @@ if(isTRUE(omnibus_includes_all_electrodes)) {
   ob_baselined_power <- subset(baselined_power,
                                Electrode ~ Electrode %in% requested_electrodes)
 }
-
+ravedash::logger('done baseline correction', level='debug')
 
 epoch_event_types = get_available_events(repository$epoch$columns)
 
@@ -1252,7 +1252,7 @@ by_condition_group <- lapply(
 
 all_data <- rutabaga::rbind_list(sapply(by_condition_group, 
                                         rutabaga::get_list_elements, 'df', use_sapply=FALSE))
-
+ravedash::logger('built data frame', level='debug')
 # if we have a second factor (eventually an ROI) we need to clean up the naming
 if(isTRUE(enable_second_condition_groupings)) {
   meta_table <- attr(analysis_groups, 'meta')
@@ -1288,30 +1288,38 @@ if(!is.null(all_data[['is_clean']])) {
 # collapsed_data <- cbind_list(sapply(by_condition_group, 
 # get_list_elements, 'collapsed', use_sapply=FALSE))
 
-# for the stats, we need to figure out the factors involved and then build 
-# the appropriate model
-# for the post hocs, just get all pairwise for now. we'll need to have some
-# kind of chooser for specific contrasts in the future (duplicate with group module)
-get_factor_length <- function(x) length(unique(all_data_clean[[x]]))
-repeated_factors <- 'AnalysisLabel' #c('Time', 'Freq', 'Event')
-unrepeated_factors <- c('Factor1', 'Factor2')
-factor_lengths <- sapply(c(repeated_factors, unrepeated_factors), get_factor_length)
-fixed_effects <- names(factor_lengths[factor_lengths>1])
 
-formula_str <- paste0('y ~ ', str_collapse(fixed_effects, '*'))
-if(formula_str == 'y ~ ') formula_str = 'y ~ 1' 
-
-has_re <- any(repeated_factors %in% fixed_effects)
-stat_fun <- stats::lm
-if(has_re) {
-  formula_str %<>% paste("+ (1|Trial)")
-  stat_fun <- lmerTest::lmer
-} 
-
-formula_frm = as.formula(formula_str)
 
 run_stats <- function(el) {
-  mod <- stat_fun(formula_frm, data=el)
+  # for the stats, we need to figure out the factors involved and then build 
+  # the appropriate model
+  # for the post hocs, just get all pairwise for now. we'll need to have some
+  # kind of chooser for specific contrasts in the future (duplicate with group module)
+  
+  get_factor_length <- function(x) length(unique(el[[x]]))
+  
+  repeated_factors <- 'AnalysisLabel' #c('Time', 'Freq', 'Event')
+  unrepeated_factors <- c('Factor1', 'Factor2')
+  factor_lengths <- sapply(c(repeated_factors, unrepeated_factors), get_factor_length)
+  fixed_effects <- names(factor_lengths[factor_lengths>1])
+  
+  formula_str <- paste0('y ~ ', str_collapse(fixed_effects, '*'))
+  if(formula_str == 'y ~ ') formula_str = 'y ~ 1' 
+  
+  has_re <- any(repeated_factors %in% fixed_effects)
+  stat_FUN <- stats::lm
+  if(has_re) {
+    formula_str %<>% paste("+ (1|Trial)")
+    stat_FUN <- lmerTest::lmer
+  } 
+  
+  formula_frm = as.formula(formula_str)
+  
+  if(length(el$y) < 2 || var(el$y) < 1e-12) {
+    return(NULL)
+  }
+  
+  mod <- stat_FUN(formula_frm, data=el)
   
   if(length(coef(mod)) == 1 && class(mod) != 'lmerModLmerTest') {
     lsm <- emmeans::emmeans(mod, specs = '1')
@@ -1349,28 +1357,20 @@ run_stats <- function(el) {
   return(res)
 }
 
-
 ravedash::logger('starting pes', level='debug')
-
 # now we want to calculate the stats for each electrode
 stats <- NULL
 if(length(all_data_clean) > 1) {
   # make sure we have more than 1 trial per electrode
   if(mean(aggregate(Trial ~ Electrode, length, data=all_data_clean)$Trial) > 1.5) {
     
-    stats <- all_data_clean %>% split((.)$Electrode) %>% 
-      raveio::lapply_async(function(el){
-        print(el$Electrode[1])
-        if(length(el$y) < 2 || var(el$y) < 1e-12) {
-          return(NULL)
-        }
-        run_stats(el)
-      }) %>%
-      rutabaga::cbind_list()
-    
+    data_by_el <- split(all_data_clean,all_data_clean$Electrode)
+    stats <-  rutabaga::cbind_list(
+      # raveio::lapply_async(data_by_el,FUN = run_stats)
+      lapply(data_by_el, run_stats)
+    )
   }
 }
-
 ravedash::logger('done pes', level='debug')
 
 # add in electrode labels as an attribute of the stats block.
