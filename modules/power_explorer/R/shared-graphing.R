@@ -2372,7 +2372,16 @@ build_heatmap_condition_label_decorator <- function(all_maps, ..., var='y',
 plot_over_time_by_electrode <- function(by_electrode_tf_data, plot_options, cluster_ids=NULL) {
   apply_current_theme()
 
-  if(!is.null(cluster_ids)) {
+  if(is.null(cluster_ids)) {
+    decorators <- stack_decorators(
+      build_heatmap_analysis_window_decorator(
+        type = ifelse(isFALSE(plot_options$show_window), 'none', 'line')
+      ),
+      build_axis_label_decorator(push_X=3),
+      build_title_decorator(to_include = c('roi_label', 'analysis_group', 'condition_group'), sep=c(': ', ' | '))
+    )
+
+  } else {
     decorators <- stack_decorators(
       build_heatmap_analysis_window_decorator(
         type = ifelse(isFALSE(plot_options$show_window), 'none', 'line')
@@ -2385,18 +2394,8 @@ plot_over_time_by_electrode <- function(by_electrode_tf_data, plot_options, clus
         text_cex = plot_options$cluster_label_cex,
       ),
       build_axis_label_decorator(push_X=3),
-      build_title_decorator()
+      build_title_decorator(to_include = c('roi_label', 'analysis_group', 'condition_group'), sep=c(': ', ' | '))
     )
-
-  } else {
-    decorators <- stack_decorators(
-      build_heatmap_analysis_window_decorator(
-        type = ifelse(isFALSE(plot_options$show_window), 'none', 'line')
-      ),
-      build_axis_label_decorator(push_X=3),
-      build_title_decorator()
-    )
-
   }
 
   args <- list(
@@ -2417,7 +2416,6 @@ plot_over_time_by_electrode <- function(by_electrode_tf_data, plot_options, clus
 build_title_decorator <- function(to_include=c('analysis_group',
                                                'condition_group'), sep = ' | ') {
   force(to_include)
-  force(sep)
 
   btd <- function(data, ...) {
     # grab the items from what's available in data
@@ -2488,7 +2486,7 @@ plot_by_frequency_over_time <- function(by_frequency_over_time_data, plot_args=l
     build_heatmap_analysis_window_decorator(
       type = ifelse(isFALSE(plot_args$show_window), 'none', 'box')),
     build_axis_label_decorator(push_X = 3),
-    build_title_decorator()
+    build_title_decorator(to_include = c('roi_label', 'analysis_group', 'condition_group'), sep=c(': ', ' | '))
   )
 
   args <- list(
@@ -2769,7 +2767,7 @@ plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options) {
   apply_current_theme()
 
   decorators <- stack_decorators(
-    build_title_decorator(),
+    build_title_decorator(to_include = c('roi_label', 'analysis_group', 'condition_group'), sep=c(': ', ' | ')),
     build_heatmap_analysis_window_decorator(
       type = ifelse(isFALSE(plot_options$show_window), 'none', 'line')
     ),

@@ -172,6 +172,35 @@ for(ii in seq_along(analysis_settings_clean)) {
   analysis_settings_clean[[ii]]$project_name = project_name
 }
 
+
+# if we have a custom ROI analysis, the we need to create new analysis settings objects from these --
+# We're doing this here rather than in the GUI because the UI would be cumbersome. The drop-down for 
+# how to treat the custom roi (filter, stratify, interaction) is doing the signifying work
+if(all(isTRUE(enable_custom_ROI), custom_roi_variable != 'none', custom_roi_type != 'Filter only')) {
+  
+  nms <- names(analysis_settings_clean)
+  roi_nms <- sapply(custom_roi_groupings, `[[`, 'label')
+  
+  names(custom_roi_groupings) <- roi_nms
+  
+  
+  nm.grid <- expand.grid('asc'=nms, 'roi'=roi_nms)
+  
+  new_asc <- vector('list')
+  
+  for(ii in 1:nrow(nm.grid)) {
+    tmp <- analysis_settings_clean[[nm.grid$asc[ii]]]
+    
+    tmp$electrodes = dipsaus::parse_svec(custom_roi_groupings[[nm.grid$roi[ii]]]$electrodes)
+    tmp$roi_label = custom_roi_groupings[[nm.grid$roi[ii]]]$label
+    tmp$roi_conditions = custom_roi_groupings[[nm.grid$roi[ii]]]$conditions
+    
+    new_asc[[paste(nm.grid$roi[ii], nm.grid$asc[ii], sep='_')]] <- tmp
+  }
+  
+  analysis_settings_clean <- new_asc
+}
+
 analysis_checks_passed=TRUE
 ```
 
@@ -458,12 +487,23 @@ by_frequency_over_time_data <- do.call(
   c,
   
   sapply(analysis_settings_clean, function(asc) {
-    # asc <- analysis_settings_clean$TO
+    # asc <- analysis_settings_clean[[1]]
     
     # 1) collapse over electrode
     # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
     # 3) then collapse over trial
-    collapse_e <- raveio::collapse2(baselined_power_data, keep = 1:3, method = "mean")
+    
+    # check if this analysis settings is specifying an electrode subset
+    dn_el <- as.integer(dimnames(baselined_power_data)$Electrode)
+    electrodes_to_use <- dn_el
+    
+    if(!is.null(asc[['electrodes']])) {
+      electrodes_to_use <- electrodes_to_use[electrodes_to_use %in% asc$electrodes]
+    }
+    
+    ei <- which(dn_el %in% electrodes_to_use)
+    
+    collapse_e <- raveio::collapse2(baselined_power_data[,,,ei,drop=FALSE], keep = 1:3, method = "mean")
     
     # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_e) = c(dim(baselined_power_data)[1:3], 1)
@@ -500,7 +540,7 @@ by_frequency_over_time_data <- do.call(
       ag$zlab = "Mean " %&% baseline_settings$unit_of_analysis
       
       ag$condition_group = ag$label
-      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      ag$electrodes <- electrodes_to_use
       
       # ag$settings = asc
       ag$outliers = trial_outliers_list
@@ -543,7 +583,18 @@ by_frequency_correlation_data <- do.call(
     # 1) collapse over electrode
     # 2) shift the data in time
     # 3) collapse in analysis window
-    collapse_e <- raveio::collapse2(baselined_power_data, keep = 1:3, method = "mean")
+    
+    # check if this analysis settings is specifying an electrode subset
+    dn_el <- as.integer(dimnames(baselined_power_data)$Electrode)
+    electrodes_to_use <- dn_el
+    
+    if(!is.null(asc[['electrodes']])) {
+      electrodes_to_use <- electrodes_to_use[electrodes_to_use %in% asc$electrodes]
+    }
+    
+    ei <- which(dn_el %in% electrodes_to_use)
+    
+    collapse_e <- raveio::collapse2(baselined_power_data[,,,ei,drop=FALSE], keep = 1:3, method = "mean")
     
     # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_e) = c(dim(baselined_power_data)[1:3], 1)
@@ -585,10 +636,7 @@ by_frequency_correlation_data <- do.call(
       
       
       ag$condition_group = ag$label
-      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
-      
-      
-      
+      ag$electrodes <- electrodes_to_use
       
       # ag$settings = asc
       ag$outliers = trial_outliers_list
@@ -655,11 +703,12 @@ by_trial_tf_data = NULL
 ```{rave build_over_time_by_electrode_data, language="R", export ="over_time_by_electrode_data"}
 # the idea is that we don't need the full tensor for any given analysis,
 # and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
-
+# and smaller cached files are faster to load
 
 # grab only the electrodes we need
 baselined_power_data <- subset(baselined_power,
                                Electrode ~ Electrode %in% requested_electrodes)
+
 epoch_event_types = get_available_events(repository$epoch$columns)
 
 # flatten the settings / trial group hierarchy with the do.call(c, ...)
@@ -667,17 +716,28 @@ over_time_by_electrode_data <- do.call(
   c,
   
   sapply(analysis_settings_clean, function(asc) {
-    # asc <- analysis_settings_clean$TO
+    # asc <- analysis_settings_clean[[1]]
     
     # 1) collapse over frequencies in the analysis window
     # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
     # 3) then collapse over trial
+    
+    # check if this analysis settings is specifying an electrode subset
+    dn_el <- as.integer(dimnames(baselined_power_data)$Electrode)
+    electrodes_to_use <- dn_el
+    
+    if(!is.null(asc[['electrodes']])) {
+      electrodes_to_use <- electrodes_to_use[electrodes_to_use %in% asc$electrodes]
+    }
+    
+    ei <- which(dn_el %in% electrodes_to_use)
+    
     fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
-    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,,drop=FALSE], keep = 2:4, method = "mean")
+    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:4, method = "mean")
     # 
     # # add back in the 1st dimension (freq) b/c the shift function expects it
-    dim(collapse_f) = c(1, dim(baselined_power_data)[2:4])
-    dimnames(collapse_f) <- append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:4])
+    dim(collapse_f) = c(1, dim(baselined_power_data)[2:3], length(ei))
+    dimnames(collapse_f) <- append(append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:3],),list('Electrodes'=electrodes_to_use))
     
     # 2
     re <- shift_baselined_power(
@@ -711,7 +771,7 @@ over_time_by_electrode_data <- do.call(
       ag$N <- sum(ti)
       
       ag$condition_group = ag$label
-      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      ag$electrodes <- electrodes_to_use
       
       # ag$settings = asc
       ag$outliers = trial_outliers_list
@@ -732,21 +792,47 @@ over_time_by_electrode_data <- do.call(
 ```
 
 ```{rave build_over_time_by_electrode_similiarity_data, language="R", export ="by_electrode_similarity_data"}
-# get the pairwise distances for electrodes, the combination rules will be done in the GUI 
-# average dist, max dist, min, 
-
 curr_electrodes <- data.frame(NA)
+all_els <- NULL
 if(length(over_time_by_electrode_data) > 0) {
-  curr_electrodes <- subset(repository$electrode_table, Electrode %in% over_time_by_electrode_data[[1]]$electrodes)
+  all_els <- unique(unlist(lapply(over_time_by_electrode_data, `[[`, 'electrodes')))
+  curr_electrodes <- subset(repository$electrode_table, Electrode %in% all_els)
 }
 
+# get the pairwise distances for electrodes, the combination rules will be done in the GUI 
+# average dist, max dist, min, 
 if(nrow(curr_electrodes) < 3) {
   by_electrode_similarity_data = NULL
 } else {
   
+  # hclust on distance matrices
+  cluster_dmatrix <- function(x) {
+    lapply(x, function(xx) {
+      
+      if(is.null(xx) || length(xx) == 0) {
+        return(NULL)
+      }
+      
+      re <- hclust(xx, method = 'ward.D2')
+      re$distances <- xx
+      
+      return(re)
+    })
+  }
+  
+  
+  # if we have custom ROIs, then we need to prefix the cluster label with the ROI label (otherwise C1 will get joined across ROIs)
+  # first step is to find which groups are part of the same ROI -- we can probably guess this correctly, but feels safer to just calculate it
+  roi_groups <- NULL
+  if(isTRUE(enable_custom_ROI) && custom_roi_type != 'Filter only') {
+    roi_groups <- sapply(over_time_by_electrode_data, `[[`, 'roi_label')
+  }
+  
   rownames(curr_electrodes) = curr_electrodes$Electrode
+  # need to consider that we may have an ROI variable
   
   all_distances <- lapply(over_time_by_electrode_data, function(dd) {
+    # dd <- over_time_by_electrode_data[[1]]
     
     etbl <- curr_electrodes[as.character(dd$electrodes),]
     
@@ -758,9 +844,7 @@ if(nrow(curr_electrodes) < 3) {
       1 - cor(dd$data, method='spearman')
     )
     
-    
     euclidean_distance <- dist(t(dd$data), method = 'euclidean')
-    
     coordinate_distance <- dist(etbl[,c('Coord_x', 'Coord_y', 'Coord_z')])
     
     fslabel = 'FSLabel'
@@ -792,6 +876,8 @@ if(nrow(curr_electrodes) < 3) {
   
   distance_names <- names(all_distances[[1]])
   
+  if(is.null(roi_groups)) {
+    
   all_dist_mats <- sapply(c('total', 'max', 'min'), function(metric) {
     sapply(distance_names, function(dn) {
       FUN <- switch(metric, 
@@ -799,24 +885,38 @@ if(nrow(curr_electrodes) < 3) {
                     'max' = pmax,
                     'min' = pmin
       )
-      
       Reduce(FUN, lapply(all_distances, `[[`, dn))
     }, simplify = FALSE)
   }, simplify = FALSE)
   
-  by_electrode_similarity_data <- lapply(all_dist_mats, function(x) {
-    lapply(x, function(xx) {
+  by_electrode_similarity_data <- lapply(all_dist_mats, cluster_dmatrix)
+  
+  } else {
+    
+    # handle combining distance matrices separately for each ROI
+    by_roi <- sapply(unique(roi_groups), function(rg) {
+      # rg <- roi_groups[[1]]
       
-      if(is.null(xx) || length(xx) == 0) {
-        return(NULL)
-      }
+      roi_dists <- all_distances[roi_groups == rg]
       
-      re <- hclust(xx, method = 'ward.D2')
-      re$distances <- xx
+      all_dist_mats <- sapply(c('total', 'max', 'min'), function(metric) {
+        sapply(distance_names, function(dn) {
+          FUN <- switch(metric, 
+                        'total' = `+`,
+                        'max' = pmax,
+                        'min' = pmin
+          )
+          
+          Reduce(FUN, lapply(roi_dists, `[[`, dn))
+        }, simplify = FALSE)
+      }, simplify = FALSE)
       
-      return(re)
-    })
-  })
+      
+    }, simplify = FALSE)
+    
+    by_electrode_similarity_data <- lapply(by_roi, function(rr) {lapply(rr, cluster_dmatrix)})
+  }
+    
 }
 ```
 
@@ -881,11 +981,23 @@ re <- #do.call(
     # 2) shift the data in time (different shift per trial, so don't collapse over trial yet), 
     # 3) then collapse over trial and get m_se by electrode
     fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
-    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,,drop=FALSE], keep = 2:4, method = "mean")
+    
+    # check if this analysis settings is specifying an electrode subset
+    dn_el <- as.integer(dimnames(baselined_power_data)$Electrode)
+    electrodes_to_use <- dn_el
+    
+    if(!is.null(asc[['electrodes']])) {
+      electrodes_to_use <- electrodes_to_use[electrodes_to_use %in% asc$electrodes]
+    }
+    
+    ei <- which(dn_el %in% electrodes_to_use)
+    
+    
+    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:4, method = "mean")
     # 
     # # add back in the 4th dimension (electrode) b/c the shift function expects it
-    dim(collapse_f) = c(1, dim(baselined_power_data)[2:4])
-    dimnames(collapse_f) <- append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:4])
+    dim(collapse_f) = c(1, dim(baselined_power_data)[2:3], length(ei))
+    dimnames(collapse_f) <- append(append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:3]), list('Electrode'=electrodes_to_use))
     
     # 2
     re <- shift_baselined_power(
@@ -925,7 +1037,7 @@ re <- #do.call(
       ag$N <- dim(re$data)[4]
       
       ag$condition_group = ag$label
-      ag$electrodes <- as.integer(dimnames(re$data)$Electrode)
+      ag$electrodes <- electrodes_to_use
       
       # ag$settings = asc
       ag$outliers = trial_outliers_list
@@ -1076,8 +1188,19 @@ over_time_by_trial_data <- do.call(
     # 1) collapse over frequencies in the analysis window & electrodes
     # 2) shift the data in time
     # 3) make sure the data are sorted as needed
+    
+    # check if this analysis settings is specifying an electrode subset
+    dn_el <- as.integer(dimnames(baselined_power_data)$Electrode)
+    electrodes_to_use <- dn_el
+    
+    if(!is.null(asc[['electrodes']])) {
+      electrodes_to_use <- electrodes_to_use[electrodes_to_use %in% asc$electrodes]
+    }
+    
+    ei <- which(dn_el %in% electrodes_to_use)
+    
     fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
-    collapse_fe <- raveio::collapse2(baselined_power_data[fi,,,,drop=FALSE], keep = 2:3, method = "mean")
+    collapse_fe <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:3, method = "mean")
     # 
     # # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_fe) = c(1, dim(baselined_power_data)[2:3], 1)
@@ -1138,7 +1261,7 @@ over_time_by_trial_data <- do.call(
       ag$N <- dim(baselined_power_data)[4]
       
       ag$condition_group = ag$label
-      ag$electrodes <- as.integer(dimnames(baselined_power_data)$Electrode)
+      ag$electrodes <- electrodes_to_use
       
       # ag$settings = asc
       ag$outliers = trial_outliers_list
@@ -1252,6 +1375,21 @@ by_condition_group <- lapply(
 
 all_data <- rutabaga::rbind_list(sapply(by_condition_group, 
                                         rutabaga::get_list_elements, 'df', use_sapply=FALSE))
+
+# look for ROI labels to apply to the per-electrode data
+
+if(all(isTRUE(enable_custom_ROI), custom_roi_variable != 'none', custom_roi_type != 'Filter only')) {
+
+  custom_roi_groupings$C1$label
+  
+  # build a merge-able data frame to get the electrode ROI labels
+  roi.df <- rbind_list(lapply(custom_roi_groupings, function(crg) {
+    data.frame(Electrode=dipsaus::parse_svec(crg$electrodes), ROI_label = crg$label)
+  }))
+  
+  all_data %<>% merge(roi.df, all.x=TRUE, all.y=FALSE)
+}
+
 ravedash::logger('built data frame', level='debug')
 # if we have a second factor (eventually an ROI) we need to clean up the naming
 if(isTRUE(enable_second_condition_groupings)) {
@@ -1276,7 +1414,11 @@ if(isTRUE(enable_second_condition_groupings)) {
 
 # make sure analysis label is appropriately factored
 if(!is.null(all_data$AnalysisLabel)) {
-  all_data$AnalysisLabel %<>% factor(levels = names(analysis_settings_clean))
+  all_data$AnalysisLabel %<>% factor(levels = unique(sapply(analysis_settings_clean, `[[`, 'label')))
+}
+
+if(!is.null(all_data$ROI_label)) {
+  all_data$ROI_label %<>% factor(levels = unique(sapply(analysis_settings_clean, `[[`, 'roi_label')))
 }
 
 # copy of the data with the outliers removed (for stats etc)
@@ -1366,8 +1508,8 @@ if(length(all_data_clean) > 1) {
     
     data_by_el <- split(all_data_clean,all_data_clean$Electrode)
     stats <-  rutabaga::cbind_list(
-      # raveio::lapply_async(data_by_el,FUN = run_stats)
-      lapply(data_by_el, run_stats)
+      raveio::lapply_async(data_by_el,FUN = run_stats, ncores=4)
+      # lapply(data_by_el, run_stats)
     )
   }
 }
@@ -1442,7 +1584,7 @@ if(length(omnibus_results$data) > 3) {
   rand_effects <- c('Block', 'Electrode') %>% intersect(names(dd))
   
   # we don't need "Freq" or "Event" because that is part of AnalysisLabel
-  fixed_effects <- c('Factor1', 'Factor2', 
+  fixed_effects <- c('Factor1', 'Factor2', 'ROI_label',
                      #'Freq', 'Event', 
                      'AnalysisLabel') %>% intersect(names(dd))
   
@@ -1582,27 +1724,27 @@ if(length(omnibus_results$data) > 3) {
 ```
 
 ```{rave build_by_trial_electrode_similarity_data, language="R", export="by_trial_electrode_similarity_data"}
-dd <- omnibus_results$data
+# dd <- omnibus_results$data
 by_trial_electrode_similarity_data <- NULL
-
-if(!is.null(dd[['AnalysisLabel']])) {
-  
-  if(enable_second_condition_groupings) {
-    
-  } else {
-    # for each condition group, correlate the electrode responses across trials
-    by_trial_electrode_similarity_data <- 
-      lapply(split(dd, list(dd$AnalysisLabel, dd$Factor1)),
-             function(bb) {
-               bb <- bb[order(bb$Electrode, bb$Trial),]
-               
-               mat <- matrix(c(bb$y), nrow=length(unique(bb$Trial)),
-                             dimnames = list(NULL, unique(bb$Electrode)))
-               
-               cor(mat)
-             })
-  }
-}
+# 
+# if(!is.null(dd[['AnalysisLabel']])) {
+#   
+#   if(enable_second_condition_groupings) {
+#     
+#   } else {
+#     # for each condition group, correlate the electrode responses across trials
+#     by_trial_electrode_similarity_data <- 
+#       lapply(split(dd, list(dd$AnalysisLabel, dd$Factor1)),
+#              function(bb) {
+#                bb <- bb[order(bb$Electrode, bb$Trial),]
+#                
+#                mat <- matrix(c(bb$y), nrow=length(unique(bb$Trial)),
+#                              dimnames = list(NULL, unique(bb$Electrode)))
+#                
+#                cor(mat)
+#              })
+#   }
+# }
 ```
 
 ```{rave build_data_for_export, language="R", export='data_for_export', cue = "always"}

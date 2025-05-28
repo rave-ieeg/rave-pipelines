@@ -775,7 +775,7 @@ wrap_data = function(data, ...){
 }
 
 add_analysis_settings <- function(ll, analysis_settings, baseline_settings) {
-  append(ll, list(
+  re <- append(ll, list(
     subject_code = analysis_settings$subject_code,
     analysis_group = analysis_settings$label,
     analysis_event = analysis_settings$event,
@@ -785,6 +785,17 @@ add_analysis_settings <- function(ll, analysis_settings, baseline_settings) {
     baseline_scope = baseline_settings$scope,
     unit_of_analysis = baseline_settings$unit_of_analysis
   ))
+
+
+  # grab ROI names if they exist
+  for(rn in c('roi_label', 'roi_conditions')) {
+    if(rn %in% names(analysis_settings)) {
+      re[[rn]] = analysis_settings[[rn]]
+    }
+
+  }
+
+  return(re)
 }
 
 data_builder <- function(pluriform_power, condition_groups, baseline_settings,

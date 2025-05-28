@@ -130,7 +130,12 @@ module_server <- function(input, output, session, ...){
     yaxis_sort_combine_rule = 'total (sum across conditions)'
   )
 
-  names(local_data$over_time_by_electrode_plot_options$cluster_label_colors) = paste0('C', seq_along(local_data$over_time_by_electrode_plot_options$cluster_label_colors))
+  # if we have ROI labels, then the names are more complicated than just C#, so we need to read them out of the quick cluster table
+  cnames <- sort(unique(local_data$electrode_quick_cluster$PE_Cluster))
+  if(length(cnames) > length(local_data$over_time_by_electrode_plot_options$cluster_label_colors)) {
+    local_data$over_time_by_electrode_plot_options$cluster_label_colors <- rep(local_data$over_time_by_electrode_plot_options$cluster_label_colors, length(cnames))
+  }
+  names(local_data$over_time_by_electrode_plot_options$cluster_label_colors)[seq_along(cnames)] = cnames#paste0('C', seq_along(local_data$over_time_by_electrode_plot_options$cluster_label_colors))
 
   ### ---
 
@@ -168,12 +173,13 @@ module_server <- function(input, output, session, ...){
     # ))
     settings <- dipsaus::fastmap2()
 
-
+    # initially the CRG is just a copy of the input for consistency
+    settings$custom_roi_groupings <- input$custom_roi_groupings
 
     # if we're forcing settings, then we'll override even the custom ROI settings
     # (which themselves override the "normal" method of setting electrode_text)
     if ('electrode_text' %in% names(force_settings)) {
-      settings$analysis_electrodes = paste0(force_settings$electrode_text)
+      settings$analysis_electrodes <- paste0(force_settings$electrode_text)
     } else {
 
       # custom ROI overrides selected electrodes
@@ -191,6 +197,17 @@ module_server <- function(input, output, session, ...){
 
         # the pipeline is expecting a string, so we deparse the integer vector
         settings$analysis_electrodes <- dipsaus::deparse_svec(els)
+
+
+        # add in electrode details needed for custom grouping
+        # initially the CRG is just a copy of the input for consistency
+        crg <- input$custom_roi_groupings
+        for(ii in seq_along(crg)) {
+          crg[[ii]]$electrodes = dipsaus::deparse_svec(local_data$electrode_meta_data$Electrode[
+            local_data$electrode_meta_data[[input$custom_roi_variable]] %in% crg[[ii]]$conditions
+          ])
+        }
+        settings$custom_roi_groupings <- crg
 
       } else {
         settings$analysis_electrodes <- input$electrode_text
@@ -312,7 +329,7 @@ module_server <- function(input, output, session, ...){
       enable_custom_ROI = isTRUE(input$enable_custom_ROI),
       custom_roi_type = input$custom_roi_type,
       custom_roi_variable = input$custom_roi_variable,
-      custom_roi_groupings = input$custom_roi_groupings,
+      custom_roi_groupings = settings$custom_roi_groupings,
       analysis_settings = input$ui_analysis_settings,
       omnibus_includes_all_electrodes = isTRUE(input$omnibus_includes_all_electrodes),
       # TODO: create UIs for time censor and trial outliers
@@ -512,28 +529,32 @@ module_server <- function(input, output, session, ...){
                              choices = md_choices,
                              selected = bet_md)
 
-    #### this is where we add Factor 2 to the analysis
+    #### this is where we add Factor 2 and ROI_label into the analysis graphs
+    cc <- NULL
+    if(!is.null(local_data$results$omnibus_results$data$ROI_label)) {
+      cc = 'ROI_label'
+    }
     if(is.null(local_data$results$omnibus_results$data$Factor2)) {
+
       shiny::updateSelectInput(inputId = 'btp_xvar',
-                               choices=c('First Factor', 'Analysis Group')
+                               choices=c('First Factor', cc, 'Analysis Group')
       )
 
-      shiny::updateSelectInput(inputId = 'btp_gvar',
-                               choices=c('none', 'Analysis Group', 'First Factor')
+      shiny::updateSelectInput(inputId = 'btp_gvar',selected = c('ROI_label') %OF% c('ROI_label', 'none'),
+                               choices=c('none', cc, 'Analysis Group', 'First Factor')
       )
 
     } else {
       shiny::updateSelectInput(inputId = 'btp_xvar',
-                               choices=c('First Factor', 'Second Factor', 'First:Second', 'Analysis Group')
+                               choices=c('First Factor', 'Second Factor', 'First:Second', cc, 'Analysis Group')
       )
 
-      shiny::updateSelectInput(inputId = 'btp_gvar',
-                               choices=c('none', 'Analysis Group', 'First Factor', 'Second Factor', 'First:Second')
+      shiny::updateSelectInput(inputId = 'btp_gvar', selected = 'Second Factor',
+                               choices=c('none', cc, 'Analysis Group', 'First Factor', 'Second Factor', 'First:Second')
       )
 
-
-      shiny::updateSelectInput(inputId = 'btp_panelvar',
-                               choices=c('none', 'First Factor', 'Second Factor', 'First:Second', 'Analysis Group')
+      shiny::updateSelectInput(inputId = 'btp_panelvar', selected = c('ROI_label') %OF% c('ROI_label', 'none'),
+                               choices=c('none', 'First Factor', 'Second Factor', 'First:Second', cc, 'Analysis Group')
       )
     }
 
@@ -1209,6 +1230,10 @@ module_server <- function(input, output, session, ...){
 
         shiny::updateTextInput(inputId=id, value=paste0(info$electrode_number))
 
+        # also turn off the custom ROI grouping because that can do weird things
+        shiny::updateCheckboxInput(inputId = 'enable_custom_ROI', value=FALSE)
+        shiny::updateSelectInput(inputId = 'custom_roi_variable', selected='none')
+
         run_analysis(trigger_3dviewer = FALSE,
                      force_settings=list(electrode_text = info$electrode_number)
         )
@@ -1234,7 +1259,7 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      ravedash::logger('3dBrain single click')
+      # ravedash::logger('3dBrain single click')
     }),
     brain_proxy$mouse_event_click,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1995,6 +2020,7 @@ module_server <- function(input, output, session, ...){
     }
 
     local_reactives$update_by_condition_plot <- Sys.time()
+    local_reactives$outliers_updated <- Sys.time()
 
   }), input$clear_rows, ignoreInit = TRUE, ignoreNULL = TRUE)
 
@@ -3021,6 +3047,7 @@ module_server <- function(input, output, session, ...){
       local_data$results$by_condition_by_trial_data
     }
 
+
     final_data_locations <- plot_by_condition_by_trial(
       by_condition_by_trial_data = dd,
       grouped_plot_options = local_data$grouped_plot_options,
@@ -3170,11 +3197,12 @@ module_server <- function(input, output, session, ...){
 
         # get all these from local reactives instead of directly from input
         # so they can be more easily saved
-        agg_method = c(
+        agg_methods <- c(
           'total (sum across conditions)' = 'total',
           'min (smallest distance wins)' = 'min',
           'max (largest distance wins)' = 'max'
-        )[po$yaxis_sort_combine_rule]
+        )
+        agg_method = agg_methods[po$yaxis_sort_combine_rule]
 
         dist_method = c('Electrode #' = 'electrode',
                         'Activity Correlation' = 'correlation',
@@ -3196,40 +3224,108 @@ module_server <- function(input, output, session, ...){
 
         reorder <- NULL
         cids <- NULL
+        have_rois <- FALSE
 
         if(dist_method != 'electrode') {
-          cids <- cutree(besd[[agg_method]][[dist_method]], po$cluster_k)
-          reorder <- besd[[agg_method]][[dist_method]]$order
+
+          # check if we have ROI groups to deal with, or just a single cluster approach
+          if(all(agg_methods %in% names(besd))) {
+            cids <- cutree(besd[[agg_method]][[dist_method]], po$cluster_k)
+            reorder <- besd[[agg_method]][[dist_method]]$order
+          } else {
+            have_rois <- TRUE
+
+            cids <- sapply(besd, function(b) {
+
+              if(is.null(b[[agg_method]][[dist_method]])){
+                # returning a scalar here, which will be auto expanded to the appropriate length when we make the quick cluster data frame below
+                return (1)
+              } else {
+                cutree(b[[agg_method]][[dist_method]], po$cluster_k)
+              }
+
+            }, simplify=FALSE)
+
+            reorder <- sapply(besd, function(b) {
+
+              if(is.null(b[[agg_method]][[dist_method]])){
+                # returning a scalar here, which will be auto expanded to the appropriate length when we make the quick cluster data frame below
+                return (NULL)
+              } else {
+                b[[agg_method]][[dist_method]]$order
+              }
+
+
+            }, simplify=FALSE)
+          }
+
         }
 
+
+        # local_data <- list(
+        #   results = list('over_time_by_electrode_data'=over_time_by_electrode_data)
+        # )
+
         if(!is.null(cids)) {
-          local_data$electrode_quick_cluster <- data.frame(
-            Electrode = local_data$results$over_time_by_electrode_data[[1]]$electrodes,
-            PE_Cluster = paste0('C', cids)
-          )
+          if(!have_rois) {
+            local_data$electrode_quick_cluster <- data.frame(
+              Electrode = local_data$results$over_time_by_electrode_data[[1]]$electrodes,
+              PE_Cluster = paste0('C', cids)
+            )
+          } else {
+            roi_groups <- sapply(local_data$results$over_time_by_electrode_data, `[[`, 'roi_label')
+
+            # the electrodes are the same w/n an roi group, but differ across
+            stopifnot(roi_groups %in% names(besd))
+
+            local_data$electrode_quick_cluster <- lapply(names(cids), function(nm) {
+              # nm = 'mSTG'
+
+              data.frame(
+                Electrode = local_data$results$over_time_by_electrode_data[[which(roi_groups == nm)[1] ]]$electrodes,
+                PE_Cluster = paste0(nm,'_C',cids[[nm]])
+              )
+            }) %>% rbind_list
+          }
         } else {
           local_data$electrode_quick_cluster <- NULL
         }
 
         local_reactives$update_cluster_table <- Sys.time()
 
+        # sort the data based on the cluster label
         local_data$results$over_time_by_electrode_data <- sapply(
           local_data$results$over_time_by_electrode_data, function(otbed) {
 
+            # otbed <- local_data$results$over_time_by_electrode_data[[4]]
             # first check to make sure the data are aligned by electrode
             # because that is how the reorder variable works
             if(!identical(otbed$y, otbed$electrodes)) {
               .ord <- order(otbed$y)
-              otbed$data <- otbed$data[,.ord]
+              otbed$data <- otbed$data[,.ord,drop=FALSE]
               otbed$y <- otbed$y[.ord]
             }
 
             # we sorted to above, so don't do it again
             if(dist_method != 'electrode') {
-              otbed$data <- otbed$data[,reorder]
-              otbed$ylab <- sprintf('Electrode # (clust by %s)', dist_method)
-              otbed$y <- otbed$y[reorder]
-              otbed$cluster = paste0('C', cids[reorder])
+
+              if(!have_rois) {
+                otbed$data <- otbed$data[,reorder,drop=FALSE]
+                otbed$ylab <- sprintf('Electrode # (clust by %s)', dist_method)
+                otbed$y <- otbed$y[reorder,drop=FALSE]
+                otbed$cluster = paste0('C', cids[reorder])
+              } else {
+
+                roi_order <- reorder[[otbed$roi_label]]
+                if(is.null(roi_order)) {
+                  roi_order <- seq_along(otbed$y)
+                }
+
+                otbed$data <- otbed$data[,roi_order,drop=FALSE]
+                otbed$ylab <- sprintf('Electrode # (clust by %s)', dist_method)
+                otbed$y <- otbed$y[roi_order]
+                otbed$cluster = paste0(otbed$roi_label, '_C', cids[[otbed$roi_label]][roi_order])
+              }
 
             } else {
               otbed$ylab <- 'Electrode #'
