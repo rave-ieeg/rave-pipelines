@@ -49,7 +49,6 @@ apply_current_theme <- function(...) {
   )
 }
 
-
 build_palettes_and_ranges_for_omnibus_data <- function(omnidata) {
 
   nms <- names(omnidata)[grepl("^[m\\ |t\\ |p\\ |F\\ |p_fdr]", names(omnidata))]
@@ -1107,7 +1106,32 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
                                         combine_conditions=FALSE,
                                         combine_events=FALSE,
                                         condition_switch=NULL,
-                                        plot_range=c(-Inf,Inf), ylim) {
+                                        plot_range=c(-Inf,Inf), ylim, plot_options) {
+
+
+  if(!missing(plot_options)) {
+    if('plot_range' %in% names(plot_options)) {
+      plot_range <- plot_options$plot_range
+    }
+
+    if('condition_switch' %in% names(plot_options)) {
+      condition_switch <- plot_options$condition_switch
+    }
+
+    if('ylim' %in% names(plot_options)) {
+      ylim <- plot_options$ylim
+    }
+  }
+
+  # if we weren't given ylim, set it to include all the data (m +/- se)
+  if(missing(ylim)) {
+    ylim <- sapply(over_time_by_condition_data, function(otd) {
+      range(sapply(otd, function(dd) {
+        rutabaga::plus_minus(dd$data)
+      }))
+    }) %>% pretty %>% range
+  }
+
 
   if(is.character(condition_switch)){
     if (condition_switch=='Separate all')  {
@@ -1159,13 +1183,6 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
     }
   }
 
-  if(missing(ylim)) {
-    ylim <- sapply(over_time_by_condition_data, function(otd) {
-      range(sapply(otd, function(dd) {
-        rutabaga::plus_minus(dd$data)
-      }))
-    }) %>% pretty %>% range
-  }
 
   draw_axis_labels <- function() {
     nr = par('mfrow')[1]
@@ -2763,7 +2780,7 @@ build_outlier_decorator <- function(all_data) {
   return(od)
 }
 
-plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options) {
+plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options=NULL) {
   apply_current_theme()
 
   decorators <- stack_decorators(
@@ -2782,7 +2799,7 @@ plot_over_time_by_trial <- function(over_time_by_trial_data, plot_options) {
     axes=c(T,F)
   )
 
-  if(length(plot_options) > 0) {
+  if(length(names(plot_options)) > 0) {
     args[names(plot_options)] = plot_options[names(plot_options)]
   }
 
@@ -2810,9 +2827,9 @@ plot_by_trial_electrode_similarity <- function(by_trial_electrode_similarity_dat
 
 }
 
-
 # chdir = TRUE, current working directory is this folder
 pipeline <- ravepipeline::pipeline(pipeline_name = "power_explorer", paths = "../..")
+
 pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
 
 default_pegs <- {list(
@@ -2859,6 +2876,93 @@ nm <- names(default_pegs) [!pe_graphics_settings_cache$has(names(default_pegs))]
 if(length(nm)) {
   pe_graphics_settings_cache$mset(.list = default_pegs[nm])
 }
+
+
+# add in plot options used by power explorer
+# the defaults here should match the defaults in the UI / plot function
+
+pe_graphics_settings_cache$set(
+  'grouped_plot_options',
+  list(
+    'xvar' = 'Factor1',
+    'gvar' = 'AnalysisLabel',
+    'yvar' = 'y',
+    'basic_unit' = 'Trials',
+    'panelvar' = 'none',
+    'plot_options' = list('pt.alpha' = 100, 'pt.cex' = 1),
+    'types' = c('jitter points', 'means', 'ebar polygons'),
+    'jitter_seed' = Sys.time(),
+    'plot_width_scale' = 1,
+    'highlight_clicks' = c('labels'),
+    'highlight_text_location' = 'top'
+  )
+)
+
+pe_graphics_settings_cache$set(
+  'by_electrode_custom_plot_options',
+  list(
+    'plot_options' = list(pch=19, pt.cex=1, pt.alpha=100, plot_width_scale=1),
+    'yvars' = 'overall',
+    'yunit' = 'm',
+    'xvars' = 'electrode',
+    'xunit' = 'm',
+    'collapse_xvars' = PE_COLLAPSE_METHODS[1],
+    'collapse_yvars' = PE_COLLAPSE_METHODS[1],
+    'plot_decorations' = list()
+  )
+)
+
+# heat map plots should have similar default settings
+
+heatmap_default_settings <- list(
+  max_zlim = 99,
+  percentile_range = TRUE,
+  global_scale = TRUE,
+  ncol = 3, byrow=TRUE,
+  show_window = TRUE,
+  xlim = c(0,1)
+)
+
+alter_list <- function(ll, ...) {
+  vars <- list(...)
+
+  if(length(names(vars))) {
+    ll[names(vars)] = vars[names(vars)]
+  }
+
+  ll
+}
+
+
+pe_graphics_settings_cache$set('by_frequency_correlation_plot_options',
+                               alter_list(heatmap_default_settings, max_zlim=1, percentile_range = FALSE)
+)
+
+pe_graphics_settings_cache$set('by_frequency_over_time_plot_options', heatmap_default_settings)
+
+pe_graphics_settings_cache$set('over_time_by_trial_plot_options', heatmap_default_settings)
+
+pe_graphics_settings_cache$set('over_time_by_electrode_plot_options',
+                               alter_list(heatmap_default_settings,
+                                          cluster_label_colors=get_line_palette('Set3'),
+                                          cluster_label_font = 2,
+                                          cluster_label_cex = 1,
+                                          cluster_k = 2,
+                                          yaxis_sort = 'Electrode #',
+                                          yaxis_sort_combine_rule = 'total (sum across conditions)'
+                               )
+)
+
+
+pe_graphics_settings_cache$set(
+  'over_time_by_condition_plot_options',
+  list(
+    condition_switch = 'Combine conditions',
+    plot_range = c(-1, 2)
+  )
+)
+
+
 
 
 as_html <- function(obj, ...) {

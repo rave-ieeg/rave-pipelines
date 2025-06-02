@@ -288,20 +288,37 @@ module_html <- function(){
           ),
 
 
-          # ---- Input tab: Export Power Point --------------------------------
+          # ---- Input tab: Export Markdown Report --------------------------------
+
+          # ravedash::input_card(
+          #   class_header='shidashi-anchor', title='Export PowerPoint',
+          #   shiny::selectInput(ns('epp_ppt_template'), label = 'PPT Template',
+          #                      choices='RAVE 16:9 White Background'),
+          #   shiny::selectInput(ns('epp_markdown_template'),
+          #                      label = 'Markdown Template', choices='All Plots'),
+          #
+          #   shiny::downloadButton(
+          #     outputId = ns('btn_export_powerpoint'),
+          #     label = "Generate Report",
+          #     class='btn-primary',
+          #     icon = ravedash::shiny_icons$export
+          #   )
+          # )
 
           ravedash::input_card(
-            class_header='shidashi-anchor', title='Export PowerPoint',
-            shiny::selectInput(ns('epp_ppt_template'), label = 'PPT Template',
-                               choices='RAVE 16:9 White Background'),
-            shiny::selectInput(ns('epp_markdown_template'),
-                               label = 'Markdown Template', choices='All Plots'),
+            class_header='shidashi-anchor', title='Export HTML Report',
+            shiny::p("Only selected electrodes are included in this report (not all loaded electrodes)."),
+            shiny::selectInput(ns('exp_html_electrodes_to_include'),
+                               label = 'Electrode groupings', choices=c('Aggregate only', 'Aggregate + individual'), selected='Aggregate + individual'
+                               ),
+            shiny::selectInput(ns('exp_html_graphs'), label = 'Graphs to include',
+                               choices=c('over_time_by_electrode', 'by_frequency_over_time', 'over_time_by_trial','over_time_by_condition'),
+                               selected=c('over_time_by_electrode', 'by_frequency_over_time', 'over_time_by_trial','over_time_by_condition'), multiple = TRUE),
 
-            shiny::downloadButton(
-              outputId = ns('btn_export_powerpoint'),
+            shiny::actionButton(inputId = ns('btn_export_html_report'),
               label = "Generate Report",
               class='btn-primary',
-              icon = ravedash::shiny_icons$export
+              icon = ravedash::shiny_icons$save
             )
           )
 
