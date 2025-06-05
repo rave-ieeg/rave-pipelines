@@ -298,7 +298,7 @@ for(ee in seq_along(all_els)) {
   # gsi <- orig.settings
   edesc <- build_description(subset(electrode_details, Electrode == el))
   
-  cat(sprintf("<h3 id='%s_stats'>%s</h2>\n", ee, edesc$header))
+  cat(sprintf("<h3 id='%s_stats'>%s</h2>\n", el, edesc$header))
   cat(sprintf("<p>%s</p>", edesc$body))
   
   # gsi$analysis_electrodes <- as.character(ee)
@@ -308,7 +308,7 @@ for(ee in seq_along(all_els)) {
   
   utils::capture.output({
     brain$plot_electrodes_on_slices(
-      ee, zoom = 2, electrode_size = 3, title_position='top',
+      el, zoom = 2, electrode_size = 3, title_position='top',
       decoration = function(i, j) {
         graphics::points(0, 0, pch = 21, col = 'orange', cex = 2.25, lwd=2.5)
       }
