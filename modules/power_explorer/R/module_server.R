@@ -2525,7 +2525,7 @@ module_server <- function(input, output, session, ...){
 
       repository <- pipeline$read('repository')
 
-      outdir <- file.path(repository$subject$rave_path,'univariate_report')
+      outdir <- file.path(repository$subject$rave_path,'reports', 'power_explorer')
       raveio::dir_create2(outdir)
 
       fname <- paste0('PowExplHtmlReport_', format(Sys.time(), "%b-%d-%Y-%H-%M"))
@@ -2552,8 +2552,6 @@ module_server <- function(input, output, session, ...){
       # we made it, show manually close the old alert before showing the new one
       dipsaus::close_alert2()
       on.exit({})
-
-
 
       dipsaus::shiny_alert2(title = "Done exporting HTML report!",
                             text = sprintf("Report is here: %s", outdir), icon = "success",

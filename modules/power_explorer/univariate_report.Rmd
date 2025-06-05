@@ -24,31 +24,38 @@ editor_options:
 require(knitr)
 require(fontawesome)
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=NA)
-ravepipeline::pipeline_setup_rmd("power_explorer")
-options("raveio.debug" = TRUE)
-```
 
-```{r, include=FALSE}
+pe_graphics_settings_cache <- dipsaus::rds_map(file.path('preferences', 'graphics'))
+raveio::pipeline_set_preferences("power_explorer.graphics.reset_on_load" = FALSE)
+
+ravepipeline::pipeline_setup_rmd("power_explorer")
+# options("raveio.debug" = TRUE)
+
 pipeline <- ravepipeline::pipeline("power_explorer", paths = "..", temporary = TRUE)
+
+
+env <- pipeline$shared_env()
+list2env(as.list(env), globalenv())
+
 repository <- pipeline$read('repository')
 
 project <- repository$project$name
 subject <- repository$subject$subject_code
 
 brain <- raveio::rave_brain(repository$subject)
-
-og.pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
-
-# grab the functions we need
-lapply(sort(list.files(
-  "R/", ignore.case = TRUE,
-  pattern = "^shared-.*\\.R", 
-  full.names = TRUE
-)), function(f) {
-  source(f, local = FALSE, chdir = TRUE)
-})
-
-pe_graphics_settings_cache <- og.pe_graphics_settings_cache
+# 
+# og.pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
+# 
+# # grab the functions we need
+# lapply(sort(list.files(
+#   "R/", ignore.case = TRUE,
+#   pattern = "^shared-.*\\.R", 
+#   full.names = TRUE
+# )), function(f) {
+#   source(f, local = FALSE, chdir = TRUE)
+# })
+# 
+# pe_graphics_settings_cache <- og.pe_graphics_settings_cache
 
 # format the univariate statistical results
 # this code taken from module_server.R$per_electrode_results_table
@@ -63,12 +70,16 @@ cnames <- colnames(mat)
 
 pcols <- stringr::str_detect(cnames, 'p\\(|p_fdr\\(')
 omnibus_statistics_df[pcols] %<>% lapply(function(v)as.numeric(round_pval(v)))
-
 ```
 
 ```{r plotting_functions, include=FALSE}
-call_plot_from_name <- function(nm, pipe) {
-  dd <- pipe$read(paste0(nm, '_data'))
+call_plot_from_name <- function(nm, pipe, pipe_promise) {
+  
+  if(missing(pipe)) {
+    dd <- pipe_promise$get_values(paste0(nm, '_data'))
+  } else {
+    dd <- pipe$read(paste0(nm, '_data'))
+  }
   
   po <- pe_graphics_settings_cache$get(paste0(nm, '_plot_options'))
   
@@ -152,7 +163,6 @@ if(params$do_individual_plots) {
   })
 }
 
-
 dt <- DT::datatable(escape = FALSE,
                     omnibus_statistics_df, colnames=cnames, rownames = FALSE,
                     # extensions = c('FixedColumns', 'FixedHeader', 'Scroller', 'Buttons'),
@@ -176,8 +186,6 @@ for(ur in unique(to_round)) {
   dt %<>% DT::formatRound(nms, digits=ur+1)
 }
 
-
-
 dt
 
 ```
@@ -187,7 +195,7 @@ dt
 
 `r if(params$do_overall_plots) "## Across electrodes graphs"`
 
-```{r, fig.width=12, fig.align='center', results='hide', include=params$do_overall_plots}
+```{r, fig.width=12, fig.align='center', results='hide', eval=params$do_overall_plots}
 lapply(params$plots_to_include, call_plot_from_name, pipe=pipeline)
 ```
 
@@ -209,15 +217,27 @@ target.style.display = 'block';
 `r if(params$do_individual_plots) "## Per electrode results"`
 
 ```{r per_electrode_results, fig.width=12, fig.align='center', results='asis', eval=params$do_individual_plots}
+
 orig.settings <- pipeline$get_settings()
 
 wanted <- c('Electrode', 'Label', 'FSLabel')
 cols_to_keep <- intersect(wanted, colnames(brain$electrodes$raw_table))
 
-electrode_details <- subset(brain$electrodes$raw_table,
-                            Electrode %in% dipsaus::parse_svec(orig.settings$analysis_electrodes),
-                            select=cols_to_keep)
+if(! 'FSLabel' %in% cols_to_keep) {
+  
+  if('Area_fs' %in% colnames(brain$electrodes$raw_table)) {
+    brain$electrodes$raw_table$FSLabel <- brain$electrodes$raw_table$Area_fs
+    cols_to_keep %<>% c('FSLabel')
+  }
+}
 
+all_els <- dipsaus::parse_svec(orig.settings$analysis_electrodes)
+# get only electrodes that are available in the repo
+all_els <- all_els[all_els %in% repository$power$dimnames$Electrode]
+
+electrode_details <- subset(brain$electrodes$raw_table,
+                            Electrode %in% all_els,
+                            select=cols_to_keep)
 
 build_description <- function(df_row) {
   str <- list(
@@ -237,26 +257,54 @@ build_description <- function(df_row) {
 
 # all the data objects we need
 data_needed <- params$plots_to_include %&% '_data'
-all_els <- dipsaus::parse_svec(orig.settings$analysis_electrodes)
 
-progress <- dipsaus::progress2("Working on indiivdual electrodes", max = length(all_els) + 
-    1, shiny_auto_close = FALSE)
+# progress <- dipsaus::progress2("Working on individual electrodes", max = length(all_els) +
+#                                  1, shiny_auto_close = FALSE)
 
-for(ee in all_els) {
-  ravedash::logger("Working on e: ", ee, level='debug')
-  progress$inc(detail = sprintf("Generating graphs for electrode %s", ee))
+# temp_root <- tempfile(pattern = "rave-report-")
+# if(file.exists(temp_root)) {
+#   unlink(temp_root, recursive = TRUE)
+# }
+
+# setup to remove any temp directories we create to run the sub-pipelines
+
+pipe_res <- lapply(all_els, function(ee) {
+  # print(ee)
+  
+  pdir <- file.path(sprintf('%s/e%s', tempdir(), ee))
+  unlink(pdir, recursive = TRUE)
+  raveio::dir_create2(pdir)
+  
+  my_pipeline <- pipeline$fork(pdir)
   
   gsi <- orig.settings
-  edesc <- build_description(subset(electrode_details, Electrode == ee))
+  gsi$analysis_electrodes <- as.character(ee)
   
+  my_pipeline$set_settings(.list = gsi)
+  
+  utils::capture.output({
+    res <- my_pipeline$run(names = data_needed, debug = FALSE, async =TRUE)
+  })
+  
+  res
+})
+  
+for(ee in seq_along(all_els)) {
+  el <- all_els[ee]
+  
+  ravedash::logger("Working on e: ", el, level='debug')
+  # progress$inc(detail = sprintf("Generating graphs for electrode %s", el))
+  
+  # gsi <- orig.settings
+  edesc <- build_description(subset(electrode_details, Electrode == el))
   
   cat(sprintf("<h3 id='%s_stats'>%s</h2>\n", ee, edesc$header))
   cat(sprintf("<p>%s</p>", edesc$body))
   
-  gsi$analysis_electrodes <- as.character(ee)
+  # gsi$analysis_electrodes <- as.character(ee)
   
-  pipeline$set_settings(.list = gsi)
-  utils::capture.output(pipeline$run(names = data_needed, debug = FALSE))
+  # pipeline$set_settings(.list = gsi)
+  # utils::capture.output(pipeline$run(names = data_needed, debug = FALSE))
   
   utils::capture.output({
     brain$plot_electrodes_on_slices(
@@ -267,14 +315,21 @@ for(ee in all_els) {
     )
   })
   
-  lapply(params$plots_to_include, call_plot_from_name, pipe=pipeline)
+  lapply(params$plots_to_include, call_plot_from_name, pipe_promise = pipe_res[[ee]])
   
   cat(sprintf("Back to top [%s](#top)", fa("arrow-up", fill = "steelblue")))
 }
-progress$close()
-
+# progress$close()
 # set back the original settings, but note that we aren't re-running things
 pipeline$set_settings(.list = orig.settings)
 
+```
 
+```{r cleanup, results='hide', include=FALSE}
+utils::capture.output({
+  a <- lapply(all_els, function(ee) {
+    pdir <- file.path(sprintf('%s/e%s', tempdir(), ee))
+    unlink(pdir, recursive = TRUE)
+  })
+})
 ```

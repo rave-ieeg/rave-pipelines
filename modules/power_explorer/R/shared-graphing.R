@@ -2827,143 +2827,141 @@ plot_by_trial_electrode_similarity <- function(by_trial_electrode_similarity_dat
 
 }
 
-# chdir = TRUE, current working directory is this folder
-pipeline <- ravepipeline::pipeline(pipeline_name = "power_explorer", paths = "../..")
-
-pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
-
-default_pegs <- {list(
-  rave_cex.main = 1.5,
-  rave_cex.axis = 1.3,
-  # putting this to 1.4 because 1.5 causes some clipping of the axis(2) label, we could also try to increase
-  # the (outer) left margin to compensate
-  rave_cex.lab = 1.4,
-  rave_axis_tcl = -0.3,
-  plot_time_range = c(-Inf,Inf),
-  draw_decorator_labels = FALSE,
-  plot_title_options = c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range',
-                         'Sample Size', 'Baseline Window', 'Analysis Window'),
-
-
-  ## this is now managed through ravedash theme
-  background_plot_color_hint = 'white',
-  champions_tunic = '#009edd',
-
-  line_color_palette = 'Beautiful Field',
-  invert_colors_in_palette = FALSE,
-  reverse_colors_in_palette = FALSE,
-
-  analysis_window.shade.color = 'gray70',
-  analysis_window.stroke.color = 'match',
-
-  heatmap_color_palette = get_heatmap_palette(get_palette_names = TRUE)[[1]],
-  heatmap_number_color_values = 101,
-  invert_colors_in_heatmap_palette = FALSE,
-  reverse_colors_in_heatmap_palette = FALSE,
-
-  show_outliers_on_plots = TRUE,
-
-  log_scale = FALSE,
-  max_zlim = 0,
-  percentile_range = TRUE,
-  sort_trials_by_type = 'Trial Number',
-
-  max_columns_in_figure = 3
-
-)}
-
-nm <- names(default_pegs) [!pe_graphics_settings_cache$has(names(default_pegs))]
-if(length(nm)) {
-  pe_graphics_settings_cache$mset(.list = default_pegs[nm])
-}
-
-
 # add in plot options used by power explorer
 # the defaults here should match the defaults in the UI / plot function
 
-pe_graphics_settings_cache$set(
-  'grouped_plot_options',
-  list(
-    'xvar' = 'Factor1',
-    'gvar' = 'AnalysisLabel',
-    'yvar' = 'y',
-    'basic_unit' = 'Trials',
-    'panelvar' = 'none',
-    'plot_options' = list('pt.alpha' = 100, 'pt.cex' = 1),
-    'types' = c('jitter points', 'means', 'ebar polygons'),
-    'jitter_seed' = Sys.time(),
-    'plot_width_scale' = 1,
-    'highlight_clicks' = c('labels'),
-    'highlight_text_location' = 'top'
-  )
-)
+if(raveio::pipeline_get_preferences("power_explorer.graphics.reset_on_load", ifnotfound = TRUE) || !exists('pe_graphics_settings_cache')) {
+  # chdir = TRUE, current working directory is this folder
+  # pipeline <- ravepipeline::pipeline(pipeline_name = "power_explorer", paths = "../..")
 
-pe_graphics_settings_cache$set(
-  'by_electrode_custom_plot_options',
-  list(
-    'plot_options' = list(pch=19, pt.cex=1, pt.alpha=100, plot_width_scale=1),
-    'yvars' = 'overall',
-    'yunit' = 'm',
-    'xvars' = 'electrode',
-    'xunit' = 'm',
-    'collapse_xvars' = PE_COLLAPSE_METHODS[1],
-    'collapse_yvars' = PE_COLLAPSE_METHODS[1],
-    'plot_decorations' = list()
-  )
-)
+  pe_graphics_settings_cache <- dipsaus::rds_map(file.path('..', 'preferences', "graphics"))
 
-# heat map plots should have similar default settings
+  default_pegs <- {list(
+    rave_cex.main = 1.5,
+    rave_cex.axis = 1.3,
+    # putting this to 1.4 because 1.5 causes some clipping of the axis(2) label, we could also try to increase
+    # the (outer) left margin to compensate
+    rave_cex.lab = 1.4,
+    rave_axis_tcl = -0.3,
+    plot_time_range = c(-Inf,Inf),
+    draw_decorator_labels = FALSE,
+    plot_title_options = c('Subject ID', 'Electrode #', 'Condition', 'Frequency Range',
+                           'Sample Size', 'Baseline Window', 'Analysis Window'),
 
-heatmap_default_settings <- list(
-  max_zlim = 99,
-  percentile_range = TRUE,
-  global_scale = TRUE,
-  ncol = 3, byrow=TRUE,
-  show_window = TRUE,
-  xlim = c(0,1)
-)
 
-alter_list <- function(ll, ...) {
-  vars <- list(...)
+    ## this is now managed through ravedash theme
+    background_plot_color_hint = 'white',
+    champions_tunic = '#009edd',
 
-  if(length(names(vars))) {
-    ll[names(vars)] = vars[names(vars)]
+    line_color_palette = 'Beautiful Field',
+    invert_colors_in_palette = FALSE,
+    reverse_colors_in_palette = FALSE,
+
+    analysis_window.shade.color = 'gray70',
+    analysis_window.stroke.color = 'match',
+
+    heatmap_color_palette = get_heatmap_palette(get_palette_names = TRUE)[[1]],
+    heatmap_number_color_values = 101,
+    invert_colors_in_heatmap_palette = FALSE,
+    reverse_colors_in_heatmap_palette = FALSE,
+
+    show_outliers_on_plots = TRUE,
+
+    log_scale = FALSE,
+    max_zlim = 0,
+    percentile_range = TRUE,
+    sort_trials_by_type = 'Trial Number',
+
+    max_columns_in_figure = 3
+
+  )}
+
+  nm <- names(default_pegs) [!pe_graphics_settings_cache$has(names(default_pegs))]
+  if(length(nm)) {
+    pe_graphics_settings_cache$mset(.list = default_pegs[nm])
   }
 
-  ll
-}
-
-
-pe_graphics_settings_cache$set('by_frequency_correlation_plot_options',
-                               alter_list(heatmap_default_settings, max_zlim=1, percentile_range = FALSE)
-)
-
-pe_graphics_settings_cache$set('by_frequency_over_time_plot_options', heatmap_default_settings)
-
-pe_graphics_settings_cache$set('over_time_by_trial_plot_options', heatmap_default_settings)
-
-pe_graphics_settings_cache$set('over_time_by_electrode_plot_options',
-                               alter_list(heatmap_default_settings,
-                                          cluster_label_colors=get_line_palette('Set3'),
-                                          cluster_label_font = 2,
-                                          cluster_label_cex = 1,
-                                          cluster_k = 2,
-                                          yaxis_sort = 'Electrode #',
-                                          yaxis_sort_combine_rule = 'total (sum across conditions)'
-                               )
-)
-
-
-pe_graphics_settings_cache$set(
-  'over_time_by_condition_plot_options',
-  list(
-    condition_switch = 'Combine conditions',
-    plot_range = c(-1, 2)
+  pe_graphics_settings_cache$set(
+    'grouped_plot_options',
+    list(
+      'xvar' = 'Factor1',
+      'gvar' = 'AnalysisLabel',
+      'yvar' = 'y',
+      'basic_unit' = 'Trials',
+      'panelvar' = 'none',
+      'plot_options' = list('pt.alpha' = 100, 'pt.cex' = 1),
+      'types' = c('jitter points', 'means', 'ebar polygons'),
+      'jitter_seed' = Sys.time(),
+      'plot_width_scale' = 1,
+      'highlight_clicks' = c('labels'),
+      'highlight_text_location' = 'top'
+    )
   )
-)
+
+  pe_graphics_settings_cache$set(
+    'by_electrode_custom_plot_options',
+    list(
+      'plot_options' = list(pch=19, pt.cex=1, pt.alpha=100, plot_width_scale=1),
+      'yvars' = 'overall',
+      'yunit' = 'm',
+      'xvars' = 'electrode',
+      'xunit' = 'm',
+      'collapse_xvars' = PE_COLLAPSE_METHODS[1],
+      'collapse_yvars' = PE_COLLAPSE_METHODS[1],
+      'plot_decorations' = list()
+    )
+  )
+
+  # heat map plots should have similar default settings
+
+  heatmap_default_settings <- list(
+    max_zlim = 99,
+    percentile_range = TRUE,
+    global_scale = TRUE,
+    ncol = 3, byrow=TRUE,
+    show_window = TRUE,
+    xlim = c(0,1)
+  )
+
+  alter_list <- function(ll, ...) {
+    vars <- list(...)
+
+    if(length(names(vars))) {
+      ll[names(vars)] = vars[names(vars)]
+    }
+
+    ll
+  }
 
 
+  pe_graphics_settings_cache$set('by_frequency_correlation_plot_options',
+                                 alter_list(heatmap_default_settings, max_zlim=1, percentile_range = FALSE)
+  )
 
+  pe_graphics_settings_cache$set('by_frequency_over_time_plot_options', heatmap_default_settings)
+
+  pe_graphics_settings_cache$set('over_time_by_trial_plot_options', heatmap_default_settings)
+
+  pe_graphics_settings_cache$set('over_time_by_electrode_plot_options',
+                                 alter_list(heatmap_default_settings,
+                                            cluster_label_colors=get_line_palette('Set3'),
+                                            cluster_label_font = 2,
+                                            cluster_label_cex = 1,
+                                            cluster_k = 2,
+                                            yaxis_sort = 'Electrode #',
+                                            yaxis_sort_combine_rule = 'total (sum across conditions)'
+                                 )
+  )
+
+
+  pe_graphics_settings_cache$set(
+    'over_time_by_condition_plot_options',
+    list(
+      condition_switch = 'Combine conditions',
+      plot_range = c(-1, 2)
+    )
+  )
+}
 
 as_html <- function(obj, ...) {
   UseMethod('as_html')
