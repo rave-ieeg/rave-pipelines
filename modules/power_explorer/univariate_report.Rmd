@@ -76,16 +76,25 @@ omnibus_statistics_df[pcols] %<>% lapply(function(v)as.numeric(round_pval(v)))
 call_plot_from_name <- function(nm, pipe, pipe_promise) {
   
   if(missing(pipe)) {
-    dd <- pipe_promise$get_values(paste0(nm, '_data'))
+    # pipe_promise <- pipe_res[[2]]
+    var <- paste0(nm, '_data')
+    pipe_promise$await(var)
+    dd <- pipe_promise$get_values(var)
   } else {
-    dd <- pipe$read(paste0(nm, '_data'))
+    
+    if(class(pipe)[1] == 'list') {
+      dd <- pipe[[paste0(nm, '_data')]]
+    } else {
+      dd <- pipe$read(paste0(nm, '_data'))
+    }
+    
   }
   
   po <- pe_graphics_settings_cache$get(paste0(nm, '_plot_options'))
   
   FUN <- match.fun(paste0('plot_', nm))
   
-  FUN(dd, po)
+  invisible(FUN(dd, po))
 }
 ```
 
@@ -196,7 +205,8 @@ dt
 `r if(params$do_overall_plots) "## Across electrodes graphs"`
 
 ```{r, fig.width=12, fig.align='center', results='hide', eval=params$do_overall_plots}
-lapply(params$plots_to_include, call_plot_from_name, pipe=pipeline)
+re <- lapply(params$plots_to_include, call_plot_from_name, pipe=pipeline)
+
 ```
 
 
@@ -261,33 +271,31 @@ data_needed <- params$plots_to_include %&% '_data'
 # progress <- dipsaus::progress2("Working on individual electrodes", max = length(all_els) +
 #                                  1, shiny_auto_close = FALSE)
 
-# temp_root <- tempfile(pattern = "rave-report-")
-# if(file.exists(temp_root)) {
-#   unlink(temp_root, recursive = TRUE)
-# }
+temp_root <- tempfile(pattern = "rave-report-")
+if(file.exists(temp_root)) {
+  unlink(temp_root, recursive = TRUE)
+}
 
 # setup to remove any temp directories we create to run the sub-pipelines
-
-pipe_res <- lapply(all_els, function(ee) {
-  # print(ee)
+pipe_res <- lapply(all_els, function(ee, settings=orig.settings, pipe=pipeline) {
+  print(ee)
   
-  pdir <- file.path(sprintf('%s/e%s', tempdir(), ee))
-  unlink(pdir, recursive = TRUE)
-  raveio::dir_create2(pdir)
+  report_pipeline <- pipe$fork(path=temp_root)
+  report_pipeline$clean('all')
   
-  my_pipeline <- pipeline$fork(pdir)
+  settings$analysis_electrodes <- as.character(ee)
+  settings$loaded_electrodes <- as.character(ee)
+  settings$omnibus_includes_all_electrodes <- FALSE
   
-  gsi <- orig.settings
-  gsi$analysis_electrodes <- as.character(ee)
-  
-  my_pipeline$set_settings(.list = gsi)
+  report_pipeline$set_settings(.list = settings)
   
   utils::capture.output({
-    res <- my_pipeline$run(names = data_needed, debug = FALSE, async =TRUE)
+    res <- report_pipeline$run(names = data_needed, debug = FALSE, async =FALSE)
   })
   
   res
 })
+
   
 for(ee in seq_along(all_els)) {
   el <- all_els[ee]
@@ -315,7 +323,7 @@ for(ee in seq_along(all_els)) {
     )
   })
   
-  lapply(params$plots_to_include, call_plot_from_name, pipe_promise = pipe_res[[ee]])
+  lapply(params$plots_to_include, call_plot_from_name, pipe = pipe_res[[ee]])
   
   cat(sprintf("Back to top [%s](#top)", fa("arrow-up", fill = "steelblue")))
 }
