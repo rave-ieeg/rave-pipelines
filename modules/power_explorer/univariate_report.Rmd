@@ -28,14 +28,18 @@ knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=NA)
 pe_graphics_settings_cache <- dipsaus::rds_map(file.path('preferences', 'graphics'))
 raveio::pipeline_set_preferences("power_explorer.graphics.reset_on_load" = FALSE)
 
-ravepipeline::pipeline_setup_rmd("power_explorer")
-# options("raveio.debug" = TRUE)
 
-pipeline <- ravepipeline::pipeline("power_explorer", paths = "..", temporary = TRUE)
+pipeline <- ravepipeline::pipeline_from_path(".")
+shared_env <- pipeline$shared_env()
+settings <- pipeline$get_settings()
 
+list2env(settings, envir = globalenv())
+list2env(as.list(shared_env), envir = globalenv())
 
-env <- pipeline$shared_env()
-list2env(as.list(env), globalenv())
+# ravepipeline::pipeline_setup_rmd("power_explorer")
+# pipeline <- ravepipeline::pipeline("power_explorer", paths = "..", temporary = TRUE)
+# env <- pipeline$shared_env()
+# list2env(as.list(env), globalenv())
 
 repository <- pipeline$read('repository')
 
@@ -271,21 +275,22 @@ data_needed <- params$plots_to_include %&% '_data'
 # progress <- dipsaus::progress2("Working on individual electrodes", max = length(all_els) +
 #                                  1, shiny_auto_close = FALSE)
 
+
+# setup to remove any temp directories we create to run the sub-pipelines
 temp_root <- tempfile(pattern = "rave-report-")
 if(file.exists(temp_root)) {
   unlink(temp_root, recursive = TRUE)
 }
 
-# setup to remove any temp directories we create to run the sub-pipelines
-pipe_res <- lapply(all_els, function(ee, settings=orig.settings, pipe=pipeline) {
+report_pipeline <- pipeline$fork(path=temp_root)
+report_pipeline$clean('all')
+
+pipe_res <- lapply(all_els, function(ee, settings=orig.settings) {
   print(ee)
   
-  report_pipeline <- pipe$fork(path=temp_root)
-  report_pipeline$clean('all')
-  
+  settings$omnibus_includes_all_electrodes <- FALSE
   settings$analysis_electrodes <- as.character(ee)
   settings$loaded_electrodes <- as.character(ee)
-  settings$omnibus_includes_all_electrodes <- FALSE
   
   report_pipeline$set_settings(.list = settings)
   
@@ -334,10 +339,7 @@ pipeline$set_settings(.list = orig.settings)
 ```
 
 ```{r cleanup, results='hide', include=FALSE}
-utils::capture.output({
-  a <- lapply(all_els, function(ee) {
-    pdir <- file.path(sprintf('%s/e%s', tempdir(), ee))
-    unlink(pdir, recursive = TRUE)
-  })
-})
+if(file.exists(temp_root)) {
+  unlink(temp_root, recursive = TRUE)
+}
 ```
