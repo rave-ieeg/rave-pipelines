@@ -1009,7 +1009,7 @@ rm(._._env_._.)
                       length(ei))
                     dimnames(collapse_f) <- append(append(list(Frequency = "Avg"), 
                       dimnames(baselined_power_data)[2:3], ), 
-                      list(Electrodes = electrodes_to_use))
+                      list(Electrode = electrodes_to_use))
                     re <- shift_baselined_power(baselined_data = collapse_f, 
                       events = repository$epoch$table, epoch_event_types = epoch_event_types, 
                       event_of_interest = asc$event, sample_rate = repository$subject$power_sample_rate)
@@ -1072,7 +1072,7 @@ rm(._._env_._.)
                         length(ei))
                       dimnames(collapse_f) <- append(append(list(Frequency = "Avg"), 
                         dimnames(baselined_power_data)[2:3], 
-                        ), list(Electrodes = electrodes_to_use))
+                        ), list(Electrode = electrodes_to_use))
                       re <- shift_baselined_power(baselined_data = collapse_f, 
                         events = repository$epoch$table, epoch_event_types = epoch_event_types, 
                         event_of_interest = asc$event, sample_rate = repository$subject$power_sample_rate)
@@ -1962,37 +1962,8 @@ rm(._._env_._.)
                   if (min(aggregate(Trial ~ Electrode, length, 
                     data = all_data_clean)$Trial) > 1) {
                     data_by_el <- split(all_data_clean, all_data_clean$Electrode)
-                    n.el <- length(data_by_el)
-                    if (n.el > 10) {
-                      v1 <- run_stats(data_by_el[[1]])
-                      stats <- cbind(v1, matrix(nrow = length(v1), 
-                        ncol = n.el - 1))
-                      elgroups <- split(2:n.el, sort(2:n.el%%4))
-                      g1 <- data_by_el[elgroups[[1]]]
-                      g2 <- data_by_el[elgroups[[2]]]
-                      g3 <- data_by_el[elgroups[[3]]]
-                      g4 <- data_by_el[elgroups[[4]]]
-                      ee <- do.call(cbind, raveio::lapply_async(g1, 
-                        FUN = run_stats, ncores = min(length(g1), 
-                          ravepipeline::raveio_getopt("max_worker"))))
-                      stats[, elgroups[[1]]] = ee
-                      ee <- do.call(cbind, raveio::lapply_async(g2, 
-                        FUN = run_stats, ncores = min(length(g2), 
-                          ravepipeline::raveio_getopt("max_worker"))))
-                      stats[, elgroups[[2]]] = ee
-                      ee <- do.call(cbind, raveio::lapply_async(g3, 
-                        FUN = run_stats, ncores = min(length(g3), 
-                          ravepipeline::raveio_getopt("max_worker"))))
-                      stats[, elgroups[[3]]] = ee
-                      ee <- do.call(cbind, raveio::lapply_async(g4, 
-                        FUN = run_stats, ncores = min(length(g4), 
-                          ravepipeline::raveio_getopt("max_worker"))))
-                      stats[, elgroups[[4]]] = ee
-                      colnames(stats) = sapply(data_by_el, function(dbe) dbe$Electrode[1])
-                    } else {
-                      stats <- rutabaga::cbind_list(lapply(data_by_el, 
-                        run_stats))
-                    }
+                    stats <- rutabaga::cbind_list(lapply(data_by_el, 
+                      run_stats))
                   }
                 }
                 ravedash::logger("done pes", level = "debug")
@@ -2179,38 +2150,8 @@ rm(._._env_._.)
                     if (min(aggregate(Trial ~ Electrode, length, 
                       data = all_data_clean)$Trial) > 1) {
                       data_by_el <- split(all_data_clean, all_data_clean$Electrode)
-                      n.el <- length(data_by_el)
-                      if (n.el > 10) {
-                        v1 <- run_stats(data_by_el[[1]])
-                        stats <- cbind(v1, matrix(nrow = length(v1), 
-                          ncol = n.el - 1))
-                        elgroups <- split(2:n.el, sort(2:n.el%%4))
-                        g1 <- data_by_el[elgroups[[1]]]
-                        g2 <- data_by_el[elgroups[[2]]]
-                        g3 <- data_by_el[elgroups[[3]]]
-                        g4 <- data_by_el[elgroups[[4]]]
-                        ee <- do.call(cbind, raveio::lapply_async(g1, 
-                          FUN = run_stats, ncores = min(length(g1), 
-                            ravepipeline::raveio_getopt("max_worker"))))
-                        stats[, elgroups[[1]]] = ee
-                        ee <- do.call(cbind, raveio::lapply_async(g2, 
-                          FUN = run_stats, ncores = min(length(g2), 
-                            ravepipeline::raveio_getopt("max_worker"))))
-                        stats[, elgroups[[2]]] = ee
-                        ee <- do.call(cbind, raveio::lapply_async(g3, 
-                          FUN = run_stats, ncores = min(length(g3), 
-                            ravepipeline::raveio_getopt("max_worker"))))
-                        stats[, elgroups[[3]]] = ee
-                        ee <- do.call(cbind, raveio::lapply_async(g4, 
-                          FUN = run_stats, ncores = min(length(g4), 
-                            ravepipeline::raveio_getopt("max_worker"))))
-                        stats[, elgroups[[4]]] = ee
-                        colnames(stats) = sapply(data_by_el, 
-                          function(dbe) dbe$Electrode[1])
-                      } else {
-                        stats <- rutabaga::cbind_list(lapply(data_by_el, 
-                          run_stats))
-                      }
+                      stats <- rutabaga::cbind_list(lapply(data_by_el, 
+                        run_stats))
                     }
                   }
                   ravedash::logger("done pes", level = "debug")

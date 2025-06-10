@@ -737,7 +737,7 @@ over_time_by_electrode_data <- do.call(
     # 
     # # add back in the 1st dimension (freq) b/c the shift function expects it
     dim(collapse_f) = c(1, dim(baselined_power_data)[2:3], length(ei))
-    dimnames(collapse_f) <- append(append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:3],),list('Electrodes'=electrodes_to_use))
+    dimnames(collapse_f) <- append(append(list('Frequency'='Avg'), dimnames(baselined_power_data)[2:3],),list('Electrode'=electrodes_to_use))
     
     # 2
     re <- shift_baselined_power(
@@ -1508,42 +1508,10 @@ if(length(all_data_clean) > 1) {
     
     data_by_el <- split(all_data_clean,all_data_clean$Electrode)
     
-    
-    n.el <- length(data_by_el)
-    if(n.el > 10) { 
-    
-      v1 <- run_stats(data_by_el[[1]])
-      
-      stats <- cbind(v1, matrix(nrow=length(v1), ncol=n.el-1))
-      
-      # split into four groups 
-      elgroups <- split(2:n.el, sort(2:n.el %% 4))
-      
-      # divide into four so we're less likely to trigger a RAM issue
-      g1 <- data_by_el[elgroups[[1]]]
-      g2 <- data_by_el[elgroups[[2]]]
-      g3 <- data_by_el[elgroups[[3]]]
-      g4 <- data_by_el[elgroups[[4]]]
-      
-      ee <- do.call(cbind, raveio::lapply_async(g1, FUN=run_stats, ncores=min(length(g1), ravepipeline::raveio_getopt('max_worker'))))
-      stats[,elgroups[[1]]] = ee
-      
-      ee <- do.call(cbind, raveio::lapply_async(g2, FUN=run_stats, ncores=min(length(g2), ravepipeline::raveio_getopt('max_worker'))))
-      stats[,elgroups[[2]]] = ee
-      
-      ee <- do.call(cbind, raveio::lapply_async(g3, FUN=run_stats, ncores=min(length(g3), ravepipeline::raveio_getopt('max_worker'))))
-      stats[,elgroups[[3]]] = ee
-      
-      ee <- do.call(cbind, raveio::lapply_async(g4, FUN=run_stats, ncores=min(length(g4), ravepipeline::raveio_getopt('max_worker'))))
-      stats[,elgroups[[4]]] = ee
-      colnames(stats) = sapply(data_by_el, function(dbe) dbe$Electrode[1])
-      
-      } else {
-        stats <- rutabaga::cbind_list(
-          # raveio::lapply_async(data_by_el, FUN = run_stats, ncores=2)
-          lapply(data_by_el, run_stats)
-        )
-    }
+    # raveio::lapply_async(data_by_el, FUN = run_stats, ncores=2)
+    stats <- rutabaga::cbind_list(
+      lapply(data_by_el, run_stats)
+    )
   }
 }
 ravedash::logger('done pes', level='debug')
