@@ -1,13 +1,21 @@
 Package: generate_surface_atlas
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: Create 'pial' Surface Parcellation
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
-License: MIT
+License: CC-BY-4.0
 Authors@R: c(
-    person("your first name", "last/family name", email = "your.email@edu", role = c("aut", "cre"))
+    person("Zhengjia", "Wang", email = "zhengjia.wang@pennmedicine.upenn.edu", role = c("aut", "cre")),
+    person("Xiang", "Zhang", email = "xiang.zhang@pennmedicine.upenn.edu", role = c("aut")),
+    person("John", "Magnotti", email = "john.magnotti@pennmedicine.upenn.edu", role = c("aut")),
+    person("Michael", "Beauchamp", email = "michael.beauchamp@pennmedicine.upenn.edu", role = c("aut"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: Upload any comma-separated value (csv) file with the following
+    case-sensitive columns (Subject, Electrode), followed by the value
+    columns for the correcponding electrodes. RAVE will generate surface atlas
+    files in FreeSurfer curvature format ('.curv' for continuous variables) or
+    annotation format ('.annot' for discrete variables).
+BugReports: https://github.com/orgs/rave-ieeg/discussions
+URL: https://rave.wiki, https://github.com/rave-ieeg/rave-pipelines
+
