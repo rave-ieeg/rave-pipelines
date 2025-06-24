@@ -5,6 +5,22 @@ divider:
     order: 10
   Settings:
     order: 10000
+groups:
+  Import Signals:
+    order: 1
+    open: no
+  LFP Processing:
+    order: 2
+    open: no
+  Auxiliary Processing:
+    order: 3
+    open: no
+  Images & Electrodes:
+    order: 7
+    open: no
+  Group Viewers:
+    order: 12
+    open: no
 modules:
   import_lfp_native:
     label: Native Structure
@@ -59,9 +75,14 @@ modules:
   custom_3d_viewer:
     label: Subject 3D Viewer
     order: 11
+  generate_surface_atlas:
+    label: Generate Surface Atlases
+    group: Group Viewers
+    order: 12.1
   connectivity_viewer:
     label: Connectivity Viewer
-    order: 12
+    group: Group Viewers
+    order: 12.2
   configure_rave:
     label: Configurations
     order: 10001
@@ -69,16 +90,3 @@ modules:
     label: Stimulation Explorer
   phase_explorer:
     label: Phase Explorer
-groups:
-  Import Signals:
-    order: 1
-    open: no
-  LFP Processing:
-    order: 2
-    open: no
-  Auxiliary Processing:
-    order: 3
-    open: no
-  Images & Electrodes:
-    order: 7
-    open: no

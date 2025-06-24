@@ -1,0 +1,212 @@
+---
+title: "Generate surface-based atlases from group of subjects"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("generate_surface_atlas")
+
+# ieegio::io_write_yaml(
+#   con = file.path(pipeline$pipeline_path, "settings.yaml"),
+#   x = list(
+#     project_name = "YAEL",
+#     template_name = "fsaverage",
+#     value_table = "${EXTDATA-SETTINGS|value_table|csv}",
+#     subject_codes = c("Precision010")
+#   ),
+#   sorted = TRUE
+# )
+
+# write.csv(
+#   data.frame(Subject = 'Precision010'),
+#   file = file.path(pipeline$pipeline_path, "data/value_table.csv")
+# )
+
+```
+
+```{rave ensure_template_files, use_rave=TRUE, language="R", export="template_information", cue="always"}
+template_root <- threeBrain::default_template_directory()
+if(length(template_name) != 1) {
+  stop("Input `template_name` must be a string with length one")
+}
+template_path <- file.path(template_root, template_name)
+if(!dir.exists(template_path)) {
+  # template is missing
+  available_templates <- names(threeBrain::available_templates())
+  if(isTRUE(template_name %in% available_templates)) {
+    
+    # 10 min timeout
+    opt <- options(timeout = 600)
+    on.exit(options(opt))
+    message("No template is found... Downloading the template. This might take a while")
+    threeBrain::download_template_subject(subject_code = template_name)
+  }
+}
+
+template_information <- list(
+  name = template_name,
+  path = normalizePath(template_path, winslash = "/")
+)
+```
+
+```{rave find_meta_from_value_file, use_rave=TRUE, language="R", export="value_table_meta"}
+if(!is.data.frame(value_table)) {
+  stop("Unable to parse the value table. Please provide a comma-separated value (csv) file with column 'Subject' in it (case-sensitive).")
+}
+value_table_meta <- extract_meta_value_table(value_table, project_name)
+```
+
+```{rave validate_inputs, language="R", export="cleaned_inputs"}
+project <- raveio::as_rave_project(project_name)
+all_subjects <- project$subjects()
+
+from_subjects <- value_table_meta$subjects
+from_subjects <- from_subjects[from_subjects %in% all_subjects]
+
+# check all subjects to make sure they have freesurfer paths
+has_surfaces <- vapply(from_subjects, function(subject) {
+  subject <- raveio::RAVESubject$new(project_name = project$name, subject_code = subject, strict = FALSE)
+  brain <- raveio::rave_brain(subject)
+  if(is.null(brain)) { return(FALSE) }
+  if(!length(brain$surface_types)) { return(FALSE) }
+  TRUE
+}, FUN.VALUE = FALSE, USE.NAMES = FALSE)
+
+
+
+cleaned_inputs <- list(
+  project_name = project_name,
+  template = template_information,
+  subject_codes = from_subjects,
+  has_surfaces = has_surfaces
+)
+```
+
+```{rave map_to_template, language="R", export="mapped_results", cue="always"}
+suppressWarnings({
+  raveio::with_future_parallel({
+    
+    flip_hemisphere <- mapping_params$flip_hemisphere
+    
+    mapped_results <- raveio::lapply_async(
+      subject_codes, function(subject_code) {
+        res <- map_to_template(
+          subject = raveio::RAVESubject$new(
+            project_name = cleaned_inputs$project_name,
+            subject_code = subject_code), 
+          method = mapping_method,
+          template = cleaned_inputs$template$name,
+          volumetric_transform = "affine",
+          interpolator = mapping_params$interpolator,
+          save_to = NULL,
+          flip_hemisphere = isTRUE(subject_code %in% flip_hemisphere),
+          n_segments = c(mapping_params$width, mapping_params$height)
+        )
+        res$mapped_table$Subject <- subject_code
+        res$mapped_table
+      },
+      callback = function(subject_code) {
+        sprintf("Mapping subject|%s", subject_code)
+      }
+    )
+  })
+  
+  mapped_results <- data.table::rbindlist(mapped_results)
+})
+
+```
+
+```{rave generate_atlas, language="R", export="mapped_atlas"}
+if(!isTRUE(value_name %in% names(value_table))) {
+  stop("Invalid value name [", paste(value_name, collapse = ""),
+       "] for generating atlases.")
+}
+mapped_atlas <- generate_atlas(
+  mapped_results = mapped_results,
+  value_table = value_table,
+  template_name = cleaned_inputs$template$name,
+  value_name = value_name,
+  value_type = value_type,
+  mapping_threshold = mapping_threshold
+)
+mapped_atlas
+```
+
+```{rave save_group_atlas, language="R", export="save_atlas", cue="always"}
+if(length(atlas_name) != 1 || 
+   is.na(atlas_name) || 
+   !nzchar(atlas_name)) {
+  # atlas_name is unset, use the value name itself
+  atlas_name <- value_name
+}
+atlas_name <- gsub("[^0-9A-Za-z_+-]", "_", atlas_name)
+
+label_path <- file.path(
+  threeBrain::default_template_directory(),
+  mapped_atlas$template_name, "label")
+
+file_ext <- mapped_atlas$file_ext
+atlas_left <- mapped_atlas$atlas_left
+atlas_right <- mapped_atlas$atlas_right
+
+if(inherits(atlas_left, "ieegio_surface_contains_measurements")) {
+  file_type <- "measurements"
+} else {
+  file_type <- "annotations"
+}
+
+file_right <- file.path(
+  label_path,
+  sprintf("rh.%s.%s", atlas_name, file_ext)
+)
+
+file_left <- file.path(
+  label_path,
+  sprintf("lh.%s.%s", atlas_name, file_ext)
+)
+
+ieegio::write_surface(
+  x = atlas_right,
+  format = 'freesurfer',
+  type = file_type,
+  con = file_right
+)
+
+ieegio::write_surface(
+  x = atlas_left,
+  format = 'freesurfer',
+  type = file_type,
+  con = file_left
+)
+
+save_atlas <- list(
+  path_left = normalizePath(file_left, winslash = "/"),
+  path_right = normalizePath(file_right, winslash = "/")
+)
+```
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-generate_surface_atlas.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-generate_surface_atlas.R")
+```
+
+
+Once the pipeline script `make-generate_surface_atlas.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+
