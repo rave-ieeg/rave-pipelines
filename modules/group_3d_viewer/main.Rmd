@@ -1,0 +1,168 @@
+---
+title: "RAVE Pipeline Markdown Template"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("group_3d_viewer")
+```
+
+```{rave ensure_template_brain, language = "R", export = "template_info", cue = "always"}
+template_root <- threeBrain::default_template_directory()
+template_path <- file.path(template_root, template_name)
+if(!dir.exists(template_path)) {
+  oldopt <- options(timeout = 3600)
+  on.exit({ options(oldopt) })
+  threeBrain::download_template_subject(subject_code = template_name)
+}
+template_path <- normalizePath(template_path, winslash = "/", mustWork = TRUE)
+template_brain <- threeBrain::threeBrain(path = template_path, subject_code = template_name)
+
+# Find all available volumes, surfaces, annotations
+volumes <- sort(list.files(
+  file.path(template_path, "mri"),
+  pattern = "\\.(mgz|nii|nii.gz)$",
+  recursive = FALSE,
+  include.dirs = FALSE,
+  full.names = FALSE,
+  all.files = FALSE,
+  ignore.case = TRUE
+))
+volumes <- gsub("\\.(mgz|nii|nii.gz)$", "", volumes, ignore.case = TRUE)
+surfaces <- sort(template_brain$available_surfaces)
+annotations <- list.files(
+  file.path(template_path, "label"),
+  pattern = "\\.(annot|curv|sulc)$",
+  recursive = FALSE,
+  include.dirs = FALSE,
+  full.names = FALSE,
+  all.files = FALSE,
+  ignore.case = TRUE
+)
+annotations <- gsub("\\.(annot|curv|sulc)$", "", annotations, ignore.case = TRUE)
+annotations <- gsub("^[lr]h\\.", "", annotations, ignore.case = TRUE)
+annotations <- sprintf("label/%s", sort(unique(annotations)))
+template_info <- list(
+  name = template_name,
+  path = template_path,
+  volumes = volumes,
+  surfaces = surfaces,
+  annotations = annotations
+)
+```
+
+
+```{rave filter_subject_codes, language = "R", export = "subject_codes_filtered"}
+if(length(project_name) != 1) {
+  stop("Invalid RAVE project name. The `project_name` input must have length of one")
+}
+project <- raveio::as_rave_project(project_name)
+all_subject_codes <- project$subjects()
+if(!length(all_subject_codes)) {
+  warning(sprintf("No subject found under the project `%s`", project_name))
+}
+subject_codes <- unlist(subject_codes)
+subject_codes <- subject_codes[subject_codes %in% all_subject_codes]
+subject_codes_filtered <- sort(unique(subject_codes))
+```
+
+```{rave checking_mapping_capabilities, language = "R", export = "mapping_capabilities", cue = "always"}
+mapping_capabilities <- data.table::rbindlist(lapply(subject_codes_filtered, function(subject_code) {
+  c(
+    list(Subject = subject_code),
+    mapping_capability(project_name, subject_code)
+  )
+}))
+```
+
+```{rave get_mapped_brain_list, language = "R", export = "brain_list", cue = "always", format = "user-defined-r"}
+force(mapping_capabilities)
+brain_list <- lapply(subject_codes_filtered, function(subject_code) {
+  capability <- mapping_capabilities[mapping_capabilities$Subject == subject_code, ]
+  brain <- tryCatch(
+    {
+      brain <- get_mapped_brain(
+        project_name = project_name,
+        subject_code = subject_code,
+        mapping_method = mapping_method,
+        capability = capability,
+        use_cache = use_cache
+      )
+      
+      raw_table <- brain$electrodes$raw_table
+      
+      if(
+        is.data.frame(raw_table) && nrow(raw_table) > 0 &&
+        "LabelPrefix" %in% names(raw_table)) {
+        
+        brain$set_electrode_values(data.frame(
+          Electrode = raw_table$Electrode,
+          LabelPrefix = raw_table$LabelPrefix
+        ))
+        
+      }
+      brain
+    }, error = function(e) {
+      NULL
+    }
+  )
+  brain
+})
+brain_list <- brain_list[!vapply(brain_list, is.null, FALSE)]
+```
+
+```{rave generate_template_brain, language = "R", export = "template", format = "user-defined-r"}
+radius <- electrode_radius
+if(length(radius) != 1 || !is.numeric(radius) || !isTRUE(radius > 0) || !is.finite(radius)) {
+  radius <- 0
+}
+
+if(radius > 0) {
+  brain_list2 <- lapply(brain_list, function(brain) {
+    raw_table <- brain$electrodes$raw_table
+    if(is.data.frame(raw_table) && nrow(raw_table) > 0) {
+      raw_table$Radius <- radius
+      brain$set_electrodes(raw_table, priority = "sphere")
+    }
+    brain
+  })
+} else {
+  brain_list2 <- brain_list
+}
+
+
+template <- threeBrain::merge_brain(
+  .list = brain_list2,
+  template_subject = template_info$name
+  # template_surface_types = NULL
+  # template_atlas_types = ,
+  # template_annotation_types = 
+  # electrode_priority = "sphere"
+)
+```
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-group_3d_viewer.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-group_3d_viewer.R")
+```
+
+
+Once the pipeline script `make-group_3d_viewer.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+
