@@ -13,7 +13,7 @@ Authors@R: c(
     )
 Description: Upload any comma-separated value (csv) file with the following
     case-sensitive columns (Subject, Electrode), followed by the value
-    columns for the correcponding electrodes. RAVE will generate surface atlas
+    columns for the corresponding electrodes. RAVE will generate surface atlas
     files in FreeSurfer curvature format ('.curv' for continuous variables) or
     annotation format ('.annot' for discrete variables).
 BugReports: https://github.com/orgs/rave-ieeg/discussions

@@ -54,7 +54,8 @@ SubPipelines:
     modules/block_explorer,
     modules/import_bids,
     modules/power_explorer,
-    modules/generate_surface_atlas
+    modules/generate_surface_atlas,
+    modules/group_3d_viewer
 InteractiveModules:
     modules/import_lfp_native,
     modules/notch_filter,
@@ -71,4 +72,5 @@ InteractiveModules:
     modules/import_bids,
     modules/configure_rave,
     modules/power_explorer,
-    modules/generate_surface_atlas
+    modules/generate_surface_atlas,
+    modules/group_3d_viewer

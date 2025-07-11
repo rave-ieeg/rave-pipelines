@@ -78,11 +78,11 @@ modules:
   generate_surface_atlas:
     label: Generate Surface Atlases
     group: Group Viewers
-    order: 12.1
+    order: 12.2
   connectivity_viewer:
     label: Connectivity Viewer
     group: Group Viewers
-    order: 12.2
+    order: 12.3
   configure_rave:
     label: Configurations
     order: 10001
@@ -90,3 +90,7 @@ modules:
     label: Stimulation Explorer
   phase_explorer:
     label: Phase Explorer
+  group_3d_viewer:
+    label: Group 3D Viewer
+    group: Group Viewers
+    order: 12.1
