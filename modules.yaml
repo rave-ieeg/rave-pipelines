@@ -94,3 +94,5 @@ modules:
     label: Group 3D Viewer
     group: Group Viewers
     order: 12.1
+  project_overview:
+    label: Project Overview

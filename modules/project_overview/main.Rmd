@@ -1,0 +1,63 @@
+---
+title: "RAVE Project Overview"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("project_overview")
+```
+
+```{rave obtain_project_names, language = "R", export = "project_names_cleaned"}
+all_projects <- raveio::get_projects(refresh = TRUE)
+if(length(project_names)) {
+  project_names_cleaned <- sort(unique(unlist(project_names)))
+  project_names_cleaned <- project_names_cleaned[project_names_cleaned %in% all_projects]
+} else {
+  project_names_cleaned <- all_projects
+}
+if(!length(project_names_cleaned)) {
+  stop("No valid project found.")
+}
+```
+
+```{rave ensure_template_brain, language = "R", export = "template_info", cue = "always"}
+template_info <- ensure_brain_template(template_subject = template_subject)
+```
+
+```{rave generate_project_overview, language = "R", export = "project_overview", cue = "always"}
+if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
+  force(template_info)
+  project_overview <- generate_website(project_names_cleaned)
+} else {
+  project_overview <- NULL
+}
+```
+
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-project_overview.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-project_overview.R")
+```
+
+
+Once the pipeline script `make-project_overview.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+
