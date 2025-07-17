@@ -9,6 +9,8 @@ pipeline <- ravepipeline::pipeline(
   paths = "./modules")
 debug <- TRUE
 
+static_path_added <- FALSE
+
 #' Function to check whether data is loaded.
 #' @param first_time whether this function is run for the first time
 #' @details The function will be called whenever \code{data_changed} event is
@@ -19,7 +21,19 @@ debug <- TRUE
 #' resulting in calling function \code{loader_html}.
 #' @returns Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE){
-  # Always use loading screen
+  # check if the build/_site/index.html exists
+  site_path <- "modules/project_overview/build/_site/"
+  built_index_path <- file.path(site_path, "index.html")
+  if(file.exists(built_index_path)) {
+
+    if(!static_path_added) {
+      shiny::addResourcePath(prefix = "project_overview",
+                             directoryPath = normalizePath(site_path, winslash = "/"))
+      static_path_added <<- TRUE
+    }
+
+    return(TRUE)
+  }
   FALSE
 }
 

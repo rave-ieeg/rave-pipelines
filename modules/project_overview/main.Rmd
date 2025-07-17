@@ -33,6 +33,8 @@ template_info <- ensure_brain_template(template_subject = template_subject)
 ```{rave generate_project_overview, language = "R", export = "project_overview", cue = "always"}
 if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
   force(template_info)
+  # build_report_data(use_cache = TRUE/FALSE)
+  # build_reports -> generate qmd and build website
   project_overview <- generate_website(project_names_cleaned)
 } else {
   project_overview <- NULL

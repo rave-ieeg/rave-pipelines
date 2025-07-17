@@ -194,20 +194,20 @@ if (length(reading_errors) > 0) {
 <style>
   .drawer {
     height: 100%;
-    width: 70vw;
+    width: 100vw;
     position: fixed;
     top: 0;
-    right: -70vw;
+    right: -100vw;
     background-color: #ffffff;
-    transition: 0.4s;
+    transition: 0.4s ease-in;
     padding: 20px;
-    box-shadow: 2px 0 20px rgba(0,0,0,0.5);
     padding-top: 40px;
     z-index: 999;
   }
 
   .drawer.open {
     right: 0;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.5);
   }
 
   .close-drawer-btn {
@@ -226,37 +226,6 @@ if (length(reading_errors) > 0) {
     padding: 0;
     padding-bottom: 2px;
     color: #474747;
-  }
-
-  .table-wrapper {
-    max-width: 100%;
-    max-height: 400px;
-    overflow: auto;
-    position: relative;
-    margin-bottom: 10px;
-  }
-
-  .table-wrapper table {
-    width: 100%;
-  }
-
-  .table-wrapper table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: #f9f9f9;
-  }
-
-  .table-wrapper table th:first-child,
-  .table-wrapper table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background: #f0f0f0;
-  }
-
-  .table-wrapper table thead th:first-child {
-    z-index: 3;
   }
 
   .nowrap {
