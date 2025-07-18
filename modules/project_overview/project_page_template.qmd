@@ -107,7 +107,8 @@ electrodes_rows <- lapply(all_labels, function(label) {
     result
 })
 
-electrodes_df <- dplyr::bind_rows(electrodes_rows)
+# electrodes_df <- dplyr::bind_rows(electrodes_rows)
+electrodes_df <- data.table::rbindlist(electrodes_rows)
 DT::datatable(
     electrodes_df,
     rownames = FALSE,
@@ -136,7 +137,8 @@ subjects_data <- lapply(subjects_codes, function(subject_name) {
     )
 })
 
-subjects_df <- dplyr::bind_rows(subjects_data)
+# subjects_df <- dplyr::bind_rows(subjects_data)
+subjects_df <- data.table::rbindlist(subjects_data)
 DT::datatable(subjects_df, escape = FALSE)
 ```
 
@@ -181,7 +183,9 @@ for (subject_code in subjects_codes) {
     check_error(subject_code, "Blocks Preprocess", subject_validation$preprocess$blocks_set)
     check_error(subject_code, "Metadata", subject_validation$meta$meta_data_valid)
 }
-knitr::kable(dplyr::bind_rows(errors), format = "simple")
+
+errors_df <- data.table::rbindlist(errors)
+knitr::kable(errors_df, format = "simple")
 ```
 
 #### Report Generation Errors
