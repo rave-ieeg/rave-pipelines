@@ -160,10 +160,17 @@ check_error <- function(subject_code, error_name, rave_validation_object) {
 for (subject_code in subjects_codes) {
     subject_id <- paste0(project_name, "/", subject_code)
     subject <- raveio::as_rave_subject(subject_id)
-    subject_validation <- raveio::validate_subject(
-        subject_id,
-        verbose = FALSE, method = "normal"
-    )
+    validation_cache = get_subject_cache_file("validation", subject)
+    if (validation_cache$exists) {
+      subject_validation <- readRDS(validation_cache$write_path)
+    }
+    else {
+      subject_validation <- raveio::validate_subject(
+          subject_id,
+          verbose = FALSE, method = "normal"
+      )
+      saveRDS(subject_validation, file=validation_cache$write_path)
+    } 
     for (ref_name in subject$reference_names) {
         check_error(subject_code, paste0("Reference ", ref_name), subject_validation$reference_tables[[ref_name]])
     }
