@@ -1,13 +1,19 @@
 Package: project_overview
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: Create Project Overview Reports
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 License: MIT
 Authors@R: c(
-    person("your first name", "last/family name", email = "your.email@edu", role = c("aut", "cre"))
+    person("Guy", "Silberman", email = "guy.silberman@mail.huji.ac.il", role = c("aut", "cre")),
+    person("Zhengjia", "Wang", email = "zhengjia.wang@pennmedicine.upenn.edu", role = c("aut", "cre"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: 
+    Generates a group-level viewer and electrode coverage table, followed by a 
+    subject-level table, providing snapshots of metadata for each subject.
+BugReports: https://github.com/orgs/rave-ieeg/discussions
+URL: https://github.com/rave-ieeg/rave-pipelines
+Imports:
+  promises,
+  quarto
