@@ -92,7 +92,7 @@ loader_server <- function(input, output, session, ...){
             as_promise = FALSE,
             names = c("project_overview"),
             scheduler = "none",
-            type = "callr"
+            type = "vanilla"
           )
           Sys.sleep(0.5)
           ravedash::close_alert2(session = session)
