@@ -19,7 +19,7 @@ groups:
     order: 7
     open: no
   Group Viewers:
-    order: 12
+    order: 13
     open: no
 modules:
   import_lfp_native:
@@ -32,7 +32,7 @@ modules:
     order: 1.2
   power_explorer:
     label: Power Explorer
-    order: 13
+    order: 14
     badge: N=1|badge-primary
   jupyterlab:
     label: JupyterLab
@@ -74,15 +74,15 @@ modules:
     order: 20
   custom_3d_viewer:
     label: Subject 3D Viewer
-    order: 11
+    order: 12
   generate_surface_atlas:
     label: Generate Surface Atlases
     group: Group Viewers
-    order: 12.2
+    order: 13.2
   connectivity_viewer:
     label: Connectivity Viewer
     group: Group Viewers
-    order: 12.3
+    order: 13.3
   configure_rave:
     label: Configurations
     order: 10001
@@ -93,4 +93,7 @@ modules:
   group_3d_viewer:
     label: Group 3D Viewer
     group: Group Viewers
-    order: 12.1
+    order: 13.1
+  project_overview:
+    label: Project Overview
+    order: 11
