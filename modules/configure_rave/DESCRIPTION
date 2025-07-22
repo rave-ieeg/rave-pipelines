@@ -13,3 +13,7 @@ Description:
     analyses, change number of 'CPU' cores for performance. User can 
     install new packages in 'R' and 'Python'. 
 BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+Imports:
+    shinyWidgets,
+    DT,
+    rpymat
