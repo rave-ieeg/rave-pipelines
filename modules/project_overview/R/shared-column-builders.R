@@ -1,13 +1,21 @@
+cache_root <- "build/cache"
 
 dir_exists <- function(path) {
   length(path) == 1 && !is.na(path) && dir.exists(path)
 }
+
+
+# pipeline <- raveio::pipeline("project_overview", paths = file.path(rstudioapi::getActiveProject(), "modules"))
+# pipeline$run("snapshot_results")
+# cache_root <- file.path(rstudioapi::getActiveProject(), "modules", "project_overview", "build/cache")
 
 subjects_columns <- list(
   subject = function(subject) {
     subject$subject_code
   },
   reference = function(subject) {
+    # snapshot_path <- file.path(cache_root, subject$subject_id, "snapshot.rds")
+    # snapshot <- readRDS(snapshot_path)
     ref_names <- subject$reference_names
     filtered_ref_names <- ref_names[ref_names != "_unsaved"]
     reference_lines <- lapply(
@@ -57,6 +65,8 @@ subjects_columns <- list(
     )
   },
   "recording blocks" = function(subject) {
+    # snapshot <- readRDS("modules/project_overview/build/cache/demo/DemoSubject/snapshot.rds")
+    # epoch_names <- snapshot$epoch_names
     epoch_names <- subject$epoch_names
 
     blocks <- list()
@@ -181,10 +191,10 @@ subjects_columns <- list(
 
 snapshot_subject <- function(subject_id, cache_folder = NULL, use_cache = TRUE)  {
 
-  if(dir_exists(cache_folder)) {
+  if(length(cache_folder) == 1) {
+    raveio::dir_create2(cache_folder)
     snapshot_path <- file.path(cache_folder, "snapshot.rds")
     viewer_path <- file.path(cache_folder, "viewer.html")
-    raveio::dir_create2(cache_folder)
   } else {
     snapshot_path <- NULL
     viewer_path <- NULL

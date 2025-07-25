@@ -74,5 +74,4 @@ InteractiveModules:
     modules/configure_rave,
     modules/power_explorer,
     modules/generate_surface_atlas,
-    modules/group_3d_viewer,
-    modules/project_overview
+    modules/group_3d_viewer

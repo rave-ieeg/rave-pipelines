@@ -32,6 +32,16 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             shidashi::flex_break(),
 
             shidashi::flex_item(
+              shiny::checkboxInput(
+                inputId = ns("loader_clear_cache"),
+                label = "Clear cached files",
+                value = FALSE, width = "100%"
+              )
+            ),
+
+            shidashi::flex_break(),
+
+            shidashi::flex_item(
               shiny::selectInput(
                 inputId = ns("loader_template_subject"),
                 label = "Template name",
