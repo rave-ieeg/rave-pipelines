@@ -1,6 +1,5 @@
 project_names:
-- A_V_AV_Words
-- ABC
-- ASDF
-- McGurk
-template_subject: fsaverage
+- demo
+- YAEL
+template_subject: fsaverage_inCIT168
+use_cache: yes

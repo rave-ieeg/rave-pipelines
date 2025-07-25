@@ -68,5 +68,41 @@
 {{ ravedash::ravedash_footer(ns(NULL), label="Export Report") }}
 
 {{ shidashi::include_view("footer.html") }}
+
+<script>
+
+  let raveModuleWrapperHeight = document.documentElement.clientHeight;
+
+  function resizeIframe(iframe) {
+    try {
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      const body = doc.body;
+      const html = doc.documentElement;
+
+      // Remove scrollbars and scrolling
+      body.style.overflow = 'hidden';
+      html.style.overflow = 'hidden';
+
+      // Optional: remove margins/padding to prevent accidental overflow
+      body.style.margin = '0';
+      body.style.padding = '0';
+      html.style.margin = '0';
+      html.style.padding = '0';
+
+      const contentHeight = doc.documentElement.scrollHeight;
+      iframe.style.height = contentHeight + 'px';
+
+      body.setAttribute('wrapper-height', raveModuleWrapperHeight);
+
+    } catch (e) {
+      console.warn('Cross-origin iframe — cannot access content to resize.');
+    }
+  }
+
+  window.addEventListener("resize", (event) => {
+    raveModuleWrapperHeight = document.documentElement.clientHeight;
+  })
+
+</script>
 </body>
 </html>

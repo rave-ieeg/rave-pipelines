@@ -23,7 +23,8 @@ get_cache_file <- function(file_name) {
         write_path = file_path,
         link_tag = function(text) {
             glue::glue(
-                "<a class=\"nowrap\" href=\"../cache/{project_name}/{file_name}\" target=\"viewer_iframe\" onclick=\"showIframeDrawer()\">{text}</a>"
+                # "<a class=\"nowrap\" href=\"../cache/{project_name}/{file_name}?t={as.numeric(Sys.time())}\" target=\"viewer_iframe\" onclick=\"showIframeDrawer()\">{text}</a>"
+              "<a class=\"nowrap\" href=\"../cache/{project_name}/{file_name}?t={as.numeric(Sys.time())}\" target=\"_blank\">{text}</a>"
             )
         }
     )
@@ -205,12 +206,12 @@ if (length(reading_errors) > 0) {
 <style>
   .drawer {
     height: 100%;
-    width: 100vw;
+    width: 95vw;
     position: fixed;
     top: 0;
-    right: -100vw;
+    right: -95vw;
     background-color: #ffffff;
-    transition: 0.4s ease-in;
+    transition: 0.4s ease-out;
     padding: 20px;
     padding-top: 40px;
     z-index: 999;
@@ -253,7 +254,14 @@ if (length(reading_errors) > 0) {
 
 <script>
   function showIframeDrawer() {
-    document.getElementById('iframe-drawer').classList.add('open');
+    const $drawer = document.getElementById('iframe-drawer');
+    let drawerHeight = parseInt(document.body.getAttribute('wrapper-height'));
+    if( isFinite(drawerHeight) && drawerHeight > 100 ) {
+      $drawer.style.maxHeight = `${drawerHeight}px`;
+    } else {
+      $drawer.style.maxHeight = `100vh`;
+    }
+    $drawer.classList.add('open');
   }
   function closeIframeDrawer() {
     document.getElementById('iframe-drawer').classList.remove('open');

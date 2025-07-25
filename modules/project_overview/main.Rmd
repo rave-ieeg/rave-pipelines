@@ -30,6 +30,26 @@ if(!length(project_names_cleaned)) {
 template_info <- ensure_brain_template(template_subject = template_subject)
 ```
 
+```{rave snapshot_projects, language = "R", export = "snapshot_results", cue = "always"}
+force(template_info)
+force(use_cache)
+
+if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
+  suppressWarnings({
+    snapshot_results <- lapply(project_names_cleaned, function(project_name) {
+      snapshot_project(
+        project_name,
+        template = template_subject,
+        cache_root = "build/cache",
+        use_cache = use_cache
+      )
+    })
+  })
+} else {
+  snapshot_results <- NULL
+}
+```
+
 ```{rave generate_project_overview, language = "R", export = "project_overview", cue = "always"}
 if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
   force(template_info)

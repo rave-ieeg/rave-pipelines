@@ -25,68 +25,60 @@ module_server <- function(input, output, session, ...){
         class = ns("export_report")
       )
 
-      promises::promise(function(resolve, reject) {
-
-        job_id <- ravepipeline::start_job(
-          fun_args = list(pipeline_path = pipeline$pipeline_path),
-          packages = "utils",
-          fun = function(pipeline_path) {
-            src_path <- file.path(pipeline_path, "build", "_site")
-            dst_path <- file.path(pipeline_path, "build", "reports.zip")
-            if(file.exists(dst_path)) {
-              unlink(dst_path)
-            }
-
-            cwd <- getwd()
-            setwd(src_path)
-            on.exit({ setwd(cwd) })
-
-            utils::zip(zipfile = "../reports.zip", files = list.files("."))
-
-            return(dst_path)
+      job_id <- ravepipeline::start_job(
+        fun_args = list(pipeline_path = pipeline$pipeline_path),
+        packages = "utils", method = "mirai",
+        fun = function(pipeline_path) {
+          src_path <- file.path(pipeline_path, "build", "_site")
+          dst_path <- file.path(pipeline_path, "build", "reports.zip")
+          if(file.exists(dst_path)) {
+            unlink(dst_path)
           }
-        )
 
-        Sys.sleep(1)
+          cwd <- getwd()
+          setwd(src_path)
+          on.exit({ setwd(cwd) })
 
-        tryCatch(
-          {
-            dst_path <- ravepipeline::resolve_job(job_id)
-            ravedash::clear_notifications(class = ns("export_report"))
+          utils::zip(zipfile = "../reports.zip", files = list.files("."))
 
-            shiny::showModal(
-              session = session,
-              shiny::modalDialog(
-                title = "Download packaged reports",
-                easyClose = FALSE,
-                size = "m",
-                footer = shiny::tagList(
-                  shiny::modalButton("Close"),
-                  shiny::downloadButton(
-                    outputId = ns("download_btn"),
-                    label = "Download",
-                    class = "btn-primary",
-                    icon = ravedash::shiny_icons$download
-                  )
-                ),
-                shiny::p(
-                  "The overview reports have been generated at ",
-                  shiny::br(),
-                  dst_path
+          return(dst_path)
+        }
+      )
+
+      promise <- promises::as.promise(job_id)
+
+      promise$then(
+        onFulfilled = function(dst_path) {
+          ravedash::clear_notifications(class = ns("export_report"), session = session)
+
+          shiny::showModal(
+            session = session,
+            shiny::modalDialog(
+              title = "Download packaged reports",
+              easyClose = FALSE,
+              size = "m",
+              footer = shiny::tagList(
+                shiny::modalButton("Close"),
+                shiny::downloadButton(
+                  outputId = ns("download_btn"),
+                  label = "Download",
+                  class = "btn-primary",
+                  icon = ravedash::shiny_icons$download
                 )
+              ),
+              shiny::p(
+                "The overview reports have been generated at ",
+                shiny::br(),
+                dst_path
               )
             )
-
-            resolve(dst_path)
-          },
-          error = function(e) {
-            ravedash::clear_notifications(class = ns("export_report"))
-            ravedash::error_notification(e)
-            resolve(e)
-          }
-        )
-
-      })
+          )
+        },
+        onRejected = function(e) {
+          ravedash::clear_notifications(class = ns("export_report"), session = session)
+          ravedash::error_notification(e, session = session)
+        }
+      )
 
       return()
 
@@ -113,11 +105,14 @@ module_server <- function(input, output, session, ...){
       shiny::need(loaded_flag, message = "Report has not been generated yet.")
     )
 
+
     shiny::tags$iframe(
       src = sprintf("project_overview/index.html?t=%s", dipsaus::base64_urlencode(strftime(Sys.time()))),
-      style = "height:100vh; width:100%; border:none;",
-      class = "screen-height"
+      # style = "height:100vh; width:100%; border:none;",
+      style = "border:none;",
+      class = "fill", onLoad = "resizeIframe(this)"
     )
+
   })
 
 }

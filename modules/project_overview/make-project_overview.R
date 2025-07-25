@@ -17,7 +17,9 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_template_subject = targets::tar_target_raw("template_subject", 
+    input_use_cache = targets::tar_target_raw("use_cache", quote({
+        settings[["use_cache"]]
+    }), deps = "settings"), input_template_subject = targets::tar_target_raw("template_subject", 
         quote({
             settings[["template_subject"]]
         }), deps = "settings"), input_project_names = targets::tar_target_raw("project_names", 
@@ -83,7 +85,55 @@ rm(._._env_._.)
                 template_info
             }), target_depends = "template_subject"), deps = "template_subject", 
         cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
-    generate_project_overview = targets::tar_target_raw(name = "project_overview", 
+    snapshot_projects = targets::tar_target_raw(name = "snapshot_results", 
+        command = quote({
+            .__target_expr__. <- quote({
+                force(template_info)
+                force(use_cache)
+                if (nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", 
+                  unset = ""))) {
+                  suppressWarnings({
+                    snapshot_results <- lapply(project_names_cleaned, 
+                      function(project_name) {
+                        snapshot_project(project_name, template = template_subject, 
+                          cache_root = "build/cache", use_cache = use_cache)
+                      })
+                  })
+                } else {
+                  snapshot_results <- NULL
+                }
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(snapshot_results)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "snapshot_results", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "snapshot_results", target_expr = quote({
+                {
+                  force(template_info)
+                  force(use_cache)
+                  if (nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", 
+                    unset = ""))) {
+                    suppressWarnings({
+                      snapshot_results <- lapply(project_names_cleaned, 
+                        function(project_name) {
+                          snapshot_project(project_name, template = template_subject, 
+                            cache_root = "build/cache", use_cache = use_cache)
+                        })
+                    })
+                  } else {
+                    snapshot_results <- NULL
+                  }
+                }
+                snapshot_results
+            }), target_depends = c("template_info", "use_cache", 
+            "project_names_cleaned", "template_subject")), deps = c("template_info", 
+        "use_cache", "project_names_cleaned", "template_subject"
+        ), cue = targets::tar_cue("always"), pattern = NULL, 
+        iteration = "list"), generate_project_overview = targets::tar_target_raw(name = "project_overview", 
         command = quote({
             .__target_expr__. <- quote({
                 if (nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", 
