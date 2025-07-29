@@ -122,7 +122,12 @@ subjects_data <- lapply(subjects_codes, function(subject_name) {
     lapply(
         subjects_columns,
         function(column) {
-            column(subject)
+            tryCatch({
+              column(subject)
+            },
+            error = function(e) {
+              "error"  
+            })
         }
     )
 })

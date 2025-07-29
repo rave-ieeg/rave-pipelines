@@ -8,11 +8,6 @@ dir_exists <- function(path) {
 # pipeline$run("snapshot_results")
 # cache_root <- file.path(rstudioapi::getActiveProject(), "modules", "project_overview", "build/cache")
 
-read_subject_snapshot <- function(subject) {
-  snapshot_path <- file.path(cache_root, subject$project_name, subject$subject_code, "snapshot.rds")
-  readRDS(snapshot_path)
-}
-
 subjects_columns <- list(
   subject = function(subject) {
     subject$subject_code
