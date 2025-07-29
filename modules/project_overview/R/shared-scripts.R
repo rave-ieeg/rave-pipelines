@@ -38,11 +38,12 @@ generate_website <- function(projects, build_target = "build") {
   }
   dir.create(project_target, recursive = TRUE)
 
-  file.copy("R/shared-column-builders.R", file.path(build_target, "columns.R"))
+  file.copy("R/shared-column-builders.R", file.path(build_target, "columns.R"), overwrite = TRUE)
 
   for (project_name in projects) {
     template <- readLines("project_page_template.qmd")
     template <- gsub("\\{\\{PROJECT_NAME\\}\\}", project_name, template)
+    template <- gsub("\\{\\{TEMPLATE_NAME\\}\\}", pipeline$get_settings("template_subject", "fsaverage"), template)
     writeLines(
       template,
       file.path(project_target, sprintf("%s.qmd", project_name))
@@ -53,7 +54,7 @@ generate_website <- function(projects, build_target = "build") {
   sidebar_contents <- lapply(projects, function(project_name) {
     list(
       text = project_name,
-      href = sprintf("projects/%s.qmd", project_name)
+      href = sprintf("projects/%s.html?t=%s", project_name, as.numeric(Sys.time()))
     )
   })
 

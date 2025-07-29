@@ -4,76 +4,85 @@ dir_exists <- function(path) {
   length(path) == 1 && !is.na(path) && dir.exists(path)
 }
 
-
 # pipeline <- raveio::pipeline("project_overview", paths = file.path(rstudioapi::getActiveProject(), "modules"))
 # pipeline$run("snapshot_results")
 # cache_root <- file.path(rstudioapi::getActiveProject(), "modules", "project_overview", "build/cache")
+
+read_subject_snapshot <- function(subject) {
+  snapshot_path <- file.path(cache_root, subject$project_name, subject$subject_code, "snapshot.rds")
+  readRDS(snapshot_path)
+}
 
 subjects_columns <- list(
   subject = function(subject) {
     subject$subject_code
   },
   reference = function(subject) {
-    # snapshot_path <- file.path(cache_root, subject$subject_id, "snapshot.rds")
-    # snapshot <- readRDS(snapshot_path)
-    ref_names <- subject$reference_names
+    snapshot <- read_subject_snapshot(subject)
+
+    ref_names <- snapshot$reference_names
     filtered_ref_names <- ref_names[ref_names != "_unsaved"]
     reference_lines <- lapply(
       filtered_ref_names,
       function(name) {
-        ref <- subject$get_reference(name)
-        bip_count <- sum(ref$Type == "Bipolar Reference", na.rm = TRUE)
-        car_count <- sum(ref$Type == "Common Average Reference", na.rm = TRUE)
-        other_count <- nrow(ref) - bip_count - car_count
+        ref <- snapshot$reference_tables[[name]]
+        if(!nrow(ref)) { return(NULL) }
+        # bip_count <- sum(ref$Type == "Bipolar Reference", na.rm = TRUE)
+        # car_count <- sum(ref$Type %in% c("Common Average Reference", "White-Matter Reference"), na.rm = TRUE)
+        noref_count <- sum(ref$Type %in% c("No Reference"), na.rm = TRUE)
+        bad_channels <- sum(ref$Type %in% c(""), na.rm = TRUE)
+        other_count <- nrow(ref) - noref_count - bad_channels
 
         glue::glue(
-          "<span class=\"nowrap\">{name}: (CAR {car_count}, Bipolar {bip_count}, Other {other_count})</span>"
+          "<span class=\"nowrap\">{name}: [Noref={noref_count}, Excluded={bad_channels}]</span>"
         )
       }
     )
-    paste(reference_lines, collapse = "<br />")
+    paste(unlist(reference_lines), collapse = "<br />")
   },
   electrodes = function(subject) {
-    electrodes_meta_file <- file.path(
-      subject$meta_path,
-      "electrodes.csv"
-    )
+    snapshot <- read_subject_snapshot(subject)
 
-    if (file.exists(electrodes_meta_file)) {
-      electrodes_meta_data <- tryCatch(
-        {
-          read.csv(
-            electrodes_meta_file,
-            stringsAsFactors = FALSE
-          )
-        },
-        error = function(e) {
-          print_error(paste0("Error reading electrodes meta file: ", e$message))
-          data.frame()
-        }
-      )
-      electrodes_meta_count <- nrow(electrodes_meta_data)
-    } else {
-      electrodes_meta_count <- 0
-    }
+    # electrodes_meta_file <- file.path(
+    #   subject$meta_path,
+    #   "electrodes.csv"
+    # )
+    #
+    # if (file.exists(electrodes_meta_file)) {
+    #   electrodes_meta_data <- tryCatch(
+    #     {
+    #       read.csv(
+    #         electrodes_meta_file,
+    #         stringsAsFactors = FALSE
+    #       )
+    #     },
+    #     error = function(e) {
+    #       print_error(paste0("Error reading electrodes meta file: ", e$message))
+    #       data.frame()
+    #     }
+    #   )
+    #   electrodes_meta_count <- nrow(electrodes_meta_data)
+    # } else {
+    #   electrodes_meta_count <- 0
+    # }
 
-    paste(
-      length(subject$electrodes),
-      "electrodes with data<br/>",
-      electrodes_meta_count,
-      "electrodes in meta file"
-    )
+    length(snapshot$electrodes)
+    # paste(
+    #   length(snapshot$electrodes),
+    #   "electrodes with data<br/>",
+    #   electrodes_meta_count,
+    #   "electrodes in meta file"
+    # )
   },
   "recording blocks" = function(subject) {
-    # snapshot <- readRDS("modules/project_overview/build/cache/demo/DemoSubject/snapshot.rds")
-    # epoch_names <- snapshot$epoch_names
-    epoch_names <- subject$epoch_names
+    snapshot <- read_subject_snapshot(subject)
+    epoch_names <- snapshot$epoch_names
 
     blocks <- list()
     for (epoch_name in epoch_names) {
       tryCatch(
         {
-          epoch_data <- subject$get_epoch(epoch_name)$table
+          epoch_data <- snapshot$epoch_tables[epoch_name]
           blocks <- unique(c(blocks, epoch_data$Block))
         },
         error = function(e) {
@@ -95,7 +104,8 @@ subjects_columns <- list(
     )
   },
   epoch = function(subject) {
-    epoch_names <- subject$epoch_names
+    snapshot <- read_subject_snapshot(subject)
+    epoch_names <- snapshot$epoch_names
 
     if (length(epoch_names) == 0) {
       return("No epochs found")
@@ -105,53 +115,39 @@ subjects_columns <- list(
       lapply(
         epoch_names,
         function(epoch_name) {
-          epoch <- NULL
-          tryCatch(
-            {
-              lalala <- epoch_name
-              epoch <- subject$get_epoch(lalala)
-            },
-            error = function(e) {
-              print_error(
-                glue::glue("Error retrieving epoch '{epoch_name}': {e$message}")
-              )
-            }
-          )
-          if (is.null(epoch)) {
+          epoch_table <- snapshot$epoch_tables[[epoch_name]]
+          if (is.null(epoch_table)) {
             return(glue::glue("<strong>{epoch_name}</strong>: No data"))
           }
-          trials_count <- epoch$n_trials
+          trials_count <- nrow(epoch_table)
 
           cache_file <- get_subject_cache_file(
             paste0("epoch_", epoch_name, ".html"),
             subject
           )
 
-          if (!cache_file$exists) {
-            table_data <- subject$get_epoch(epoch_name)$table
-            table_html <- knitr::kable(table_data, format = "html")
+          table_html <- knitr::kable(epoch_table, format = "html")
 
-            html <- glue::glue(
-              "<!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset=\"UTF-8\">
-                  <meta name=\"rave-subject\" content=\"{subject$subject_code}\">
-                  <meta name=\"rave-data-type\" content=\"epoch\">
-                  <title>Table View</title>
-                  <style>
-                    table {{ border-collapse: collapse; width: 100%; }}
-                    th, td {{ border: 1px solid #ddd; padding: 8px; }}
-                    th {{ background-color: #f2f2f2; }}
-                  </style>
-                </head>
-                <body>
-                  {table_html}
-                </body>
-              </html>"
-            )
-            writeLines(html, cache_file$write_path)
-          }
+          html <- glue::glue(
+            "<!DOCTYPE html>
+              <html>
+              <head>
+                <meta charset=\"UTF-8\">
+                <meta name=\"rave-subject\" content=\"{subject$subject_code}\">
+                <meta name=\"rave-data-type\" content=\"epoch\">
+                <title>Table View</title>
+                <style>
+                  table {{ border-collapse: collapse; width: 100%; }}
+                  th, td {{ border: 1px solid #ddd; padding: 8px; }}
+                  th {{ background-color: #f2f2f2; }}
+                </style>
+              </head>
+              <body>
+                {table_html}
+              </body>
+            </html>"
+          )
+          writeLines(html, cache_file$write_path)
 
           cache_file$link_tag(
             glue::glue(
@@ -164,27 +160,23 @@ subjects_columns <- list(
     )
   },
   "3D Viewer" = function(subject) {
-    cache_file <- get_subject_cache_file("viewer.html", subject)
+    snapshot <- read_subject_snapshot(subject)
 
-    if (!cache_file$exists) {
-      brain <- raveio::rave_brain(subject)
-      if (is.null(brain)) {
-        return("-")
-      }
-      brain$set_electrode_values()
-      controllers <- list()
-      if ("LabelPrefix" %in% names(brain$electrodes$raw_table)) {
-        controllers[["Display Data"]] <- "LabelPrefix"
-      }
-      viewer <- brain$plot(controllers = controllers)
-
-      threeBrain::save_brain(
-        viewer,
-        title = subject$subject_id, path = cache_file$write_path,
-      )
+    if (!is.null(snapshot$viewer_path)) {
+      cache_file <- get_subject_cache_file("viewer.html", subject)
+      return(cache_file$link_tag("viewer"))
     }
 
-    cache_file$link_tag("viewer")
+    "No viewer"
+  },
+  "Report Time" = function(subject) {
+    snapshot <- read_subject_snapshot(subject)
+
+    snapshot_date <- snapshot$snapshot_date
+    if(!length(snapshot_date)) {
+      return(NA)
+    }
+    strftime(snapshot_date, usetz = TRUE)
   }
 )
 
@@ -201,7 +193,6 @@ snapshot_subject <- function(subject_id, cache_folder = NULL, use_cache = TRUE) 
   }
 
   subject <- raveio::as_rave_subject(subject_id, strict = FALSE)
-
 
 
   if(length(viewer_path) && (!use_cache || !file.exists(viewer_path))) {
@@ -260,7 +251,9 @@ snapshot_subject <- function(subject_id, cache_folder = NULL, use_cache = TRUE) 
     epoch_tables = epoch_tables,
     reference_names = reference_names,
     reference_tables = reference_tables,
-    validation = validation
+    validation = validation,
+    viewer_path = viewer_path,
+    snapshot_date = Sys.time()
   )
 
   if(length(snapshot_path) == 1) {
