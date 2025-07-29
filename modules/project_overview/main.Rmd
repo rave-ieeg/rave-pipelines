@@ -51,6 +51,7 @@ if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
 ```
 
 ```{rave generate_project_overview, language = "R", export = "project_overview", cue = "always"}
+force(snapshot_results)
 if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
   force(template_info)
   # build_report_data(use_cache = TRUE/FALSE)

@@ -136,6 +136,7 @@ rm(._._env_._.)
         iteration = "list"), generate_project_overview = targets::tar_target_raw(name = "project_overview", 
         command = quote({
             .__target_expr__. <- quote({
+                force(snapshot_results)
                 if (nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", 
                   unset = ""))) {
                   force(template_info)
@@ -154,6 +155,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "project_overview", target_expr = quote({
                 {
+                  force(snapshot_results)
                   if (nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", 
                     unset = ""))) {
                     force(template_info)
@@ -163,7 +165,7 @@ rm(._._env_._.)
                   }
                 }
                 project_overview
-            }), target_depends = c("template_info", "project_names_cleaned"
-            )), deps = c("template_info", "project_names_cleaned"
-        ), cue = targets::tar_cue("always"), pattern = NULL, 
-        iteration = "list"))
+            }), target_depends = c("snapshot_results", "template_info", 
+            "project_names_cleaned")), deps = c("snapshot_results", 
+        "template_info", "project_names_cleaned"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"))
