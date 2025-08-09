@@ -1,0 +1,344 @@
+---
+title: "Import Native Formats to RAVE"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("import_signals")
+```
+
+```{rave obtain_subject_instance, language = "R", export = "subject", format = "rave-subject"}
+subject <- ravecore::RAVESubject$new(
+  project_name = project_name,
+  subject_code = subject_code,
+  strict = FALSE
+)
+```
+
+```{rave validate_data, language = "R", export = "validation_result"}
+
+blocks <- import_blocks
+miss_b <- blocks[!blocks%in% subject$preprocess_settings$all_blocks]
+
+if(length(miss_b)) {
+  stop("The following block folders are missing: ",
+       paste(miss_b, collapse = ", "))
+}
+
+lfp_channels <- dipsaus::parse_svec(lfp_channels)
+microwire_channels <- dipsaus::parse_svec(microwire_channels)
+auxiliary_channels <- dipsaus::parse_svec(auxiliary_channels)
+if(!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
+  stop("No channel is set.")
+}
+
+lfp_sample_rate <- lfp_sample_rate
+microwire_sample_rate <- microwire_sample_rate
+auxiliary_sample_rate <- auxiliary_sample_rate
+
+if(length(lfp_channels) > 0 && (!length(lfp_sample_rate) || !isTRUE(lfp_sample_rate > 1))) {
+  stop("LFP sample rate is invalid")
+}
+
+if(length(microwire_channels) > 0 && (!length(microwire_sample_rate) || !isTRUE(microwire_sample_rate > 1))) {
+  stop("Microwire sample rate is invalid")
+}
+
+if(length(auxiliary_channels) > 0 && (!length(auxiliary_sample_rate) || !isTRUE(auxiliary_sample_rate > 1))) {
+  stop("Auxiliary sample rate is invalid")
+}
+
+format <- import_format
+if(is.numeric(format) || grepl(" ", import_format)) {
+  format <- ravecore::IMPORT_FORMATS[[format]]
+}
+
+clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
+
+if(isTRUE(skip_validation)) {
+  ravepipeline::logger("`skip_validation` is on.", level = "warn")
+  validation_result <- TRUE
+} else {
+  validate_channels <- function(channels) {
+    if(!length(channels)) { return() }
+    validation_result <- switch (
+      format,
+      'native_matlab' = {
+        ravecore:::validate_raw_h5_mat_per_channel(
+          subject = subject,
+          blocks = blocks,
+          electrodes = channels,
+          check_content = TRUE
+        )
+      },
+      'native_matlab2' = {
+        stop("TBD")
+      },
+      'native_edf' = {
+        ravecore:::validate_raw_edf(
+          subject = subject,
+          blocks = blocks,
+          electrodes = channels,
+          check_content = TRUE
+        )
+      },
+      'native_brainvis' = {
+        ravecore:::validate_raw_brainvision(
+          subject = subject,
+          blocks = blocks,
+          electrodes = channels,
+          check_content = TRUE
+        )
+      },
+      'native_blackrock' = {
+        ravecore:::validate_raw_nevnsx(
+          subject = subject,
+          blocks = blocks,
+          electrodes = channels,
+          check_content = TRUE
+        )
+      },
+      {
+        stop("Unknown format ", format)
+      }
+    )
+    if(!isTRUE(validation_result$passed)) {
+      reasons <- validation_result$errors
+      if(!length(reasons)) {
+        stop('rave_import error: unknown reason.')
+      }
+      msg <- sapply(seq_along(reasons), function(ii){
+        nm <- names(reasons)[[ii]]
+        items <- reasons[[ii]]
+        paste0(ii, ' - ', nm, '\n', paste0('    ', items, collapse = '\n'))
+      })
+      stop('The following issues found when validating subject ',
+           sQuote(subject$subject_code), ' in project ', sQuote(subject$project_name),
+           '.\n', msg)
+    }
+    validation_result
+  }
+  validation_result <- list(
+    lfp = validate_channels(lfp_channels),
+    microwire = validate_channels(microwire_channels),
+    auxiliary = validate_channels(auxiliary_channels)
+  )
+}
+
+```
+
+```{rave check_import_signals, language = "R", export = "preprocess_info", cue = "always", format = "rave-subject"}
+
+force(validation_result)
+
+# ensure subject path
+subject$initialize_paths(include_freesurfer = FALSE)
+
+blocks <- import_blocks
+format <- import_format
+if(is.numeric(format) || grepl(" ", import_format)) {
+  format <- ravecore::IMPORT_FORMATS[[format]]
+}
+
+lfp_channels <- dipsaus::parse_svec(lfp_channels)
+microwire_channels <- dipsaus::parse_svec(microwire_channels)
+auxiliary_channels <- dipsaus::parse_svec(auxiliary_channels)
+
+lfp_sample_rate <- lfp_sample_rate
+microwire_sample_rate <- microwire_sample_rate
+auxiliary_sample_rate <- auxiliary_sample_rate
+
+lfp_unit <- NA
+microwire_unit <- NA
+auxiliary_unit <- NA
+
+all_channels <- c(lfp_channels, microwire_channels, auxiliary_channels)
+
+if(force_import) {
+  preproc <- subject$preprocess_settings
+  preproc$data$checklevel <- 0L
+  
+  existing <- preproc$electrodes
+  existing <- existing[!existing %in% all_channels]
+  preproc$data$electrodes <- NULL
+  preproc$data$`@remove`(as.character(all_channels))
+  
+  if(!setequal(preproc$blocks, blocks)) {
+    lapply(existing, function(e){
+      preproc$data[[as.character(e)]]$data_imported <- FALSE
+    })
+    preproc$set_blocks(blocks)
+  }
+  if(length(lfp_channels)) {
+    preproc$set_electrodes(lfp_channels, type = "LFP", add = TRUE)
+    preproc$set_sample_rates(lfp_sample_rate, type = "LFP")
+  }
+  
+  if(length(microwire_channels)) {
+    preproc$set_electrodes(microwire_channels, type = "Spike", add = TRUE)
+    preproc$set_sample_rates(microwire_sample_rate, type = "Spike")
+  }
+  
+  if(length(auxiliary_channels)) {
+    preproc$set_electrodes(auxiliary_channels, type = "Auxiliary", add = TRUE)
+    preproc$set_sample_rates(auxiliary_sample_rate, type = "Auxiliary")
+  }
+  preproc$save()
+}
+
+# import LFP
+rave_import <- switch (
+  format,
+  'native_matlab' = {
+    ravecore:::import_from_h5_mat_per_channel
+  },
+  'native_matlab2' = {
+    stop("TBD")
+  },
+  'native_edf' = {
+    ravecore:::import_from_edf
+  },
+  'native_brainvis' = {
+    ravecore:::import_from_brainvis
+  },
+  'native_blackrock' = {
+    ravecore:::import_from_nevnsx
+  },
+  {
+    stop("Unknown format ", format)
+  }
+)
+if(length(lfp_channels)) {
+  rave_import(
+    subject = subject,
+    blocks = blocks, electrodes = lfp_channels,
+    sample_rate = lfp_sample_rate, 
+    data_type = "LFP", add = FALSE, 
+    skip_validation = TRUE
+  )
+}
+
+# import Microwire
+if(length(microwire_channels)) {
+  rave_import(
+    subject = subject,
+    blocks = blocks, electrodes = microwire_channels,
+    sample_rate = microwire_sample_rate, 
+    data_type = "Spike", add = TRUE, 
+    skip_validation = TRUE
+  )
+}
+
+
+# import auxiliary
+if(length(auxiliary_channels)) {
+  rave_import(
+    subject = subject,
+    blocks = blocks, electrodes = auxiliary_channels,
+    sample_rate = auxiliary_sample_rate, 
+    data_type = "Auxiliary", add = TRUE, 
+    skip_validation = TRUE
+  )
+}
+
+
+compose_params <- clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
+
+if(length(compose_params)) {
+  ravepipeline::lapply_jobs(
+    compose_params, function(item) {
+      ravecore::compose_channel(
+        subject = subject$subject_id,
+        number = item$number,
+        from = item$from,
+        weights = item$weights,
+        normalize = item$normalize,
+        force = TRUE
+      )
+      return()
+    },
+    .globals = list(
+      subject = subject
+    ),
+    callback = function(item) {
+      sprintf("Composing channel|%s", item$number)
+    }
+  )
+}
+
+module_id <- "import_lfp_native"
+data_types <- NULL
+if(length(lfp_channels)) {
+  data_types <- "LFP"
+}
+if(length(microwire_channels)) {
+  data_types <- c(data_types, "Spike")
+}
+if(length(auxiliary_channels)) {
+  data_types <- c(data_types, "Auxiliary")
+}
+
+subject$set_default(
+  namespace = module_id,
+  key = "import_parameters",
+  value = list(
+    project_name = subject$project_name,
+    subject_code = subject$subject_code,
+    blocks = blocks,
+    electrodes = dipsaus::deparse_svec(lfp_channels),
+    lfp_channels = dipsaus::deparse_svec(lfp_channels),
+    microwire_channels = dipsaus::deparse_svec(microwire_channels),
+    auxiliary_channels = dipsaus::deparse_svec(auxiliary_channels),
+    composed_electrodes = compose_params,
+    
+    sample_rate = lfp_sample_rate,
+    lfp_sample_rate = lfp_sample_rate,
+    microwire_sample_rate = microwire_sample_rate,
+    auxiliary_sample_rate = auxiliary_sample_rate,
+    
+    format = format,
+    format_readable = names(ravecore::IMPORT_FORMATS)[ravecore::IMPORT_FORMATS == format],
+    conversion = lfp_unit,
+    lfp_conversion = lfp_unit,
+    microwire_conversion = microwire_unit,
+    auxiliary_conversion = auxiliary_unit,
+    
+    data_type = data_types,
+    add = FALSE,
+    timestamp = strftime(Sys.time(), usetz = TRUE)
+  )
+)
+
+preprocess_info <- ravecore::RAVEPreprocessSettings$new(subject$subject_id, read_only = TRUE)
+
+subject$get_electrode_table(reference_name = ".fake", simplify = FALSE)
+```
+
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-import_signals.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-import_signals.R")
+```
+
+
+Once the pipeline script `make-import_signals.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+

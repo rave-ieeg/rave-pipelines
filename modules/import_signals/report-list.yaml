@@ -1,0 +1,4 @@
+- name: subject-import-status
+  label: "Subject Import Status"
+  entry: status.Rmd
+  fork_policy: ~

@@ -1,0 +1,15 @@
+auxiliary_channels: ''
+auxiliary_sample_rate: .na
+compose_setup: []
+force_import: yes
+import_blocks:
+- mTurkWords_018
+- mTurkWords_019
+import_format: native_matlab
+lfp_channels: 1-118
+lfp_sample_rate: 2000
+microwire_channels: ''
+microwire_sample_rate: .na
+project_name: test
+skip_validation: yes
+subject_code: PAV058

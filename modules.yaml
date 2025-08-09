@@ -22,14 +22,20 @@ groups:
     order: 13
     open: no
 modules:
-  import_lfp_native:
-    label: Native Structure
+  import_signals:
+    label: Import Signal Data
     group: Import Signals
     order: 1.1
-  import_bids:
-    label: Migrate BIDS Format
+  import_lfp_native:
+    label: Native Standard
     group: Import Signals
     order: 1.2
+    badge: (legacy)|badge-default
+  import_bids:
+    label: BIDS Standard
+    group: Import Signals
+    order: 1.3
+    badge: (legacy)|badge-default
   power_explorer:
     label: Power Explorer
     order: 14
