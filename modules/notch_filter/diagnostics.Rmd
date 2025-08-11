@@ -1,54 +1,69 @@
 ---
-title: "Notch-Filter Diagnostic Plots"
-output: html_document
+title: "Notch Filter Diagnostic Plots"
 date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    code_folding: hide
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float: true
 params:
   electrodes: ~
 ---
 
 ```{r setup, echo = FALSE, results='hide', eval=TRUE}
+knitr::opts_chunk$set(
+  eval = TRUE,
+  echo = TRUE,
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+*Click on the `Show` button to reveal preparation scripts.*
+
+```{r initial_setup}
 # This code block sets up the engine environment
 # Please do not remove me
 pipeline <- ravepipeline::pipeline_from_path(".")
-shared_env <- pipeline$shared_env()
 
-project_name <- pipeline$get_settings(key = "project_name")
-subject_code <- pipeline$get_settings(key = "subject_code")
-diagnostic_plot_params <- pipeline$get_settings(key = "diagnostic_plot_params")
-diagnose_notch_filters <- shared_env$diagnose_notch_filters
+# Load inputs
+pipeline_inputs <- pipeline$get_settings()
+diagnostic_plot_params <- as.list(pipeline_inputs$diagnostic_plot_params)
+project_name <- pipeline_inputs$project_name
+subject_code <- pipeline_inputs$subject_code
 
-subject <- ravecore::RAVESubject$new(
-  project_name = project_name, 
-  subject_code = subject_code, 
-  strict = FALSE
-)
-diagnostic_plot_params <- as.list(diagnostic_plot_params)
+# Load pipeline functions
+pipeline_env <- pipeline$shared_env()
+diagnose_notch_filters <- pipeline_env$diagnose_notch_filters
+
+# Get pipeline targets
+subject <- ravecore::as_rave_subject(sprintf("%s/%s", project_name, subject_code))
+
+# Clean inputs, make sure the parameters are correct
 background <- diagnostic_plot_params$background
+if(!length(background) == 1) { background <- "white" }
+
 foreground <- diagnostic_plot_params$foreground
+if(!length(foreground) == 1) { foreground <- "black" }
 
-if(!length(background) == 1) {
-  background <- "white"
-}
-if(!length(foreground) == 1) {
-  foreground <- "black"
-}
+# pwelch window length
 winlen <- as.numeric(diagnostic_plot_params$window_length)
-if(!length(winlen) || is.na(winlen)) {
-  winlen <- "auto"
-}
-  
-max_freq <- as.numeric(diagnostic_plot_params$max_frequency)
-if(!length(max_freq) || is.na(max_freq)) {
-  max_freq <- 300
-}
-nbins <- as.numeric(diagnostic_plot_params$histogram_bins)
-if(!length(nbins) || is.na(nbins)) {
-  nbins <- 50
-}
+if(!length(winlen) || is.na(winlen)) { winlen <- "auto" }
 
+# max frequency in x-axis
+max_freq <- as.numeric(diagnostic_plot_params$max_frequency)
+if(!length(max_freq) || is.na(max_freq)) { max_freq <- 300 }
+
+# Number of histogram bins
+nbins <- as.numeric(diagnostic_plot_params$histogram_bins)
+if(!length(nbins) || is.na(nbins)) { nbins <- 50 }
 ```
 
-## Subject ID: `r subject$subject_id`
+## Subject ID: ``r subject$subject_id``
 
 
 
@@ -57,22 +72,41 @@ Welch-periodogram parameters:
 * Window size (seconds): `r winlen` seconds
 * Maximum frequency (Hz) to plot: `r max_freq` Hz
 
-```{r generate_diagnostic_plots, fig.height=7, fig.width=12, out.width="100%", echo = FALSE}
+Full `settings.yaml`:
+
+````yml
+```{r, results='asis', echo=FALSE, warning=FALSE}
+ravepipeline::save_yaml(pipeline$get_settings(), stdout())
+```
+````
+
+```{r generate_diagnostic_plots, fig.height=7, fig.width=12, out.width="100%", results='asis'}
 filtered_channels <- subject$electrodes[subject$notch_filtered]
 if(length(params$electrodes)) {
   filtered_channels <- filtered_channels[filtered_channels %in% params$electrodes]
 }
-diagnose_notch_filters(
-  subject = subject,
-  electrodes = filtered_channels,
-  max_freq = max_freq,
-  winlen = winlen,
-  nbins = nbins,
-  bg = background,
-  fg = foreground,
-  cex = font_size,
-  std = 3,
-  lwd = 0.3,
-  quiet = TRUE
-)
+
+for(channel in filtered_channels) {
+  cat(sprintf("\n\n### Channel: %s\n\n", channel))
+  channel_info <- subject$preprocess_settings$data[[as.character(channel)]]
+  cat(sprintf(
+    "* Sample rate: %.2f Hz\n* Signal type: %s\n* Applied Notch filters: %s\n\n",
+    channel_info$sample_rate,
+    c(channel_info$electrode_type, "(unknown)")[[1]],
+    ifelse(isTRUE(channel_info$notch_filtered), "yes", "no")
+  ))
+  res <- diagnose_notch_filters(
+    subject = subject,
+    electrodes = channel,
+    max_freq = max_freq,
+    winlen = winlen,
+    nbins = nbins,
+    bg = background,
+    fg = foreground,
+    cex = font_size,
+    std = 3,
+    lwd = 0.3,
+    quiet = TRUE
+  )
+}
 ```

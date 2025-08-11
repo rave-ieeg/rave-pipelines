@@ -1,4 +1,4 @@
-- name: subject-import-status
-  label: "Subject Import Status"
+- name: config
+  label: "Subject Import Configurations"
   entry: status.Rmd
-  fork_policy: ~
+  fork_policy: default
