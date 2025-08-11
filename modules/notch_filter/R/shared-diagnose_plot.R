@@ -1,3 +1,5 @@
+`%OF%` <- ravepipeline:::`%OF%`
+
 diagnose_notch_filters <- function(
   subject, electrodes, blocks,
   max_freq = 300, winlen = "auto", nbins= 50,
@@ -9,7 +11,7 @@ diagnose_notch_filters <- function(
   # mar = c(5.2, 5.4, 4.1, 2.1),
   # mai = c(0.6, 0.8, 0.4, 0.1),
 ) {
-  subject <- raveio::as_rave_subject(subject, strict = FALSE)
+  subject <- ravecore::as_rave_subject(subject, strict = FALSE)
   # subject <- local_data$subject
   sample_rates <- subject$preprocess_settings$sample_rates
   all_electrodes <- subject$electrodes
@@ -68,12 +70,12 @@ diagnose_notch_filters <- function(
       h5file <- file.path(subject$preprocess_path, "voltage", sprintf("electrode_%s.h5", e))
       h5name_raw <- sprintf("raw/%s", block)
       h5name_notch <- sprintf("notch/%s", block)
-      has_notch <- h5name_notch %in% gsub("^/", "", raveio::h5_names(h5file))
+      has_notch <- h5name_notch %in% gsub("^/", "", ieegio::io_h5_names(h5file))
 
-      raw_signal <- raveio::load_h5(h5file, name = h5name_raw, ram = TRUE)
+      raw_signal <- ieegio::io_read_h5(h5file, name = h5name_raw, ram = TRUE)
 
       if(has_notch) {
-        notch_signal <- raveio::load_h5(h5file, name = h5name_notch, ram = TRUE)
+        notch_signal <- ieegio::io_read_h5(h5file, name = h5name_notch, ram = TRUE)
 
         ravetools::diagnose_channel(
           raw_signal,

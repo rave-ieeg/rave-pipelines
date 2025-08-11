@@ -17,34 +17,34 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")),
-    input_background = targets::tar_target_raw("background",
+    input_channel_types = targets::tar_target_raw("channel_types",
         quote({
-            settings[["background"]]
-        }), deps = "settings"), input_diagnostic_plot_params = targets::tar_target_raw("diagnostic_plot_params",
-        quote({
-            settings[["diagnostic_plot_params"]]
-        }), deps = "settings"), input_diagnostic_plot_path = targets::tar_target_raw("diagnostic_plot_path",
-        quote({
-            settings[["diagnostic_plot_path"]]
-        }), deps = "settings"), input_notch_filter_lowerbound = targets::tar_target_raw("notch_filter_lowerbound",
-        quote({
-            settings[["notch_filter_lowerbound"]]
-        }), deps = "settings"), input_notch_filter_upperbound = targets::tar_target_raw("notch_filter_upperbound",
-        quote({
-            settings[["notch_filter_upperbound"]]
-        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name",
-        quote({
-            settings[["project_name"]]
+            settings[["channel_types"]]
         }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code",
         quote({
             settings[["subject_code"]]
-        }), deps = "settings"), input_channel_types = targets::tar_target_raw("channel_types",
+        }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name",
         quote({
-            settings[["channel_types"]]
+            settings[["project_name"]]
+        }), deps = "settings"), input_notch_filter_upperbound = targets::tar_target_raw("notch_filter_upperbound",
+        quote({
+            settings[["notch_filter_upperbound"]]
+        }), deps = "settings"), input_notch_filter_lowerbound = targets::tar_target_raw("notch_filter_lowerbound",
+        quote({
+            settings[["notch_filter_lowerbound"]]
+        }), deps = "settings"), input_diagnostic_plot_path = targets::tar_target_raw("diagnostic_plot_path",
+        quote({
+            settings[["diagnostic_plot_path"]]
+        }), deps = "settings"), input_diagnostic_plot_params = targets::tar_target_raw("diagnostic_plot_params",
+        quote({
+            settings[["diagnostic_plot_params"]]
+        }), deps = "settings"), input_background = targets::tar_target_raw("background",
+        quote({
+            settings[["background"]]
         }), deps = "settings"), load_subject = targets::tar_target_raw(name = "subject",
         command = quote({
             .__target_expr__. <- quote({
-                subject <- raveio::RAVESubject$new(project_name = project_name,
+                subject <- ravecore::RAVESubject$new(project_name = project_name,
                   subject_code = subject_code, strict = FALSE)
             })
             tryCatch({
@@ -57,7 +57,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject",
             target_export = "subject", target_expr = quote({
                 {
-                  subject <- raveio::RAVESubject$new(project_name = project_name,
+                  subject <- ravecore::RAVESubject$new(project_name = project_name,
                     subject_code = subject_code, strict = FALSE)
                 }
                 subject
@@ -146,7 +146,7 @@ rm(._._env_._.)
             .__target_expr__. <- quote({
                 channels_to_apply_filters <- imported_electrodes
                 channel_types_lower <- tolower(channel_types)
-                signal_types <- raveio:::SIGNAL_TYPES
+                signal_types <- ravecore::SIGNAL_TYPES
                 signal_types <- signal_types[tolower(signal_types) %in%
                   channel_types_lower]
                 channels <- subject$electrodes[subject$electrode_types %in%
@@ -166,7 +166,7 @@ rm(._._env_._.)
                 {
                   channels_to_apply_filters <- imported_electrodes
                   channel_types_lower <- tolower(channel_types)
-                  signal_types <- raveio:::SIGNAL_TYPES
+                  signal_types <- ravecore::SIGNAL_TYPES
                   signal_types <- signal_types[tolower(signal_types) %in%
                     channel_types_lower]
                   channels <- subject$electrodes[subject$electrode_types %in%
@@ -190,33 +190,38 @@ rm(._._env_._.)
                 sample_rates <- sapply(electrodes, function(e) {
                   sample_rates[subject$electrodes == e]
                 })
-                raveio::lapply_async(seq_along(electrodes), function(ii) {
-                  e <- electrodes[[ii]]
-                  srate <- sample_rates[[ii]]
-                  h5_path <- sprintf(fmt, e)
-                  h5_names <- gsub("^/", "", raveio::h5_names(h5_path))
-                  sel <- sprintf("raw/%s", blocks) %in% h5_names
-                  if (!all(sel)) {
-                    stop(sprintf("Cannot find imported block(s): %s (electrode %s)",
-                      blocks[!sel], e))
-                  }
-                  for (block in blocks) {
-                    signal <- raveio::load_h5(h5_path, sprintf("raw/%s",
-                      block), ram = TRUE)
-                    if (length(filters$lb) && e %in% channels_to_apply_filters) {
-                      signal <- ravetools::notch_filter(s = signal,
-                        sample_rate = srate, lb = filters$lb,
-                        ub = filters$ub, domain = filters$domain)
+                options("rave.job.profiling" = TRUE)
+                ravepipeline::lapply_jobs(seq_along(electrodes),
+                  function(ii) {
+                    e <- electrodes[[ii]]
+                    srate <- sample_rates[[ii]]
+                    h5_path <- sprintf(fmt, e)
+                    h5_names <- gsub("^/", "", ieegio::io_h5_names(h5_path))
+                    sel <- sprintf("raw/%s", blocks) %in% h5_names
+                    if (!all(sel)) {
+                      stop(sprintf("Cannot find imported block(s): %s (electrode %s)",
+                        blocks[!sel], e))
                     }
-                    raveio::save_h5(x = signal, file = h5_path,
-                      name = sprintf("notch/%s", block), chunk = 1024,
-                      replace = TRUE, ctype = "numeric")
-                  }
-                }, callback = function(ii) {
-                  sprintf("Applying Notch filters|Electrode - %s",
-                    electrodes[[ii]])
-                })
-                preproc <- raveio::RAVEPreprocessSettings$new(subject = subject$subject_id)
+                    for (block in blocks) {
+                      signal <- ieegio::io_read_h5(h5_path, sprintf("raw/%s",
+                        block), ram = TRUE)
+                      if (length(filters$lb) && e %in% channels_to_apply_filters) {
+                        signal <- ravetools::notch_filter(s = signal,
+                          sample_rate = srate, lb = filters$lb,
+                          ub = filters$ub, domain = filters$domain)
+                      }
+                      ieegio::io_write_h5(x = signal, file = h5_path,
+                        name = sprintf("notch/%s", block), chunk = 1024,
+                        replace = TRUE, ctype = "numeric")
+                    }
+                  }, .globals = list(electrodes = electrodes,
+                    sample_rates = sample_rates, fmt = fmt, blocks = blocks,
+                    channels_to_apply_filters = channels_to_apply_filters,
+                    filters = filters), callback = function(ii) {
+                    sprintf("Applying Notch filters|Electrode - %s",
+                      electrodes[[ii]])
+                  })
+                preproc <- ravecore::RAVEPreprocessSettings$new(subject = subject$subject_id)
                 for (e in electrodes) {
                   preproc$data[[as.character(e)]]$notch_filtered <- TRUE
                 }
@@ -247,34 +252,38 @@ rm(._._env_._.)
                   sample_rates <- sapply(electrodes, function(e) {
                     sample_rates[subject$electrodes == e]
                   })
-                  raveio::lapply_async(seq_along(electrodes),
+                  options("rave.job.profiling" = TRUE)
+                  ravepipeline::lapply_jobs(seq_along(electrodes),
                     function(ii) {
                       e <- electrodes[[ii]]
                       srate <- sample_rates[[ii]]
                       h5_path <- sprintf(fmt, e)
-                      h5_names <- gsub("^/", "", raveio::h5_names(h5_path))
+                      h5_names <- gsub("^/", "", ieegio::io_h5_names(h5_path))
                       sel <- sprintf("raw/%s", blocks) %in% h5_names
                       if (!all(sel)) {
                         stop(sprintf("Cannot find imported block(s): %s (electrode %s)",
                           blocks[!sel], e))
                       }
                       for (block in blocks) {
-                        signal <- raveio::load_h5(h5_path, sprintf("raw/%s",
-                          block), ram = TRUE)
+                        signal <- ieegio::io_read_h5(h5_path,
+                          sprintf("raw/%s", block), ram = TRUE)
                         if (length(filters$lb) && e %in% channels_to_apply_filters) {
                           signal <- ravetools::notch_filter(s = signal,
                             sample_rate = srate, lb = filters$lb,
                             ub = filters$ub, domain = filters$domain)
                         }
-                        raveio::save_h5(x = signal, file = h5_path,
+                        ieegio::io_write_h5(x = signal, file = h5_path,
                           name = sprintf("notch/%s", block),
                           chunk = 1024, replace = TRUE, ctype = "numeric")
                       }
-                    }, callback = function(ii) {
+                    }, .globals = list(electrodes = electrodes,
+                      sample_rates = sample_rates, fmt = fmt,
+                      blocks = blocks, channels_to_apply_filters = channels_to_apply_filters,
+                      filters = filters), callback = function(ii) {
                       sprintf("Applying Notch filters|Electrode - %s",
                         electrodes[[ii]])
                     })
-                  preproc <- raveio::RAVEPreprocessSettings$new(subject = subject$subject_id)
+                  preproc <- ravecore::RAVEPreprocessSettings$new(subject = subject$subject_id)
                   for (e in electrodes) {
                     preproc$data[[as.character(e)]]$notch_filtered <- TRUE
                   }
@@ -300,7 +309,7 @@ rm(._._env_._.)
                   if (startsWith(diagnostic_plot_path, "{")) {
                     diagnostic_plot_path <- glue::glue(diagnostic_plot_path)
                   }
-                  raveio::dir_create2(dirname(diagnostic_plot_path))
+                  ravepipeline::dir_create2(dirname(diagnostic_plot_path))
                 } else {
                   diagnostic_plot_path <- NULL
                 }
@@ -363,7 +372,7 @@ rm(._._env_._.)
                     if (startsWith(diagnostic_plot_path, "{")) {
                       diagnostic_plot_path <- glue::glue(diagnostic_plot_path)
                     }
-                    raveio::dir_create2(dirname(diagnostic_plot_path))
+                    ravepipeline::dir_create2(dirname(diagnostic_plot_path))
                   } else {
                     diagnostic_plot_path <- NULL
                   }

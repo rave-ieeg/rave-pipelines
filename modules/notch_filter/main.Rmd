@@ -14,7 +14,7 @@ ravepipeline::pipeline_setup_rmd("notch_filter")
 ```
 
 ```{rave load_subject, language = "R", export = "subject", cue = "always", format = "rave-subject"}
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code, 
   strict = FALSE
@@ -64,7 +64,7 @@ filter_settings <- list(
 channels_to_apply_filters <- imported_electrodes
 
 channel_types_lower <- tolower(channel_types)
-signal_types <- raveio:::SIGNAL_TYPES
+signal_types <- ravecore::SIGNAL_TYPES
 signal_types <- signal_types[tolower(signal_types) %in% channel_types_lower]
 
 channels <- subject$electrodes[subject$electrode_types %in% signal_types]
@@ -84,12 +84,12 @@ sample_rates <- sapply(electrodes, function(e){
   sample_rates[subject$electrodes == e]
 })
 
-raveio::lapply_async(
+ravepipeline::lapply_jobs(
   seq_along(electrodes), function(ii) {
     e <- electrodes[[ii]]
     srate <- sample_rates[[ii]]
     h5_path <- sprintf(fmt, e)
-    h5_names <- gsub("^/", "", raveio::h5_names(h5_path))
+    h5_names <- gsub("^/", "", ieegio::io_h5_names(h5_path))
     sel <- sprintf("raw/%s", blocks) %in% h5_names
     if(!all(sel)) {
       stop(sprintf(
@@ -99,23 +99,38 @@ raveio::lapply_async(
     }
     for(block in blocks){
       # cat(block, e, "\n")
-      signal <- raveio::load_h5(h5_path, sprintf("raw/%s", block), ram = TRUE)
+      signal <- ieegio::io_read_h5(h5_path, sprintf("raw/%s", block), ram = TRUE)
       
       # Apply notch filter if filters exist, otherwise do NOT do anything
       # also make sure the channel is marked to apply filters, otherwise do nothing
       if(length(filters$lb) && e %in% channels_to_apply_filters) {
         signal <- ravetools::notch_filter(s = signal, sample_rate = srate, lb = filters$lb, ub = filters$ub, domain = filters$domain)
       }
-      raveio::save_h5(x = signal, file = h5_path, name = sprintf("notch/%s", block), chunk = 1024, replace = TRUE, ctype = "numeric")
+      ieegio::io_write_h5(
+        x = signal,
+        file = h5_path,
+        name = sprintf("notch/%s", block),
+        chunk = 1024,
+        replace = TRUE,
+        ctype = "numeric"
+      )
     }
   },
+  .globals = list(
+    electrodes = electrodes,
+    sample_rates = sample_rates,
+    fmt = fmt,
+    blocks = blocks,
+    channels_to_apply_filters = channels_to_apply_filters,
+    filters = filters
+  ),
   callback = function(ii){
     sprintf("Applying Notch filters|Electrode - %s", electrodes[[ii]])
   }
 )
 
 # save to subject
-preproc <- raveio::RAVEPreprocessSettings$new(subject = subject$subject_id)
+preproc <- ravecore::RAVEPreprocessSettings$new(subject = subject$subject_id)
 
 for(e in electrodes){
   preproc$data[[as.character(e)]]$notch_filtered <- TRUE
@@ -135,8 +150,6 @@ subject$set_default(
   key = "parameters",
   value = apply_notch
 )
-
-
 ```
 
 
@@ -148,7 +161,7 @@ if(length(diagnostic_plot_path) == 1) {
   if(startsWith(diagnostic_plot_path, "{")) {
     diagnostic_plot_path <- glue::glue(diagnostic_plot_path)
   }
-  raveio::dir_create2(dirname(diagnostic_plot_path))
+  ravepipeline::dir_create2(dirname(diagnostic_plot_path))
 } else {
   diagnostic_plot_path <- NULL
 }

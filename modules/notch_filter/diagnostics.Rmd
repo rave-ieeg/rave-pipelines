@@ -17,7 +17,7 @@ subject_code <- pipeline$get_settings(key = "subject_code")
 diagnostic_plot_params <- pipeline$get_settings(key = "diagnostic_plot_params")
 diagnose_notch_filters <- shared_env$diagnose_notch_filters
 
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code, 
   strict = FALSE

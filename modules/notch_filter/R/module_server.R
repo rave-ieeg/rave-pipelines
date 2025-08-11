@@ -153,7 +153,7 @@ module_server <- function(input, output, session, ...){
         max = floor(sample_rate / 2)
       )
 
-      ravedash::logger("Switch to electrode ", electrode, level = "trace")
+      ravepipeline::logger("Switch to electrode ", electrode, level = "trace")
 
       return(electrode)
     }),
@@ -412,7 +412,7 @@ module_server <- function(input, output, session, ...){
           try({
             subject <- pipeline$read("subject")
             fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
-            raveio::backup_file(fork_path, remove = TRUE)
+            ravecore::backup_file(fork_path, remove = TRUE)
             pipeline$fork(fork_path)
           })
 
