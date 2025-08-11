@@ -103,3 +103,6 @@ modules:
   project_overview:
     label: Project Overview
     order: 11
+  standalone_report:
+    label: Standalone Report Viewer
+    hidden: yes
