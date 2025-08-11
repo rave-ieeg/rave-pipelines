@@ -11,6 +11,8 @@ module_server <- function(input, output, session, ...){
   server_registry <- ravedash::register_rave_session()
   server_tools <- ravedash::get_default_handlers()
 
+  report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
+
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
   # local_data$subject
@@ -32,118 +34,11 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       if(!report_btn_onclick()) { return() }
-      available_reports <- pipeline$available_reports
-      if(!length(available_reports)) { return() }
-      labels <- unname(unlist(lapply(available_reports, "[[", "label")))
-      if(!length(labels)) { return() }
-
-      settings <- pipeline$get_settings()
-      settings_yaml <- ""
-      conn <- textConnection("settings_yaml", open = "w", local = TRUE)
-      ravepipeline::save_yaml(settings, conn)
-      close(conn)
-
-      current_selection <- as.character(input$report_label)
-      if(!length(current_selection)) {
-        current_selection <- labels
-      }
-
-      shiny::showModal(shiny::modalDialog(
-        title = "Generate reports",
-        size = "l",
-        easyClose = FALSE,
-
-        shiny::fluidRow(
-          shiny::column(
-            width = 12L,
-            shiny::selectInput(
-              inputId = ns("report_label"),
-              label = "Choose one or more reports to generate",
-              choices = labels,
-              selected = current_selection,
-              multiple = TRUE, width = "100%"
-            )
-          ),
-          shiny::column(
-            width = 12L,
-            shiny::tags$details(
-              shiny::tags$summary("See current inputs:"),
-              shiny::div(
-                class = "fill-width",
-                shiny::HTML(sprintf("<pre><code>%s</code></pre>",
-                                    paste(settings_yaml, collapse = "\n")))
-              )
-            )
-          )
-        ),
-
-        footer = shiny::tagList(
-          shiny::modalButton("Dismiss"),
-          dipsaus::actionButtonStyled(inputId = ns("report_generate"), label = "Generate reports")
-        )
-      ))
+      report_wizard(subject = pipeline$read("subject"), multiple = TRUE)
     }),
     report_btn_onclick(),
     ignoreNULL = TRUE,
     ignoreInit = FALSE
-  )
-
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      report_labels <- input$report_label
-      if(!length(report_labels)) { return() }
-      available_reports <- pipeline$available_reports
-      if(!length(available_reports)) { return() }
-
-      labels <- unname(unlist(lapply(available_reports, "[[", "label")))
-      reports <- available_reports[labels %in% report_labels]
-
-      subject <- pipeline$read("subject")
-      report_promises <- lapply(reports, function(report_item) {
-        job_id <- pipeline$generate_report(name = report_item$name, subject = subject)
-        promise <- ravepipeline::as.promise(job_id)
-        promise$then(onFulfilled = function(path) {
-          try({
-            ravedash::show_notification(
-              title = "Report generated!",
-              type = "success",
-              message = shiny::p(
-                sprintf("A report `%s` has been generated at:", report_item$label),
-                shiny::pre(path)
-              ),
-              close = TRUE,
-              autohide = FALSE
-            )
-          })
-        }, onRejected = function(e) {
-          try({
-            ravepipeline::logger_error_condition(e)
-            ravedash::error_notification(e, title = sprintf("Error in report - %s", report_item$label))
-          })
-        })
-      })
-
-      # Avoid GC
-      local_data$report_promises <- report_promises
-
-      shiny::removeModal(session = session)
-
-      ravedash::shiny_alert2(
-        title = "Report(s) scheduled",
-        text = paste(c(
-          "Report(s) scheduled. Please check the subject report directory later:\n",
-          subject$report_path,
-          "\nFeel free to dismiss this message."
-        ), collapse = ""),
-        icon = "info",
-        auto_close = TRUE,
-        buttons = "Dismiss",
-        session = session
-      )
-
-    }),
-    input$report_generate,
-    ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
   # ---- on data loaded ------------------------------------
