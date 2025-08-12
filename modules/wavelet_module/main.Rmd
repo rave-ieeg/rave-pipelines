@@ -14,9 +14,6 @@ ravepipeline::pipeline_setup_rmd(module_id = "wavelet_module")
 ```{rave load_subject, language = "R", export = "subject", cue = "always", format = "rave-subject"}
 
 # check if project and subject are valid
-stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", project_name))
-stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", subject_code))
-
 subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code
