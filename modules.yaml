@@ -51,7 +51,7 @@ modules:
   wavelet_module:
     label: Wavelet
     group: LFP Processing
-    order: 2.2
+    order: 2.3
   epoch_generator:
     label: Generate Epoch
     group: Auxiliary Processing
@@ -59,7 +59,7 @@ modules:
   reference_module:
     label: Reference Channels
     group: LFP Processing
-    order: 2.3
+    order: 2.2
   surface_reconstruction:
     label: MRI/CT Preprocessing
     group: Images & Electrodes
