@@ -79,6 +79,7 @@ loader_server <- function(input, output, session, ...){
       res <- pipeline$run(
         as_promise = TRUE,
         names = c("reference_table_initial", "voltage_data"),
+        return_values = FALSE
       )
 
       res$promise$then(

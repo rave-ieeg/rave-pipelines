@@ -85,7 +85,7 @@ module_server <- function(input, output, session, ...){
     }
 
     re <- list()
-    inst <- raveio::new_reference(subject = subject, number = name)
+    inst <- ravecore::new_reference(subject = subject, number = name)
     re$voltage <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "voltage")
 
     if( has_wavelet ) {
@@ -498,7 +498,7 @@ module_server <- function(input, output, session, ...){
 
       table <- table[order(table$Electrode), ]
 
-      raveio::safe_write_csv(table, save_path, row.names = FALSE)
+      ravecore:::safe_write_csv(table, save_path, row.names = FALSE)
 
       dipsaus::shiny_alert2(
         title = "Succeed!",
@@ -1204,8 +1204,12 @@ module_server <- function(input, output, session, ...){
       if(!loaded_flag){ return() }
 
       new_subject <- pipeline$read("subject")
-      new_subject <- raveio::as_rave_subject(new_subject$subject_id)
-      new_repository <- raveio::prepare_subject_bare0(subject = new_subject, electrodes = new_subject$electrodes, reference_name = "_unsaved")
+      new_repository <- ravecore::prepare_subject_bare0(
+        subject = new_subject,
+        electrodes = new_subject$electrodes,
+        reference_name = "_unsaved",
+        auto_exclude = FALSE
+      )
 
       if(!inherits(new_repository, "rave_prepare_subject_bare0")){
         ravedash::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_subject_bare0`. Abort initialization", level = "warning")
@@ -1381,8 +1385,8 @@ module_server <- function(input, output, session, ...){
       progress <- dipsaus::progress2(max = 2, shiny_auto_close = TRUE, title = "Overall progress")
       progress$inc("")
 
-      raveio::with_future_parallel({
-        raveio::generate_reference(subject = subject_id, electrodes = channels)
+      ravepipeline::with_rave_parallel({
+        ravecore::generate_reference(subject = subject_id, electrodes = channels)
       })
 
 
@@ -1789,7 +1793,7 @@ module_server <- function(input, output, session, ...){
       )
     )
     subject <- ginfo$subject
-    brain <- raveio::rave_brain(subject = subject)
+    brain <- ravecore::rave_brain(subject = subject)
 
     shiny::validate(shiny::need(!is.null(brain), message = "No 3D brain available"))
 
