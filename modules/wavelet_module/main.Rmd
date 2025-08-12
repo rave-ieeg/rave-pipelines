@@ -17,7 +17,7 @@ ravepipeline::pipeline_setup_rmd(module_id = "wavelet_module")
 stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", project_name))
 stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", subject_code))
 
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code
 )
@@ -27,7 +27,7 @@ print(subject)
 ```{rave clear_cache, language = "R", export = "clear_cache", cue = "always"}
 # clear all existing cache data in cache_dir
 
-clear_cache <- raveio::clear_cached_files(
+clear_cache <- ravecore::clear_cached_files(
   subject_code = subject$subject_code
 )
 
@@ -108,7 +108,7 @@ kernels <- list(
 
 
 ```{rave run_wavelet, language = "R", export = "wavelet_params", cue = "always"}
-wavelet_params <- raveio:::run_wavelet(
+wavelet_params <- ravecore::run_wavelet(
   subject = subject, electrodes = notch_filtered_electrodes, 
   freqs = kernels$freqs, cycles = kernels$cycles,
   target_sample_rate = target_sample_rate,
