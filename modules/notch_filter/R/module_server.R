@@ -34,7 +34,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       if(!report_btn_onclick()) { return() }
-      report_wizard(subject = pipeline$read("subject"), multiple = TRUE)
+      report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
     }),
     report_btn_onclick(),
     ignoreNULL = TRUE,
@@ -448,12 +448,14 @@ module_server <- function(input, output, session, ...){
           dipsaus::shiny_alert2(
             title = "Finished!",
             icon = "success",
-            text = ravedash::finished_text(),
-            auto_close = TRUE, buttons = list(
-              "Dismiss" = TRUE
-            )
+            text = "Notch filters have been applied. There is a report being generated at the background about the diagnostic plots. Please do not close RAVE. However, feel free dismissing this message and proceed on to the next modules.",
+            auto_close = TRUE,
+            buttons = list("Dismiss" = TRUE)
           )
           local_reactives$update_plots <- Sys.time()
+          try({
+            report_wizard$generate(subject = subject, "diagnostics")
+          })
         },
         onRejected = function(e) {
           dipsaus::close_alert2()
