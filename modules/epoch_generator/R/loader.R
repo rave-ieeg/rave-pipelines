@@ -58,7 +58,7 @@ loader_server <- function(input, output, session, ...){
         )
       )
 
-      subject <- raveio::RAVESubject$new(project_name = settings$project_name,
+      subject <- ravecore::RAVESubject$new(project_name = settings$project_name,
                                          subject_code = settings$subject_code,
                                          strict = FALSE)
       if(!length(subject$blocks)) {

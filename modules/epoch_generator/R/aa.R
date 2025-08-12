@@ -31,7 +31,7 @@ check_data_loaded <- function(first_time = FALSE){
     return(FALSE)
   }
 
-  subject <-  raveio::RAVESubject$new(project_name = project_name,
+  subject <-  ravecore::RAVESubject$new(project_name = project_name,
                                       subject_code = subject_code,
                                       strict = FALSE)
 

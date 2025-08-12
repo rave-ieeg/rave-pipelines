@@ -37,7 +37,7 @@ module_server <- function(input, output, session, ...){
       project_name <- pipeline$get_settings("project_name")
       subject_code <- pipeline$get_settings("subject_code")
 
-      subject <- raveio::RAVESubject$new(project_name = project_name,
+      subject <- ravecore::RAVESubject$new(project_name = project_name,
                                          subject_code = subject_code,
                                          strict = FALSE)
       local_data$subject <- subject
@@ -166,8 +166,8 @@ module_server <- function(input, output, session, ...){
             type = "NEV"
           )
         } else {
-          header <- raveio::read_mat2(epoch_channel_file, ram = FALSE)
-          nm <- raveio:::guess_raw_trace(header, electrodes = subject$electrodes)
+          header <- ravecore:::read_mat2(epoch_channel_file, ram = FALSE)
+          nm <- ravecore:::guess_raw_trace(header, electrodes = subject$electrodes)
           varnames_choices <- names(header)
           varnames <- c(nm, "analogTraces") %OF% varnames_choices
           local_reactives$epoch_header <- list(
@@ -237,11 +237,11 @@ module_server <- function(input, output, session, ...){
           efile <- file.path(subject$preprocess_path, "voltage", sprintf("electrode_%s.h5", e))
           if(
             !file.exists(efile) ||
-            !raveio::h5_valid(efile) ||
-            !sprintf("raw/%s", block) %in% gsub("^/", "", raveio::h5_names(efile))
+            !ieegio::io_h5_valid(efile) ||
+            !sprintf("raw/%s", block) %in% gsub("^/", "", ieegio::io_h5_names(efile))
           ){ return() }
 
-          signal_len <- length(raveio::load_h5(efile, sprintf("raw/%s", block), ram = FALSE))
+          signal_len <- length(ieegio::io_read_h5(efile, sprintf("raw/%s", block), ram = FALSE))
           sample_rate <- dlen /signal_len * subject$raw_sample_rates[subject$electrodes == e]
         },
         "Imported" = {
@@ -966,7 +966,7 @@ module_server <- function(input, output, session, ...){
         subject <- local_data$subject
 
         path <- file.path(subject$meta_path, get_epoch_filename())
-        raveio::safe_write_csv(tbl, path, row.names = FALSE)
+        ravecore:::safe_write_csv(tbl, path, row.names = FALSE)
       }
     }
   )
