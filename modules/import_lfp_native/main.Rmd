@@ -19,7 +19,7 @@ ravepipeline::pipeline_setup_rmd("import_lfp_native")
 ```
 
 ```{rave obtain_subject_instance, language = "R", export = "subject", format = "rave-subject"}
-subject <- raveio::RAVESubject$new(
+subject <- RAVESubject$new(
   project_name = import_setup__project_name,
   subject_code = import_setup__subject_code,
   strict = FALSE
@@ -61,7 +61,7 @@ if(length(auxiliary_channels) > 0 && (!length(auxiliary_sample_rate) || !isTRUE(
 
 format <- import_blocks__format
 if(!is.numeric(format)) {
-  format <- which(startsWith(names(raveio::IMPORT_FORMATS), trimws(format)))
+  format <- which(startsWith(names(IMPORT_FORMATS), trimws(format)))
 }
 
 clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
@@ -72,7 +72,7 @@ if(isTRUE(skip_validation)) {
 } else {
   validate_channels <- function(channels) {
     if(!length(channels)) { return() }
-    validation_result <- raveio::validate_raw_file(
+    validation_result <- validate_raw_file(
       subject_code = subject$subject_code,
       blocks = blocks, electrodes = channels,
       format = format
@@ -87,7 +87,7 @@ if(isTRUE(skip_validation)) {
       })
       stop('The following issues found when validating subject ',
            sQuote(subject$subject_code), ' in project ', sQuote(subject$project_name),
-           '.\n', msg, call. = bquote(raveio::validate_raw_file(
+           '.\n', msg, call. = bquote(validate_raw_file(
         subject_code = .(subject$subject_code),
         blocks = .(blocks), electrodes = .(channels),
         format = .(format)
@@ -114,7 +114,7 @@ subject$initialize_paths(include_freesurfer = FALSE)
 blocks <- import_blocks__session_block
 format <- import_blocks__format
 if(!is.numeric(format)) {
-  format <- which(startsWith(names(raveio::IMPORT_FORMATS), trimws(format)))
+  format <- which(startsWith(names(IMPORT_FORMATS), trimws(format)))
 }
 
 lfp_channels <- dipsaus::parse_svec(import_channels__lfp_channels)
@@ -181,7 +181,7 @@ if(force_import) {
 
 # import LFP
 if(length(lfp_channels)) {
-  raveio::rave_import(
+  rave_import(
     project_name = subject$project_name,
     subject_code = subject$subject_code,
     blocks = blocks, electrodes = lfp_channels,
@@ -194,7 +194,7 @@ if(length(lfp_channels)) {
 
 # import Microwire
 if(length(microwire_channels)) {
-  raveio::rave_import(
+  rave_import(
     project_name = subject$project_name,
     subject_code = subject$subject_code,
     blocks = blocks, electrodes = microwire_channels,
@@ -208,7 +208,7 @@ if(length(microwire_channels)) {
 
 # import auxiliary
 if(length(auxiliary_channels)) {
-  raveio::rave_import(
+  rave_import(
     project_name = subject$project_name,
     subject_code = subject$subject_code,
     blocks = blocks, electrodes = auxiliary_channels,
@@ -223,8 +223,8 @@ if(length(auxiliary_channels)) {
 compose_params <- clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
 
 if(length(compose_params)) {
-  raveio::lapply_async(compose_params, function(item) {
-    raveio::compose_channel(
+  lapply_async(compose_params, function(item) {
+    ravecore::compose_channel(
       subject = subject$subject_id,
       number = item$number,
       from = item$from,
@@ -266,7 +266,7 @@ subject$set_default(
     auxiliary_sample_rate = auxiliary_sample_rate,
     
     format = format,
-    format_readable = names(raveio::IMPORT_FORMATS)[[format]],
+    format_readable = names(IMPORT_FORMATS)[[format]],
     conversion = lfp_unit,
     lfp_conversion = lfp_unit,
     microwire_conversion = microwire_unit,
@@ -278,7 +278,7 @@ subject$set_default(
   )
 )
 
-preprocess_info <- raveio::RAVEPreprocessSettings$new(subject$subject_id, read_only = TRUE)
+preprocess_info <- RAVEPreprocessSettings$new(subject$subject_id, read_only = TRUE)
 
 subject$get_electrode_table(reference_name = ".fake", simplify = FALSE)
 ```

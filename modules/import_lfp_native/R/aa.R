@@ -12,7 +12,6 @@ check_data_loaded <- function(first_time = FALSE){
 }
 
 
-
 # ----------- Some Utility functions for modules -----------
 
 

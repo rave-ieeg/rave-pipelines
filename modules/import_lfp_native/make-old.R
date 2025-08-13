@@ -16,7 +16,7 @@ pipeline_targets$monitor_settings_path <- tar_target(
 pipeline_targets$load_settings_file <- tar_target(
   name = settings,
   command = {
-    settings <- raveio::load_yaml(settings_path)
+    settings <- ravepipeline::load_yaml(settings_path)
   }
 )
 
@@ -45,19 +45,19 @@ pipeline_targets$validate_basic_inputs <- tar_target(
 
     if(length(source_format) != 1 || !source_format %in% 1:6){
       stop("`file_format` is invalid, must be 1-6: \n  ",
-           paste0(1:6, ". ", names(raveio::IMPORT_FORMATS), collapse = "\n  "))
+           paste0(1:6, ". ", names(IMPORT_FORMATS), collapse = "\n  "))
     }
 
     if(source_format %in% 1:4){
       expected_raw_type <- "native"
-      dirs <- raveio::rave_directories(
+      dirs <- rave_directories(
         subject_code = subject_code,
         project_name = project_name,
         .force_format = 'native'
       )
     } else {
       expected_raw_type <- "bids"
-      dirs <- raveio::rave_directories(
+      dirs <- rave_directories(
         subject_code = subject_code,
         project_name = project_name,
         .force_format = 'BIDS'
@@ -65,27 +65,27 @@ pipeline_targets$validate_basic_inputs <- tar_target(
     }
 
     if(!dir.exists(dirs$raw_path)) {
-      stop(raveio::glue("Cannot find subject directory (raw)"))
+      stop(glue::glue("Cannot find subject directory (raw)"))
     } else if(dirs$.raw_path_type != expected_raw_type){
       if( expected_raw_type == "bids" ){
-        stop(raveio::glue("A BIDS format is specified, but the raw subject directory ({dirs$raw_path}) is {dirs$.raw_path_type}?"))
+        stop(glue::glue("A BIDS format is specified, but the raw subject directory ({dirs$raw_path}) is {dirs$.raw_path_type}?"))
       } else {
-        stop(raveio::glue("A RAVE native format is specified, but the raw subject directory ({dirs$raw_path}) is {dirs$.raw_path_type}?"))
+        stop(glue::glue("A RAVE native format is specified, but the raw subject directory ({dirs$raw_path}) is {dirs$.raw_path_type}?"))
       }
     }
 
-    preproc <- raveio::RAVEPreprocessSettings$new(
+    preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", project_name, subject_code), read_only = FALSE)
 
     # if(file.exists(preproc$path) || any(preproc$data_imported)){
     #   return(list(
     #     pass = FALSE,
-    #     message = raveio::glue("Subject is found.")
+    #     message = glue::glue("Subject is found.")
     #   ))
     # }
 
     if(!length(preproc$all_blocks)){
-      stop(raveio::glue("Subject directory (raw) is found at {dirs$raw_path}, but there is no session/block in it."))
+      stop(glue::glue("Subject directory (raw) is found at {dirs$raw_path}, but there is no session/block in it."))
     }
     preproc
   }
@@ -112,7 +112,7 @@ pipeline_targets$set_blocks <- tar_target(
     if(!ensure_subject){ stop("Subject not created") }
 
     # # Do not use on old RAVEPreprocessSettings as it might be out-dated
-    preproc <- raveio::RAVEPreprocessSettings$new(
+    preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", settings$project_name, settings$subject_code), read_only = FALSE)
 
     sel <- settings$blocks %in% preproc$all_blocks
@@ -142,7 +142,7 @@ pipeline_targets$set_electrodes <- tar_target(
     force(blocks)
 
     # # Do not use on old RAVEPreprocessSettings as it might be out-dated
-    preproc <- raveio::RAVEPreprocessSettings$new(
+    preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", settings$project_name, settings$subject_code), read_only = FALSE)
 
     # set electrodes
@@ -213,7 +213,7 @@ pipeline_targets$validate_configuration_before_importing <- tar_target(
     et <- electrodes$Type
     lfp_electrodes <- es[et == "LFP"]
 
-    preproc <- raveio::RAVEPreprocessSettings$new(
+    preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", settings$project_name, settings$subject_code), read_only = FALSE)
 
     # list(
@@ -222,7 +222,7 @@ pipeline_targets$validate_configuration_before_importing <- tar_target(
     #   lfp_electrodes = lfp_electrodes,
     #   lfp_sample_rate = preproc$`@lfp_ecog_sample_rate`
     # )
-    # raveio::catgl(paste(
+    # catgl(paste(
     #   "Setting subject [{preproc$subject$subject_id}]:\n",
     #   "    Blocks: ", paste(preproc$blocks, collapse = ", "), "\n",
     #   "    Electrodes: ", dipsaus::deparse_svec(es[et == "LFP"]), "\n",
@@ -230,7 +230,7 @@ pipeline_targets$validate_configuration_before_importing <- tar_target(
     #   sep = ""), level = "INFO")
 
     # Perform check
-    check_results <- raveio::validate_raw_file(
+    check_results <- validate_raw_file(
       subject_code = preproc$subject$subject_code,
       blocks = preproc$blocks,
       electrodes = lfp_electrodes,
@@ -241,7 +241,7 @@ pipeline_targets$validate_configuration_before_importing <- tar_target(
       reason <- attr(check_results, "reason")
       names <- names(reason)
       msg <- lapply(seq_along(names), function(ii){
-        raveio::glue("{ii}. {names[[ii]]} ({paste(reason[[ii]], collapse = ', ')})")
+        glue::glue("{ii}. {names[[ii]]} ({paste(reason[[ii]], collapse = ', ')})")
       })
       stop(paste(unlist(msg), collapse = "\n"))
     }
@@ -254,7 +254,7 @@ pipeline_targets$import_to_RAVE <- tar_target(
   command = {
     force(validate_preimport_results)
 
-    preproc <- raveio::RAVEPreprocessSettings$new(
+    preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", settings$project_name, settings$subject_code), read_only = FALSE)
 
     etypes <- preproc$electrode_types
@@ -265,7 +265,7 @@ pipeline_targets$import_to_RAVE <- tar_target(
     }
     for(et in etypes_unique){
       elecs <- preproc$electrodes[etypes %in% et & !preproc$data_imported]
-      raveio::rave_import(
+      rave_import(
         project_name = preproc$subject$project_name,
         subject_code = preproc$subject$subject_code,
         blocks = preproc$blocks,
@@ -289,7 +289,7 @@ pipeline_targets$generate_electrode_file <- tar_target(
 
     # reload preprocess_instance (clean start)
     subject <-
-      raveio::RAVESubject$new(project_name = settings$project_name,
+      RAVESubject$new(project_name = settings$project_name,
                               subject_code = settings$subject_code)
 
     etable <- subject$meta_data("electrodes")
@@ -319,13 +319,13 @@ pipeline_targets$generate_electrode_file <- tar_target(
     etable <- etable[order(etable$Electrode),]
     etable <- etable[!duplicated(etable$Electrode), ]
     if(!dir.exists(subject$meta_path)){
-      raveio::dir_create2(subject$meta_path)
+      ravepipeline::dir_create2(subject$meta_path)
     }
     csv <- file.path(subject$meta_path, "electrodes.csv")
-    raveio::safe_write_csv(etable, csv)
+    ravecore:::safe_write_csv(etable, csv)
 
     # also create reference
-    raveio::safe_write_csv(
+    ravecore:::safe_write_csv(
       data.frame(
         Electrode = etable$Electrode,
         Group = "default",
@@ -354,9 +354,9 @@ pipeline_targets
 #         }
 #         timestamp <- Sys.time()
 #         dir <- file.path(subject$pipeline_path, "_shared")
-#         raveio::dir_create2(dir)
+#         ravepipeline::dir_create2(dir)
 #         fname <- paste0("timestamp-", .(target_name), ".yaml")
-#         raveio::save_yaml(list(
+#         ravepipeline::save_yaml(list(
 #           pipeline_name = .(target_name),
 #           last_modified = timestamp
 #         ), file.path(dir, fname))
@@ -375,7 +375,7 @@ pipeline_targets
 #
 #       # reload preprocess_instance (clean start)
 #       subject <-
-#         raveio::RAVESubject$new(project_name = settings$project_name,
+#         RAVESubject$new(project_name = settings$project_name,
 #                                 subject_code = settings$subject_code)
 #
 #       etable <- subject$meta_data("electrodes")
@@ -404,12 +404,12 @@ pipeline_targets
 #       }
 #       etable <- etable[order(etable$Electrode),]
 #       etable <- etable[!duplicated(etable$Electrode), ]
-#       raveio::dir_create2(subject$meta_path)
+#       ravepipeline::dir_create2(subject$meta_path)
 #       csv <- file.path(subject$meta_path, "electrodes.csv")
-#       raveio::safe_write_csv(etable, csv)
+#       ravecore:::safe_write_csv(etable, csv)
 #
 #       # also create reference
-#       raveio::safe_write_csv(
+#       ravecore:::safe_write_csv(
 #         data.frame(
 #           Electrode = etable$Electrode,
 #           Group = "default",
