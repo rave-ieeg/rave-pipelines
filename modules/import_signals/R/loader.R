@@ -717,8 +717,6 @@ loader_server <- function(input, output, session, ...){
       shidashi::card2_close("loader_step2_card")
 
 
-      # preproc <- raveio::RAVEPreprocessSettings$new(subject = )
-
     }),
     validate_step1(),
     ignoreInit = FALSE,

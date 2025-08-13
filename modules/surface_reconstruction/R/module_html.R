@@ -4,7 +4,7 @@
 # 2. Import (convert to nii)
 # 3. Surface recon
 # 4. CT co-registration
-dry_run <- raveio::is_dry_run()
+dry_run <- ravecore::cmd_dry_run()
 module_html <- function(){
 
   shiny::div(

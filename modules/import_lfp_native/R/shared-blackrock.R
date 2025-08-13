@@ -1126,9 +1126,7 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
       min_analog <- min_analog * units
       ratio <- ratio * units
 
-      parser <- get(sprintf("parse_%s", data_specs$type),
-                    mode = "function", envir = asNamespace('raveio'),
-                    inherits = FALSE)
+      parser <- get(sprintf("parse_%s", data_specs$type), mode = "function")
 
       progress <- ravepipeline::rave_progress(
         "Loading NSx",
