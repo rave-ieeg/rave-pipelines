@@ -1,0 +1,18 @@
+Package: yael_preprocess
+Type: rave-pipeline
+Title: Preprocess 'MRI/CT' Images for Electrode Localization
+Version: 0.0.1
+Language: en-US
+Encoding: UTF-8
+License: MIT
+Authors@R: c(
+    person("Zhengjia", "Wang", email = "dipterix.wang@gmail.com", role = c("aut", "cre"))
+    )
+Description: Use 'dcm2niix' to import 'DICOM' files to 'NIFTI' format.
+    Apply 'FreeSurfer' or 'ANTsPyx' commands to perform 'MRI' segmentation
+    and parcellation. Provide 'ANTs', 'NiftyReg', and 'FSL-FLIRT' to 
+    co-register 'CT' and 'MRI'. This module is not mandatory. Users can 
+    integrate their own pipelines. Please see 'CITATION' file for
+    references.
+URL: https://yael.wiki
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues

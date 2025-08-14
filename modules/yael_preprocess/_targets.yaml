@@ -1,0 +1,3 @@
+yael_preprocess:
+  script: make-main.R
+  store: shared

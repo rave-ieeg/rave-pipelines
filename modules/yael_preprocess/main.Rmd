@@ -1,0 +1,686 @@
+---
+title: "RAVE Pipeline - Surface Reconstruction & CT Co-Registration"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("yael_preprocess")
+```
+
+```{rave check_commandline_tools, language = "R", export = "cmd_tools", cue = "always"}
+
+default_dcm2niix_path <- ravecore::cmd_dcm2niix(error_on_missing = FALSE)
+dcm2niix <- tryCatch({
+  dcm2niix <- ravecore::normalize_commandline_path(
+    path = dcm2niix_path, 
+    unset = default_dcm2niix_path
+  )
+  if(!path_is_valid(dcm2niix)) {
+    dcm2niix <- NULL 
+  } else if (!identical(default_dcm2niix_path, dcm2niix)) {
+    ravepipeline::raveio_setopt("dcm2niix_path", dcm2niix)
+  }
+  dcm2niix
+}, error = function(e){ NULL })
+
+default_fs_path <- ravecore:::cmd_freesurfer_home(error_on_missing = FALSE)
+freesurfer <- tryCatch({
+  freesurfer <- ravecore::normalize_commandline_path(
+    path = freesurfer_path, 
+    unset = default_fs_path,
+    type = "freesurfer"
+  )
+  if(!path_is_valid(freesurfer, dir_ok = TRUE)) {
+    freesurfer <- NULL 
+  } else if(!identical(default_fs_path, freesurfer)) {
+    ravepipeline::raveio_setopt("freesurfer_path", freesurfer)
+  }
+  freesurfer
+}, error = function(e){ NULL })
+
+
+default_fsl_path <- ravecore:::cmd_fsl_home(error_on_missing = FALSE)
+flirt <- tryCatch({
+  fsl <- ravecore::normalize_commandline_path(
+    path = fsl_path,
+    type = "fsl",
+    unset = default_fsl_path
+  )
+  flirt <- NULL
+  if(path_is_valid(fsl, dir_ok = TRUE)) {
+    if(!identical(default_fsl_path, fsl)) {
+      ravepipeline::raveio_setopt('fsl_path', fsl)
+    }
+    flirt <- file.path(fsl, "bin", "flirt")
+  }
+  flirt
+}, error = function(e){ NULL })
+
+default_afni_path <- ravecore:::cmd_afni_home(error_on_missing = FALSE)
+afni <- tryCatch({
+  afni <- ravecore::normalize_commandline_path(
+    path = afni_path,
+    type = "afni",
+    unset = default_afni_path
+  )
+  if(path_is_valid(afni, dir_ok = TRUE)) {
+    if(!identical(default_afni_path, afni)) {
+      ravepipeline::raveio_setopt('afni_path', afni)
+    }
+  } else {
+    afni
+  }
+  afni
+}, error = function(e){ NULL })
+
+cmd_tools <- list(
+  dcm2niix = dcm2niix,
+  freesurfer = freesurfer,
+  flirt = flirt,
+  afni = afni
+)
+```
+
+```{rave load_subject, language = "R", export = "subject", format = "rave-subject"}
+subject <- ravecore::RAVESubject$new(
+  project_name = project_name, 
+  subject_code = subject_code,
+  strict = FALSE
+)
+```
+
+```{rave check_subject_data, export = "check_result", cue = "always"}
+msgs <- character(0L)
+warns <- character(0L)
+fs_path <- subject$freesurfer_path
+if(!path_is_valid(fs_path, dir_ok = TRUE)) {
+  fs_path <- file.path(subject$path, "fs")
+  fs_reconstructed <- FALSE
+} else {
+  fs_reconstructed <- threeBrain::check_freesurfer_path(
+    fs_path,
+    autoinstall_template = FALSE,
+    check_volume = TRUE,
+    check_surface = FALSE
+  )
+}
+
+mri <- file.path(subject$preprocess_settings$raw_path, path_mri)
+
+if(is.null(cmd_tools$dcm2niix) || is.null(cmd_tools$freesurfer)) {
+  warns <- append(warns, "Cannot find command-line `dcm2niix` and/or `FreeSurfer`: the reconstruction will fail. Please make sure these programs paths are entered correctly.")
+} else {
+  if(!path_is_valid(mri, dir_ok = TRUE)) {
+    warns <- append(warns, "No MRI folder found, the reconstruction will result in errors")
+  }
+}
+if(!skip_recon && fs_reconstructed) {
+  warns <- append(warns, sprintf("Found existing FreeSurfer reconstructed directory. `recon-all` will ignore the imported T1 images. Instead, FreeSurfer will continue working on this directory unless you manually remove it: %s", fs_path))
+}
+
+ct <- file.path(subject$preprocess_settings$raw_path, path_ct)
+if(!path_is_valid(ct, dir_ok = TRUE)) {
+  warns <- append(warns, "The CT path is invalid: co-registration will result in errors.")
+}
+
+if(!skip_recon) {
+  msgs <- append(msgs, sprintf("New FreeSurfer reconstruction will be created from %s", mri))
+  msgs <- append(msgs, sprintf("MRI default DICOM folder/Nifti file is set: %s", path_mri))
+}
+if(!skip_coregistration) {
+  msgs <- append(msgs, sprintf("CT will be co-registered to MRI for electrode localization; CT path: %s", ct))
+  msgs <- append(msgs, sprintf("CT default DICOM folder/Nifti file is set: %s", path_ct))
+}
+
+path_temp <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+
+path_log <- file.path(path_temp, "log")
+
+check_result <- list(
+  project_name = subject$project_name,
+  subject_code = subject$subject_code,
+  fs_path = fs_path,
+  
+  fs_reconstructed = fs_reconstructed,
+  skip_recon = skip_recon,
+  skip_coregistration = skip_coregistration,
+  
+  has_dcm2niix = !is.null(cmd_tools$dcm2niix),
+  has_freesurfer = !is.null(cmd_tools$freesurfer),
+  has_flirt = !is.null(cmd_tools$flirt),
+  has_3dallineate = !is.null(cmd_tools$afni),
+  
+  path_mri = mri,
+  path_ct = ct,
+  path_temp = path_temp,
+  path_log = path_log,
+  
+  messages = msgs,
+  warnings = warns
+)
+```
+
+### ACPC Re-alignment
+
+```{rave generate_viewer_for_ACPC_alignment, export = "viewer_acpc", cue = "always", echo=FALSE, format="rave-brain"}
+path_root <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+mri_path <- file.path(path_root, "inputs", "MRI", acpc_infile)
+
+if( length(mri_path) ) {
+  acpc_root <- file.path(path_root, "acpc-alignment")
+  if(!isTRUE(file.exists(mri_path))) {
+    stop("Invalid file [", paste(mri_path, collapse = ""), "] for ACPC alignment.")
+  }
+  acpc_mri_dir <- file.path(acpc_root, "mri")
+  if(file.exists(acpc_mri_dir)) {
+    unlink(acpc_mri_dir, recursive = TRUE)
+  }
+  ravepipeline::dir_create2(acpc_mri_dir)
+  
+  # RNifti is available since RNiftyReg depends on it
+  mri <- RNifti::readNifti(mri_path, internal = TRUE)
+  RNifti::writeNifti(mri, file.path(acpc_mri_dir, "brain.nii.gz"))
+  viewer_acpc <- threeBrain::threeBrain(
+    path = acpc_root,
+    subject_code = subject$subject_code
+  )
+} else {
+  viewer_acpc <- NULL
+}
+
+## Code to show viewer
+# viewer_acpc$plot(
+#   control_presets = "acpcrealign",
+#   background = "#000000", 
+# )
+```
+
+### Generate command-line scripts
+
+Command-line script to import T1 MR images. If the images are `DICOM` slices, use `dcm2niix` command to import, otherwise the file must be in `Nifti` file format and we simply copy it.
+
+```{rave import_T1_MRI, export = "import_T1", cue = "always", echo=FALSE}
+import_T1 <- tryCatch({
+  ravecore::cmd_run_dcm2niix(
+    subject = subject,
+    src_path = check_result$path_mri,
+    type = "MRI",
+    merge = params$dcm2niix$merge %OF% c("Auto", "No", "Yes"),
+    float = params$dcm2niix$float %OF% c("Yes", "No"),
+    crop = params$dcm2niix$crop %OF% c("No", "Yes", "Ignore"),
+    overwrite = TRUE,
+    verbose = FALSE,
+    dry_run = TRUE,
+    command_path = cmd_tools$dcm2niix
+  )
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+<pre class="sh">
+<code class="hljs">
+```{r, results='asis', echo=FALSE}
+if(isTRUE(import_T1$error)) {
+  cat("Error: ", import_T1$condition$message, "\n")
+} else {
+  cat(import_T1$script, sep = "\n")
+}
+```
+</code>
+</pre>
+
+Command-line script to import CT images. If the images are `DICOM` slices, use `dcm2niix` command to import, otherwise the file must be in `Nifti` file format and we simply copy it.
+
+```{rave import_CT, export = "import_CT", cue = "always", echo=FALSE}
+import_CT <- tryCatch({
+  ravecore::cmd_run_dcm2niix(
+    subject = subject,
+    src_path = check_result$path_ct,
+    type = "CT",
+    merge = params$dcm2niix$merge %OF% c("Auto", "No", "Yes"),
+    float = params$dcm2niix$float %OF% c("Yes", "No"),
+    crop = params$dcm2niix$crop %OF% c("No", "Yes", "Ignore"),
+    overwrite = TRUE,
+    verbose = FALSE,
+    dry_run = TRUE,
+    command_path = cmd_tools$dcm2niix
+  )
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+
+<pre class="sh">
+<code class="hljs">
+```{r, results='asis', echo=FALSE}
+cmd <- import_CT
+if(isTRUE(cmd$error)) {
+  cat("Error: ", cmd$condition$message, "\n")
+} else {
+  cat(cmd$script, sep = "\n")
+}
+```
+</code>
+</pre>
+
+Find imported volume (in `Nifti` format) under the following folder:
+
+* T1 MRI: `r file.path(check_result$path_temp, "inputs", "MRI")` 
+* CT: `r file.path(check_result$path_temp, "inputs", "CT")` 
+
+The imported MRI will be used to reconstruct `FreeSurfer` surface. Normally the entire process will take 6-12 hours. However, if you just want to localize electrodes, then choose the `flag` to be `-autorecon1`. This flag only normalize and skull-strip the MRI. This sub-procedure only takes 8-10 minutes.
+
+```{rave Image_segmentation, export = "image_segmentation", cue = "always", echo=FALSE}
+image_segmentation <- tryCatch({
+  mri_path <- params$nii_t1
+  mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+  mri_path <- file.path(mri_root, mri_path)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a Nifti file under ", mri_root)
+  }
+  
+  mri_postfix <- gsub("^.*\\.(nii|nii\\.gz)$", "\\1", basename(mri_path))
+  
+  overwrite <- isTRUE(params$segmentation$fresh_start)
+  
+  switch(
+    paste(params$segmentation$program, collapse = ""),
+    "recon-all" = {
+      autorecon_flags <- c(
+        "-autorecon1", "-all", "-autorecon2", "-autorecon3",
+        "-autorecon2-cp", "-autorecon2-wm", "-autorecon2-pial"
+      )
+      flag <- params$segmentation$flag %OF% autorecon_flags
+      ravecore::cmd_run_freesurfer_recon_all(
+        subject = subject,
+        mri_path = mri_path,
+        args = flag,
+        overwrite = overwrite,
+        dry_run = TRUE,
+        verbose = FALSE,
+        command_path = cmd_tools$freesurfer
+      )
+    },
+    "recon-all-clinical.sh" = {
+      ravecore::cmd_run_freesurfer_recon_all_clinical(
+        subject = subject,
+        mri_path = mri_path,
+        overwrite = overwrite,
+        dry_run = TRUE,
+        verbose = FALSE,
+        command_path = cmd_tools$freesurfer
+      )
+    },
+    "YAEL+recon-all" = {
+      ravecore::cmd_run_yael_preprocess(
+        subject_code = subject$subject_code,
+        t1w_path = mri_path, 
+        normalize_template = c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"),
+        run_recon_all = TRUE,
+        dry_run = TRUE,
+        verbose = FALSE
+      )
+    },
+    "ants-preprocessing" = {
+      ravecore::cmd_run_yael_preprocess(
+        subject_code = subject$subject_code,
+        t1w_path = mri_path, 
+        normalize_template = "mni_icbm152_nlin_asym_09b",
+        run_recon_all = FALSE,
+        dry_run = TRUE,
+        verbose = FALSE
+      )
+    },
+    {
+      ravecore::cmd_run_r(
+        dry_run = TRUE,
+        verbose = FALSE,
+        quoted = TRUE, 
+        expr = bquote({
+          subject <- ravecore::as_rave_subject(.(subject$subject_id))
+          image_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
+          
+          mri_src <- .(mri_path)
+          mri_dirpath <- file.path(image_path, "fs", "mri")
+          mri_dst <- file.path(mri_dirpath, .(sprintf("brain.%s", mri_postfix)))
+          
+          # make sure dir exists
+          ravepipeline::dir_create2(mri_dirpath)
+          
+          file.copy(
+            from = mri_src,
+            to = mri_dst,
+            overwrite = .(overwrite),
+            recursive = FALSE,
+            copy.mode = TRUE,
+            copy.date = TRUE
+          )
+          
+          # Backup, also used by coreg
+          deriv_path <- file.path(image_path, "derivative")
+          ravepipeline::dir_create2(deriv_path)
+          file.copy(
+            from = mri_src,
+            to = file.path(deriv_path, .(sprintf("MRI_RAW.%s", mri_postfix))),
+            overwrite = TRUE,
+            recursive = FALSE,
+            copy.mode = TRUE,
+            copy.date = TRUE
+          )
+
+          message("Done")
+        })
+      )
+    }
+  )
+  
+  
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+
+<pre class="sh">
+<code class="hljs">
+```{r, results='asis', echo=FALSE}
+cmd <- image_segmentation
+if(isTRUE(cmd$error)) {
+  cat("Error: ", cmd$condition$message, "\n")
+} else {
+  cat(cmd$script, sep = "\n")
+}
+```
+</code>
+</pre>
+
+Align CT to T1 (co-registration). There are two options available: 
+
+* FSL-flirt 
+* AFNI-3dAllineate
+
+The following bash script uses `flirt` command
+
+```{rave CT_MR_coregistration_via_FSL, export = "coreg_flirt", cue = "always", echo=FALSE}
+coreg_flirt <- tryCatch({
+  mri_path <- file.path(check_result$path_temp, "derivative", params$flirt$reference)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    mri_path <- params$nii_t1
+    mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+    mri_path <- file.path(mri_root, mri_path)
+  }
+  
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file")
+  }
+  ct_path <- params$nii_ct
+  ct_root <- file.path(check_result$path_temp, "inputs", "CT")
+  ct_path <- file.path(ct_root, ct_path)
+  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+    stop("Please choose a valid CT Nifti file under ", ct_root)
+  }
+  
+  ravecore::cmd_run_fsl_flirt(
+    subject = subject,
+    mri_path = mri_path,
+    ct_path = ct_path,
+    dof = params$flirt$dof,
+    cost = params$flirt$cost,
+    search = params$flirt$search,
+    searchcost = params$flirt$searchcost,
+    overwrite = FALSE,
+    command_path = cmd_tools$flirt,
+    dry_run = TRUE,
+    verbose = FALSE
+  )
+  
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+```{rave CT_MR_coregistration_via_nipy, export = "coreg_nipy", cue = "always", echo=FALSE}
+coreg_nipy <- tryCatch({
+  mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    mri_path <- params$nii_t1
+    mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+    mri_path <- file.path(mri_root, mri_path)
+  }
+  
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file")
+  }
+  ct_path <- params$nii_ct
+  ct_root <- file.path(check_result$path_temp, "inputs", "CT")
+  ct_path <- file.path(ct_root, ct_path)
+  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+    stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
+  }
+  
+  ravecore::cmd_run_nipy_coreg(
+    subject = subject,
+    mri_path = mri_path,
+    ct_path = ct_path,
+    clean_source = params$nipy$clean_source,
+    inverse_target = params$nipy$inverse_target,
+    precenter_source = params$nipy$precenter_source,
+    reg_type = params$nipy$reg_type,
+    interp = params$nipy$interp,
+    similarity = params$nipy$similarity,
+    optimizer = params$nipy$optimizer,
+    dry_run = TRUE
+  )
+  
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+```{rave CT_MR_coregistration_via_NiftyReg, export = "coreg_niftyreg", cue = "always", echo=FALSE}
+coreg_niftyreg <- tryCatch({
+  mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    mri_path <- params$nii_t1
+    mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+    mri_path <- file.path(mri_root, mri_path)
+  }
+  
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file")
+  }
+  ct_path <- params$nii_ct
+  ct_root <- file.path(check_result$path_temp, "inputs", "CT")
+  ct_path <- file.path(ct_root, ct_path)
+  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+    stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
+  }
+  
+  ravecore::cmd_run_niftyreg_coreg(
+    subject = subject,
+    mri_path = mri_path,
+    ct_path = ct_path,
+    reg_type = params$niftyreg$reg_type,
+    interp = params$niftyreg$interp,
+    verbose = FALSE,
+    dry_run = TRUE
+  )
+  
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+```{rave CT_MR_coregistration_via_ANTs, export = "coreg_ants", cue = "always", echo=FALSE}
+coreg_ants <- tryCatch({
+  mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    mri_path <- params$nii_t1
+    mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+    mri_path <- file.path(mri_root, mri_path)
+  }
+  
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file")
+  }
+  ct_path <- params$nii_ct
+  ct_root <- file.path(check_result$path_temp, "inputs", "CT")
+  ct_path <- file.path(ct_root, ct_path)
+  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+    stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
+  }
+  
+  ravecore::cmd_run_ants_coreg(
+    subject = subject,
+    mri_path = mri_path,
+    ct_path = ct_path,
+    reg_type = params$ants$reg_type,
+    aff_metric = params$ants$aff_metric,
+    syn_metric = params$ants$syn_metric,
+    verbose = FALSE,
+    dry_run = TRUE
+  )
+  
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+<pre class="sh">
+<code class="hljs">
+```{r, results='asis', echo=FALSE}
+cmd <- coreg_flirt
+if(isTRUE(cmd$error)) {
+  cat("Error: ", cmd$condition$message, "\n")
+} else {
+  cat(cmd$script, sep = "\n")
+}
+```
+</code>
+</pre>
+
+The following bash script uses `3dAllineate` command
+
+```{rave CT_MR_coregistration_via_AFNI, export = "coreg_3dallineate", cue = "always", echo=FALSE}
+coreg_3dallineate <- tryCatch({
+  mri_path <- params$nii_t1
+  mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+  mri_path <- file.path(mri_root, mri_path)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file under ", mri_root)
+  }
+  ct_path <- params$nii_ct
+  ct_root <- file.path(check_result$path_temp, "inputs", "CT")
+  ct_path <- file.path(ct_root, ct_path)
+  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+    stop("Please choose a valid CT Nifti file under ", ct_root)
+  }
+  
+  ravecore::cmd_run_3dAllineate(
+    subject = subject,
+    mri_path = mri_path,
+    ct_path = ct_path,
+    overwrite = FALSE,
+    command_path = cmd_tools$afni,
+    dry_run = TRUE,
+    verbose = FALSE
+  )
+  
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+
+```{rave morph_MRI_to_template, export = "morphmri_ants", cue = "always", echo=FALSE}
+morphmri_ants <- tryCatch({
+  mri_path <- params$nii_t1
+  mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
+  mri_path <- file.path(mri_root, mri_path)
+  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file under ", mri_root)
+  }
+  ravecore::cmd_run_yael_preprocess(
+    subject_code = subject$subject_code,
+    t1w_path = mri_path, 
+    normalize_template = "mni_icbm152_nlin_asym_09b",
+    run_recon_all = FALSE,
+    dry_run = TRUE,
+    verbose = FALSE
+  )
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
+<pre class="sh">
+<code class="hljs">
+```{r, results='asis', echo=FALSE}
+cmd <- coreg_3dallineate
+if(isTRUE(cmd$error)) {
+  cat("Error: ", cmd$condition$message, "\n")
+} else {
+  cat(cmd$script, sep = "\n")
+}
+```
+</code>
+</pre>
+
+
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-yael_preprocess.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-yael_preprocess.R")
+```
+
+
+Once the pipeline script `make-yael_preprocess.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
+ravepipeline::pipeline_visualize()
+```
+
+
+
+
+
+
