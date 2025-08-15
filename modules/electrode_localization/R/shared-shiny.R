@@ -91,7 +91,7 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
     Sys.sleep(0.5)
     command <- .(command)
     cat("\n\n# Running above script using system command:", command)
-    raveio::cmd_execute(
+    ravecore::cmd_execute(
       script = script,
       script_path = script_path,
       stdout = log_path,

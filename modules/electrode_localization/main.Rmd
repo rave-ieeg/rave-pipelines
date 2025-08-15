@@ -27,7 +27,7 @@ fslut <- load_freesurfer_lookup_table()
 Load subject object from given RAVE project name and subject code
 
 ```{rave load_subject, language = "R", export = "subject", format = "rave-subject", cue = "always"}
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code,
   strict = FALSE
@@ -157,11 +157,11 @@ Make sure the electrodes are saved (run `localization_result_final`) first
 
 ### Post-processing using `ANTs`
 
-Calculate non-linear MNI coordinates. This optional target requires `Python` for RAVE be configured via `ravemanager::configure_python()`, and run `raveio::cmd_run_yael_preprocess(...)` first. To calculate non-linear mapping from T1 to MNI templates, run the following command or choose `YAEL+recon-all` in imaging preprocessing module.
+Calculate non-linear MNI coordinates. This optional target requires `Python` for RAVE be configured via `ravemanager::configure_python()`, and run `ravecore::cmd_run_yael_preprocess(...)` first. To calculate non-linear mapping from T1 to MNI templates, run the following command or choose `YAEL+recon-all` in imaging preprocessing module.
 
 ``` r
-raveio::cmd_run_yael_preprocess(
-  subject_code,
+ravecore::cmd_run_yael_preprocess(
+  subject,
   t1w_path = path_mri,
   normalize_template = "mni_icbm152_nlin_asym_09b",
   run_recon_all = FALSE,
@@ -184,7 +184,7 @@ if(!rpyANTs::ants_available()) {
 }
 
 if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-  brain <- raveio::rave_brain(subject)
+  brain <- ravecore::rave_brain(subject)
   if(is.null(brain)) {
     stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
   }
@@ -203,7 +203,7 @@ if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
 
 
 if(any(valids)) {
-  yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+  yael_process <- ravecore::YAELProcess$new(subject = subject)
   # get template mapping
   mapping <- NULL
   mni152 <- NULL
@@ -221,13 +221,13 @@ if(any(valids)) {
   
   if(is.null(mapping)) {
     if( !is_debug ) {
-      stop("Unable to find any non-linear mapping files. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
+      stop("Unable to find any non-linear mapping files. Please check help documentation of `?ravecore::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
     }
   } else {
     mni152 <- yael_process$transform_points_to_template(
       native_ras = t1_ras, template_name = template_name
     )
-    mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
+    mni305 <- cbind(mni152, 1) %*% t(solve(ravecore::MNI305_to_MNI152))
     mni152[!valids, ] <- 0
     mni305[!valids, ] <- 0
     electrode_table$MNI305_x <- mni305[, 1]
@@ -259,7 +259,7 @@ if(!is.data.frame(electrode_table)) {
 }
 
 if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-  brain <- raveio::rave_brain(subject)
+  brain <- ravecore::rave_brain(subject)
   if(is.null(brain)) {
     stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
   }
@@ -275,7 +275,7 @@ if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
   valids <- rowSums(t1_ras ^ 2) > 0  
 }
 
-surface_mapping <- raveio::transform_point_to_template(
+surface_mapping <- ravecore::transform_point_to_template(
   subject = subject,
   positions = t1_ras,
   space = "scannerRAS",

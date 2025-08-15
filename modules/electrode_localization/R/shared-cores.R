@@ -54,7 +54,8 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
 
   # check if number of electrodes is consistent with the plan
   plans <- dipsaus::fastmap2()
-  electrodes <- sort(subject$preprocess_settings$electrodes)
+  eo <- order(subject$preprocess_settings$electrodes)
+  electrodes <- subject$preprocess_settings$electrodes[eo]
 
   lapply(summarize_plan_list(localization_plan), function(item) {
     if(!length(item)) { return() }
@@ -96,11 +97,11 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     corder <- seq_along(channs)[!unplug]
     channs <- channs[!unplug]
 
-    if(item$type %in% raveio::LOCATION_TYPES) {
+    if(item$type %in% ravecore::LOCATION_TYPES) {
       ltype <- item$type
       pname <- ""
     } else {
-      ltype <- raveio::LOCATION_TYPES[[1]]
+      ltype <- ravecore::LOCATION_TYPES[[1]]
       pname <- item$type
     }
     data.frame(
@@ -135,11 +136,12 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
 
     n_planned <- nrow(plan_table)
     if( length(electrodes) > 0 ) {
-      if(length(electrodes) != n_planned ) {
-        stop(sprintf("The electrode planned (n=%d, for localization) has inconsistent length with registered channel size (n=%d) from the signal pipelines.", n_planned, length(electrodes)))
+      missing_electrodes <- electrodes[!electrodes %in% plan_table$Electrode]
+      if( length(missing_electrodes) ) {
+        stop(sprintf("Previously in the signal imorting modules, there were %s channels imported. Those channels are %s. However, the following channels are missing from the plan: %s. Each imported channel must have a corresponding entry in the plan list, even they are not intended for localization.", length(electrodes), dipsaus::deparse_svec(electrodes), dipsaus::deparse_svec(missing_electrodes)))
       }
 
-      plan_table$Electrode <- electrodes
+      # plan_table$Electrode <- electrodes
     }
 
     # Load existing electrodes_unsaved.csv or electrodes.csv, generate plan table
@@ -149,7 +151,7 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     try({
       if(length(files)) {
         files <- files[[1]]
-        electrode_table <- raveio::safe_read_csv(files)
+        electrode_table <- ravecore:::safe_read_csv(files)
         tname1 <- c("Electrode", "Coord_x", "Coord_y", "Coord_z")
         tname2 <- c(
           "Electrode", "Coord_x", "Coord_y", "Coord_z", "Radius",
@@ -274,17 +276,20 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
       plan_table$FSLabel[has_NA] <- "Unknown"
     }
 
+    etypes_default <- ifelse(is.na(plan_table$LocationType) | plan_table$LocationType %in% c("EEG", "Others"), "Unknown", "LFP")
+
     etypes <- subject$preprocess_settings$electrode_types
-    if(!length(etypes)) {
-      etypes <- ifelse(is.na(plan_table$LocationType) | plan_table$LocationType %in% c("EEG", "Others"), "Unknown", "LFP")
+    if(length(etypes)) {
+      etypes <- etypes[eo]
+      etypes_default[plan_table$Electrode %in% electrodes] <- etypes
     }
-    plan_table$SignalType <- etypes
+    plan_table$SignalType <- etypes_default
 
     plan_list <- split(plan_table, plan_table$LabelPrefix)
 
     # save to "electrodes_unsaved.csv"
     if( write_table ) {
-      raveio::dir_create2(subject$meta_path)
+      ravepipeline::dir_create2(subject$meta_path)
       utils::write.csv(
         plan_table,
         file = file.path(subject$meta_path, "electrodes_unsaved.csv"),
@@ -355,7 +360,7 @@ load_brain_with_electrode_prototypes <- function(subject, plan_list) {
   geom_defs <- list()
   if(file.exists(geom_def_path)) {
     tryCatch({
-      geom_defs <- raveio::load_json(geom_def_path)
+      geom_defs <- ravecore:::load_json(geom_def_path)
     }, error = function(e) {})
   }
 
@@ -497,7 +502,7 @@ stage_localization <- function(subject, brain, localization_list) {
       # contact_vox <- solve(brain$Torig) %*% rbind(contact_tkrras, 1)
       # contact_t1ras <- brain$Norig %*% contact_vox
       # contact_mni305 <- brain$xfm %*% contact_t1ras
-      # contact_mni152 <- raveio::MNI305_to_MNI152 %*% contact_mni305
+      # contact_mni152 <- ravecore::MNI305_to_MNI152 %*% contact_mni305
 
       contact_tkrras[is.na(contact_tkrras)] <- 0
       # contact_vox[is.na(contact_vox)] <- 0
@@ -572,7 +577,7 @@ stage_localization <- function(subject, brain, localization_list) {
     mr_voxel <- solve(brain$Torig) %*% tkrRAS
     t1 <- brain$Norig %*% mr_voxel
     mni305 <- brain$xfm %*% brain$Norig %*% solve(brain$Torig) %*% tkrRAS
-    mni152 <- raveio:::MNI305_to_MNI152 %*% mni305
+    mni152 <- ravecore::MNI305_to_MNI152 %*% mni305
 
     mni305[, empty_sel] <- 0
     mni152[, empty_sel] <- 0
@@ -593,7 +598,7 @@ stage_localization <- function(subject, brain, localization_list) {
     re$MRVoxel_K <- round(mr_voxel[3, ])
 
     # save to electrodes_unsaved.csv
-    raveio::dir_create2(subject$meta_path)
+    ravepipeline::dir_create2(subject$meta_path)
     utils::write.csv(
       x = re,
       file.path(subject$meta_path, "electrodes_unsaved.csv"),
@@ -602,7 +607,7 @@ stage_localization <- function(subject, brain, localization_list) {
 
     # save to "geometry_unsaved.json"
     prototype_list <- as.list(prototype_list)
-    raveio::save_json(
+    ravecore:::save_json(
       x = prototype_list,
       con = file.path(subject$meta_path, "geometry_unsaved.json"),
       serialize = TRUE
@@ -622,11 +627,11 @@ save_localization <- function(subject, brain, localize_data, write = TRUE) {
   src <- file.path(subject$meta_path, "electrodes_unsaved.csv")
   prot <- file.path(subject$meta_path, "geometry_unsaved.json")
   if(file.exists(prot)) {
-    proto_defs <- raveio::load_json(prot)
+    proto_defs <- ravecore:::load_json(prot)
     localization_result_final$prototype_definitions <- proto_defs
 
     if(length(proto_defs)) {
-      geometry_dir <- raveio::dir_create2(file.path(subject$freesurfer_path, "RAVE", "geometry"))
+      geometry_dir <- ravepipeline::dir_create2(file.path(subject$freesurfer_path, "RAVE", "geometry"))
       # save to brain
       for(nm in names(proto_defs)) {
         target <- file.path(geometry_dir, sprintf("%s.json", nm))
@@ -689,7 +694,7 @@ save_localization <- function(subject, brain, localize_data, write = TRUE) {
     # electrode_table$SubjectCode <- subject$subject_code
     ct_table <- final_results$ct_table
 
-    raveio::save_meta2(
+    ravecore::save_meta2(
       data = electrode_table,
       meta_type = "electrodes",
       project_name = subject$project_name,
@@ -715,11 +720,11 @@ save_localization <- function(subject, brain, localize_data, write = TRUE) {
 
     # also save it to subject custom-data path so users can view the results with colors
     custom_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "custom-data")
-    custom_path <- raveio::dir_create2(custom_path)
-    raveio::save_fst(electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
+    custom_path <- ravepipeline::dir_create2(custom_path)
+    ieegio::io_write_fst(electrode_table, file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
 
     # Save BIDS-compatible
-    bids <- raveio::convert_electrode_table_to_bids(subject)
+    bids <- ravecore::convert_electrode_table_to_bids(subject)
 
     # sub-<label>[_ses-<label>][_acq-<label>][_space-<label>]_coordsystem.json
     bids_prefix <- sprintf("sub-%s_space-%s", subject$subject_code, bids$meta$iEEGCoordinateSystem)
@@ -730,7 +735,7 @@ save_localization <- function(subject, brain, localize_data, write = TRUE) {
       na = "n/a",
       row.names = FALSE
     )
-    raveio::save_json(
+    ravecore:::save_json(
       x = bids$meta,
       serialize = FALSE,
       auto_unbox = TRUE,

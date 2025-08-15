@@ -379,7 +379,7 @@ loader_server <- function(input, output, session, ...){
        is.na(project_name) || is.na(subject_code) || project_name == '' || subject_code == '') {
       return()
     }
-    subject <- raveio::RAVESubject$new(project_name = project_name,
+    subject <- ravecore::RAVESubject$new(project_name = project_name,
                                        subject_code = subject_code,
                                        strict = FALSE)
     fs_path <- subject$freesurfer_path
@@ -400,7 +400,7 @@ loader_server <- function(input, output, session, ...){
     trans_name <- NULL
 
     if( file.exists(path_coreg_conf) ) {
-      coreg_conf <- raveio::load_yaml(path_coreg_conf)
+      coreg_conf <- ravepipeline::load_yaml(path_coreg_conf)
 
       # check outputs
       if("CT_IJK_to_MR_RAS" %in% names(coreg_conf$outputs)) {
@@ -597,6 +597,10 @@ loader_server <- function(input, output, session, ...){
       project_name <- loader_project$get_sub_element_input()
       subject_code <- loader_subject$get_sub_element_input()
 
+      subject <- ravecore::RAVESubject$new(project_name = project_name,
+                                           subject_code = subject_code,
+                                           strict = FALSE)
+
       dipsaus::shiny_alert2(
         title = "Checking current environment",
         icon = "info",
@@ -608,7 +612,7 @@ loader_server <- function(input, output, session, ...){
         dipsaus::close_alert2()
       })
 
-      yael_process <- raveio::YAELProcess$new(subject_code = subject_code)
+      yael_process <- ravecore::as_yael_process(subject)
 
       t1w <- input$loader_preprocess_t1
       if(length(t1w)) {
@@ -661,14 +665,14 @@ loader_server <- function(input, output, session, ...){
       subject <- yael_process$get_subject(project_name = project_name)
       subject$initialize_paths(include_freesurfer = FALSE)
 
-      simple_cmd <- raveio::cmd_run_yael_preprocess(
-        subject_code = subject_code,
+      simple_cmd <- ravecore::cmd_run_yael_preprocess(
+        subject = subject,
         normalize_template = NULL,
         run_recon_all = FALSE,
         dry_run = TRUE
       )
-      complete_cmd <- raveio::cmd_run_yael_preprocess(
-        subject_code = subject_code,
+      complete_cmd <- ravecore::cmd_run_yael_preprocess(
+        subject = subject,
         normalize_template = c(
           "mni_icbm152_nlin_asym_09b",
           "mni_icbm152_nlin_asym_09a",
@@ -751,7 +755,7 @@ loader_server <- function(input, output, session, ...){
       # add your own input values to the settings file
       project_name <- loader_project$get_sub_element_input()
       subject_code <- loader_subject$get_sub_element_input()
-      subject <- raveio::RAVESubject$new(project_name = project_name,
+      subject <- ravecore::RAVESubject$new(project_name = project_name,
                                          subject_code = subject_code,
                                          strict = FALSE)
       fs_path <- subject$freesurfer_path

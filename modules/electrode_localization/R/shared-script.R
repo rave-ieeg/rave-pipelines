@@ -25,7 +25,7 @@ electrode_types <- c("iEEG", "ECoG", "Others", names(electrode_prototypes))
 
 get_prototype <- function(pname) {
   if(is.na(pname) || !nzchar(pname)) { return() }
-  if( pname %in% raveio::LOCATION_TYPES ) { return() }
+  if( pname %in% ravecore::LOCATION_TYPES ) { return() }
   li <- electrode_prototypes[[pname]]
   if(is.null(li)) { return() }
   if(is.null(li$prototype)) {
@@ -187,14 +187,14 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
     return(default_plan)
   }
 
-  table <- raveio::safe_read_csv(electrode_file[[1]])
+  table <- ravecore:::safe_read_csv(electrode_file[[1]])
 
   table_names <- names(table)
   n <- nrow(table)
 
   # DIPSAUS DEBUG START
   # electrode_file <- "/Users/dipterix/rave_data/data_dir/YAEL/Precision001/rave/meta/electrodes_unsaved.csv"
-  # table <- raveio::safe_read_csv(electrode_file[[1]])
+  # table <- ravecore:::safe_read_csv(electrode_file[[1]])
   # table$Prototype %?<-% table$Geometry
   # #table <- table[,c("Electrode", "Label")]
   # table_names <- names(table)
@@ -215,9 +215,9 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
   }
 
   if(!"LocationType" %in% table_names) {
-    table$LocationType <- raveio::LOCATION_TYPES[[1]]
+    table$LocationType <- ravecore::LOCATION_TYPES[[1]]
   } else {
-    table$LocationType[!table$LocationType %in% raveio::LOCATION_TYPES] <- raveio::LOCATION_TYPES[[1]]
+    table$LocationType[!table$LocationType %in% ravecore::LOCATION_TYPES] <- ravecore::LOCATION_TYPES[[1]]
   }
   if(!"Hemisphere" %in% table_names) {
     table$Hemisphere <- "auto"
@@ -260,7 +260,7 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
       re <- list(
         label = lname,
         dimension = deparse_svec(sub$Electrode, do_sort = TRUE),
-        type = pname %OF% raveio::LOCATION_TYPES,
+        type = pname %OF% ravecore::LOCATION_TYPES,
         hemisphere = hemisphere,
         min_channel = min(sub$Electrode)
       )
@@ -444,5 +444,16 @@ summarize_plan_list <- function( plan ) {
     return(item)
   })
 
+}
+
+url_neurosynth <- function(x, y, z) {
+  x <- as.numeric(x)
+  y <- as.numeric(y)
+  z <- as.numeric(z)
+
+  x[is.na(x)] <- 0
+  y[is.na(y)] <- 0
+  z[is.na(z)] <- 0
+  sprintf("https://neurosynth.org/locations/?x=%.0f&y=%.0f&z=%.0f", x, y, z)
 }
 

@@ -73,7 +73,7 @@ rm(._._env_._.)
     load_subject = targets::tar_target_raw(name = "subject", 
         command = quote({
             .__target_expr__. <- quote({
-                subject <- raveio::RAVESubject$new(project_name = project_name, 
+                subject <- ravecore::RAVESubject$new(project_name = project_name, 
                   subject_code = subject_code, strict = FALSE)
             })
             tryCatch({
@@ -86,7 +86,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject", 
             target_export = "subject", target_expr = quote({
                 {
-                  subject <- raveio::RAVESubject$new(project_name = project_name, 
+                  subject <- ravecore::RAVESubject$new(project_name = project_name, 
                     subject_code = subject_code, strict = FALSE)
                 }
                 subject
@@ -316,7 +316,7 @@ rm(._._env_._.)
                   stop("ANTs is not configured for RAVE. Python environment must be configured through `ravemanager::configure_python()` first.")
                 }
                 if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-                  brain <- raveio::rave_brain(subject)
+                  brain <- ravecore::rave_brain(subject)
                   if (is.null(brain)) {
                     stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
                   }
@@ -331,7 +331,7 @@ rm(._._env_._.)
                   valids <- rowSums(t1_ras^2) > 0
                 }
                 if (any(valids)) {
-                  yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+                  yael_process <- ravecore::YAELProcess$new(subject = subject)
                   mapping <- NULL
                   mni152 <- NULL
                   template_name <- NULL
@@ -344,12 +344,12 @@ rm(._._env_._.)
                   }
                   if (is.null(mapping)) {
                     if (!is_debug) {
-                      stop("Unable to find any non-linear mapping files. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
+                      stop("Unable to find any non-linear mapping files. Please check help documentation of `?ravecore::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
                     }
                   } else {
                     mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
                       template_name = template_name)
-                    mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
+                    mni305 <- cbind(mni152, 1) %*% t(solve(ravecore::MNI305_to_MNI152))
                     mni152[!valids, ] <- 0
                     mni305[!valids, ] <- 0
                     electrode_table$MNI305_x <- mni305[, 1]
@@ -383,7 +383,7 @@ rm(._._env_._.)
                     stop("ANTs is not configured for RAVE. Python environment must be configured through `ravemanager::configure_python()` first.")
                   }
                   if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-                    brain <- raveio::rave_brain(subject)
+                    brain <- ravecore::rave_brain(subject)
                     if (is.null(brain)) {
                       stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
                     }
@@ -398,7 +398,7 @@ rm(._._env_._.)
                     valids <- rowSums(t1_ras^2) > 0
                   }
                   if (any(valids)) {
-                    yael_process <- raveio::YAELProcess$new(subject_code = subject$subject_code)
+                    yael_process <- ravecore::YAELProcess$new(subject = subject)
                     mapping <- NULL
                     mni152 <- NULL
                     template_name <- NULL
@@ -411,12 +411,12 @@ rm(._._env_._.)
                     }
                     if (is.null(mapping)) {
                       if (!is_debug) {
-                        stop("Unable to find any non-linear mapping files. Please check help documentation of `?raveio::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
+                        stop("Unable to find any non-linear mapping files. Please check help documentation of `?ravecore::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
                       }
                     } else {
                       mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
                         template_name = template_name)
-                      mni305 <- cbind(mni152, 1) %*% t(solve(raveio::MNI305_to_MNI152))
+                      mni305 <- cbind(mni152, 1) %*% t(solve(ravecore::MNI305_to_MNI152))
                       mni152[!valids, ] <- 0
                       mni305[!valids, ] <- 0
                       electrode_table$MNI305_x <- mni305[, 1]
@@ -442,7 +442,7 @@ rm(._._env_._.)
                   stop("Invalid electrode table. Please save the electrode localization results first.")
                 }
                 if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-                  brain <- raveio::rave_brain(subject)
+                  brain <- ravecore::rave_brain(subject)
                   if (is.null(brain)) {
                     stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
                   }
@@ -456,7 +456,7 @@ rm(._._env_._.)
                     "T1A", "T1S")])
                   valids <- rowSums(t1_ras^2) > 0
                 }
-                surface_mapping <- raveio::transform_point_to_template(subject = subject, 
+                surface_mapping <- ravecore::transform_point_to_template(subject = subject, 
                   positions = t1_ras, space = "scannerRAS", mapping_method = "surface", 
                   flip_hemisphere = FALSE, verbose = TRUE, project_surface = postprocess_surface_target)
                 surface_mapping[!valids, ] <- 0
@@ -478,7 +478,7 @@ rm(._._env_._.)
                     stop("Invalid electrode table. Please save the electrode localization results first.")
                   }
                   if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-                    brain <- raveio::rave_brain(subject)
+                    brain <- ravecore::rave_brain(subject)
                     if (is.null(brain)) {
                       stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
                     }
@@ -492,7 +492,7 @@ rm(._._env_._.)
                       "T1A", "T1S")])
                     valids <- rowSums(t1_ras^2) > 0
                   }
-                  surface_mapping <- raveio::transform_point_to_template(subject = subject, 
+                  surface_mapping <- ravecore::transform_point_to_template(subject = subject, 
                     positions = t1_ras, space = "scannerRAS", 
                     mapping_method = "surface", flip_hemisphere = FALSE, 
                     verbose = TRUE, project_surface = postprocess_surface_target)
