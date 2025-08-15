@@ -31,8 +31,8 @@ params:
     searchcost: mutualinfo
   nipy:
     reference: MRI_acpc.nii.gz
-    clean_source: no
-    inverse_target: no
+    clean_source: yes
+    inverse_target: yes
     precenter_source: yes
     reg_type: rigid
     similarity: crl1

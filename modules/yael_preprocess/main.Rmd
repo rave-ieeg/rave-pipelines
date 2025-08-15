@@ -327,7 +327,7 @@ image_segmentation <- tryCatch({
     },
     "YAEL+recon-all" = {
       ravecore::cmd_run_yael_preprocess(
-        subject_code = subject$subject_code,
+        subject = subject,
         t1w_path = mri_path, 
         normalize_template = c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"),
         run_recon_all = TRUE,
@@ -337,7 +337,7 @@ image_segmentation <- tryCatch({
     },
     "ants-preprocessing" = {
       ravecore::cmd_run_yael_preprocess(
-        subject_code = subject$subject_code,
+        subject = subject,
         t1w_path = mri_path, 
         normalize_template = "mni_icbm152_nlin_asym_09b",
         run_recon_all = FALSE,
@@ -633,7 +633,7 @@ morphmri_ants <- tryCatch({
     stop("Please choose a valid MRI Nifti file under ", mri_root)
   }
   ravecore::cmd_run_yael_preprocess(
-    subject_code = subject$subject_code,
+    subject = subject,
     t1w_path = mri_path, 
     normalize_template = "mni_icbm152_nlin_asym_09b",
     run_recon_all = FALSE,

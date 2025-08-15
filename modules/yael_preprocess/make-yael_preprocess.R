@@ -20,39 +20,39 @@ rm(._._env_._.)
     input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
             settings[["subject_code"]]
-        }), deps = "settings"), input_fsl_path = targets::tar_target_raw("fsl_path", 
+        }), deps = "settings"), input_skip_recon = targets::tar_target_raw("skip_recon", 
         quote({
-            settings[["fsl_path"]]
-        }), deps = "settings"), input_freesurfer_path = targets::tar_target_raw("freesurfer_path", 
+            settings[["skip_recon"]]
+        }), deps = "settings"), input_skip_coregistration = targets::tar_target_raw("skip_coregistration", 
         quote({
-            settings[["freesurfer_path"]]
+            settings[["skip_coregistration"]]
         }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
         quote({
             settings[["project_name"]]
         }), deps = "settings"), input_path_mri = targets::tar_target_raw("path_mri", 
         quote({
             settings[["path_mri"]]
-        }), deps = "settings"), input_skip_recon = targets::tar_target_raw("skip_recon", 
+        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
         quote({
-            settings[["skip_recon"]]
+            settings[["path_ct"]]
+        }), deps = "settings"), input_params = targets::tar_target_raw("params", 
+        quote({
+            settings[["params"]]
+        }), deps = "settings"), input_fsl_path = targets::tar_target_raw("fsl_path", 
+        quote({
+            settings[["fsl_path"]]
+        }), deps = "settings"), input_freesurfer_path = targets::tar_target_raw("freesurfer_path", 
+        quote({
+            settings[["freesurfer_path"]]
+        }), deps = "settings"), input_dcm2niix_path = targets::tar_target_raw("dcm2niix_path", 
+        quote({
+            settings[["dcm2niix_path"]]
         }), deps = "settings"), input_afni_path = targets::tar_target_raw("afni_path", 
         quote({
             settings[["afni_path"]]
         }), deps = "settings"), input_acpc_infile = targets::tar_target_raw("acpc_infile", 
         quote({
             settings[["acpc_infile"]]
-        }), deps = "settings"), input_params = targets::tar_target_raw("params", 
-        quote({
-            settings[["params"]]
-        }), deps = "settings"), input_dcm2niix_path = targets::tar_target_raw("dcm2niix_path", 
-        quote({
-            settings[["dcm2niix_path"]]
-        }), deps = "settings"), input_path_ct = targets::tar_target_raw("path_ct", 
-        quote({
-            settings[["path_ct"]]
-        }), deps = "settings"), input_skip_coregistration = targets::tar_target_raw("skip_coregistration", 
-        quote({
-            settings[["skip_coregistration"]]
         }), deps = "settings"), check_commandline_tools = targets::tar_target_raw(name = "cmd_tools", 
         command = quote({
             .__target_expr__. <- quote({
@@ -521,13 +521,13 @@ rm(._._env_._.)
                         mri_path = mri_path, overwrite = overwrite, 
                         dry_run = TRUE, verbose = FALSE, command_path = cmd_tools$freesurfer)
                     }, `YAEL+recon-all` = {
-                      ravecore::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                      ravecore::cmd_run_yael_preprocess(subject = subject, 
                         t1w_path = mri_path, normalize_template = c("mni_icbm152_nlin_asym_09b", 
                           "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"), 
                         run_recon_all = TRUE, dry_run = TRUE, 
                         verbose = FALSE)
                     }, `ants-preprocessing` = {
-                      ravecore::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                      ravecore::cmd_run_yael_preprocess(subject = subject, 
                         t1w_path = mri_path, normalize_template = "mni_icbm152_nlin_asym_09b", 
                         run_recon_all = FALSE, dry_run = TRUE, 
                         verbose = FALSE)
@@ -596,13 +596,13 @@ rm(._._env_._.)
                         mri_path = mri_path, overwrite = overwrite, 
                         dry_run = TRUE, verbose = FALSE, command_path = cmd_tools$freesurfer)
                     }, `YAEL+recon-all` = {
-                      ravecore::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                      ravecore::cmd_run_yael_preprocess(subject = subject, 
                         t1w_path = mri_path, normalize_template = c("mni_icbm152_nlin_asym_09b", 
                           "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"), 
                         run_recon_all = TRUE, dry_run = TRUE, 
                         verbose = FALSE)
                     }, `ants-preprocessing` = {
-                      ravecore::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                      ravecore::cmd_run_yael_preprocess(subject = subject, 
                         t1w_path = mri_path, normalize_template = "mni_icbm152_nlin_asym_09b", 
                         run_recon_all = FALSE, dry_run = TRUE, 
                         verbose = FALSE)
@@ -1022,7 +1022,7 @@ rm(._._env_._.)
                     stop("Please choose a valid MRI Nifti file under ", 
                       mri_root)
                   }
-                  ravecore::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                  ravecore::cmd_run_yael_preprocess(subject = subject, 
                     t1w_path = mri_path, normalize_template = "mni_icbm152_nlin_asym_09b", 
                     run_recon_all = FALSE, dry_run = TRUE, verbose = FALSE)
                 }, error = function(e) {
@@ -1048,7 +1048,7 @@ rm(._._env_._.)
                       stop("Please choose a valid MRI Nifti file under ", 
                         mri_root)
                     }
-                    ravecore::cmd_run_yael_preprocess(subject_code = subject$subject_code, 
+                    ravecore::cmd_run_yael_preprocess(subject = subject, 
                       t1w_path = mri_path, normalize_template = "mni_icbm152_nlin_asym_09b", 
                       run_recon_all = FALSE, dry_run = TRUE, 
                       verbose = FALSE)
