@@ -610,7 +610,7 @@ loader_server <- function(input, output, session, ...){
       }
 
       if(!is.na(project_name) && !is.na(subject_code)) {
-        subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+        subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
         if(file.exists(subject$path)) {
           stop("Subject [", subject_code, "] already exists. Please consider changing to another subject code.")
         }
@@ -637,7 +637,7 @@ loader_server <- function(input, output, session, ...){
 
           # 60 min?
           options(timeout = 3600)
-          raveio::install_subject(
+          ravecore::install_subject(
             path = url,
             ask = FALSE,
             overwrite = FALSE,

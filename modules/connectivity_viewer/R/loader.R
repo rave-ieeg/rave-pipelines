@@ -33,7 +33,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
     class = "container",
     shiny::fluidRow(
       shiny::column(
-        width = 6L,
+        width = 6L, offset = 3L,
         ravedash::input_card(
           title = "Data Selection",
           class_header = "",

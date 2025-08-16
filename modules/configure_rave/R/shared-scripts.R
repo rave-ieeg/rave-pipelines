@@ -9,7 +9,7 @@ get_basic_info <- function() {
 
   raw_dir <- ravepipeline::raveio_getopt("raw_data_dir", default = "<Missing>")
   data_dir <- ravepipeline::raveio_getopt("data_dir", default = "<Missing>")
-  cache_dir <- raveio::cache_root()
+  cache_dir <- ravecore::cache_root()
 
   healthy_directory <- function(path){
     ifelse(dir.exists(path), "[healthy]", "[unable to reach]")
@@ -74,7 +74,7 @@ get_basic_info <- function() {
     "    ",
     package_ver("ravemanager"), ",\t",
     package_ver("rave"), ",\t\t",
-    package_ver("raveio"), ",\t",
+    package_ver("ravecore"), ",\t",
     package_ver("ravedash"), ",\t\t",
 
     "\n    ",

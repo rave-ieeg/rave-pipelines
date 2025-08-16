@@ -198,7 +198,7 @@ module_server <- function(input, output, session, ...){
           utils::read.csv(info$datapath, header = TRUE)
         },
         "fst" = {
-          raveio::load_fst(info$datapath)
+          ieegio::io_read_fst(info$datapath, method = "data_table")
         },
         "xlsx" = {
           read_xlsx(info$datapath)

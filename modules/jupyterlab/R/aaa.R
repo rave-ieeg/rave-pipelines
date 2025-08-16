@@ -25,7 +25,7 @@ check_data_loaded <- function(first_time = FALSE){
   }
   if(!length(local_data$token)) {
     ravedash::logger("Jupyter token not found. Trying to obtain it")
-    settings <- raveio::load_yaml("jupyter.yaml")
+    settings <- yaml::read_yaml("jupyter.yaml")
     local_data$host <- settings$host
     local_data$port <- settings$port
     servers <- rpymat::jupyter_server_list()
