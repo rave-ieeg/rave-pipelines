@@ -60,7 +60,7 @@ template_info <- list(
 if(length(project_name) != 1) {
   stop("Invalid RAVE project name. The `project_name` input must have length of one")
 }
-project <- raveio::as_rave_project(project_name)
+project <- ravecore::as_rave_project(project_name)
 all_subject_codes <- project$subjects()
 if(!length(all_subject_codes)) {
   warning(sprintf("No subject found under the project `%s`", project_name))

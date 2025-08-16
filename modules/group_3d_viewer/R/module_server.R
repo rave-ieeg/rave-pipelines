@@ -494,7 +494,7 @@ module_server <- function(input, output, session, ...){
 
       subject_codes_filtered <- as.character(pipeline$read("subject_codes_filtered"))
 
-      project <- raveio::as_rave_project(project_name)
+      project <- ravecore::as_rave_project(project_name)
       all_subject_codes <- project$subjects()
 
       # update subject_codes

@@ -49,8 +49,8 @@ rave_unserialize <- function(path, target_export) {
       # brain_data <- object[[1]]
       if(length(brain_data$subject_code) != 1) { return() }
 
-      subject <- raveio::RAVESubject$new(project_name = "YAEL", subject_code = brain_data$subject_code, strict = FALSE)
-      brain <- raveio::rave_brain(subject = subject, surfaces = "sphere.reg", annotations = NULL, overlays = NULL, include_electrodes = FALSE)
+      subject <- ravecore::RAVESubject$new(project_name = "YAEL", subject_code = brain_data$subject_code, strict = FALSE)
+      brain <- ravecore::rave_brain(subject = subject, surfaces = "sphere.reg", annotations = NULL, overlays = NULL, include_electrodes = FALSE)
       if(is.null(brain)) { return(brain) }
 
       if(is.data.frame(brain_data$electrode_table) && nrow(brain_data$electrode_table) > 0) {

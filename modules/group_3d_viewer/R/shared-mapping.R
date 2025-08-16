@@ -1,7 +1,7 @@
 
 
 subject_fs_path <- function(subject_code) {
-  subject <- raveio::RAVESubject$new(project_name = "YAEL", subject_code = subject_code, strict = FALSE)
+  subject <- ravecore::RAVESubject$new(project_name = "YAEL", subject_code = subject_code, strict = FALSE)
   fs_path <- normalizePath(file.path(subject$imaging_path, "fs"), winslash = "/", mustWork = FALSE)
   fs_path
 }
@@ -9,7 +9,7 @@ subject_fs_path <- function(subject_code) {
 
 mapping_capability <- function(project_name, subject_code) {
 
-  subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+  subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
 
   has_ants <- rpyANTs::ants_available()
 
@@ -22,7 +22,7 @@ mapping_capability <- function(project_name, subject_code) {
   has_cache_volumetric <- file.exists(mni152_mapped_path)
 
   # sphere.reg
-  brain <- raveio::rave_brain(subject = subject, include_electrodes = FALSE, surfaces = "sphere.reg")
+  brain <- ravecore::rave_brain(subject = subject, include_electrodes = FALSE, surfaces = "sphere.reg")
 
   has_fs <- !is.null(brain)
   has_sphere <- "sphere.reg" %in% brain$surface_types
@@ -37,7 +37,7 @@ mapping_capability <- function(project_name, subject_code) {
   if(has_normalization && has_ants) {
     tryCatch(
       {
-        yael <- raveio::as_yael_process(subject)
+        yael <- ravecore::as_yael_process(subject)
         mapping <- NULL
         for(name in c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
           mapping <- yael$get_template_mapping(name)
@@ -73,8 +73,8 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
 
   mapping_method <- match.arg(mapping_method)
 
-  subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
-  brain <- raveio::rave_brain(subject = subject, surfaces = "sphere.reg", include_electrodes = FALSE)
+  subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+  brain <- ravecore::rave_brain(subject = subject, surfaces = "sphere.reg", include_electrodes = FALSE)
 
   if(is.null(brain)) { return(NULL) }
 
@@ -114,7 +114,7 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
     # check if spherical normalization is available
     surface_mapped_path <- file.path(meta_root, "electrodes_normalization_spherical.csv")
     if(file.exists(surface_mapped_path) && !use_cache) {
-      raveio::backup_file(surface_mapped_path, remove = TRUE, quiet = FALSE)
+      ravecore::backup_file(surface_mapped_path, remove = TRUE, quiet = FALSE)
     }
 
     if(!file.exists(surface_mapped_path)) {
@@ -122,7 +122,7 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
       # needs to calculate the spherical normalization
       if(capability$surface) {
         # the files are available so generate the electrodes_normalization_spherical.csv on the fly
-        mapped_table_spherical <- raveio::transform_point_to_template(
+        mapped_table_spherical <- ravecore::transform_point_to_template(
           subject = subject,
           # positions = tkr_ras,
           # space = "tkrRAS",
@@ -181,7 +181,7 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
 
     mni152_mapped_path <- file.path(meta_root, "electrodes_normalization_mni152.csv")
     if(file.exists(mni152_mapped_path) && !use_cache) {
-      raveio::backup_file(mni152_mapped_path, remove = TRUE, quiet = FALSE)
+      ravecore::backup_file(mni152_mapped_path, remove = TRUE, quiet = FALSE)
     }
 
     if(!file.exists(mni152_mapped_path)) {
@@ -191,7 +191,7 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
       if(capability$mni152) {
 
         # the files are available so generate the electrodes_normalization_spherical.csv on the fly
-        mapped_table_volumetric <- raveio::transform_point_to_template(
+        mapped_table_volumetric <- ravecore::transform_point_to_template(
           subject = subject,
           # positions = tkr_ras,
           # space = "tkrRAS",
