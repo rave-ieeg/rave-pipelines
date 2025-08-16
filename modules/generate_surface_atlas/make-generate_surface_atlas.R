@@ -17,10 +17,7 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_atlas_name = targets::tar_target_raw("atlas_name", 
-        quote({
-            settings[["atlas_name"]]
-        }), deps = "settings"), input_value_type = targets::tar_target_raw("value_type", 
+    input_value_type = targets::tar_target_raw("value_type", 
         quote({
             settings[["value_type"]]
         }), deps = "settings"), `__extern_path_value_table` = targets::tar_target_raw("settings_path._value_table_", 
@@ -50,6 +47,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_mapping_method = targets::tar_target_raw("mapping_method", 
         quote({
             settings[["mapping_method"]]
+        }), deps = "settings"), input_atlas_name = targets::tar_target_raw("atlas_name", 
+        quote({
+            settings[["atlas_name"]]
         }), deps = "settings"), ensure_template_files = targets::tar_target_raw(name = "template_information", 
         command = quote({
             .__target_expr__. <- quote({
@@ -131,15 +131,15 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), validate_inputs = targets::tar_target_raw(name = "cleaned_inputs", 
         command = quote({
             .__target_expr__. <- quote({
-                project <- raveio::as_rave_project(project_name)
+                project <- ravecore::as_rave_project(project_name)
                 all_subjects <- project$subjects()
                 from_subjects <- value_table_meta$subjects
                 from_subjects <- from_subjects[from_subjects %in% 
                   all_subjects]
                 has_surfaces <- vapply(from_subjects, function(subject) {
-                  subject <- raveio::RAVESubject$new(project_name = project$name, 
+                  subject <- ravecore::RAVESubject$new(project_name = project$name, 
                     subject_code = subject, strict = FALSE)
-                  brain <- raveio::rave_brain(subject)
+                  brain <- ravecore::rave_brain(subject)
                   if (is.null(brain)) {
                     return(FALSE)
                   }
@@ -162,15 +162,15 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "cleaned_inputs", target_expr = quote({
                 {
-                  project <- raveio::as_rave_project(project_name)
+                  project <- ravecore::as_rave_project(project_name)
                   all_subjects <- project$subjects()
                   from_subjects <- value_table_meta$subjects
                   from_subjects <- from_subjects[from_subjects %in% 
                     all_subjects]
                   has_surfaces <- vapply(from_subjects, function(subject) {
-                    subject <- raveio::RAVESubject$new(project_name = project$name, 
+                    subject <- ravecore::RAVESubject$new(project_name = project$name, 
                       subject_code = subject, strict = FALSE)
-                    brain <- raveio::rave_brain(subject)
+                    brain <- ravecore::rave_brain(subject)
                     if (is.null(brain)) {
                       return(FALSE)
                     }
@@ -191,22 +191,27 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 suppressWarnings({
-                  raveio::with_future_parallel({
+                  ravepipeline::with_rave_parallel({
                     flip_hemisphere <- mapping_params$flip_hemisphere
-                    mapped_results <- raveio::lapply_async(subject_codes, 
+                    apply_mapping <- switch(mapping_method, `high-density` = ravecore::transform_thinfilm_to_mni152)
+                    mapped_results <- ravepipeline::lapply_jobs(subject_codes, 
                       function(subject_code) {
-                        res <- map_to_template(subject = raveio::RAVESubject$new(project_name = cleaned_inputs$project_name, 
-                          subject_code = subject_code), method = mapping_method, 
-                          template = cleaned_inputs$template$name, 
-                          volumetric_transform = "affine", interpolator = mapping_params$interpolator, 
-                          save_to = NULL, flip_hemisphere = isTRUE(subject_code %in% 
-                            flip_hemisphere), n_segments = c(mapping_params$width, 
-                            mapping_params$height))
-                        res$mapped_table$Subject <- subject_code
-                        res$mapped_table
+                        mapped_table <- switch(mapping_method, 
+                          `high-density` = {
+                            ravecore::transform_thinfilm_to_mni152(subject = ravecore::RAVESubject$new(project_name = cleaned_inputs$project_name, 
+                              subject_code = subject_code), flip_hemisphere = isTRUE(subject_code %in% 
+                              flip_hemisphere), interpolator = mapping_params$interpolator, 
+                              n_segments = c(mapping_params$width, 
+                                mapping_params$height), volumetric_transform = "affine", 
+                              template_subject = cleaned_inputs$template$name)
+                          })
+                        mapped_table$Subject <- subject_code
+                        mapped_table
                       }, callback = function(subject_code) {
                         sprintf("Mapping subject|%s", subject_code)
-                      })
+                      }, .globals = list(cleaned_inputs = cleaned_inputs, 
+                        mapping_method = mapping_method, mapping_params = mapping_params, 
+                        flip_hemisphere = flip_hemisphere))
                   })
                   mapped_results <- data.table::rbindlist(mapped_results)
                 })
@@ -222,31 +227,37 @@ rm(._._env_._.)
             target_export = "mapped_results", target_expr = quote({
                 {
                   suppressWarnings({
-                    raveio::with_future_parallel({
+                    ravepipeline::with_rave_parallel({
                       flip_hemisphere <- mapping_params$flip_hemisphere
-                      mapped_results <- raveio::lapply_async(subject_codes, 
+                      apply_mapping <- switch(mapping_method, 
+                        `high-density` = ravecore::transform_thinfilm_to_mni152)
+                      mapped_results <- ravepipeline::lapply_jobs(subject_codes, 
                         function(subject_code) {
-                          res <- map_to_template(subject = raveio::RAVESubject$new(project_name = cleaned_inputs$project_name, 
-                            subject_code = subject_code), method = mapping_method, 
-                            template = cleaned_inputs$template$name, 
-                            volumetric_transform = "affine", 
-                            interpolator = mapping_params$interpolator, 
-                            save_to = NULL, flip_hemisphere = isTRUE(subject_code %in% 
-                              flip_hemisphere), n_segments = c(mapping_params$width, 
-                              mapping_params$height))
-                          res$mapped_table$Subject <- subject_code
-                          res$mapped_table
+                          mapped_table <- switch(mapping_method, 
+                            `high-density` = {
+                              ravecore::transform_thinfilm_to_mni152(subject = ravecore::RAVESubject$new(project_name = cleaned_inputs$project_name, 
+                                subject_code = subject_code), 
+                                flip_hemisphere = isTRUE(subject_code %in% 
+                                  flip_hemisphere), interpolator = mapping_params$interpolator, 
+                                n_segments = c(mapping_params$width, 
+                                  mapping_params$height), volumetric_transform = "affine", 
+                                template_subject = cleaned_inputs$template$name)
+                            })
+                          mapped_table$Subject <- subject_code
+                          mapped_table
                         }, callback = function(subject_code) {
                           sprintf("Mapping subject|%s", subject_code)
-                        })
+                        }, .globals = list(cleaned_inputs = cleaned_inputs, 
+                          mapping_method = mapping_method, mapping_params = mapping_params, 
+                          flip_hemisphere = flip_hemisphere))
                     })
                     mapped_results <- data.table::rbindlist(mapped_results)
                   })
                 }
                 mapped_results
-            }), target_depends = c("mapping_params", "subject_codes", 
-            "cleaned_inputs", "mapping_method")), deps = c("mapping_params", 
-        "subject_codes", "cleaned_inputs", "mapping_method"), 
+            }), target_depends = c("mapping_params", "mapping_method", 
+            "subject_codes", "cleaned_inputs")), deps = c("mapping_params", 
+        "mapping_method", "subject_codes", "cleaned_inputs"), 
         cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
     generate_atlas = targets::tar_target_raw(name = "mapped_atlas", 
         command = quote({

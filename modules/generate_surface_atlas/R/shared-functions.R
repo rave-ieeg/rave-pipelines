@@ -3,7 +3,7 @@ extract_meta_value_table <- function(value_file, project_name) {
   # value_file <- "/Users/dipterix/PennNeurosurgery Dropbox/Dipterix W/BeauchampLabAtPenn/RAVE/RAVE_Talks/2025_Precision_Jun23/Data/group_mask.csv"
   # project_name <- "YAEL"
 
-  project <- raveio::as_rave_project(project_name)
+  project <- ravecore::as_rave_project(project_name)
   subjects <- project$subjects()
 
   # Source data from which the mask/value files will be created
@@ -24,8 +24,8 @@ extract_meta_value_table <- function(value_file, project_name) {
 
 load_mapped_brain <- function(project_name, subject_codes, mapped_results) {
   res <- lapply(subject_codes, function(subject_code) {
-    subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
-    brain <- raveio::rave_brain(subject)
+    subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+    brain <- ravecore::rave_brain(subject)
     if(is.null(brain)) { return() }
     electrode_table <- brain$electrodes$raw_table
     electrode_table$Subject <- subject_code

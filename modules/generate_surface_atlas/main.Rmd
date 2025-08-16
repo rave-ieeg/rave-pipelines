@@ -61,7 +61,7 @@ value_table_meta <- extract_meta_value_table(value_table, project_name)
 ```
 
 ```{rave validate_inputs, language="R", export="cleaned_inputs"}
-project <- raveio::as_rave_project(project_name)
+project <- ravecore::as_rave_project(project_name)
 all_subjects <- project$subjects()
 
 from_subjects <- value_table_meta$subjects
@@ -69,8 +69,8 @@ from_subjects <- from_subjects[from_subjects %in% all_subjects]
 
 # check all subjects to make sure they have freesurfer paths
 has_surfaces <- vapply(from_subjects, function(subject) {
-  subject <- raveio::RAVESubject$new(project_name = project$name, subject_code = subject, strict = FALSE)
-  brain <- raveio::rave_brain(subject)
+  subject <- ravecore::RAVESubject$new(project_name = project$name, subject_code = subject, strict = FALSE)
+  brain <- ravecore::rave_brain(subject)
   if(is.null(brain)) { return(FALSE) }
   if(!length(brain$surface_types)) { return(FALSE) }
   TRUE
@@ -88,30 +88,57 @@ cleaned_inputs <- list(
 
 ```{rave map_to_template, language="R", export="mapped_results", cue="always"}
 suppressWarnings({
-  raveio::with_future_parallel({
+  ravepipeline::with_rave_parallel({
     
     flip_hemisphere <- mapping_params$flip_hemisphere
     
-    mapped_results <- raveio::lapply_async(
+    apply_mapping <- switch (
+      mapping_method,
+      'high-density' = ravecore::transform_thinfilm_to_mni152
+    )
+    
+    mapped_results <- ravepipeline::lapply_jobs(
       subject_codes, function(subject_code) {
-        res <- map_to_template(
-          subject = raveio::RAVESubject$new(
-            project_name = cleaned_inputs$project_name,
-            subject_code = subject_code), 
-          method = mapping_method,
-          template = cleaned_inputs$template$name,
-          volumetric_transform = "affine",
-          interpolator = mapping_params$interpolator,
-          save_to = NULL,
-          flip_hemisphere = isTRUE(subject_code %in% flip_hemisphere),
-          n_segments = c(mapping_params$width, mapping_params$height)
+        # res <- apply_mapping(
+        #   subject = ravecore::RAVESubject$new(
+        #     project_name = cleaned_inputs$project_name,
+        #     subject_code = subject_code), 
+        #   template = cleaned_inputs$template$name,
+        #   volumetric_transform = "affine",
+        #   interpolator = mapping_params$interpolator,
+        #   save_to = NULL,
+        #   flip_hemisphere = isTRUE(subject_code %in% flip_hemisphere),
+        #   n_segments = c(mapping_params$width, mapping_params$height)
+        # )
+        mapped_table <- switch (
+          mapping_method,
+          'high-density' = {
+            ravecore::transform_thinfilm_to_mni152(
+              subject = ravecore::RAVESubject$new(
+                project_name = cleaned_inputs$project_name,
+                subject_code = subject_code
+              ),
+              flip_hemisphere = isTRUE(subject_code %in% flip_hemisphere),
+              interpolator = mapping_params$interpolator,
+              n_segments = c(mapping_params$width, mapping_params$height),
+              volumetric_transform = "affine",
+              template_subject = cleaned_inputs$template$name
+            )
+          }
         )
-        res$mapped_table$Subject <- subject_code
-        res$mapped_table
+        
+        mapped_table$Subject <- subject_code
+        mapped_table
       },
       callback = function(subject_code) {
         sprintf("Mapping subject|%s", subject_code)
-      }
+      },
+      .globals = list(
+        cleaned_inputs = cleaned_inputs,
+        mapping_method = mapping_method,
+        mapping_params = mapping_params,
+        flip_hemisphere = flip_hemisphere
+      )
     )
   })
   
