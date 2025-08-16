@@ -17,7 +17,10 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_use_template = targets::tar_target_raw("use_template", 
+    input_coordinate_sys = targets::tar_target_raw("coordinate_sys", 
+        quote({
+            settings[["coordinate_sys"]]
+        }), deps = "settings"), input_use_template = targets::tar_target_raw("use_template", 
         quote({
             settings[["use_template"]]
         }), deps = "settings"), input_use_spheres = targets::tar_target_raw("use_spheres", 
@@ -72,7 +75,7 @@ rm(._._env_._.)
                   project_name = project_name, overlay_types = overlay_types, 
                   surface_types = surface_types, annot_types = annot_types, 
                   use_spheres = use_spheres, override_radius = override_radius, 
-                  use_template = use_template)
+                  coordinate_sys = coordinate_sys, use_template = use_template)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -88,16 +91,17 @@ rm(._._env_._.)
                     project_name = project_name, overlay_types = overlay_types, 
                     surface_types = surface_types, annot_types = annot_types, 
                     use_spheres = use_spheres, override_radius = override_radius, 
-                    use_template = use_template)
+                    coordinate_sys = coordinate_sys, use_template = use_template)
                 }
                 loaded_brain
             }), target_depends = c("subject_code", "project_name", 
             "overlay_types", "surface_types", "annot_types", 
-            "use_spheres", "override_radius", "use_template")), 
-        deps = c("subject_code", "project_name", "overlay_types", 
-        "surface_types", "annot_types", "use_spheres", "override_radius", 
-        "use_template"), cue = targets::tar_cue("always"), pattern = NULL, 
-        iteration = "list"), render_initial_viewer = targets::tar_target_raw(name = "initial_brain_widget", 
+            "use_spheres", "override_radius", "coordinate_sys", 
+            "use_template")), deps = c("subject_code", "project_name", 
+        "overlay_types", "surface_types", "annot_types", "use_spheres", 
+        "override_radius", "coordinate_sys", "use_template"), 
+        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
+    render_initial_viewer = targets::tar_target_raw(name = "initial_brain_widget", 
         command = quote({
             .__target_expr__. <- quote({
                 force(shiny_outputId)
@@ -129,7 +133,7 @@ rm(._._env_._.)
                 }
                 initial_brain_widget <- loaded_brain$brain$plot(show_modal = FALSE, 
                   background = background, controllers = controllers, 
-                  start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n      window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
+                  start_zoom = zoom_level, custom_javascript = glue::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n      window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                     .open = "{{", .close = "}}"))
             })
             tryCatch({
@@ -171,7 +175,7 @@ rm(._._env_._.)
                   }
                   initial_brain_widget <- loaded_brain$brain$plot(show_modal = FALSE, 
                     background = background, controllers = controllers, 
-                    start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n      window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
+                    start_zoom = zoom_level, custom_javascript = glue::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n      window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                       .open = "{{", .close = "}}"))
                 }
                 initial_brain_widget
@@ -185,8 +189,9 @@ rm(._._env_._.)
                   data_source <- "None"
                 }
                 path_datatable <- switch(data_source, Uploads = {
+                  subject <- get_brain_subject(loaded_brain)
                   get_subject_imaging_datapath(uploaded_source, 
-                    subject_code = loaded_brain$subject_code, 
+                    subject_code = subject$subject_code, project_name = subject$project_name, 
                     type = "uploads")
                 }, `Saved pipelines/modules` = {
                   project_name <- data_source_project
@@ -226,8 +231,9 @@ rm(._._env_._.)
                     data_source <- "None"
                   }
                   path_datatable <- switch(data_source, Uploads = {
+                    subject <- get_brain_subject(loaded_brain)
                     get_subject_imaging_datapath(uploaded_source, 
-                      subject_code = loaded_brain$subject_code, 
+                      subject_code = subject$subject_code, project_name = subject$project_name, 
                       type = "uploads")
                   }, `Saved pipelines/modules` = {
                     project_name <- data_source_project
@@ -254,10 +260,10 @@ rm(._._env_._.)
                   })
                 }
                 path_datatable
-            }), target_depends = c("data_source", "uploaded_source", 
-            "loaded_brain", "data_source_project", "data_source_pipeline", 
+            }), target_depends = c("data_source", "loaded_brain", 
+            "uploaded_source", "data_source_project", "data_source_pipeline", 
             "data_source_pipeline_target")), deps = c("data_source", 
-        "uploaded_source", "loaded_brain", "data_source_project", 
+        "loaded_brain", "uploaded_source", "data_source_project", 
         "data_source_pipeline", "data_source_pipeline_target"
         ), cue = targets::tar_cue("always"), pattern = NULL, 
         iteration = "list"), load_data_table = targets::tar_target_raw(name = "brain_with_data", 
@@ -265,13 +271,14 @@ rm(._._env_._.)
             .__target_expr__. <- quote({
                 loaded_datatable <- NULL
                 if (length(path_datatable) == 1) {
-                  if (!length(data_source)) {
+                  if (!length(data_source) || is.na(path_datatable) || 
+                    !file.exists(path_datatable)) {
                     data_source <- "None"
                   }
                   switch(data_source, Uploads = {
                     if (grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
-                      loaded_datatable <- raveio::load_fst(path_datatable, 
-                        as.data.table = TRUE)
+                      loaded_datatable <- ieegio::io_read_fst(path_datatable, 
+                        method = "data_table")
                     }
                   }, `Saved pipelines/modules` = {
                     var <- ravepipeline::pipeline_read(var_names = attr(path_datatable, 
@@ -286,6 +293,8 @@ rm(._._env_._.)
                         }
                       })
                     }
+                  }, {
+                    path_datatable <- NULL
                   })
                 }
                 nms <- names(loaded_datatable)
@@ -377,13 +386,14 @@ rm(._._env_._.)
                 {
                   loaded_datatable <- NULL
                   if (length(path_datatable) == 1) {
-                    if (!length(data_source)) {
+                    if (!length(data_source) || is.na(path_datatable) || 
+                      !file.exists(path_datatable)) {
                       data_source <- "None"
                     }
                     switch(data_source, Uploads = {
                       if (grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
-                        loaded_datatable <- raveio::load_fst(path_datatable, 
-                          as.data.table = TRUE)
+                        loaded_datatable <- ieegio::io_read_fst(path_datatable, 
+                          method = "data_table")
                       }
                     }, `Saved pipelines/modules` = {
                       var <- ravepipeline::pipeline_read(var_names = attr(path_datatable, 
@@ -399,6 +409,8 @@ rm(._._env_._.)
                           }
                         })
                       }
+                    }, {
+                      path_datatable <- NULL
                     })
                   }
                   nms <- names(loaded_datatable)
@@ -524,7 +536,7 @@ rm(._._env_._.)
                 }
                 brain_widget <- brain_with_data$brain$plot(show_modal = FALSE, 
                   background = background, controllers = controllers, 
-                  start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
+                  start_zoom = zoom_level, custom_javascript = glue::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                     .open = "{{", .close = "}}"))
             })
             tryCatch({
@@ -576,7 +588,7 @@ rm(._._env_._.)
                   }
                   brain_widget <- brain_with_data$brain$plot(show_modal = FALSE, 
                     background = background, controllers = controllers, 
-                    start_zoom = zoom_level, custom_javascript = raveio::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
+                    start_zoom = zoom_level, custom_javascript = glue::glue("\n    // Remove the focus box\n    if( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if( window.Shiny ) {\n       window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                       .open = "{{", .close = "}}"))
                 }
                 brain_widget

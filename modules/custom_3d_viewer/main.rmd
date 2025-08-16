@@ -52,7 +52,7 @@ To generate 3D viewer, first you need to create a RAVE brain object, then you ca
 subject <- sprintf("%s/%s", project_name, subject_code)
 
 # Brain object
-brain <- raveio::rave_brain(subject)
+brain <- ravecore::rave_brain(subject)
 
 # Generate 3D viewer
 brain$plot()
@@ -73,6 +73,7 @@ loaded_brain <- load_brain_from_subject_code(
   use_spheres = use_spheres,
   override_radius = override_radius,
   
+  coordinate_sys = coordinate_sys,
   use_template = use_template
 )
 ```
@@ -117,7 +118,7 @@ initial_brain_widget <- loaded_brain$brain$plot(
   controllers = controllers,
   start_zoom = zoom_level,
   # send signals to update parameters such as camera, zoom-level...
-  custom_javascript = raveio::glue(
+  custom_javascript = glue::glue(
     '
     // Remove the focus box
     if( canvas.focus_box ) {
@@ -191,7 +192,13 @@ if(!length(data_source)) { data_source <- "None" }
 path_datatable <- switch(
   data_source,
   "Uploads" = {
-    get_subject_imaging_datapath(uploaded_source, subject_code = loaded_brain$subject_code, type = "uploads")
+    subject <- get_brain_subject(loaded_brain)
+    get_subject_imaging_datapath(
+      uploaded_source,
+      subject_code = subject$subject_code,
+      project_name = subject$project_name,
+      type = "uploads"
+    )
   }, 
   "Saved pipelines/modules" = {
     project_name <- data_source_project
@@ -239,12 +246,14 @@ path_datatable <- switch(
 loaded_datatable <- NULL
 
 if(length(path_datatable) == 1) {
-  if(!length(data_source)) { data_source <- "None" }
+  if(!length(data_source) || is.na(path_datatable) || !file.exists(path_datatable)) {
+    data_source <- "None"
+  }
   switch(
     data_source,
     "Uploads" = {
       if(grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
-        loaded_datatable <- raveio::load_fst(path_datatable, as.data.table = TRUE)
+        loaded_datatable <- ieegio::io_read_fst(path_datatable, method = "data_table")
       }
     },
     "Saved pipelines/modules" = {
@@ -269,6 +278,10 @@ if(length(path_datatable) == 1) {
         })
       }
       
+    },
+    {
+      # none
+      path_datatable <- NULL
     }
   )
 }
@@ -436,7 +449,7 @@ brain_widget <- brain_with_data$brain$plot(
   controllers = controllers,
   start_zoom = zoom_level,
   # send signals to update parameters such as camera, zoom-level...
-  custom_javascript = raveio::glue(
+  custom_javascript = glue::glue(
     '
     // Remove the focus box
     if( canvas.focus_box ) {

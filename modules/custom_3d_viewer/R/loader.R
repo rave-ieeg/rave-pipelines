@@ -12,38 +12,44 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
           class_header = "",
 
           ravedash::flex_group_box(
-            title = "Subject",
+            title = "Project & Subject",
 
             shidashi::flex_item(
-              loader_subject$ui_func()
+              loader_project$ui_func()
             ),
-            shidashi::flex_break(),
             shidashi::flex_item(
-              loader_sync1$ui_func(),
-              shiny::br(),
-              loader_sync2$ui_func()
+              loader_subject$ui_func()
             )
           ),
 
           ravedash::flex_group_box(
-            title = "Electrode",
+            title = "Electrode Coordinates",
 
             shidashi::flex_item(
 
               shiny::selectInput(
-                inputId = ns("loader_project_name"),
-                label = "Select a project to load electrodes from",
-                choices = c("[Auto]", "[Upload]", "[None]", raveio::get_projects(FALSE)),
-                selected = pipeline$get_settings("project_name"),
+                inputId = ns("loader_electrode_source"),
+                label = "Select a source of electrode coordinates",
+                choices = c(
+                  "Subject meta directory - electrodes.csv",
+                  "File upload - auto",
+                  "File upload - Scanner RAS",
+                  "File upload - tk-registered (FreeSurfer) RAS",
+                  "File upload - MNI152 RAS"
+                ),
+                selected = "Project",
                 multiple = FALSE
               ),
               shiny::conditionalPanel(
-                condition = sprintf("input['%s'] === '[Upload]'",
-                                    ns("loader_project_name")),
+                condition = sprintf("input['%s'] !== 'Subject meta directory - electrodes.csv'",
+                                    ns("loader_electrode_source")),
                 shiny::fileInput(
                   inputId = ns("loader_electrode_tbl_upload"),
                   label = "Please upload a valid electrode table in [csv]",
                   multiple = FALSE, accept = ".csv"
+                ),
+                shiny::uiOutput(
+                  outputId = ns("loader_electrode_tbl_upload_explanation")
                 )
               )
             )
@@ -156,157 +162,193 @@ loader_server <- function(input, output, session, ...){
   local_data <- dipsaus::fastmap2()
   local_data$project_names <- dipsaus::fastmap2()
 
-  get_projects <- function(subject_code) {
-    pnames <- local_data$project_names
-
-    projects <- NULL
-
-    if(isTRUE(pnames$`@has`(subject_code))) {
-      projects <- pnames[[subject_code]]
-    } else {
-      projects <- get_projects_with_scode(subject_code)
-      if(length(projects)) {
-        local_data$project_names[[subject_code]] <- projects
-      }
-    }
-    projects
-  }
-
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      subject_code <- loader_subject$get_sub_element_input()
-
-      projects <- get_projects(subject_code)
-
-      choices <- c("[Auto]", "[Upload]", "[None]", projects)
-      shiny::updateSelectInput(
-        session = session,
-        inputId = "loader_project_name",
-        choices = choices,
-        selected = input$loader_project_name %OF% choices
-      )
-
-      if(length(projects)) {
-        project_name <- projects[[1]]
-      } else {
-        project_name <- "YAEL"
-      }
-      subject <- raveio::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
-      base_path <- subject$freesurfer_path
-      if(length(base_path) == 1 && !is.na(base_path) && file.exists(base_path)) {
-        # brain <- threeBrain::threeBrain(path = base_path, subject_code = subject_code)
-        # brain$base_path
-        overlay_types <- list.files(
-          path = file.path(base_path, "mri"),
-          recursive = FALSE,
-          all.files = FALSE,
-          full.names = FALSE,
-          include.dirs = FALSE,
-          ignore.case = TRUE,
-          pattern = "\\.(mgz|nii|nii\\.gz)$"
+  output$loader_electrode_tbl_upload_explanation <- shiny::renderUI({
+    source_type <- input$loader_electrode_source
+    switch (
+      source_type,
+      "File upload - auto" = {
+        shiny::column(
+          12,
+          shiny::tags$small("Upload a csv or tsv file with the following (case-sensitive) columns:"),
+          shiny::tags$ul(shiny::tags$small(
+            shiny::tags$li("`Electrode`: integer, electrode channel number"),
+            shiny::tags$li("`Coord_x`: float, tk-registered left (negative) / right (positive)"),
+            shiny::tags$li("`Coord_y`: float, tk-registered posterior (negative) / anterior (positive)"),
+            shiny::tags$li("`Coord_z`: float, tk-registered inferior (negative) / superior (positive)"),
+            shiny::tags$li("`Label`: characters, electrode label"),
+            shiny::tags$li("`Radius`: optional electrode radius in mm"),
+            shiny::tags$li("... (other optional columns)")
+          ))
         )
-        overlay_types <- gsub("\\.(mgz|nii|nii\\.gz)$", "", overlay_types, ignore.case = TRUE)
-        overlay_types <- overlay_types[!overlay_types %in% c("rave_slices", "brain.finalsurfs", "brain")]
-        overlay_types <- sort(overlay_types)
-        overlay_inputs <- unique(c(input$loader_volume_types, unlist(pipeline$get_settings("overlay_types"))))
-        shiny::updateSelectInput(
-          session = session,
-          inputId = "loader_volume_types",
-          choices = overlay_types,
-          selected = as.character(overlay_inputs)
+      },
+      "File upload - Scanner RAS" = {
+        shiny::column(
+          12,
+          shiny::tags$small("Upload a csv or tsv file with the following (case-sensitive) columns:"),
+          shiny::tags$ul(shiny::tags$small(
+            shiny::tags$li("`name` or `Label`: characters, labels of the electrodes"),
+            shiny::tags$li("`x`: float, T1 scanner left (negative) / right (positive)"),
+            shiny::tags$li("`y`: float, T1 scanner posterior (negative) / anterior (positive)"),
+            shiny::tags$li("`z`: float, T1 scanner inferior (negative) / superior (positive)"),
+            shiny::tags$li("`Electrode`: optional integer, electrode channel number"),
+            shiny::tags$li("`Radius`: optional electrode radius in mm"),
+            shiny::tags$li("... (other optional columns)")
+          ))
         )
-
-        # get annotations
-        annot_types <- list.files(
-          path = file.path(base_path, "label"),
-          recursive = FALSE,
-          all.files = FALSE,
-          full.names = FALSE,
-          include.dirs = FALSE,
-          ignore.case = TRUE,
-          pattern = "\\.(annot)$"
+      },
+      "File upload - tk-registered (FreeSurfer) RAS" = {
+        shiny::div(
+          shiny::tags$small("Upload a csv or tsv file with the following (case-sensitive) columns:"),
+          shiny::tags$ul(shiny::tags$small(
+            shiny::tags$li("`name` or `Label`: characters, labels of the electrodes"),
+            shiny::tags$li("`x`: float, tk-registered left (negative) / right (positive)"),
+            shiny::tags$li("`y`: float, tk-registered posterior (negative) / anterior (positive)"),
+            shiny::tags$li("`z`: float, tk-registered inferior (negative) / superior (positive)"),
+            shiny::tags$li("`Electrode`: optional integer, electrode channel number"),
+            shiny::tags$li("`Radius`: optional electrode radius in mm"),
+            shiny::tags$li("... (other optional columns)")
+          ))
         )
-        annot_types <- unique(gsub("(^[lr]h\\.|\\.annot$)", "", annot_types, ignore.case = TRUE))
-        annot_types <- sprintf("label/%s", sort(annot_types))
-        annot_inputs <- unique(c(input$loader_annot_types, unlist(pipeline$get_settings("annot_types"))))
-        shiny::updateSelectInput(
-          session = session,
-          inputId = "loader_annot_types",
-          choices = annot_types,
-          selected = as.character(annot_inputs),
+      },
+      "File upload - MNI152 RAS" = {
+        shiny::div(
+          shiny::tags$small("Upload a csv or tsv file with the following (case-sensitive) columns:"),
+          shiny::tags$ul(shiny::tags$small(
+            shiny::tags$li("`name` or `Label`: characters, labels of the electrodes"),
+            shiny::tags$li("`x`: float, MNI152 left (negative) / right (positive)"),
+            shiny::tags$li("`y`: float, MNI152 posterior (negative) / anterior (positive)"),
+            shiny::tags$li("`z`: float, MNI152 inferior (negative) / superior (positive)"),
+            shiny::tags$li("`Electrode`: optional integer, electrode channel number"),
+            shiny::tags$li("`Radius`: optional electrode radius in mm"),
+            shiny::tags$li("... (other optional columns)")
+          ))
         )
       }
-
-    }),
-    loader_subject$get_sub_element_input(),
-    ignoreNULL = TRUE, ignoreInit = FALSE
-  )
+    )
+  })
 
   shiny::bindEvent(
     ravedash::safe_observe({
       info <- input$loader_electrode_tbl_upload
-      if(!length(info)) { return() }
-      local_reactives$electrode_table <- utils::read.csv(info$datapath, header = TRUE)
+      print(info)
+      if(!length(info)) {
+        local_reactives$electrode_table <- NULL
+        return()
+      }
+      # check later!
+      local_reactives$electrode_table <- ravecore::import_table(info$datapath, header = TRUE)
     }),
     input$loader_electrode_tbl_upload,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  get_electrode_table <- shiny::reactive({
-    project_name <- input$loader_project_name
+  get_electrode_coordinates <- shiny::reactive({
+    project_name <- loader_project$get_sub_element_input()
     subject_code <- loader_subject$get_sub_element_input()
     if(!length(project_name) || !length(subject_code)) {
       return()
     }
 
-    if(identical(project_name, "[None]")) { return() }
+    subject <- ravecore::RAVESubject$new(project_name = project_name,
+                                         subject_code = subject_code,
+                                         strict = FALSE)
 
-    re <- NULL
-    rave_path <- ravepipeline::raveio_getopt("data_dir")
-
-    if(identical(project_name, "[Upload]")) {
-      re <- local_reactives$electrode_table
-    } else {
-
-      if(identical(project_name, "[Auto]")) {
-        all_projects <- raveio::get_projects()
-        dirs <- file.path(rave_path, all_projects, subject_code)
-        all_projects <- all_projects[dir.exists(dirs)]
-        if(!length(all_projects)) { return() }
-        project_name <- all_projects[[1]]
+    electrode_table <- tryCatch(
+      {
+        subject$get_electrode_table(warn = FALSE)
+      }, error = function(e) {
+        NULL
       }
+    )
 
-      re <- raveio::load_meta2(meta_type = "electrodes",
-                               project_name = project_name,
-                               subject_code = subject_code)
+    source_type <- paste(input$loader_electrode_source, collapse = "")
+
+    # shiny::selectInput(
+    #   inputId = ns("loader_electrode_source"),
+    #   label = "Select a source of electrode coordinates",
+    #   choices = c(
+    #     "Subject meta directory - electrodes.csv",
+    #     "File upload - auto",
+    #     "File upload - Scanner RAS",
+    #     "File upload - tk-registered (FreeSurfer) RAS",
+    #     "File upload - MNI152 RAS"
+    #   ),
+    #   selected = "Project",
+    #   multiple = FALSE
+    # ),
+
+    coordinate_sys <- ""
+
+    switch (
+      source_type,
+      "File upload - auto" = {
+        electrode_table <- local_reactives$electrode_table
+        if(is.data.frame(electrode_table) && all(c("Coord_x", "Coord_y", "Coord_z") %in% names(electrode_table))) {
+          electrode_table$x <- electrode_table$Coord_x
+          electrode_table$y <- electrode_table$Coord_y
+          electrode_table$z <- electrode_table$Coord_z
+        }
+        coordinate_sys <- "tkrRAS"
+      },
+      "File upload - Scanner RAS" = {
+        electrode_table <- local_reactives$electrode_table
+        coordinate_sys <- "ScannerRAS"
+      },
+      "File upload - tk-registered (FreeSurfer) RAS" = {
+        electrode_table <- local_reactives$electrode_table
+        coordinate_sys <- "tkrRAS"
+      },
+      "File upload - MNI152 RAS" = {
+        electrode_table <- local_reactives$electrode_table
+        coordinate_sys <- "MNI152"
+      }
+    )
+    if(!is.data.frame(electrode_table)) { return() }
+    nms <- names(electrode_table)
+    if(
+      !all(c("Coord_x", "Coord_y", "Coord_z") %in% nms) &&
+      !all(c("x", "y", "z") %in% nms)
+    ) {
+      return()
     }
+    if(!"Electrode" %in% nms) {
+      if("Channel" %in% nms) {
+        electrode_table$Electrode <- electrode_table$Channel
+      } else {
+        electrode_table$Electrode <- seq_len(nrow(electrode_table))
+      }
+    }
+    electrode_table$Electrode <- as.integer(electrode_table$Electrode)
+    if(!"Label" %in% nms) {
+      if("name" %in% nms) {
+        electrode_table$Label <- electrode_table$name
+      } else {
+        electrode_table$Label <- sprintf("Electrode%04d", electrode_table$Electrode)
+      }
+    }
+    # remove these two reserved columns in case they are inconsistent
+    electrode_table$Subject <- NULL
+    electrode_table$SubjectCode <- NULL
 
-    return(re)
-
+    list(
+      coordinate_table = electrode_table,
+      coordinate_sys = coordinate_sys
+    )
   })
 
   output$loader_electrode_table <- DT::renderDT({
 
-    tbl <- get_electrode_table()
+    coords <- get_electrode_coordinates()
+
+    coordinate_table <- coords$coordinate_table
+    nms <- names(coordinate_table)
 
     shiny::validate(
-      shiny::need(is.data.frame(tbl),
-                  message = "No electrode table found. No electrodes will be generated")
+      shiny::need(is.data.frame(coordinate_table),
+                  message = "No electrode table found. No electrodes will be visualized")
     )
 
-    required_names <- c("Electrode", "Coord_x", "Coord_y", "Coord_z", "Label")
-    nms <- names(tbl)
-
-    shiny::validate(
-      shiny::need(
-        all(required_names %in% nms),
-        message = paste(
-          "A valid electrode table in RAVE must contain the following columns:",
-          paste(required_names, collapse = ", ")
-        ))
-    )
-
-    re <- DT::datatable(tbl, class = "display nowrap compact",
+    re <- DT::datatable(coordinate_table, class = "display nowrap compact",
                         selection = "none", options = list(
                           pageLength = 5,
                           lengthMenu = c(5, 20, 100, 1000)
@@ -314,7 +356,9 @@ loader_server <- function(input, output, session, ...){
 
     digit_nms <- c(
       'Coord_x', 'Coord_y', 'Coord_z', "MNI305_x", "MNI305_y", "MNI305_z",
-      "MNI152_x", "MNI152_y", "MNI152_z", "T1R", "T1A", "T1S"
+      "MNI152_x", "MNI152_y", "MNI152_z", "T1R", "T1A", "T1S", "x", "y", "z",
+      "OrigCoord_x", "OrigCoord_y", "OrigCoord_z", "DistanceShifted",
+      "DistanceToPial", "Sphere_x", "Sphere_y", "Sphere_z"
     )
     digit_nms <- digit_nms[digit_nms %in% nms]
 
@@ -344,15 +388,18 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       # gather information from preset UIs
 
+      coords <- get_electrode_coordinates()
+
       # Save the variables into pipeline settings file
       pipeline$save_data(
-        data = get_electrode_table(),
+        data = coords$coordinate_table,
         name = "suggested_electrode_table",
         overwrite = TRUE
       )
       pipeline$set_settings(
         subject_code = input$loader_subject_code,
         project_name = input$loader_project_name,
+        coordinate_sys = coords$coordinate_sys,
         overlay_types = input$loader_volume_types,
         surface_types = input$loader_surface_types,
         annot_types = input$loader_annot_types,

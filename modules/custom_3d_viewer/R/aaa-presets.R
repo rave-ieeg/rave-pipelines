@@ -11,7 +11,8 @@ component_container <- ravedash::new_rave_shiny_component_container(
 
 
 # Define components
-loader_subject <- ravedash::presets_loader_subject_only()
+loader_project <- ravedash::presets_loader_project()
+loader_subject <- ravedash::presets_loader_subject(checks = NULL, allow_new = FALSE)
 
 
 loader_sync1 <- ravedash::presets_loader_sync_project_subject(id = "loader_sync_from_recent_project_subject")
@@ -23,8 +24,9 @@ loader_sync2 <- ravedash::presets_loader_sync_project_subject(
 
 # Register the components
 component_container$add_components(
-  loader_subject,
-  loader_sync1, loader_sync2
+  loader_project,
+  loader_subject
+  # loader_sync1, loader_sync2
 )
 
 
