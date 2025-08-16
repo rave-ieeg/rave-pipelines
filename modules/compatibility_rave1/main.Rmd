@@ -14,7 +14,7 @@ ravepipeline::pipeline_setup_rmd("compatibility_rave1")
 
 ```{rave load_subject_instance, language = "R", export = "subject"}
 # Use strict=FALSE in case the subject is invalid
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name,
   subject_code = subject_code,
   strict = FALSE)
