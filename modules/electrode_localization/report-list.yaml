@@ -1,0 +1,4 @@
+- name: electrodeview
+  label: Anatomical Slices with Electrodes
+  entry: report-electrodeview.Rmd
+  fork_policy: default

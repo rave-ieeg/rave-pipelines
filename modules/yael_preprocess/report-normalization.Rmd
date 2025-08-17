@@ -30,16 +30,6 @@ knitr::opts_chunk$set(
 
 # For debug, set current environment
 # setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
-pipeline <- ravepipeline::pipeline_from_path(".")
-subject_code <- pipeline$get_settings("subject_code")
-project_name <- pipeline$get_settings("project_name")
-subject <- ravecore::RAVESubject$new(project_name = project_name,
-                                     subject_code = subject_code,
-                                     strict = FALSE)
-yael_process <- ravecore::as_yael_process(subject)
-
-templates <- ravecore:::rpyants_builtin_templates()
-yael_process$get_template_mapping()
 ```
 
 *Click on the `Show` button to reveal preparation scripts.*
@@ -148,3 +138,13 @@ htmltools::tagList(lapply(available_mapping, function(mapping_template) {
 
 
 
+
+
+
+## Citations
+
+The module depends on the following work. Please cite our YAEL paper for electrode localization pipelines and RAVE paper for 3D visualization.
+
+```{r, results='asis', echo = FALSE}
+print(pipeline$description$Citations, style = "html")
+```

@@ -214,7 +214,7 @@ ravecore::plot_volume_slices(
 
 ## Citations
 
-The module depends on the following work:
+The module depends on the following work. Please cite our YAEL paper for electrode localization pipelines and RAVE paper for 3D visualization.
 
 ```{r, results='asis', echo = FALSE}
 print(pipeline$description$Citations, style = "html")

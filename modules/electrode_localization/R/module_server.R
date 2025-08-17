@@ -13,6 +13,8 @@ module_server <- function(input, output, session, ...){
   # get server tools to tweek
   # ravedash::module_server_common(module_id = module_id, check_data_loaded = check_data_loaded, )
   server_tools <- ravedash::get_default_handlers(session = session)
+  server_registry <- ravedash::register_rave_session()
+  report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
 
   error_notification <- function(e) {
@@ -213,8 +215,8 @@ module_server <- function(input, output, session, ...){
         )
       }
 
+      subject <- pipeline$read("subject")
       if( needs_update ) {
-        subject <- pipeline$read("subject")
         ravecore::save_meta2(
           data = electrode_table,
           meta_type = "electrodes",
@@ -222,6 +224,9 @@ module_server <- function(input, output, session, ...){
           subject_code = subject$subject_code
         )
       }
+
+      # generate reports
+      report_wizard$generate(subject, "electrodeview")
 
       Sys.sleep(0.5)
       dipsaus::close_alert2()

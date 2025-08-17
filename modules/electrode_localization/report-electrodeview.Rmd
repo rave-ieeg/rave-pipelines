@@ -1,0 +1,205 @@
+---
+title: "Anatomical Slices with Electrodes"
+date: "`r Sys.Date()`"
+output: 
+  distill::distill_article:
+    theme: flatly
+    code_folding: true
+    self_contained: true
+    toc: true
+    toc_depth: 5
+    toc_float: true
+    css: "report_styles.css"
+  html_document:
+    theme: flatly
+    code_folding: hide
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval = TRUE,
+  echo = TRUE,
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+
+# For debug, set current environment
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+
+
+
+*Click on the `Show` button to reveal preparation scripts.*
+
+```{r initial_setup}
+#| results: 'hide'
+# This code block sets up the engine environment
+# Please do not remove me
+pipeline <- ravepipeline::pipeline_from_path(".")
+subject_code <- pipeline$get_settings("subject_code")
+project_name <- pipeline$get_settings("project_name")
+subject <- ravecore::RAVESubject$new(project_name = project_name,
+                                     subject_code = subject_code,
+                                     strict = FALSE)
+brain <- ravecore::rave_brain(subject, include_electrodes = TRUE)
+electrode_table <- subject$get_electrode_table()
+brain$set_electrode_values(electrode_table)
+
+cnames <- c(
+  "Electrode", "Label", "T1R", "T1A", "T1S", "FSIndex", "FSLabel", 
+  "MNI152_x", "MNI152_y", "MNI152_z", "Coord_x", "Coord_y", "Coord_z", 
+  "FSLabel_aparc_a2009s_aseg", "FSLabel_aparc_aseg", 
+  "FSLabel_aparc_DKTatlas_aseg", "FSLabel_aseg", "LabelPrefix"
+)
+cnames <- cnames[cnames %in% names(electrode_table)]
+electrode_table <- as.data.frame(electrode_table)[, cnames]
+
+# rounding digits
+cnames2 <- c(
+  "T1R", "T1A", "T1S", 
+  "MNI152_x", "MNI152_y", "MNI152_z", 
+  "Coord_x", "Coord_y", "Coord_z"
+)
+cnames2 <- cnames2[cnames2 %in% cnames]
+if(length(cnames2)) {
+  for(nm in cnames2) {
+    electrode_table[[nm]] <- round(electrode_table[[nm]], digits = 1)
+  }
+}
+
+# Obtain the original MRI, avoid using FreeSurfer's default
+mri_paths <- c(
+  file.path(subject$imaging_path, "fs", "mri", "rave_slices"),
+  file.path(subject$imaging_path, "fs", "mri", "orig", "001"),
+  file.path(subject$imaging_path, "coregistration", "MRI_reference")
+)
+mri_paths <- as.vector(rbind(
+  sprintf("%s.nii.gz", mri_paths),
+  sprintf("%s.nii", mri_paths),
+  sprintf("%s.mgz", mri_paths)
+))
+
+mri_paths <- mri_paths[file.exists(mri_paths)]
+# if(length(mri_paths)) {
+#   brain$volumes$T1$object$group$group_data$volume_data$absolute_path <- mri_paths[[1]]
+# }
+volume <- threeBrain::read_volume(
+  brain$volumes$T1$object$group$group_data$volume_data$absolute_path)
+```
+
+::: {.hidden}
+
+```{r custom_toc_block, results='asis', echo=FALSE}
+htmltools::div(
+  id = "custom-toc",
+  htmltools::tags$ul(
+    htmltools::tagList(lapply(seq_len(nrow(electrode_table)), function(ii) {
+      row <- electrode_table[ii, ]
+      htmltools::tags$li(
+        htmltools::a(
+          href = sprintf('#electrode-slice-%d', row$Electrode),
+          sprintf("Electrode %d - %s", row$Electrode, row$Label)
+        )
+      )
+    }))
+  )
+)
+```
+
+:::
+
+# Subject ID: ``r subject$subject_id``
+
+
+## Electrode table
+
+```{r table_print, layout="l-page"}
+rmarkdown::paged_table(
+  electrode_table,
+  options = list(
+    rows.print = 20,
+    rownames.print = FALSE
+  )
+)
+```
+
+## Anatomical slices
+
+```{r slice_view, results='asis', out.width="100%", fig.width=12, fig.height=4.5, layout="l-page"}
+dummy_output <- lapply(seq_len(nrow(electrode_table)), function(ii) {
+  row <- electrode_table[ii, ]
+  ras <- c(row$T1R, row$T1A, row$T1S)
+  
+  tmp <- sum(c(row$Coord_x, row$Coord_y, row$Coord_z, 0)^2)
+  is_hidden <- isTRUE(is.na(tmp) || tmp == 0)
+  
+  if(is_hidden) {
+    cat(sprintf("\n\n### Electrode %d - %s (hidden) {#electrode-slice-%d}\n\n", 
+              row$Electrode, row$Label, row$Electrode))
+    return()
+  }
+  
+  cat(sprintf("\n\n### Electrode %d - %s {#electrode-slice-%d}\n\n", 
+              row$Electrode, row$Label, row$Electrode))
+  nms <- names(row)
+  nms <- nms[startsWith(nms, "FS")]
+  if(length(nms)) {
+    summary <- htmltools::tags$ul(
+      class = "ul-compact",
+      lapply(nms, function(nm) {
+        htmltools::tags$li(sprintf("`%s`: %s\n", nm, row[[nm]]))
+      })
+    )
+    print(summary)
+  }
+  cat("\n")
+  
+  brain$plot_electrodes_on_slices(
+    row$Electrode, elec_table = row,
+    title_position = "top", verbose = FALSE,
+    zoom = 3, volume = volume, adjust_brightness = FALSE)
+})
+```
+
+
+<!--
+brain$plot(controllers = list("Display Data" = "LabelPrefix"), 
+           side_display = FALSE, control_display = FALSE,
+           background = "#1a1a1a")
+-->
+
+
+
+## Citations
+
+The module depends on the following work. Please cite our YAEL paper for electrode localization pipelines and RAVE paper for 3D visualization.
+
+```{r, results='asis', echo = FALSE}
+print(pipeline$description$Citations, style = "html")
+```
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  let count = 0;
+  const insert_custom_toc = () => {
+    const custom_toc = document.getElementById("custom-toc");
+    const toc = document.querySelector("d-article.d-article-with-toc #TOC");
+    if(!custom_toc) { return; }
+    if(toc) {
+      toc.appendChild(custom_toc);
+      return;
+    }
+    if(count > 10) { return; }
+    count++;
+    console.log(toc);
+    setTimeout(insert_custom_toc, 500);
+  };
+  insert_custom_toc();
+});
+</script>

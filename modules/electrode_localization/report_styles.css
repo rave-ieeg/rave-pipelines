@@ -5,13 +5,14 @@ html {
 
 d-article.d-article-with-toc {
   contain: none;
+  padding-bottom: 0;
 }
 
 .d-article-with-toc .d-contents-float {
   position: fixed;
   top: 3em;
-  z-index: 50;
   left: 0;
+  z-index: 50;
   height: calc( 100vh - 6em );
   overflow-y: auto;
   scrollbar-width: none;
@@ -29,14 +30,29 @@ d-article.d-article-with-toc {
 @media screen and (max-width: 1600px) {
   .d-article-with-toc .d-contents-float {
     position: relative;
-    height: auto;
+    height: unset;
+    max-height: 500px;
     top: unset;
   }
 }
 
+.ul-compact li {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.l-page,
 .l-screen,
 .l-screen-inset {
   z-index: 60;
   position: relative;
+}
+
+.pt-0 {
+  padding-top: 0;
+}
+
+.pd-0 {
+  padding-bottom: 0;
 }
 </style>

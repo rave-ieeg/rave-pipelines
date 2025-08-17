@@ -54,8 +54,12 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
 
   # check if number of electrodes is consistent with the plan
   plans <- dipsaus::fastmap2()
-  eo <- order(subject$preprocess_settings$electrodes)
-  electrodes <- subject$preprocess_settings$electrodes[eo]
+
+  signal_loaded_electrodes <- subject$preprocess_settings$electrodes
+  if(length(signal_loaded_electrodes)) {
+    eo <- order(signal_loaded_electrodes)
+    signal_loaded_electrodes <- signal_loaded_electrodes[eo]
+  }
 
   lapply(summarize_plan_list(localization_plan), function(item) {
     if(!length(item)) { return() }
@@ -135,10 +139,15 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     rownames(plan_table) <- NULL
 
     n_planned <- nrow(plan_table)
-    if( length(electrodes) > 0 ) {
-      missing_electrodes <- electrodes[!electrodes %in% plan_table$Electrode]
+    if( length(signal_loaded_electrodes) > 0 ) {
+      missing_electrodes <- signal_loaded_electrodes[!signal_loaded_electrodes %in% plan_table$Electrode]
       if( length(missing_electrodes) ) {
-        stop(sprintf("Previously in the signal imorting modules, there were %s channels imported. Those channels are %s. However, the following channels are missing from the plan: %s. Each imported channel must have a corresponding entry in the plan list, even they are not intended for localization.", length(electrodes), dipsaus::deparse_svec(electrodes), dipsaus::deparse_svec(missing_electrodes)))
+        stop(
+          sprintf("Previously in the signal imorting modules, there were %s channels imported. Those channels are %s. However, the following channels are missing from the plan: %s. Each imported channel must have a corresponding entry in the plan list, even they are not intended for localization.",
+                  length(signal_loaded_electrodes),
+                  dipsaus::deparse_svec(signal_loaded_electrodes),
+                  dipsaus::deparse_svec(missing_electrodes))
+        )
       }
 
       # plan_table$Electrode <- electrodes
