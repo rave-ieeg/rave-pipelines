@@ -71,6 +71,7 @@ InteractiveModules:
     modules/electrode_localization,
     modules/compatibility_rave1,
     modules/standalone_viewer,
+    modules/standalone_report,
     modules/custom_3d_viewer,
     modules/connectivity_viewer,
     modules/import_bids,
