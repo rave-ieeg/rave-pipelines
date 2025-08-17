@@ -62,6 +62,7 @@ if(!length(underlay)) {
   stop("Cannot find the underlaying T1w (MRI_reference.nii[.gz]) image under: ",
        coregistration_path)
 }
+underlay <- underlay[[1]]
 
 transforms <- c("CT_IJK_to_MR_RAS.txt", "CT_RAS_to_MR_RAS.txt")
 transforms <- fs[fs %in% transforms]
