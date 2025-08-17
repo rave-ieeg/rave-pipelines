@@ -24,6 +24,8 @@ loader_server <- function(input, output, session, ...){
 
   query_list <- httr::parse_url(query_string)
 
+  local_data <- dipsaus::fastmap2()
+
   # This is a widget that should belongs to some module
   output$viewer <- shiny::renderUI({
     # ..../test/DemoSubject/reports/report-diagnostics_datetime-250811T165425_notch_filter/report.html
@@ -41,6 +43,7 @@ loader_server <- function(input, output, session, ...){
                                          subject_code = subject_code,
                                          strict = FALSE)
     report_path <- file.path(subject$report_path, report_filename, "report.html")
+    local_data$report_path <- report_path
 
     shiny::validate(
       shiny::need(dir.exists(subject$report_path), message = "Subject has no report path"),
@@ -50,7 +53,30 @@ loader_server <- function(input, output, session, ...){
     )
 
     srcdoc <- paste(readLines(report_path), collapse = "\n")
-    shiny::tags$iframe(srcdoc = srcdoc, class = "fill no-marging no-padding no-border display-block")
+    shiny::tagList(
+      shiny::div(
+        style = "position:absolute;left:0;top:0;",
+        shiny::downloadButton(
+          outputId = ns("download_btn"),
+          label = "Save this report"
+        )
+      ),
+      shiny::tags$iframe(srcdoc = srcdoc, class = "fill no-marging no-padding no-border display-block")
+    )
   })
+
+  output$download_btn <- shiny::downloadHandler(
+    filename = function(...) {
+      if(!length(local_data$report_path)) { return("report.html") }
+      name <- basename(dirname(local_data$report_path))
+      if(!endsWith(name, ".html")) {
+        name <- sprintf("%s.html", name)
+      }
+      name
+    },
+    content = function(con) {
+      file.copy(local_data$report_path, con, overwrite = TRUE)
+    }
+  )
 
 }
