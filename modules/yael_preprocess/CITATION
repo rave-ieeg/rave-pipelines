@@ -1,4 +1,5 @@
 bibentry(bibtype = "Article",
+         key          = "wang2023yael",
          title        = "{YAEL}: Your advanced electrode localizer",
          author       = c(as.person("Zhengjia Wang"),
                           as.person("John F. Magnotti"),
@@ -17,6 +18,7 @@ bibentry(bibtype = "Article",
 
 
 bibentry(bibtype = "Article",
+         key          = "magnotti2020rave",
          title        = "{RAVE}: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data",
          author       = c(as.person("John F. Magnotti"),
                           as.person("Zhengjia Wang"),
@@ -31,6 +33,7 @@ bibentry(bibtype = "Article",
 )
 
 bibentry(bibtype = "Article",
+          key          = "li2016",
          title        = "The first step for neuroimaging data analysis: {DICOM} to {NIfTI} conversion",
          author       = c(as.person("Xiangrui Li"),
                           as.person("Paul S. Morgan"),
@@ -49,6 +52,7 @@ bibentry(bibtype = "Article",
 
 
 bibentry(bibtype = "Article",
+          key          = "dale1999",
          title = "Cortical surface-based analysis. {I}. {Segmentation} and surface reconstruction",
          journal = "NeuroImage",
          year = "1999",
@@ -66,6 +70,7 @@ bibentry(bibtype = "Article",
 
 bibentry(
   bibtype = "Article",
+  key          = "fischl1999",
   title = "Cortical surface-based analysis. {II}: {Inflation}, flattening, and a surface-based coordinate system",
   journal = "NeuroImage",
   year = "1999",
@@ -85,6 +90,7 @@ bibentry(
 
 bibentry(
   bibtype = "Article",
+  key          = "fischl2002",
   title = "Whole brain segmentation: automated labeling of neuroanatomical structures in the human brain",
   journal = "Neuron",
   year = "2002",
@@ -114,6 +120,7 @@ bibentry(
 
 bibentry(
   bibtype = "Article",
+  key          = "fischl2002segment",
   title = "Whole brain segmentation: automated labeling of neuroanatomical structures in the human brain",
   journal = "Neuron",
   year = "2002",
@@ -142,6 +149,7 @@ bibentry(
 )
 
 bibentry(bibtype = "Article",
+        key          = "fischl2004",
          title = "Automatically parcellating the human cerebral cortex",
          journal = "Cerebral Cortex",
          year = "2004",
@@ -171,6 +179,7 @@ bibentry(bibtype = "Article",
 
 
 bibentry(bibtype = "Manual",
+        key = "clayden2023",
          title = "{RNiftyReg}: Image Registration Using the 'NiftyReg' Library",
          year = "2023",
          note = "R package version 2.8.0",
@@ -188,6 +197,7 @@ bibentry(bibtype = "Manual",
 
 
 bibentry(bibtype = "Article",
+        key = "modat2014",
          title = "Global image registration using a symmetric block-matching approach",
          journal = "Journal of Medical Imaging",
          volume = "1",
@@ -208,6 +218,7 @@ bibentry(bibtype = "Article",
 )
 
 bibentry(bibtype = "Article",
+        key = "tustison2021",
          title = "The {ANTsX} ecosystem for quantitative biological and medical imaging",
          journal = "Scientific Reports",
          year = "2021",
@@ -237,6 +248,7 @@ bibentry(bibtype = "Article",
 
 bibentry(
   bibtype = "Article",
+  key = "jenkinson2002",
   title = "Improved optimization for the robust and accurate linear registration and motion correction of brain images",
   journal = "NeuroImage",
   year = "2002",

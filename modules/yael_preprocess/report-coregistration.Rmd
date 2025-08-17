@@ -1,0 +1,221 @@
+---
+title: "Coregistration Quality Report"
+date: "`r Sys.Date()`"
+output: 
+  distill::distill_article:
+    theme: flatly
+    code_folding: true
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    css: "report_styles.css"
+  html_document:
+    theme: flatly
+    code_folding: hide
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float: true
+params:
+  axial_depths_start: -85
+  axial_depths_finish: 85
+  coronal_depths_start: -120
+  coronal_depths_finish: 90
+  sagittal_depths_start: -85
+  sagittal_depths_finish: 85
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  eval = TRUE,
+  echo = TRUE,
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+
+# For debug, set current environment
+# setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+
+*Click on the `Show` button to reveal preparation scripts.*
+
+```{r initial_setup}
+# This code block sets up the engine environment
+# Please do not remove me
+pipeline <- ravepipeline::pipeline_from_path(".")
+subject_code <- pipeline$get_settings("subject_code")
+project_name <- pipeline$get_settings("project_name")
+subject <- ravecore::RAVESubject$new(project_name = project_name,
+                                     subject_code = subject_code,
+                                     strict = FALSE)
+imaging_path <- subject$imaging_path
+coregistration_path <- file.path(imaging_path, "coregistration")
+
+fs <- list.files(coregistration_path)
+
+underlay <- c("mri_reference.nii.gz", "mri_reference.nii")
+underlay <- fs[tolower(fs) %in% underlay]
+
+if(!length(underlay)) {
+  stop("Cannot find the underlaying T1w (MRI_reference.nii[.gz]) image under: ",
+       coregistration_path)
+}
+
+transforms <- c("CT_IJK_to_MR_RAS.txt", "CT_RAS_to_MR_RAS.txt")
+transforms <- fs[fs %in% transforms]
+
+if(length(transforms)) {
+  transforms <- transforms[[1]]
+  overlay <- c("ct_raw.nii.gz", "ct_raw.nii")
+  overlay <- fs[tolower(fs) %in% overlay]
+  if(length(overlay)) {
+    overlay <- overlay[[1]]
+  } else {
+    # No raw CT... Using ct_in_t1.nii?
+    transforms <- NULL
+  }
+}
+
+if(!length(transforms)) {
+  overlay <- c("ct_in_t1.nii.gz", "ct_in_t1.nii")
+  overlay <- fs[tolower(fs) %in% overlay]
+  if(length(overlay)) {
+    overlay <- overlay[[1]]
+  } else {
+    stop("Cannot find the overlying CT image under: ",
+         coregistration_path,
+         "\nRequirements: \n",
+         "  either a file named CT_RAW.nii[.gz] + a transform file\n",
+         "  or a re-aligned ct_in_t1.nii[.gz]")
+  }
+}
+
+if(length(transforms)) {
+  transform_path <- file.path(coregistration_path, transforms)
+  if(startsWith(transforms, "CT_IJK_to_MR_RAS")) {
+    transform_type <- "CT_IJK_to_MR_RAS"
+    transform <- as.matrix(read.table(transform_path, header = FALSE))
+  } else if (startsWith(transforms, "CT_RAS_to_MR_RAS")) {
+    transform_type <- "CT_RAS_to_MR_RAS"
+    transform <- as.matrix(read.table(transform_path, header = FALSE))
+  } else if (endsWith(tolower(transforms), ".mat")) {
+    # FSL matrix
+    transform_type <- "FSL"
+    .NotYetImplemented()
+    # TODO
+  } else {
+    stop("Unable to parse transformation file - ", transforms)
+  }
+} else {
+  transform_type <- "CT_RAS_to_MR_RAS"
+  transform <- diag(1, 4)
+}
+
+if(!is.matrix(transform) || nrow(transform) != 4 || ncol(transform) != 4) {
+  stop("Transform matrix must be a 4x4 matrix.")
+}
+
+# load data
+image_data <- list(
+  underlay = ieegio::read_volume(file.path(coregistration_path, 
+                                           underlay)),
+  overlay = ieegio::read_volume(file.path(coregistration_path, 
+                                          overlay)),
+  transform_type = transform_type,
+  transform = transform,
+  
+  underlay_file = underlay,
+  overlay_file = overlay,
+  transform_file = transforms
+)
+
+t1w_image <- image_data$underlay
+ct_image <- image_data$overlay
+switch(
+  image_data$transform_type,
+  "CT_IJK_to_MR_RAS" = {
+    ct_image <- ieegio::as_ieegio_volume(
+      ct_image[], vox2ras = image_data$transform)
+  },
+  "CT_RAS_to_MR_RAS" = {
+    ct_image <- ieegio::as_ieegio_volume(
+      ct_image[], 
+      vox2ras = image_data$transform %*% ct_image$transforms$vox2ras)
+  },
+  "FSL" = {
+    .NotYetImplemented()
+  },
+  {
+    stop("Unknown transform type")
+  }
+)
+```
+
+## Subject ID: ``r subject$subject_id``
+
+Files: 
+
+* Underlying T1w MRI: `rave-imaging/coregistration/`r image_data$underlay_file``
+* Overlaying CT: `rave-imaging/coregistration/`r image_data$overlay_file``
+* Overlaying transformation: ``r image_data$transform_type`` with the following matrix:
+
+```{r, echo = FALSE}
+structure(image_data$transform, dimnames = NULL)
+```
+
+### Visualizations - Axial
+
+```{r, results='asis', layout="l-screen-inset"}
+# -85 to 85 by default
+axial_depths <- seq(
+  params$axial_depths_start %||% -85, 
+  params$axial_depths_finish %||% 85, 
+  length.out = 24)
+ravecore::plot_volume_slices(
+  t1w_image, overlay = ct_image, which = "axial", 
+  nc = 6, depths = axial_depths,
+  overlay_col = c("#00000000", "#FF000044", "#FF0000FF")
+)
+```
+
+
+### Visualizations - Coronal
+
+```{r, results='asis', layout="l-screen-inset"}
+# -85 to 85 by default
+coronal_depths <- seq(
+  params$coronal_depths_start %||% -85, 
+  params$coronal_depths_finish %||% 85, 
+  length.out = 24)
+ravecore::plot_volume_slices(
+  t1w_image, overlay = ct_image, which = "coronal", 
+  nc = 6, depths = coronal_depths,
+  overlay_col = c("#00000000", "#FF000044", "#FF0000FF")
+)
+```
+
+### Visualizations - Sagittal
+
+```{r, results='asis', layout="l-screen-inset"}
+# -85 to 85 by default
+sagittal_depths <- seq(
+  params$sagittal_depths_start %||% -85, 
+  params$sagittal_depths_finish %||% 85, 
+  length.out = 24)
+ravecore::plot_volume_slices(
+  t1w_image, overlay = ct_image, which = "sagittal", 
+  nc = 6, depths = sagittal_depths,
+  overlay_col = c("#00000000", "#FF000044", "#FF0000FF")
+)
+```
+
+
+## Citations
+
+The module depends on the following work:
+
+```{r, results='asis', echo = FALSE}
+print(pipeline$description$Citations, style = "html")
+```

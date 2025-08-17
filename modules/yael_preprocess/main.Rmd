@@ -335,7 +335,7 @@ image_segmentation <- tryCatch({
         verbose = FALSE
       )
     },
-    "ants-preprocessing" = {
+    "YAEL-only" = {
       ravecore::cmd_run_yael_preprocess(
         subject = subject,
         t1w_path = mri_path, 

@@ -44,9 +44,45 @@ module_server <- function(input, output, session, ...){
   gray_colors <- gray.colors(256, 0, 1)
 
   # get server tools to tweek
-  server_tools <- get_default_handlers(session = session)
+  server_registry <- ravedash::register_rave_session()
+  server_tools <- ravedash::get_default_handlers()
 
+  report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
+  # ---- generate reports ------------------------------------
+  report_btn_onclick <- shiny::bindEvent(
+    shiny::reactive({
+      if(!ravedash::watch_data_loaded()) { return() }
+      if(ravedash::watch_loader_opened()) { return() }
+      res <- server_registry$rave_event$message_button_clicked
+      if(is.null(res)) { return(NULL) }
+      structure(TRUE, timestamp = res)
+    }),
+    server_registry$rave_event$message_button_clicked,
+    ignoreNULL = FALSE,
+    ignoreInit = TRUE
+  )
+
+  shiny::observe({
+    print(list(
+      ravedash::watch_data_loaded(), ravedash::watch_loader_opened(),
+      server_tools$run_analysis_flag(), report_btn_onclick()
+    ))
+  })
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if(!ravedash::watch_data_loaded()) { return() }
+      if(ravedash::watch_loader_opened()) { return() }
+      report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
+    }),
+    server_tools$run_analysis_flag(),
+    # report_btn_onclick(),
+    ignoreNULL = TRUE,
+    ignoreInit = TRUE
+  )
+
+  # ---- on data loaded ------------------------------------
   # check whether the loaded data is valid
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -835,6 +871,11 @@ module_server <- function(input, output, session, ...){
             list(
               program = "YAEL+recon-all",
               fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "YAEL-only" = {
+            list(
+              program = "YAEL-only"
             )
           },
           {

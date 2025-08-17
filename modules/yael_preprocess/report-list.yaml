@@ -1,0 +1,8 @@
+- name: coregistration
+  label: Coregistration Quality Report
+  entry: report-coregistration.Rmd
+  fork_policy: default
+- name: normalization
+  label: Normalization Quality Report
+  entry: report-normalization.Rmd
+  fork_policy: default
