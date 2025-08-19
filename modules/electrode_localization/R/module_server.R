@@ -21,7 +21,7 @@ module_server <- function(input, output, session, ...){
     if(!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
-    ravedash::logger_error_condition(e)
+    ravepipeline::logger_error_condition(e)
     shidashi::show_notification(
       message = e$message,
       title = "Error found!",
@@ -133,7 +133,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe(error_wrapper = "notification", {
 
       # finalize_electrode_table()
-      ravedash::logger("Check and save electrode table to subject.", level = "trace")
+      ravepipeline::logger("Check and save electrode table to subject.", level = "trace")
 
       ravedash::clear_notifications()
 
@@ -304,7 +304,7 @@ module_server <- function(input, output, session, ...){
         names = c("localization_result_initial")
       )
 
-      ravedash::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = 'debug')
+      ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = 'debug')
 
       morph_mri_exists <- pipeline$read("morph_mri_exists")
       table_preview <- pipeline$read("localization_result_initial")
@@ -442,7 +442,7 @@ module_server <- function(input, output, session, ...){
       brain <- pipeline$read('brain')
       fslut <- pipeline$read('fslut')
 
-      ravedash::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
       # Reset preset UI & data
       component_container$reset_data()
@@ -517,7 +517,7 @@ module_server <- function(input, output, session, ...){
 
         group_info <- plan_list[[ii]]
         nm <- group_info$button_label
-        ravedash::logger("Switching to localization plan: {nm}", use_glue = TRUE, level = "trace")
+        ravepipeline::logger("Switching to localization plan: {nm}", use_glue = TRUE, level = "trace")
 
         old_plan <- shiny::isolate(local_reactives$active_plan)
         local_reactives$active_plan <- ii
@@ -1176,7 +1176,7 @@ module_server <- function(input, output, session, ...){
           m44 = prototype$transform
         )
       }, error = function(e) {
-        ravedash::logger("Geometry {prototype$name} up direction is not set. Reason: {paste(e$message, collapse = '\n')}",
+        ravepipeline::logger("Geometry {prototype$name} up direction is not set. Reason: {paste(e$message, collapse = '\n')}",
                          use_glue = TRUE, level = "debug")
       })
     }),
@@ -1258,7 +1258,7 @@ module_server <- function(input, output, session, ...){
             y = geometry_table$tkr_A,
             z = geometry_table$tkr_S
           )
-          ravedash::logger("Electrode {prototype$name} control point is set.", use_glue = TRUE, level = "debug")
+          ravepipeline::logger("Electrode {prototype$name} control point is set.", use_glue = TRUE, level = "debug")
           brain_proxy$set_matrix_world(
             name = sprintf("%s, Prototype - %s", subject$subject_code, prototype$name),
             m44 = prototype$transform
@@ -1269,7 +1269,7 @@ module_server <- function(input, output, session, ...){
             group_table[1:nn, c("Coord_x", "Coord_y", "Coord_z")] <- constact_tkr[, 1:3]
           }
         }, error = function(e) {
-          ravedash::logger("Geometry {prototype$name} control point is not yet set. Reason: {paste(e$message, collapse = '\n')}",
+          ravepipeline::logger("Geometry {prototype$name} control point is not yet set. Reason: {paste(e$message, collapse = '\n')}",
                            use_glue = TRUE, level = "debug")
         })
         if("Channel" %in% names(geometry_table)) {

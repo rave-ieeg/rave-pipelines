@@ -50,9 +50,9 @@ check_data_loaded <- function(first_time = FALSE){
 
 # Change the logger level when `debug` is enabled
 if(exists('debug', inherits = FALSE) && isTRUE(get('debug'))){
-  ravedash::logger_threshold("trace", module_id = module_id)
+  ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
-  ravedash::logger_threshold("info", module_id = module_id)
+  ravepipeline::logger_threshold("info", module_id = module_id)
 }
 
 

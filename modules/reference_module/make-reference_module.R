@@ -174,9 +174,9 @@ rm(._._env_._.)
                     reference_table_initial <- reference_table_initial[, 
                       c("Electrode", "Group", "Reference", "Type")]
                   }, error = function(e) {
-                    ravedash::logger("Unable to load reference [", 
+                    ravepipeline::logger("Unable to load reference [", 
                       reference_name, "]", level = "error")
-                    ravedash::logger_error_condition(e)
+                    ravepipeline::logger_error_condition(e)
                     stop("Unable to load reference [", reference_name, 
                       "]. Please check your reference file or simply start with a blank reference profile.")
                   })
@@ -243,9 +243,9 @@ rm(._._env_._.)
                         c("Electrode", "Group", "Reference", 
                           "Type")]
                     }, error = function(e) {
-                      ravedash::logger("Unable to load reference [", 
+                      ravepipeline::logger("Unable to load reference [", 
                         reference_name, "]", level = "error")
-                      ravedash::logger_error_condition(e)
+                      ravepipeline::logger_error_condition(e)
                       stop("Unable to load reference [", reference_name, 
                         "]. Please check your reference file or simply start with a blank reference profile.")
                     })

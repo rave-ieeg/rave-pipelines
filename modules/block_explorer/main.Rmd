@@ -221,7 +221,7 @@ if(!length(noverlap) || is.na(noverlap) || noverlap < 0 ) {
   stop("Welch-Periodogram window overlap size must be a positive integer")
 }
 if(noverlap / window_size > 0.95) {
-  ravedash::logger("Welch-Periodogram window overlap size exceeds 0.95 x window size. The `pwelch` calculation will be slow.")
+  ravepipeline::logger("Welch-Periodogram window overlap size exceeds 0.95 x window size. The `pwelch` calculation will be slow.")
 }
 pwelch_params2 <- list(
   window_size = window_size,

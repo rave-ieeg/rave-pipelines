@@ -67,7 +67,7 @@ if(!is.numeric(format)) {
 clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
 
 if(isTRUE(skip_validation)) {
-  ravedash::logger("`skip_validation` is on.", level = "warn")
+  ravepipeline::logger("`skip_validation` is on.", level = "warn")
   validation_result <- TRUE
 } else {
   validate_channels <- function(channels) {

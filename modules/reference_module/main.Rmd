@@ -88,8 +88,8 @@ if(isTRUE(reference_name %in% subject$reference_names)) {
   }, error = function(e){
     
     # log
-    ravedash::logger("Unable to load reference [", reference_name, "]", level = "error")
-    ravedash::logger_error_condition(e)
+    ravepipeline::logger("Unable to load reference [", reference_name, "]", level = "error")
+    ravepipeline::logger_error_condition(e)
     stop("Unable to load reference [", reference_name, "]. Please check your reference file or simply start with a blank reference profile.")
   })
   

@@ -98,7 +98,7 @@ module_server <- function(input, output, session, ...){
           time = epoch$Time
         )
       }, error = function(e){
-        ravedash::logger_error_condition(e)
+        ravepipeline::logger_error_condition(e)
         error_notification(e)
       })
 

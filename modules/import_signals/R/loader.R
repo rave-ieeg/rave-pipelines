@@ -968,7 +968,7 @@ loader_server <- function(input, output, session, ...){
 
   # blocks, format, any_imported
   set_blocks <- function(preproc, info){
-    ravedash::logger("Current subject: ", preproc$subject$subject_id, level = "info")
+    ravepipeline::logger("Current subject: ", preproc$subject$subject_id, level = "info")
     new_blocks <- info$blocks
     format <- info$format
 
@@ -977,7 +977,7 @@ loader_server <- function(input, output, session, ...){
       if(!isFALSE(preproc$data$stringent)){
 
         if(!setequal(preproc$blocks, new_blocks)) {
-          ravedash::logger("Subject is set with less stringent validation.", level = "info")
+          ravepipeline::logger("Subject is set with less stringent validation.", level = "info")
           preproc$data$stringent <- FALSE
         }
 

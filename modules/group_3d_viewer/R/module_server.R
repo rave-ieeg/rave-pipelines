@@ -482,7 +482,7 @@ module_server <- function(input, output, session, ...){
       ) {
         return()
       }
-      ravedash::logger("Initializing the module UI", level = "debug")
+      ravepipeline::logger("Initializing the module UI", level = "debug")
 
       local_data$project_name <- project_name
       local_data$template_name <- template_info$name

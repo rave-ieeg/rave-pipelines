@@ -752,7 +752,7 @@ loader_server <- function(input, output, session, ...){
       ravedash::safe_observe({
         if(!sv$is_valid()) { return() }
         val <- normalizePath(input[[input_id]])
-        ravedash::logger(
+        ravepipeline::logger(
           "Trying to set RAVE option [{opt_key}] <- {val}",
           level = "debug", use_glue = TRUE
         )
@@ -760,7 +760,7 @@ loader_server <- function(input, output, session, ...){
 
         current_val <- ravepipeline::raveio_getopt(opt_key)
 
-        ravedash::logger("RAVE option [{opt_key}] is set: {current_val}", level = "info",  use_glue = TRUE)
+        ravepipeline::logger("RAVE option [{opt_key}] is set: {current_val}", level = "info",  use_glue = TRUE)
         shidashi::show_notification(
           title = "RAVE option",
           message = sprintf(
@@ -826,7 +826,7 @@ loader_server <- function(input, output, session, ...){
         }
 
 
-        ravedash::logger(
+        ravepipeline::logger(
           "Trying to set RAVE option [max_worker] <- {max_worker}",
           level = "debug", use_glue = TRUE
         )
@@ -834,7 +834,7 @@ loader_server <- function(input, output, session, ...){
 
         current_val <- ravepipeline::raveio_getopt("max_worker")
 
-        ravedash::logger("RAVE option [max_worker] is set: {current_val}",
+        ravepipeline::logger("RAVE option [max_worker] is set: {current_val}",
                          level = "info",  use_glue = TRUE)
         shidashi::show_notification(
           title = "RAVE option",
@@ -864,7 +864,7 @@ loader_server <- function(input, output, session, ...){
       if(length(v) != 1) { return() }
       disable_fork_clusters <- !v
 
-      ravedash::logger(
+      ravepipeline::logger(
         "Trying to set RAVE option [disable_fork_clusters] <- {disable_fork_clusters}",
         level = "debug", use_glue = TRUE
       )
@@ -872,7 +872,7 @@ loader_server <- function(input, output, session, ...){
 
       current_val <- ravepipeline::raveio_getopt("disable_fork_clusters", default = FALSE)
 
-      ravedash::logger("RAVE option [disable_fork_clusters] is set: {current_val}",
+      ravepipeline::logger("RAVE option [disable_fork_clusters] is set: {current_val}",
                        level = "info",  use_glue = TRUE)
 
     }),
@@ -905,7 +905,7 @@ loader_server <- function(input, output, session, ...){
         return()
       }
 
-      ravedash::logger(
+      ravepipeline::logger(
         "Trying to set RAVE option [threeBrain_template_subject] <- {template_subject}",
         level = "debug", use_glue = TRUE
       )
@@ -961,7 +961,7 @@ loader_server <- function(input, output, session, ...){
         }
       }
 
-      ravedash::logger("RAVE option [threeBrain_template_subject] is set: {template_subject}", level = "info",  use_glue = TRUE)
+      ravepipeline::logger("RAVE option [threeBrain_template_subject] is set: {template_subject}", level = "info",  use_glue = TRUE)
 
       shinyWidgets::updateSearchInput(
         session = session, inputId = "template_subject",

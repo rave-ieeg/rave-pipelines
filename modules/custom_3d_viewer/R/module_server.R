@@ -198,10 +198,10 @@ module_server <- function(input, output, session, ...){
       loaded_data <- pipeline$read("loaded_brain")
 
       if(!is.list(loaded_data)) {
-        ravedash::logger("Data read from the pipeline, but it is not a list. Abort initialization", level = "warning")
+        ravepipeline::logger("Data read from the pipeline, but it is not a list. Abort initialization", level = "warning")
         return()
       }
-      ravedash::logger("Data read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Data read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       old_data <- component_container$data$loaded_brain
@@ -213,7 +213,7 @@ module_server <- function(input, output, session, ...){
           identical(old_data$electrode_table, loaded_data$electrode_table) &&
           setequal(old_data$surface_types, loaded_data$surface_types)
         ) {
-          ravedash::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
+          ravepipeline::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
 

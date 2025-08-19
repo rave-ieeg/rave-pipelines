@@ -224,7 +224,7 @@ module_server <- function(input, output, session, ...){
         identical(local_data$cleaned_inputs, cleaned_inputs) &&
         identical(local_data$value_table, value_table)
       ) {
-        ravedash::logger("The loader reported no change, skip initialization", level = "debug", use_glue = TRUE)
+        ravepipeline::logger("The loader reported no change, skip initialization", level = "debug", use_glue = TRUE)
         return()
       }
 

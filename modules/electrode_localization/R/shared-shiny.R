@@ -104,7 +104,7 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
     dipsaus::updateActionButtonStyled(
       session = session, inputId = 'dismiss_modal', disabled = FALSE,
       label = ifelse(has_error, "Gotcha", "Done"))
-    ravedash::logger("Terminal command finished.", level = "info")
+    ravepipeline::logger("Terminal command finished.", level = "info")
 
     local_reactives$heads_on <- paste(
       collapse = "",

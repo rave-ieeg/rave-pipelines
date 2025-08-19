@@ -17,9 +17,9 @@ check_data_loaded <- function(first_time = FALSE){
 
 if(exists('debug') && isTRUE(get('debug'))){
   assign(".module_debug", environment(), envir = globalenv())
-  ravedash::logger_threshold("trace", module_id = module_id)
+  ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
-  ravedash::logger_threshold("info", module_id = module_id)
+  ravepipeline::logger_threshold("info", module_id = module_id)
 }
 
 pipeline <- ravepipeline::pipeline(

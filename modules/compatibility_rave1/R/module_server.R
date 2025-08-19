@@ -94,7 +94,7 @@ module_server <- function(input, output, session, ...){
       }, error = function(e) {
 
         dipsaus::close_alert2()
-        ravedash::logger_error_condition(e)
+        ravepipeline::logger_error_condition(e)
         dipsaus::shiny_alert2(
           title = "Conversion failed",
           icon = "error",

@@ -162,7 +162,7 @@ rm(._._env_._.)
                 clean_compose_setup(compose_setup = compose_setup,
                   electrodes = lfp_channels)
                 if (isTRUE(skip_validation)) {
-                  ravedash::logger("`skip_validation` is on.",
+                  ravepipeline::logger("`skip_validation` is on.",
                     level = "warn")
                   validation_result <- TRUE
                 } else {
@@ -244,7 +244,7 @@ rm(._._env_._.)
                   clean_compose_setup(compose_setup = compose_setup,
                     electrodes = lfp_channels)
                   if (isTRUE(skip_validation)) {
-                    ravedash::logger("`skip_validation` is on.",
+                    ravepipeline::logger("`skip_validation` is on.",
                       level = "warn")
                     validation_result <- TRUE
                   } else {
