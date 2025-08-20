@@ -400,7 +400,7 @@ collect_localization_data <- function(subject, path_mri, path_ct, path_transform
 
   has_ct <- FALSE
   ct_path <- character(0L)
-  mri_path <- character(0L)
+  mri_path <- resolve_path(path_mri)
   mri_data <- NULL
   transform_matrix <- NULL
   if(length(path_ct)) {
@@ -412,7 +412,6 @@ collect_localization_data <- function(subject, path_mri, path_ct, path_transform
     # check if method is MRI
     transform_space <- tolower(transform_space)
     if(transform_space %in% c("fsl")) {
-      mri_path <- resolve_path(path_mri)
       mri_data <- threeBrain:::read_nii2(mri_path, head_only = TRUE)
     }
     subject$set_default("path_mri", path_mri, namespace = "electrode_localization")
@@ -697,65 +696,87 @@ save_localization <- function(subject, brain, localize_data, write = TRUE) {
     })
   }
 
-  if(write) {
+  if( write ) {
+
     final_results <- localization_result_final
     electrode_table <- final_results$electrode_table
     # electrode_table$SubjectCode <- subject$subject_code
     ct_table <- final_results$ct_table
+    prototype_definitions <- final_results$prototype_definitions
 
-    ravecore::save_meta2(
-      data = electrode_table,
-      meta_type = "electrodes",
-      project_name = subject$project_name,
-      subject_code = subject$subject_code
-    )
-    if(length(final_results$prototype_definitions)) {
-      proto_defs <- final_results$prototype_definitions
-      for(nm in names(proto_defs)) {
-        target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
-        writeLines(proto_defs[[nm]], target_path)
-      }
-    }
-    ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
-    if(is.data.frame(ct_table) && nrow(ct_table)) {
-      utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE)
-    } else if(file.exists(ct_tablepath)) {
-      unlink(ct_tablepath)
-    }
-
-    # backup unsaved.csv as it's not useful anymore
-    unlink(file.path(subject$meta_path, "electrodes_unsaved.csv"))
-    unlink(file.path(subject$meta_path, "geometry_unsaved.json"))
-
-    # also save it to subject custom-data path so users can view the results with colors
-    custom_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "custom-data")
-    custom_path <- ravepipeline::dir_create2(custom_path)
-    ieegio::io_write_fst(electrode_table, file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
-
-    # Save BIDS-compatible
-    bids <- ravecore::convert_electrode_table_to_bids(subject)
-
-    # sub-<label>[_ses-<label>][_acq-<label>][_space-<label>]_coordsystem.json
-    bids_prefix <- sprintf("sub-%s_space-%s", subject$subject_code, bids$meta$iEEGCoordinateSystem)
-    utils::write.table(
-      x = bids$table,
-      file = file.path(subject$meta_path, sprintf("%s_electrodes.tsv", bids_prefix)),
-      sep = "\t",
-      na = "n/a",
-      row.names = FALSE
-    )
-    ravecore:::save_json(
-      x = bids$meta,
-      serialize = FALSE,
-      auto_unbox = TRUE,
-      con = file.path(
-        subject$meta_path,
-        sprintf("%s_coordsystem.json", bids_prefix)
-      )
+    save_electrode_table(
+      subject = subject,
+      brain = brain,
+      electrode_table = electrode_table,
+      ct_table = ct_table,
+      prototype_definitions = prototype_definitions
     )
   }
 
   localization_result_final
+}
+
+
+save_electrode_table <- function(subject, brain, electrode_table, ct_table = NULL, prototype_definitions = NULL) {
+  # electrode_table$SubjectCode <- subject$subject_code
+  localization_path <- file.path(subject$imaging_path, "localization")
+  dir.create(localization_path, showWarnings = FALSE, recursive = TRUE)
+
+  ravecore::save_meta2(
+    data = electrode_table,
+    meta_type = "electrodes",
+    project_name = subject$project_name,
+    subject_code = subject$subject_code
+  )
+  utils::write.csv(electrode_table, file.path(localization_path, "electrodes.csv"), row.names = FALSE)
+  if(length(prototype_definitions)) {
+    proto_defs <- prototype_definitions
+    for(nm in names(proto_defs)) {
+      target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
+      writeLines(proto_defs[[nm]], target_path)
+    }
+  }
+
+  if(is.data.frame(ct_table) && nrow(ct_table)) {
+    ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
+    ct_tablepath2 <- file.path(localization_path, sprintf("sub-%s_space-CT_electrodes.tsv", subject$subject_code))
+    utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE)
+    ravecore::export_table(ct_table, format = "tsv", file = ct_tablepath2)
+  }
+
+  # backup unsaved.csv as it's not useful anymore
+  unlink(file.path(subject$meta_path, "electrodes_unsaved.csv"))
+  unlink(file.path(subject$meta_path, "geometry_unsaved.json"))
+
+  # also save it to subject custom-data path so users can view the results with colors
+  custom_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "custom-data")
+  custom_path <- ravepipeline::dir_create2(custom_path)
+  ieegio::io_write_fst(electrode_table, file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
+
+  # Save BIDS-compatible
+  bids <- ravecore::convert_electrode_table_to_bids(subject)
+
+  # sub-<label>[_ses-<label>][_acq-<label>][_space-<label>]_coordsystem.json
+  bids_prefix <- sprintf("sub-%s_space-%s", subject$subject_code, bids$meta$iEEGCoordinateSystem)
+  bids_electrode_path <- file.path(subject$meta_path, sprintf("%s_electrodes.tsv", bids_prefix))
+  bids_electrode_sidecar <- file.path(subject$meta_path, sprintf("%s_coordsystem.json", bids_prefix))
+
+  ravecore::export_table(x = bids$table, format = "tsv", file = bids_electrode_path)
+  ravecore:::save_json(x = bids$meta, serialize = FALSE, auto_unbox = TRUE,
+                       con = bids_electrode_sidecar)
+
+  file.copy(
+    from = bids_electrode_path,
+    to = file.path(localization_path, basename(bids_electrode_path)),
+    overwrite = TRUE,
+    recursive = FALSE
+  )
+  file.copy(
+    from = bids_electrode_sidecar,
+    to = file.path(localization_path, basename(bids_electrode_sidecar)),
+    overwrite = TRUE,
+    recursive = FALSE
+  )
 }
 
 

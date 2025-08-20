@@ -143,7 +143,20 @@ module_server <- function(input, output, session, ...){
         icon = "info", auto_close = FALSE, buttons = FALSE
       )
 
+      succeed <- FALSE
+      on.exit({
+        if(!succeed) {
+          Sys.sleep(0.5)
+          dipsaus::close_alert2(session = session)
+        }
+      }, after = FALSE, add = TRUE)
+
       postprocess_opt <- input$postprocess_opt
+      postprocess_opt2 <- structure(
+        names = postprocess_opt,
+        as.list(rep(TRUE, length(postprocess_opt)))
+      )
+      pipeline$set_settings(postprocess_opts = postprocess_opt2)
 
       result_final <- pipeline$run(
         as_promise = FALSE,
@@ -151,10 +164,13 @@ module_server <- function(input, output, session, ...){
         type = "callr",
         callr_function = NULL,
         async = FALSE,
-        names = "localization_result_final"
+        names = c(
+          "localization_result_final",
+          "burn_electrodes_to_t1"
+        )
       )
 
-      electrode_table <- result_final$electrode_table
+      electrode_table <- result_final$localization_result_final$electrode_table
       needs_update <- FALSE
 
       if( "nonlinear_surface_mapping" %in% postprocess_opt ) {
@@ -194,7 +210,7 @@ module_server <- function(input, output, session, ...){
               type = "callr",
               callr_function = NULL,
               async = FALSE,
-              names = "postprocess_ants"
+              names = "nonlinear_volumetric_mapping"
             )
             electrode_table$MNI152_x <- volume_mapping$MNI152_x
             electrode_table$MNI152_y <- volume_mapping$MNI152_y
@@ -217,17 +233,26 @@ module_server <- function(input, output, session, ...){
 
       subject <- pipeline$read("subject")
       if( needs_update ) {
-        ravecore::save_meta2(
-          data = electrode_table,
-          meta_type = "electrodes",
-          project_name = subject$project_name,
-          subject_code = subject$subject_code
+        brain <- pipeline$read("brain")
+        save_electrode_table(
+          subject = subject,
+          brain = brain,
+          electrode_table = electrode_table,
+          ct_table = NULL,
+          prototype_definitions = NULL
         )
+        # ravecore::save_meta2(
+        #   data = electrode_table,
+        #   meta_type = "electrodes",
+        #   project_name = subject$project_name,
+        #   subject_code = subject$subject_code
+        # )
       }
 
       # generate reports
       report_wizard$generate(subject, "electrodeview")
 
+      succeed <- TRUE
       Sys.sleep(0.5)
       dipsaus::close_alert2()
 
@@ -339,11 +364,13 @@ module_server <- function(input, output, session, ...){
                 inline = FALSE,
                 choiceNames = c(
                   "Surface mapping to inflated brain & fsaverage",
-                  "Non-linear MNI152 coordinates"
+                  "Non-linear MNI152 coordinates",
+                  "Burn electrodes to T1w MRI"
                 ),
                 choiceValues = c(
                   "nonlinear_surface_mapping",
-                  "nonlinear_volumetric_mapping"
+                  "nonlinear_volumetric_mapping",
+                  "burn_electrodes_to_t1"
                 )
               )
             ),

@@ -29,6 +29,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_postprocess_surface_target = targets::tar_target_raw("postprocess_surface_target", 
         quote({
             settings[["postprocess_surface_target"]]
+        }), deps = "settings"), input_postprocess_opts = targets::tar_target_raw("postprocess_opts", 
+        quote({
+            settings[["postprocess_opts"]]
         }), deps = "settings"), input_path_transform = targets::tar_target_raw("path_transform", 
         quote({
             settings[["path_transform"]]
@@ -304,76 +307,121 @@ rm(._._env_._.)
             }), target_depends = c("localization_result_initial", 
             "subject", "brain", "localize_data")), deps = c("localization_result_initial", 
         "subject", "brain", "localize_data"), cue = targets::tar_cue("always"), 
-        pattern = NULL, iteration = "list"), postprocess_using_ANTs = targets::tar_target_raw(name = "postprocess_ants", 
+        pattern = NULL, iteration = "list"), burn_electrodes_to_t1 = targets::tar_target_raw(name = "burn_electrodes_to_t1", 
         command = quote({
             .__target_expr__. <- quote({
-                electrode_table <- subject$get_electrode_table()
-                is_debug <- getOption("raveio.debug", FALSE)
-                if (!is.data.frame(electrode_table)) {
-                  stop("Invalid electrode table. Please save the electrode localization results first.")
-                }
-                if (!rpyANTs::ants_available()) {
-                  stop("ANTs is not configured for RAVE. Python environment must be configured through `ravemanager::configure_python()` first.")
-                }
-                if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-                  brain <- ravecore::rave_brain(subject)
-                  if (is.null(brain)) {
-                    stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
+                electrode_table <- localization_result_final$electrode_table
+                if (isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
+                  localization_path <- file.path(subject$imaging_path, 
+                    "localization")
+                  if (!dir.exists(localization_path)) {
+                    dir.create(localization_path, showWarnings = FALSE, 
+                      recursive = TRUE)
                   }
-                  tkr_ras <- as.matrix(electrode_table[, c("Coord_x", 
-                    "Coord_y", "Coord_z")])
-                  t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
-                    from = "tkrRAS", to = "scannerRAS")
-                  valids <- rowSums(tkr_ras^2) > 0
-                } else {
-                  t1_ras <- as.matrix(electrode_table[, c("T1R", 
-                    "T1A", "T1S")])
-                  valids <- rowSums(t1_ras^2) > 0
-                }
-                if (any(valids)) {
-                  yael_process <- ravecore::YAELProcess$new(subject = subject)
-                  mapping <- NULL
-                  mni152 <- NULL
-                  template_name <- NULL
-                  for (template_name in c("mni_icbm152_nlin_asym_09b", 
-                    "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
-                    mapping <- yael_process$get_template_mapping(template_name = template_name)
-                    if (!is.null(mapping)) {
-                      break
-                    }
-                  }
-                  if (is.null(mapping)) {
-                    if (!is_debug) {
-                      stop("Unable to find any non-linear mapping files. Please check help documentation of `?ravecore::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
-                    }
+                  t1_path <- localize_data$mri_path
+                  pal <- threeBrain:::DEFAULT_COLOR_DISCRETE
+                  label_prefix <- electrode_table$LabelPrefix
+                  label_prefix_levels <- unique(label_prefix)
+                  n_levels <- length(label_prefix_levels)
+                  if (length(pal) < n_levels) {
+                    pal <- (grDevices::colorRampPalette(colors = pal))(n_levels)
                   } else {
-                    mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
-                      template_name = template_name)
-                    mni305 <- cbind(mni152, 1) %*% t(solve(ravecore::MNI305_to_MNI152))
-                    mni152[!valids, ] <- 0
-                    mni305[!valids, ] <- 0
-                    electrode_table$MNI305_x <- mni305[, 1]
-                    electrode_table$MNI305_y <- mni305[, 2]
-                    electrode_table$MNI305_z <- mni305[, 3]
-                    electrode_table$MNI152_x <- mni152[, 1]
-                    electrode_table$MNI152_y <- mni152[, 2]
-                    electrode_table$MNI152_z <- mni152[, 3]
+                    pal <- pal[seq_len(n_levels)]
                   }
+                  col <- as.integer(factor(label_prefix, levels = label_prefix_levels))
+                  col_str <- pal[col]
+                  radius <- as.numeric(electrode_table$Radius)
+                  if (!length(radius)) {
+                    radius <- rep(1, nrow(electrode_table))
+                  }
+                  scanner_ras <- as.matrix(electrode_table[, 
+                    c("T1R", "T1A", "T1S")])
+                  burn <- ieegio::burn_volume(image = t1_path, 
+                    ras_position = scanner_ras, col = col_str, 
+                    radius = radius, blank_underlay = TRUE, preview = NULL)
+                  fname <- sprintf("sub-%s_space-T1w_desc-electrodeBurntInOverlay_T1w.nii.gz", 
+                    subject$subject_code)
+                  ieegio::write_volume(burn, file.path(localization_path, 
+                    fname))
+                  burn <- ieegio::burn_volume(image = t1_path, 
+                    ras_position = scanner_ras, col = col_str, 
+                    radius = radius, blank_underlay = FALSE, 
+                    preview = NULL)
+                  fname <- sprintf("sub-%s_space-T1w_desc-electrodeBurntIn_T1w.nii.gz", 
+                    subject$subject_code)
+                  ieegio::write_volume(burn, file.path(localization_path, 
+                    fname))
+                  burn_electrodes_to_t1 <- fname
+                } else {
+                  burn_electrodes_to_t1 <- NULL
                 }
-                postprocess_ants <- electrode_table[, c("Electrode", 
-                  "T1R", "T1A", "T1S", "MNI152_x", "MNI152_y", 
-                  "MNI152_z", "MNI305_x", "MNI305_y", "MNI305_z")]
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(postprocess_ants)
+                return(burn_electrodes_to_t1)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "postprocess_ants", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "burn_electrodes_to_t1", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "postprocess_ants", target_expr = quote({
+            target_export = "burn_electrodes_to_t1", target_expr = quote({
                 {
+                  electrode_table <- localization_result_final$electrode_table
+                  if (isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
+                    localization_path <- file.path(subject$imaging_path, 
+                      "localization")
+                    if (!dir.exists(localization_path)) {
+                      dir.create(localization_path, showWarnings = FALSE, 
+                        recursive = TRUE)
+                    }
+                    t1_path <- localize_data$mri_path
+                    pal <- threeBrain:::DEFAULT_COLOR_DISCRETE
+                    label_prefix <- electrode_table$LabelPrefix
+                    label_prefix_levels <- unique(label_prefix)
+                    n_levels <- length(label_prefix_levels)
+                    if (length(pal) < n_levels) {
+                      pal <- (grDevices::colorRampPalette(colors = pal))(n_levels)
+                    } else {
+                      pal <- pal[seq_len(n_levels)]
+                    }
+                    col <- as.integer(factor(label_prefix, levels = label_prefix_levels))
+                    col_str <- pal[col]
+                    radius <- as.numeric(electrode_table$Radius)
+                    if (!length(radius)) {
+                      radius <- rep(1, nrow(electrode_table))
+                    }
+                    scanner_ras <- as.matrix(electrode_table[, 
+                      c("T1R", "T1A", "T1S")])
+                    burn <- ieegio::burn_volume(image = t1_path, 
+                      ras_position = scanner_ras, col = col_str, 
+                      radius = radius, blank_underlay = TRUE, 
+                      preview = NULL)
+                    fname <- sprintf("sub-%s_space-T1w_desc-electrodeBurntInOverlay_T1w.nii.gz", 
+                      subject$subject_code)
+                    ieegio::write_volume(burn, file.path(localization_path, 
+                      fname))
+                    burn <- ieegio::burn_volume(image = t1_path, 
+                      ras_position = scanner_ras, col = col_str, 
+                      radius = radius, blank_underlay = FALSE, 
+                      preview = NULL)
+                    fname <- sprintf("sub-%s_space-T1w_desc-electrodeBurntIn_T1w.nii.gz", 
+                      subject$subject_code)
+                    ieegio::write_volume(burn, file.path(localization_path, 
+                      fname))
+                    burn_electrodes_to_t1 <- fname
+                  } else {
+                    burn_electrodes_to_t1 <- NULL
+                  }
+                }
+                burn_electrodes_to_t1
+            }), target_depends = c("localization_result_final", 
+            "postprocess_opts", "subject", "localize_data")), 
+        deps = c("localization_result_final", "postprocess_opts", 
+        "subject", "localize_data"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), nonlinear_volumetric_mapping = targets::tar_target_raw(name = "nonlinear_volumetric_mapping", 
+        command = quote({
+            .__target_expr__. <- quote({
+                if (isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
                   electrode_table <- subject$get_electrode_table()
                   is_debug <- getOption("raveio.debug", FALSE)
                   if (!is.data.frame(electrode_table)) {
@@ -427,52 +475,99 @@ rm(._._env_._.)
                       electrode_table$MNI152_z <- mni152[, 3]
                     }
                   }
-                  postprocess_ants <- electrode_table[, c("Electrode", 
-                    "T1R", "T1A", "T1S", "MNI152_x", "MNI152_y", 
-                    "MNI152_z", "MNI305_x", "MNI305_y", "MNI305_z")]
-                }
-                postprocess_ants
-            }), target_depends = "subject"), deps = "subject", 
-        cue = targets::tar_cue("always"), pattern = NULL, iteration = "list"), 
-    postprocess_surface_mapping = targets::tar_target_raw(name = "postprocess_surface_mapping", 
-        command = quote({
-            .__target_expr__. <- quote({
-                electrode_table <- subject$get_electrode_table()
-                if (!is.data.frame(electrode_table)) {
-                  stop("Invalid electrode table. Please save the electrode localization results first.")
-                }
-                if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
-                  brain <- ravecore::rave_brain(subject)
-                  if (is.null(brain)) {
-                    stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
-                  }
-                  tkr_ras <- as.matrix(electrode_table[, c("Coord_x", 
-                    "Coord_y", "Coord_z")])
-                  t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
-                    from = "tkrRAS", to = "scannerRAS")
-                  valids <- rowSums(tkr_ras^2) > 0
+                  nonlinear_volumetric_mapping <- electrode_table[, 
+                    c("Electrode", "T1R", "T1A", "T1S", "MNI152_x", 
+                      "MNI152_y", "MNI152_z", "MNI305_x", "MNI305_y", 
+                      "MNI305_z")]
                 } else {
-                  t1_ras <- as.matrix(electrode_table[, c("T1R", 
-                    "T1A", "T1S")])
-                  valids <- rowSums(t1_ras^2) > 0
+                  nonlinear_volumetric_mapping <- NULL
                 }
-                surface_mapping <- ravecore::transform_point_to_template(subject = subject, 
-                  positions = t1_ras, space = "scannerRAS", mapping_method = "surface", 
-                  flip_hemisphere = FALSE, verbose = TRUE, project_surface = postprocess_surface_target)
-                surface_mapping[!valids, ] <- 0
-                surface_mapping$Electrode <- electrode_table$Electrode
-                postprocess_surface_mapping <- surface_mapping
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(postprocess_surface_mapping)
+                return(nonlinear_volumetric_mapping)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "postprocess_surface_mapping", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "nonlinear_volumetric_mapping", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "postprocess_surface_mapping", target_expr = quote({
+            target_export = "nonlinear_volumetric_mapping", target_expr = quote({
                 {
+                  if (isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
+                    electrode_table <- subject$get_electrode_table()
+                    is_debug <- getOption("raveio.debug", FALSE)
+                    if (!is.data.frame(electrode_table)) {
+                      stop("Invalid electrode table. Please save the electrode localization results first.")
+                    }
+                    if (!rpyANTs::ants_available()) {
+                      stop("ANTs is not configured for RAVE. Python environment must be configured through `ravemanager::configure_python()` first.")
+                    }
+                    if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
+                      brain <- ravecore::rave_brain(subject)
+                      if (is.null(brain)) {
+                        stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
+                      }
+                      tkr_ras <- as.matrix(electrode_table[, 
+                        c("Coord_x", "Coord_y", "Coord_z")])
+                      t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
+                        from = "tkrRAS", to = "scannerRAS")
+                      valids <- rowSums(tkr_ras^2) > 0
+                    } else {
+                      t1_ras <- as.matrix(electrode_table[, c("T1R", 
+                        "T1A", "T1S")])
+                      valids <- rowSums(t1_ras^2) > 0
+                    }
+                    if (any(valids)) {
+                      yael_process <- ravecore::YAELProcess$new(subject = subject)
+                      mapping <- NULL
+                      mni152 <- NULL
+                      template_name <- NULL
+                      for (template_name in c("mni_icbm152_nlin_asym_09b", 
+                        "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
+                        mapping <- yael_process$get_template_mapping(template_name = template_name)
+                        if (!is.null(mapping)) {
+                          break
+                        }
+                      }
+                      if (is.null(mapping)) {
+                        if (!is_debug) {
+                          stop("Unable to find any non-linear mapping files. Please check help documentation of `?ravecore::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
+                        }
+                      } else {
+                        mni152 <- yael_process$transform_points_to_template(native_ras = t1_ras, 
+                          template_name = template_name)
+                        mni305 <- cbind(mni152, 1) %*% t(solve(ravecore::MNI305_to_MNI152))
+                        mni152[!valids, ] <- 0
+                        mni305[!valids, ] <- 0
+                        electrode_table$MNI305_x <- mni305[, 
+                          1]
+                        electrode_table$MNI305_y <- mni305[, 
+                          2]
+                        electrode_table$MNI305_z <- mni305[, 
+                          3]
+                        electrode_table$MNI152_x <- mni152[, 
+                          1]
+                        electrode_table$MNI152_y <- mni152[, 
+                          2]
+                        electrode_table$MNI152_z <- mni152[, 
+                          3]
+                      }
+                    }
+                    nonlinear_volumetric_mapping <- electrode_table[, 
+                      c("Electrode", "T1R", "T1A", "T1S", "MNI152_x", 
+                        "MNI152_y", "MNI152_z", "MNI305_x", "MNI305_y", 
+                        "MNI305_z")]
+                  } else {
+                    nonlinear_volumetric_mapping <- NULL
+                  }
+                }
+                nonlinear_volumetric_mapping
+            }), target_depends = c("postprocess_opts", "subject"
+            )), deps = c("postprocess_opts", "subject"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), postprocess_surface_mapping = targets::tar_target_raw(name = "postprocess_surface_mapping", 
+        command = quote({
+            .__target_expr__. <- quote({
+                if (isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
                   electrode_table <- subject$get_electrode_table()
                   if (!is.data.frame(electrode_table)) {
                     stop("Invalid electrode table. Please save the electrode localization results first.")
@@ -499,9 +594,53 @@ rm(._._env_._.)
                   surface_mapping[!valids, ] <- 0
                   surface_mapping$Electrode <- electrode_table$Electrode
                   postprocess_surface_mapping <- surface_mapping
+                } else {
+                  postprocess_surface_mapping <- NULL
+                }
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(postprocess_surface_mapping)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "postprocess_surface_mapping", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "postprocess_surface_mapping", target_expr = quote({
+                {
+                  if (isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
+                    electrode_table <- subject$get_electrode_table()
+                    if (!is.data.frame(electrode_table)) {
+                      stop("Invalid electrode table. Please save the electrode localization results first.")
+                    }
+                    if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
+                      brain <- ravecore::rave_brain(subject)
+                      if (is.null(brain)) {
+                        stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
+                      }
+                      tkr_ras <- as.matrix(electrode_table[, 
+                        c("Coord_x", "Coord_y", "Coord_z")])
+                      t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
+                        from = "tkrRAS", to = "scannerRAS")
+                      valids <- rowSums(tkr_ras^2) > 0
+                    } else {
+                      t1_ras <- as.matrix(electrode_table[, c("T1R", 
+                        "T1A", "T1S")])
+                      valids <- rowSums(t1_ras^2) > 0
+                    }
+                    surface_mapping <- ravecore::transform_point_to_template(subject = subject, 
+                      positions = t1_ras, space = "scannerRAS", 
+                      mapping_method = "surface", flip_hemisphere = FALSE, 
+                      verbose = TRUE, project_surface = postprocess_surface_target)
+                    surface_mapping[!valids, ] <- 0
+                    surface_mapping$Electrode <- electrode_table$Electrode
+                    postprocess_surface_mapping <- surface_mapping
+                  } else {
+                    postprocess_surface_mapping <- NULL
+                  }
                 }
                 postprocess_surface_mapping
-            }), target_depends = c("subject", "postprocess_surface_target"
-            )), deps = c("subject", "postprocess_surface_target"
-        ), cue = targets::tar_cue("always"), pattern = NULL, 
-        iteration = "list"))
+            }), target_depends = c("postprocess_opts", "subject", 
+            "postprocess_surface_target")), deps = c("postprocess_opts", 
+        "subject", "postprocess_surface_target"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"))

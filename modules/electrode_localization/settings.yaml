@@ -3,6 +3,10 @@ localization_plan: ${EXTDATA-SETTINGS|localization_plan|json}
 path_ct: '{subject$freesurfer_path}/../coregistration/CT_RAW.nii.gz'
 path_mri: '{subject$freesurfer_path}/../coregistration/MRI_reference.nii.gz'
 path_transform: '{subject$freesurfer_path}/../coregistration/CT_IJK_to_MR_RAS.txt'
+postprocess_opts:
+  nonlinear_surface_mapping: yes
+  nonlinear_volumetric_mapping: yes
+  burn_electrodes_to_t1: yes
 postprocess_surface_target: smoothwm
 project_name: YAEL
 subject_code: yael_demo_001
