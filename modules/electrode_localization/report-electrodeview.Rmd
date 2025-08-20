@@ -118,7 +118,7 @@ htmltools::div(
 
 ## Electrode table
 
-```{r table_print, layout="l-page"}
+```{r table_print, layout="l-screen-insert-right"}
 rmarkdown::paged_table(
   electrode_table,
   options = list(
@@ -130,7 +130,7 @@ rmarkdown::paged_table(
 
 ## Anatomical slices
 
-```{r slice_view, results='asis', out.width="100%", fig.width=12, fig.height=4.5, layout="l-page"}
+```{r slice_view, results='asis', out.width="100%", fig.width=12, fig.height=4.5, layout="l-screen-insert-right"}
 dummy_output <- lapply(seq_len(nrow(electrode_table)), function(ii) {
   row <- electrode_table[ii, ]
   ras <- c(row$T1R, row$T1A, row$T1S)
