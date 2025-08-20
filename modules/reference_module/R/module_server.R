@@ -76,7 +76,11 @@ module_server <- function(input, output, session, ...){
 
     re <- local_data$reference_data[[name]]
 
-    has_wavelet <- all(subject$has_wavelet)
+    # get electrode channels for the reference channels, be careful here
+    # as not all the channels have spectro
+    ref_channels <- dipsaus::parse_svec(gsub("^ref_", "", name))
+    has_wavelets <- subject$has_wavelet[subject$electrodes %in% ref_channels]
+    has_wavelet <- all(has_wavelets)
 
     if( has_wavelet ) {
       if(all(c("voltage", "wavelet") %in% names(re))){ return(re) }
@@ -89,7 +93,13 @@ module_server <- function(input, output, session, ...){
     re$voltage <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "voltage")
 
     if( has_wavelet ) {
-      re$wavelet <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "wavelet-coefficient")
+      tryCatch({
+        re$wavelet <- inst$load_blocks(
+          subject$blocks, simplify = FALSE,
+          type = "wavelet-coefficient")
+      }, error = function(e) {
+        ravepipeline::logger_error_condition(e, level = "warning")
+      })
     }
     local_data$reference_data[[name]] <- re
     return(re)
