@@ -5,17 +5,16 @@ html {
 
 d-article.d-article-with-toc {
   contain: none;
-  padding-bottom: 0;
 }
 
 .d-article-with-toc .d-contents-float {
-  position: fixed;
-  top: 3em;
-  left: 0;
-  z-index: 50;
-  height: calc( 100vh - 6em );
-  overflow-y: auto;
-  scrollbar-width: none;
+  position: fixed!important;
+  top: 3em!important;
+  left: 0!important;
+  z-index: 50!important;
+  height: calc( 100vh - 6em )!important;
+  overflow-y: auto!important;
+  scrollbar-width: none!important;
   -ms-overflow-style: none;
 }
 
@@ -29,10 +28,10 @@ d-article.d-article-with-toc {
 /* Hide the ToC when resized to mobile or tablet:  480px, 768px, 900px */
 @media screen and (max-width: 1600px) {
   .d-article-with-toc .d-contents-float {
-    position: relative;
-    height: unset;
+    position: relative!important;
+    height: unset!important;
     max-height: 500px;
-    top: unset;
+    top: unset!important;
   }
 }
 
@@ -49,10 +48,10 @@ d-article.d-article-with-toc {
 }
 
 .pt-0 {
-  padding-top: 0;
+  padding-top: 0!important;
 }
 
 .pd-0 {
-  padding-bottom: 0;
+  padding-bottom: 0!important;
 }
 </style>
