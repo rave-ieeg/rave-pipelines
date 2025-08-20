@@ -290,7 +290,7 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     etypes <- subject$preprocess_settings$electrode_types
     if(length(etypes)) {
       etypes <- etypes[eo]
-      etypes_default[plan_table$Electrode %in% electrodes] <- etypes
+      etypes_default[plan_table$Electrode %in% signal_loaded_electrodes] <- etypes
     }
     plan_table$SignalType <- etypes_default
 
