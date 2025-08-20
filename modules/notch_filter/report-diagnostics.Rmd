@@ -2,6 +2,14 @@
 title: "Notch Filter Diagnostic Plots"
 date: "`r Sys.Date()`"
 output: 
+  distill::distill_article:
+    theme: flatly
+    code_folding: true
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    css: "report_styles.css"
   html_document:
     theme: flatly
     code_folding: hide
@@ -13,10 +21,9 @@ params:
   electrodes: ~
 ---
 
-```{r setup, echo = FALSE, results='hide', eval=TRUE}
+```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   eval = TRUE,
-  echo = TRUE,
   collapse = TRUE,
   warning = FALSE,
   message = FALSE
@@ -61,7 +68,33 @@ if(!length(max_freq) || is.na(max_freq)) { max_freq <- 300 }
 # Number of histogram bins
 nbins <- as.numeric(diagnostic_plot_params$histogram_bins)
 if(!length(nbins) || is.na(nbins)) { nbins <- 50 }
+
+filtered_channels <- subject$electrodes[subject$notch_filtered]
+if(length(params$electrodes)) {
+  filtered_channels <- filtered_channels[filtered_channels %in% params$electrodes]
+}
+
 ```
+
+::: {.hidden}
+
+```{r custom_toc_block, results='asis', echo=FALSE}
+htmltools::div(
+  id = "custom-toc",
+  htmltools::tags$ul(
+    htmltools::tagList(lapply(filtered_channels, function(ch) {
+      htmltools::tags$li(
+        htmltools::a(
+          href = sprintf('#channel-%d', ch),
+          sprintf("Channel %d", ch)
+        )
+      )
+    }))
+  )
+)
+```
+
+:::
 
 ## Subject ID: ``r subject$subject_id``
 
@@ -74,20 +107,18 @@ Welch-periodogram parameters:
 
 Full `settings.yaml`:
 
-````yml
-```{r, results='asis', echo=FALSE, warning=FALSE}
+```{r, echo=FALSE, warning=FALSE}
 ravepipeline::save_yaml(pipeline$get_settings(), stdout())
 ```
-````
 
-```{r generate_diagnostic_plots, fig.height=7, fig.width=12, out.width="100%", results='asis'}
+```{r generate_diagnostic_plots, fig.height=7, fig.width=12, out.width="100%", results='asis', layout='l-screen-insert-right'}
 filtered_channels <- subject$electrodes[subject$notch_filtered]
 if(length(params$electrodes)) {
   filtered_channels <- filtered_channels[filtered_channels %in% params$electrodes]
 }
 
 for(channel in filtered_channels) {
-  cat(sprintf("\n\n### Channel: %s\n\n", channel))
+  cat(sprintf("\n\n### Channel: %s {#channel-%d}\n\n", channel, channel))
   channel_info <- subject$preprocess_settings$data[[as.character(channel)]]
   cat(sprintf(
     "* Sample rate: %.2f Hz\n* Signal type: %s\n* Applied Notch filters: %s\n\n",
@@ -110,3 +141,23 @@ for(channel in filtered_channels) {
   )
 }
 ```
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  let count = 0;
+  const insert_custom_toc = () => {
+    const custom_toc = document.getElementById("custom-toc");
+    const toc = document.querySelector("d-article.d-article-with-toc #TOC");
+    if(!custom_toc) { return; }
+    if(toc) {
+      toc.appendChild(custom_toc);
+      return;
+    }
+    if(count > 10) { return; }
+    count++;
+    console.log(toc);
+    setTimeout(insert_custom_toc, 500);
+  };
+  insert_custom_toc();
+});
+</script>

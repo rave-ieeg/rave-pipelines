@@ -1,4 +1,5 @@
 background: '#ffffff'
+channel_types: LFP
 diagnostic_plot_params:
   window_length: 2
   max_frequency: 300
@@ -18,4 +19,3 @@ notch_filter_upperbound:
 - 182.0
 project_name: test
 subject_code: DemoSubject
-channel_types: LFP
