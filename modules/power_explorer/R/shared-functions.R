@@ -956,13 +956,152 @@ new_shift_array <- function() {
       baselined <- repository$power$baselined
       n_electrodes <- dim(baselined)[[4]]
 
-      raveio::lapply_async(seq_len(n_electrodes), function(ii) {
-        subarr <- baselined[,,,ii, drop = FALSE]
+      # Dipterix commented on Aug 20: shift_array is already multithreaded
+      # I wrote the following two so you can profile the speed
 
-        # trial is now at 3rd margin, time is at 2nd margin
-        shifted_array <- ravetools::shift_array(subarr, along_margin = 2L, shift_amount = shift_amount, unit_margin = 3L)
-        arr[,,,ii] <- shifted_array
-      })
+      # DIPSAUS DEBUG START
+      # # To profile the code, uncomment the following code or use dipsaus shortcut
+      # # On my computer this is command+1 (or option+1)
+      # profiling_setup <- function() {
+      #   set.seed(42)
+      #   baselined <- filearray::as_filearray(array(as.double(seq_len(6e8)), c(100, 300, 200, 100)))
+      #   baselined$.mode <- "readwrite"
+      #   dimnames(baselined) <- list(
+      #     Frequency = 1:100 * 2,
+      #     Time = seq_len(300) / 100 - 1,
+      #     Trial = 1:200,
+      #     Electrode = 1:100
+      #   )
+      #   shift_amount <- sample(100, 200, replace = TRUE) - 50
+      #   n_electrodes <- dim(baselined)[[4]]
+      #   arr_path <- tempfile()
+      #   arr <- filearray::filearray_create(filebase = arr_path, dimension = dim(baselined),
+      #                                      type = "float", partition_size = 1L, initialize = TRUE)
+      #   list(
+      #     baselined = baselined,
+      #     shift_amount = shift_amount,
+      #     n_electrodes = n_electrodes,
+      #     arr = arr
+      #   )
+      # }
+      # list2env(profiling_setup(), .GlobalEnv)
+      # profiling <- system.time
+
+      # profiling <- profvis::profvis
+
+
+      # # This is the original implementation
+      # # Under clean forked clusters
+      # # ravepipeline::raveio_setopt("disable_fork_clusters", FALSE)
+      #  user  system elapsed
+      # 0.301   1.199   6.312  <- with dimnames
+      # 1.003   1.371   6.090  <- with dimnames=FALSE
+      #
+      # # When the environment is dirty, fork will need to serialize
+      # # a lot of other things
+      # # This can be simulated with runing all the profiling examples
+      # # without GC() and come back and rerun
+      #  user  system elapsed  <- with dimnames=FALSE
+      # 0.305   1.262   9.546
+      #
+      # Another thing I noticed was the forked processes don't die out
+      # when I run the code again... RAM became 5GB + 1.3*11 (total 20 GB RAM)
+
+      # profiling({
+      # raveio::lapply_async(seq_len(n_electrodes), function(ii) {
+      #   subarr <- baselined[,,,ii, drop = FALSE, dimnames = FALSE]
+      #
+      #   # trial is now at 3rd margin, time is at 2nd margin
+      #   shifted_array <- ravetools::shift_array(
+      #     subarr,
+      #     along_margin = 2L,
+      #     shift_amount = shift_amount,
+      #     unit_margin = 3L
+      #   )
+      #
+      #   arr[,,,ii] <- shifted_array
+      # })
+      # })
+
+
+      # # With no parallel. the results fluctuate due to garbage collection
+      #  user  system elapsed
+      # 7.640   1.404   6.654  <- with dimnames
+      # 7.532   1.157   4.011  <- with dimnames=FALSE because you don't need to
+      # index and assign the dimnames
+      #
+      # Rerun under memory pressure (with previous 20+GB RAM occupied)
+      #    user  system elapsed
+      #   7.616   1.830   9.525
+
+      # profiling({
+      # subarr_dm <- dim(baselined)
+      # subarr_dm[[4]] <- 1L
+      # lapply(seq_len(n_electrodes), function(ii) {
+      #
+      #   # Speed up 1
+      #   # subarr <- baselined[,,,ii, drop = FALSE, dimnames = NULL]
+      #
+      #   # Speed up 2
+      #   subarr <- baselined[,,,ii, reshape = subarr_dm]
+      #
+      #   # trial is now at 3rd margin, time is at 2nd margin
+      #   shifted_array <- ravetools::shift_array(
+      #     subarr,
+      #     along_margin = 2L,
+      #     shift_amount = shift_amount,
+      #     unit_margin = 3L
+      #   )
+      #
+      #   arr[,,,ii] <- shifted_array
+      #   return()
+      # })
+      # })
+
+
+      # # With no parallel, but "stream" the data in
+      #  user  system elapsed
+      # 5.893   1.131   2.258 <-- This is a beast. the reason why it's fast
+      # I. pre-allocate and reuse the C++ buffers for read and write
+      # II. sequential reading from memory page
+      # III. lower memory pressure, garbage collection is less aggressive
+      #
+      # Under memory pressure:
+      #  user  system elapsed
+      # 5.733   1.531   3.516 <-- yay
+
+      # profiling({
+      subarr_dm <- dim(baselined)
+      subarr_dm[[4]] <- 1L
+      subarr_len <- prod(subarr_dm)
+      filearray::fmap(
+
+        # a list of one or multiple filearrays
+        x = list(baselined),
+
+        # output array
+        .y = arr,
+
+        # number of partitions - this is why electrode is the last dimension
+        # because the iteration on electrodes are iterating the partitions
+        .buffer_count = n_electrodes,
+
+        # slice_list is a list of data slices, each comes from `x`
+        fun = function(slice_list) {
+
+          ravetools::shift_array(
+
+            # only one input in `x`, so get the first element
+            array(slice_list[[1]], dim = subarr_dm),
+
+            along_margin = 2L,
+            shift_amount = shift_amount,
+            unit_margin = 3L
+          ) # returning the shifted array and stream directly to `arr`
+        }
+      )
+      # })
+
     }
   )
 
