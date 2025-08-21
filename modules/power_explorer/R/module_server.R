@@ -2584,7 +2584,7 @@ module_server <- function(input, output, session, ...){
             sprintf("%s=%s", nm, htmltools::urlEncodePath(params[[nm]]))
           }))
           params <- paste(params, collapse = "&")
-          url <- sprintf("/?%s", params)
+          url <- sprintf("?%s", params)
 
           ravedash::clear_notifications(class = ns("_report_wizard_notif"),
                                         session = session)
