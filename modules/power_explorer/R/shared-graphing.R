@@ -113,7 +113,7 @@ draw_many_heat_maps <- function (
     }
     return(range(x$data))
   }))
-  # ravedash::logger('has_data:', has_data, level='warning')
+  # ravepipeline::logger('has_data:', has_data, level='warning')
 
   if (do_layout) {
     # has_data <- TRUE
@@ -262,7 +262,7 @@ draw_many_heat_maps <- function (
       zlim = c(-1,1) * max_zlim
     } else {
       zlim = NULL
-      # ravedash::logger('setting zlim to NULL', level='trace')
+      # ravepipeline::logger('setting zlim to NULL', level='trace')
     }
     make_image(map$data, x = x, y = y,
                log = ifelse(log_scale, "y", ""),
@@ -440,7 +440,7 @@ plotting_to_file <- function() {
 make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_to_zlim=TRUE,
                        add=TRUE, zlim_percentile=FALSE) {
 
-  # ravedash::logger(level='info', "calling make_image", zlim, zlim_percentile)
+  # ravepipeline::logger(level='info', "calling make_image", zlim, zlim_percentile)
 
   if(missing(zlim) || is.null(zlim)) {
 
@@ -448,7 +448,7 @@ make_image <- function(mat, x, y, zlim, col=NULL, log='', useRaster=TRUE, clip_t
 
       if(!(zlim_percentile %within% c(0,100))) {
 
-        ravedash::logger(level='warning', "Invalid zlim percentile sent to make image, defaulting to 99. ensure value is in 0:100")
+        ravepipeline::logger(level='warning', "Invalid zlim percentile sent to make image, defaulting to 99. ensure value is in 0:100")
 
         zlim_percentile = 99
       }
@@ -2642,7 +2642,7 @@ plot_by_condition_by_trial <- function(by_condition_by_trial_data,
   # we are panelling
   if(ct > 1) {
     par(oma=c(1,1,0,0))
-    ravedash::logger('Trying to make panels')
+    ravepipeline::logger('Trying to make panels')
     pvar <- po$panelvar
     by_panel <- split(mat, mat[[pvar]], drop = TRUE)
 

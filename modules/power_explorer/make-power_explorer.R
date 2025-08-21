@@ -1546,7 +1546,7 @@ rm(._._env_._.)
                   signal_type = "LFP", electrodes = repository$electrode_list)
                 by_condition_group <- lapply(analysis_groups, 
                   FUN = function(ag) {
-                    ravedash::logger(paste(c("[build_over_time_by_electrode_dataframe] working on:", 
+                    ravepipeline::logger(paste(c("[build_over_time_by_electrode_dataframe] working on:", 
                       ag$label, "data"), collapse = " "))
                     res <- lapply(analysis_settings_clean, function(as) {
                       fi <- repository$frequency %within% as$frequency
@@ -1608,7 +1608,7 @@ rm(._._env_._.)
                     signal_type = "LFP", electrodes = repository$electrode_list)
                   by_condition_group <- lapply(analysis_groups, 
                     FUN = function(ag) {
-                      ravedash::logger(paste(c("[build_over_time_by_electrode_dataframe] working on:", 
+                      ravepipeline::logger(paste(c("[build_over_time_by_electrode_dataframe] working on:", 
                         ag$label, "data"), collapse = " "))
                       res <- lapply(analysis_settings_clean, 
                         function(as) {
@@ -1800,7 +1800,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), build_internal_omnibus_results = targets::tar_target_raw(name = "internal_omnibus_results", 
         command = quote({
             .__target_expr__. <- quote({
-                ravedash::logger("top of IOR", level = "debug")
+                ravepipeline::logger("top of IOR", level = "debug")
                 if (isTRUE(omnibus_includes_all_electrodes)) {
                   raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
                     method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
@@ -1811,7 +1811,7 @@ rm(._._env_._.)
                   ob_baselined_power <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                 }
-                ravedash::logger("done baseline correction", 
+                ravepipeline::logger("done baseline correction", 
                   level = "debug")
                 epoch_event_types = get_available_events(repository$epoch$columns)
                 by_condition_group <- lapply(analysis_groups, 
@@ -1870,7 +1870,7 @@ rm(._._env_._.)
                     }))
                   all_data %<>% merge(roi.df, all.x = TRUE, all.y = FALSE)
                 }
-                ravedash::logger("built data frame", level = "debug")
+                ravepipeline::logger("built data frame", level = "debug")
                 if (isTRUE(enable_second_condition_groupings)) {
                   meta_table <- attr(analysis_groups, "meta")
                   stopifnot(is.data.frame(meta_table))
@@ -1956,7 +1956,7 @@ rm(._._env_._.)
                   colnames(res) = el$Electrode[1]
                   return(res)
                 }
-                ravedash::logger("starting pes", level = "debug")
+                ravepipeline::logger("starting pes", level = "debug")
                 stats <- NULL
                 if (length(all_data_clean) > 1) {
                   if (min(aggregate(Trial ~ Electrode, length, 
@@ -1966,7 +1966,7 @@ rm(._._env_._.)
                       run_stats))
                   }
                 }
-                ravedash::logger("done pes", level = "debug")
+                ravepipeline::logger("done pes", level = "debug")
                 if (!is.null(stats)) {
                   attr(stats, "electrode_labels") = repository$electrode_table$Label
                 }
@@ -1974,7 +1974,7 @@ rm(._._env_._.)
                   c("Block", "Trial")], sort = FALSE)
                 internal_omnibus_results = list(data_with_outliers = all_data, 
                   data = all_data_clean, stats = stats)
-                ravedash::logger("done with IOR", level = "debug")
+                ravepipeline::logger("done with IOR", level = "debug")
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -1986,7 +1986,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "internal_omnibus_results", target_expr = quote({
                 {
-                  ravedash::logger("top of IOR", level = "debug")
+                  ravepipeline::logger("top of IOR", level = "debug")
                   if (isTRUE(omnibus_includes_all_electrodes)) {
                     raveio::power_baseline(repository, baseline_windows = baseline_settings$window, 
                       method = get_unit_of_analysis(baseline_settings$unit_of_analysis), 
@@ -1997,7 +1997,7 @@ rm(._._env_._.)
                     ob_baselined_power <- subset(baselined_power, 
                       Electrode ~ Electrode %in% requested_electrodes)
                   }
-                  ravedash::logger("done baseline correction", 
+                  ravepipeline::logger("done baseline correction", 
                     level = "debug")
                   epoch_event_types = get_available_events(repository$epoch$columns)
                   by_condition_group <- lapply(analysis_groups, 
@@ -2058,7 +2058,7 @@ rm(._._env_._.)
                     all_data %<>% merge(roi.df, all.x = TRUE, 
                       all.y = FALSE)
                   }
-                  ravedash::logger("built data frame", level = "debug")
+                  ravepipeline::logger("built data frame", level = "debug")
                   if (isTRUE(enable_second_condition_groupings)) {
                     meta_table <- attr(analysis_groups, "meta")
                     stopifnot(is.data.frame(meta_table))
@@ -2144,7 +2144,7 @@ rm(._._env_._.)
                     colnames(res) = el$Electrode[1]
                     return(res)
                   }
-                  ravedash::logger("starting pes", level = "debug")
+                  ravepipeline::logger("starting pes", level = "debug")
                   stats <- NULL
                   if (length(all_data_clean) > 1) {
                     if (min(aggregate(Trial ~ Electrode, length, 
@@ -2154,7 +2154,7 @@ rm(._._env_._.)
                         run_stats))
                     }
                   }
-                  ravedash::logger("done pes", level = "debug")
+                  ravepipeline::logger("done pes", level = "debug")
                   if (!is.null(stats)) {
                     attr(stats, "electrode_labels") = repository$electrode_table$Label
                   }
@@ -2162,7 +2162,7 @@ rm(._._env_._.)
                     c("Block", "Trial")], sort = FALSE)
                   internal_omnibus_results = list(data_with_outliers = all_data, 
                     data = all_data_clean, stats = stats)
-                  ravedash::logger("done with IOR", level = "debug")
+                  ravepipeline::logger("done with IOR", level = "debug")
                 }
                 internal_omnibus_results
             }), target_depends = c("omnibus_includes_all_electrodes", 
@@ -2236,7 +2236,7 @@ rm(._._env_._.)
                 if (length(omnibus_results$data) > 3) {
                   dd <- subset(omnibus_results$data, currently_selected)
                   emmeans::emm_options(lmer.df = "satterthwaite")
-                  ravedash::logger("top of BAES", calc_delta = TRUE)
+                  ravepipeline::logger("top of BAES", calc_delta = TRUE)
                   rand_effects <- c("Block", "Electrode") %>% 
                     intersect(names(dd))
                   fixed_effects <- c("Factor1", "Factor2", "ROI_label", 
@@ -2265,7 +2265,7 @@ rm(._._env_._.)
                   dt <- data.table::as.data.table(dd)
                   condition_means <- dt[, list(y = mean(y), sd = sd(y), 
                     se = rutabaga:::se(y), n = .N), keyby = fe]
-                  ravedash::logger("got condition means", calc_delta = TRUE)
+                  ravepipeline::logger("got condition means", calc_delta = TRUE)
                   fe <- paste0(fe, collapse = "*")
                   if (!nzchar(fe)) {
                     fe <- "1"
@@ -2283,15 +2283,15 @@ rm(._._env_._.)
                     mod <- do.call(FUN, list(formula = frm, data = dd))
                     .aov <- car::Anova(mod, type = ifelse(fe[1] == 
                       "1", "III", "II"))
-                    ravedash::logger("built linear model, starting post hoc tests", 
+                    ravepipeline::logger("built linear model, starting post hoc tests", 
                       calc_delta = TRUE)
                     em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
                       fe)), infer = c(F, T))
-                    ravedash::logger("Got emm", calc_delta = TRUE)
+                    ravepipeline::logger("Got emm", calc_delta = TRUE)
                     pairwise <- emmeans::contrast(em, "pairwise")
-                    ravedash::logger("Got pairwise contrasts", 
+                    ravepipeline::logger("Got pairwise contrasts", 
                       calc_delta = TRUE)
-                    ravedash::logger("Got ANOVA", calc_delta = TRUE)
+                    ravepipeline::logger("Got ANOVA", calc_delta = TRUE)
                   }
                   stratified_contrasts <- NULL
                   if (length(fe) > 1) {
@@ -2312,7 +2312,7 @@ rm(._._env_._.)
                     }) %>% setNames(sapply(fe_combn, paste0, 
                       collapse = "."))
                   }
-                  ravedash::logger("Got other contrasts", calc_delta = TRUE)
+                  ravepipeline::logger("Got other contrasts", calc_delta = TRUE)
                   across_electrode_statistics <- list(condition_means = condition_means, 
                     model = mod, model_type = class(mod)[1], 
                     aov = .aov, emmeans = em, pairwise_contrasts = pairwise, 
@@ -2337,7 +2337,7 @@ rm(._._env_._.)
                   if (length(omnibus_results$data) > 3) {
                     dd <- subset(omnibus_results$data, currently_selected)
                     emmeans::emm_options(lmer.df = "satterthwaite")
-                    ravedash::logger("top of BAES", calc_delta = TRUE)
+                    ravepipeline::logger("top of BAES", calc_delta = TRUE)
                     rand_effects <- c("Block", "Electrode") %>% 
                       intersect(names(dd))
                     fixed_effects <- c("Factor1", "Factor2", 
@@ -2367,7 +2367,7 @@ rm(._._env_._.)
                     condition_means <- dt[, list(y = mean(y), 
                       sd = sd(y), se = rutabaga:::se(y), n = .N), 
                       keyby = fe]
-                    ravedash::logger("got condition means", calc_delta = TRUE)
+                    ravepipeline::logger("got condition means", calc_delta = TRUE)
                     fe <- paste0(fe, collapse = "*")
                     if (!nzchar(fe)) {
                       fe <- "1"
@@ -2386,15 +2386,15 @@ rm(._._env_._.)
                         data = dd))
                       .aov <- car::Anova(mod, type = ifelse(fe[1] == 
                         "1", "III", "II"))
-                      ravedash::logger("built linear model, starting post hoc tests", 
+                      ravepipeline::logger("built linear model, starting post hoc tests", 
                         calc_delta = TRUE)
                       em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
                         fe)), infer = c(F, T))
-                      ravedash::logger("Got emm", calc_delta = TRUE)
+                      ravepipeline::logger("Got emm", calc_delta = TRUE)
                       pairwise <- emmeans::contrast(em, "pairwise")
-                      ravedash::logger("Got pairwise contrasts", 
+                      ravepipeline::logger("Got pairwise contrasts", 
                         calc_delta = TRUE)
-                      ravedash::logger("Got ANOVA", calc_delta = TRUE)
+                      ravepipeline::logger("Got ANOVA", calc_delta = TRUE)
                     }
                     stratified_contrasts <- NULL
                     if (length(fe) > 1) {
@@ -2415,7 +2415,7 @@ rm(._._env_._.)
                       }) %>% setNames(sapply(fe_combn, paste0, 
                         collapse = "."))
                     }
-                    ravedash::logger("Got other contrasts", calc_delta = TRUE)
+                    ravepipeline::logger("Got other contrasts", calc_delta = TRUE)
                     across_electrode_statistics <- list(condition_means = condition_means, 
                       model = mod, model_type = class(mod)[1], 
                       aov = .aov, emmeans = em, pairwise_contrasts = pairwise, 
@@ -2491,7 +2491,7 @@ rm(._._env_._.)
                   for (current_electrode in electrodes_to_keep) {
                     tensors <- lapply(analysis_settings_clean, 
                       function(asc) {
-                        ravedash::logger("Working on ", asc$label)
+                        ravepipeline::logger("Working on ", asc$label)
                         current_tensor = subset(repository$power$baselined, 
                           Electrode ~ Electrode %in% current_electrode)
                         tet <- trial_export_types()
@@ -2571,7 +2571,7 @@ rm(._._env_._.)
                           attr(shifted_tensor, "TrialLabel") = attr_TrialLabel$Condition
                           attr(shifted_tensor, "OrigTrialLabel") = attr_TrialLabel$OrigCondition
                         } else {
-                          ravedash::logger(level = "warning", 
+                          ravepipeline::logger(level = "warning", 
                             "Could not apply trial labels. Length mismatch between labels (", 
                             nrow(attr_TrialLabel), ") and  trials (", 
                             length(dn$Trial), "), or trial numbers didn't line up")
@@ -2684,7 +2684,7 @@ rm(._._env_._.)
                     for (current_electrode in electrodes_to_keep) {
                       tensors <- lapply(analysis_settings_clean, 
                         function(asc) {
-                          ravedash::logger("Working on ", asc$label)
+                          ravepipeline::logger("Working on ", asc$label)
                           current_tensor = subset(repository$power$baselined, 
                             Electrode ~ Electrode %in% current_electrode)
                           tet <- trial_export_types()
@@ -2767,7 +2767,7 @@ rm(._._env_._.)
                             attr(shifted_tensor, "TrialLabel") = attr_TrialLabel$Condition
                             attr(shifted_tensor, "OrigTrialLabel") = attr_TrialLabel$OrigCondition
                           } else {
-                            ravedash::logger(level = "warning", 
+                            ravepipeline::logger(level = "warning", 
                               "Could not apply trial labels. Length mismatch between labels (", 
                               nrow(attr_TrialLabel), ") and  trials (", 
                               length(dn$Trial), "), or trial numbers didn't line up")

@@ -305,7 +305,7 @@ pipe_res <- lapply(all_els, function(ee, settings=orig.settings) {
 for(ee in seq_along(all_els)) {
   el <- all_els[ee]
   
-  ravedash::logger("Working on e: ", el, level='debug')
+  ravepipeline::logger("Working on e: ", el, level='debug')
   # progress$inc(detail = sprintf("Generating graphs for electrode %s", el))
   
   # gsi <- orig.settings

@@ -160,7 +160,7 @@ get_pluriform_power <- function(
   # event_of_interest = 'Lag_1'
   if(event_of_interest != epoch_event_types[1]) {
     # stop("shifting data not supported yet!")
-    ravedash::logger('Shifting data to: ' %&% event_of_interest, level='debug')
+    ravepipeline::logger('Shifting data to: ' %&% event_of_interest, level='debug')
 
     event_of_interest = paste0('Event_', event_of_interest)
     event_offsets = events[[event_of_interest]][ti] - events$Time[ti]
@@ -172,7 +172,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    # ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+    # ravepipeline::logger('available shift: ' %&% paste0(new_range, collapse=':'))
 
     shift_amount = determine_relative_shift_amount(
       event_time = event_offsets,
@@ -181,7 +181,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    # ravedash::logger('dispaus::shift')
+    # ravepipeline::logger('dispaus::shift')
 
     # this is checked above
     # stopifnot('Trial' == names(dimnames(res$data))[3])
@@ -205,10 +205,10 @@ get_pluriform_power <- function(
     dimnames(res$shifted_data)$Time = new_time[new_time %within% new_range]
 
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
-    # ravedash::logger('updating events file')
+    # ravepipeline::logger('updating events file')
     nms <- paste0('Event_', epoch_event_types[-1])
     events[nms] <- events[nms] - events[[event_of_interest]]
-    # ravedash::logger('done with shifting', level='debug')
+    # ravepipeline::logger('done with shifting', level='debug')
   }
 
   # handle outliers
@@ -216,7 +216,7 @@ get_pluriform_power <- function(
     res$clean_data <- res$data
     res$shifted_clean_data <- res$shifted_data
   } else {
-    ravedash::logger('Handling outliers...')
+    ravepipeline::logger('Handling outliers...')
 
     # UPDATED res$data is not a filearray now so res$data$subset is not a function!
     #res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
@@ -252,7 +252,7 @@ shift_baselined_power <- function(
   # event_of_interest = 'Lag_1'
   if(event_of_interest != epoch_event_types[1]) {
     # stop("shifting data not supported yet!")
-    ravedash::logger('Shifting data to: ' %&% event_of_interest, level='debug')
+    ravepipeline::logger('Shifting data to: ' %&% event_of_interest, level='debug')
 
     # get the times for the trials needed
     ti <- events$Trial %in% as.numeric(dimnames(baselined_data)$Trial)
@@ -266,7 +266,7 @@ shift_baselined_power <- function(
                                           sample_rate = sample_rate
     )
 
-    # ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+    # ravepipeline::logger('available shift: ' %&% paste0(new_range, collapse=':'))
 
     shift_amount = determine_relative_shift_amount(
       event_time = event_offsets,
@@ -293,12 +293,12 @@ shift_baselined_power <- function(
     dimnames(re)$Time = new_time[new_time %within% new_range]
 
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
-    # ravedash::logger('updating events file')
+    # ravepipeline::logger('updating events file')
     nms <- paste0('Event_', epoch_event_types[-1])
     events[nms] <- events[nms] - events[[event_column_name]]
 
 
-    ravedash::logger('done!', level='debug')
+    ravepipeline::logger('done!', level='debug')
   }
 
   # make sure to save out the updated time stamps to be used later

@@ -123,7 +123,7 @@ module_server <- function(input, output, session, ...){
           unlist(crg$conditions)
         }))
 
-        ravedash::logger('restricting to electrodes in ', str_collapse(selected_levels), level='debug')
+        ravepipeline::logger('restricting to electrodes in ', str_collapse(selected_levels), level='debug')
 
         els <- local_data$electrode_meta_data$Electrode[
           local_data$electrode_meta_data[[input$custom_roi_variable]] %in% selected_levels
@@ -361,7 +361,7 @@ module_server <- function(input, output, session, ...){
       local_data$results <- results
     }
 
-    ravedash::logger(
+    ravepipeline::logger(
       'RESULTS AVAIL:\n', paste0(collapse=', ', names(local_data$results))
     )
 
@@ -918,10 +918,10 @@ module_server <- function(input, output, session, ...){
       if(!loaded_flag){ return() }
       new_repository <- pipeline$read("repository")
       if(!inherits(new_repository, "rave_prepare_power")){
-        ravedash::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_power`. Abort initialization", level = "warning")
+        ravepipeline::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_power`. Abort initialization", level = "warning")
         return()
       }
-      ravedash::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
@@ -929,7 +929,7 @@ module_server <- function(input, output, session, ...){
 
         if( !attr(loaded_flag, "force") &&
             identical(old_repository$signature, new_repository$signature) ){
-          ravedash::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
+          ravepipeline::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
       }
@@ -1114,7 +1114,7 @@ module_server <- function(input, output, session, ...){
 
       local_data$bcbt_click_log <- NULL
 
-      # ravedash::logger(
+      # ravepipeline::logger(
       #   str(local_data$electrode_meta_data), level = 'info'
       # )
 
@@ -1156,7 +1156,7 @@ module_server <- function(input, output, session, ...){
   track_3dviewer_clicks <- function(proxy) {
     shiny::bindEvent(
       ravedash::safe_observe({
-        ravedash::logger('3dBrain double click')
+        ravepipeline::logger('3dBrain double click')
         ravedash::clear_notifications(class=ns('threedviewer'))
 
         info <- as.list(proxy$mouse_event_double_click)
@@ -1184,7 +1184,7 @@ module_server <- function(input, output, session, ...){
           })
         }
 
-        # ravedash::logger(str(info))
+        # ravepipeline::logger(str(info))
         id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
 
         shiny::updateTextInput(inputId=id, value=paste0(info$electrode_number))
@@ -1218,7 +1218,7 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      # ravedash::logger('3dBrain single click')
+      # ravepipeline::logger('3dBrain single click')
     }),
     brain_proxy$mouse_event_click,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1255,7 +1255,7 @@ module_server <- function(input, output, session, ...){
         scg[[ii]]$conditions = intersect(scg[[ii]]$conditions, all_fcg)
       }
     }
-    # ravedash::logger("available choices should be: ", paste(all_fcg, collapse=','))
+    # ravepipeline::logger("available choices should be: ", paste(all_fcg, collapse=','))
 
     dipsaus::updateCompoundInput2(session = session,
                                   inputId = 'second_condition_groupings',
@@ -1306,7 +1306,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       if(isTRUE(input$enable_custom_ROI)) {
 
-        ravedash::logger('triggered load_roi_conditions through input$enable_custom_ROI, input$custom_roi_variable,')
+        ravepipeline::logger('triggered load_roi_conditions through input$enable_custom_ROI, input$custom_roi_variable,')
 
         load_roi_conditions()
 
@@ -1334,7 +1334,7 @@ module_server <- function(input, output, session, ...){
     # drop any NA (occurs because not all data are available for all electrodes)
     roi_choices <- roi_choices[!is.na(roi_choices)]
 
-    ravedash::logger('available groups: ', str(roi_choices), level='debug')
+    ravepipeline::logger('available groups: ', str(roi_choices), level='debug')
 
     newval <- lapply(roi_choices, function(rc) {
       list('conditions' = rc, 'label' = rc)
@@ -1368,7 +1368,7 @@ module_server <- function(input, output, session, ...){
       ncomp = 1
     )
 
-    ravedash::logger('trying to update custom ROI groups', level='debug')
+    ravepipeline::logger('trying to update custom ROI groups', level='debug')
   }
 
   shiny::bindEvent(
@@ -1401,8 +1401,8 @@ module_server <- function(input, output, session, ...){
     old_val = input$custom_roi_groupings
 
     # if(!all(roi_choices %in% sapply(old_val, `[[`, 'conditions'))) {
-    # ravedash::logger(sprintf("LOAD %s into SEL", vv), level='debug')
-    # ravedash::logger(str(old_val), level='debug')
+    # ravepipeline::logger(sprintf("LOAD %s into SEL", vv), level='debug')
+    # ravepipeline::logger(str(old_val), level='debug')
 
     # load into selector
     dipsaus::updateCompoundInput2(session=session,
@@ -1438,7 +1438,7 @@ module_server <- function(input, output, session, ...){
             gpo[[nm]] <- input[[lbl]]
           }
         } else if(!is.null(input[[lbl]])) {
-          # ravedash::logger("observe plot options change")
+          # ravepipeline::logger("observe plot options change")
           if(any(input[[lbl]] != gpo[[nm]])) {
             any_changes = TRUE
             gpo[[nm]] <- input[[lbl]]
@@ -1451,7 +1451,7 @@ module_server <- function(input, output, session, ...){
         lbl <- paste0('btp_', nm)
 
         if(!is.null(input[[lbl]])) {
-          # ravedash::logger("observe plot options change")
+          # ravepipeline::logger("observe plot options change")
           if(input[[lbl]] != gpo$plot_options[[nm]]) {
             any_changes = TRUE
             gpo$plot_options[[nm]] <- input[[lbl]]
@@ -1552,7 +1552,7 @@ module_server <- function(input, output, session, ...){
 
     plot_option_list <- pe_graphics_settings_cache$get(optname)
 
-    # ravedash::logger(level='warning', optname, upname)
+    # ravepipeline::logger(level='warning', optname, upname)
 
     new_lim = abs(as.numeric(input[[prefix %&% '_range']]))
 
@@ -1838,7 +1838,7 @@ module_server <- function(input, output, session, ...){
   }
 
   locate_bcbt_click <- function(click, data_loc) {
-    # ravedash::logger("Writing out clicks")
+    # ravepipeline::logger("Writing out clicks")
     # base::assign('click', click, envir = globalenv())
     # base::assign('data_loc', data_loc, envir = globalenv())
 
@@ -2290,7 +2290,7 @@ module_server <- function(input, output, session, ...){
 
       if(length(local_data$results$omnibus_results$stats) > 1) {
 
-        # ravedash::logger(dput(local_data$results$omnibus_results$stats), level='debug')
+        # ravepipeline::logger(dput(local_data$results$omnibus_results$stats), level='debug')
 
         df <- data.frame(t(local_data$results$omnibus_results$stats))
 
@@ -2683,7 +2683,7 @@ module_server <- function(input, output, session, ...){
 
       pipe_choices <- unname(c('Create New', lbls))
 
-      # ravedash::logger('updating forks', level='trace')
+      # ravepipeline::logger('updating forks', level='trace')
 
       shiny::updateSelectInput(
         inputId = 'replace_existing_group_anlysis_pipeline',
@@ -2993,7 +2993,7 @@ module_server <- function(input, output, session, ...){
         df %<>% merge(bmd, by='Electrode', all.y=FALSE)
         cnames %<>% c(bmd.names)
       }
-      ravedash::logger('done adding vars', level='trace')
+      ravepipeline::logger('done adding vars', level='trace')
     }
 
     # remove columns the user doesn't want (this is exclusion rule)
@@ -3260,7 +3260,7 @@ module_server <- function(input, output, session, ...){
         # otbed$y
         # otbed <- local_data$results$over_time_by_electrode_data[[1]]
 
-        # ravedash::logger(
+        # ravepipeline::logger(
         #   paste(sep=', ', agg_method, dist_method), level='info'
         # )
 
@@ -3418,7 +3418,7 @@ module_server <- function(input, output, session, ...){
         }
       }
 
-      # ravedash::logger(level='info', "plot_by_frequency_over_time")
+      # ravepipeline::logger(level='info', "plot_by_frequency_over_time")
       plot_by_frequency_over_time(
         by_frequency_over_time_data,
         plot_args = pe_graphics_settings_cache$get('by_frequency_over_time_plot_options')
