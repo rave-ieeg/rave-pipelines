@@ -17,7 +17,7 @@ ravepipeline::pipeline_setup_rmd("power_explorer")
 options(knit_rave_pipelines = TRUE)
 ```
 
-```{rave check_load_power, language = "R", export = "repository", format = "rave_prepare_power"}
+```{rave check_load_power, language = "R", export = "repository"}
 subject <- ravecore::as_rave_subject(subject_id = sprintf("%s/%s", project_name, subject_code))
 
 if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
@@ -56,12 +56,21 @@ repository
 ```
 
 ```{rave check_requested_electrodes, language = "R", export = "requested_electrodes"}
+# Trick to speed up in pipeline environment to avoid reloading data
+# even loading cached data will spend time. If the repository is
+# fully loaded, this command does nothing. Caveat: if you want to use
+# repository$power$data_list, do not call this as the data list will be empty
+repository$mount_data(electrodes = NA)
+
 requested_electrodes <- dipsaus::parse_svec(analysis_electrodes, sep=',|;', connect  = ':-')
-requested_electrodes <- requested_electrodes[requested_electrodes %in% repository$power$dimnames$Electrode]
+requested_electrodes <- requested_electrodes[
+  requested_electrodes %in% repository$power$dimnames$Electrode]
 if(!length(requested_electrodes)){ stop("No electrode selected") }
 ```
 
 ```{rave check_analysis_settings, language = "R", export = "analysis_settings_clean"}
+repository$mount_data(electrodes = NA)
+
 check_range <- function(x, lim, lbl) {
   if(!all(x %within% lim)) stop(sprintf('Requested %s [%s] not within available range [%s]', lbl, str_collapse(range(x), ':'), str_collapse(range(lim), ':')), call. = FALSE)
 }
@@ -204,8 +213,8 @@ if(all(isTRUE(enable_custom_ROI), custom_roi_variable != 'none', custom_roi_type
 analysis_checks_passed=TRUE
 ```
 
-```{rave calculate_baseline, language = "R", export = "baselined_power", cue = "always", format = "user-defined-r"}
-
+```{rave calculate_baseline, language = "R", export = "baselined_power", format = "user-defined-r"}
+# Make sure all the data are there for baseline
 if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
   ravecore::power_baseline(
     x = repository,
@@ -245,10 +254,11 @@ if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single
   )
 }
 baselined_power <- repository$power$baselined
-
 ```
 
 ```{rave build_trial_details, language = "R", export = "trial_details"}
+repository$mount_data(electrodes = NA)
+
 # remove empty FCGs
 k = sapply(lapply(first_condition_groupings, `[[`, 'conditions'), length)
 fcgs <- first_condition_groupings[k>0]
@@ -304,6 +314,8 @@ rownames(trial_details) = trial_details$Trial
 ```
 
 ```{rave build_analysis_groups, language = "R", export = "analysis_groups"}
+repository$mount_data(electrodes = NA)
+
 # build the groups from the first_condition_groupings variable (eventually add in the 2 cond group)
 if(isTRUE(enable_second_condition_groupings)) {
   # remove empty FCGs
@@ -474,6 +486,8 @@ pluriform_power <- NULL
 ```
 
 ```{rave build_by_frequency_over_time_data, language="R", export="by_frequency_over_time_data"}
+repository$mount_data(electrodes = NA)
+
 # the idea is that we don't need the full tensor for any given analysis,
 # and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
 
@@ -562,6 +576,8 @@ by_frequency_over_time_data <- do.call(
 ```
 
 ```{rave build_by_frequency_correlation_data, language="R", export = "by_frequency_correlation_data"}
+repository$mount_data(electrodes = NA)
+
 # for each analysis settings in the by_frequency_over_time_data, get the correlation within the time window
 
 # get the average response for _each_ frequency on _each_ trial,
@@ -703,6 +719,8 @@ by_trial_tf_data = NULL
 ```
 
 ```{rave build_over_time_by_electrode_data, language="R", export ="over_time_by_electrode_data"}
+repository$mount_data(electrodes = NA)
+
 # the idea is that we don't need the full tensor for any given analysis,
 # and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
 # and smaller cached files are faster to load
@@ -796,6 +814,8 @@ over_time_by_electrode_data <- do.call(
 ```
 
 ```{rave build_over_time_by_electrode_similiarity_data, language="R", export ="by_electrode_similarity_data"}
+repository$mount_data(electrodes = NA)
+
 curr_electrodes <- data.frame(NA)
 all_els <- NULL
 if(length(over_time_by_electrode_data) > 0) {
@@ -925,7 +945,7 @@ if(nrow(curr_electrodes) < 3) {
 ```
 
 ```{rave build_over_time_by_electrode_and_trial_data, language="R", export ="over_time_by_electrode_and_trial_data"}
-
+repository$mount_data(electrodes = NA)
 
 ## new method for OTBETD
 # grab only the electrodes we need
@@ -1041,6 +1061,7 @@ over_time_by_electrode_and_trial_data <- do.call(
 ```
 
 ```{rave build_over_time_by_condition_data, language="R", export ="over_time_by_condition_data"}
+repository$mount_data(electrodes = NA)
 
 # the idea is that we don't need the full tensor for any given analysis,
 # and so it's better (space if not time, and less space means easier multithreading so faster) to have smaller data files to cache
@@ -1257,6 +1278,8 @@ if(length(by_condition_group) > 0) {
 ```
 
 ```{rave build_over_time_by_trial, language="R", export ="over_time_by_trial_data"}
+repository$mount_data(electrodes = NA)
+
 # grab only the electrodes we need
 baselined_power_data <- subset(baselined_power,
                                Electrode ~ Electrode %in% requested_electrodes)
@@ -1838,6 +1861,8 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
   data_for_export <- NULL
 } else {
   
+  repository$mount_data(electrodes = NA)
+  
   # ravepipeline::logger("1024::Electrodes to export:[", electrodes_to_export, ']', level = 'warning')
   
   prog <- shidashi::shiny_progress("Building export data", max=4,
@@ -2110,6 +2135,7 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
 ```
 
 ```{rave build_data_for_group_analysis, language="R", export='data_for_group_analysis'}
+repository$mount_data(electrodes = NA)
 
 data_for_group_analysis <- list()
 

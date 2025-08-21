@@ -65,6 +65,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
         quote({
             settings[["epoch_choice__trial_ends"]]
+        }), deps = "settings"), input_epoch_choice__load_single_trial = targets::tar_target_raw("epoch_choice__load_single_trial", 
+        quote({
+            settings[["epoch_choice__load_single_trial"]]
         }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
         quote({
             settings[["epoch_choice"]]
@@ -148,7 +151,7 @@ rm(._._env_._.)
                 asNamespace("ravepipeline")$resolve_pipeline_error(name = "repository", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave_prepare_power", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "repository", target_expr = quote({
                 {
                   subject <- ravecore::as_rave_subject(subject_id = sprintf("%s/%s", 
@@ -181,14 +184,16 @@ rm(._._env_._.)
                 }
                 repository
             }), target_depends = c("project_name", "subject_code", 
-            "epoch_choice", "epoch_choice__trial_ends", "loaded_electrodes", 
+            "epoch_choice__load_single_trial", "epoch_choice", 
+            "epoch_choice__trial_ends", "loaded_electrodes", 
             "reference_name", "epoch_choice__trial_starts")), 
-        deps = c("project_name", "subject_code", "epoch_choice", 
-        "epoch_choice__trial_ends", "loaded_electrodes", "reference_name", 
-        "epoch_choice__trial_starts"), cue = targets::tar_cue("thorough"), 
+        deps = c("project_name", "subject_code", "epoch_choice__load_single_trial", 
+        "epoch_choice", "epoch_choice__trial_ends", "loaded_electrodes", 
+        "reference_name", "epoch_choice__trial_starts"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), check_requested_electrodes = targets::tar_target_raw(name = "requested_electrodes", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 requested_electrodes <- dipsaus::parse_svec(analysis_electrodes, 
                   sep = ",|;", connect = ":-")
                 requested_electrodes <- requested_electrodes[requested_electrodes %in% 
@@ -207,6 +212,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "requested_electrodes", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   requested_electrodes <- dipsaus::parse_svec(analysis_electrodes, 
                     sep = ",|;", connect = ":-")
                   requested_electrodes <- requested_electrodes[requested_electrodes %in% 
@@ -216,12 +222,13 @@ rm(._._env_._.)
                   }
                 }
                 requested_electrodes
-            }), target_depends = c("analysis_electrodes", "repository"
-            )), deps = c("analysis_electrodes", "repository"), 
+            }), target_depends = c("repository", "analysis_electrodes"
+            )), deps = c("repository", "analysis_electrodes"), 
         cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
     check_analysis_settings = targets::tar_target_raw(name = "analysis_settings_clean", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 check_range <- function(x, lim, lbl) {
                   if (!all(x %within% lim)) stop(sprintf("Requested %s [%s] not within available range [%s]", 
                     lbl, str_collapse(range(x), ":"), str_collapse(range(lim), 
@@ -345,6 +352,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "analysis_settings_clean", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   check_range <- function(x, lim, lbl) {
                     if (!all(x %within% lim)) stop(sprintf("Requested %s [%s] not within available range [%s]", 
                       lbl, str_collapse(range(x), ":"), str_collapse(range(lim), 
@@ -515,12 +523,14 @@ rm(._._env_._.)
                   baselined_power <- repository$power$baselined
                 }
                 baselined_power
-            }), target_depends = c("repository", "baseline_settings", 
-            "requested_electrodes")), deps = c("repository", 
-        "baseline_settings", "requested_electrodes"), cue = targets::tar_cue("always"), 
+            }), target_depends = c("epoch_choice__load_single_trial", 
+            "repository", "baseline_settings", "requested_electrodes"
+            )), deps = c("epoch_choice__load_single_trial", "repository", 
+        "baseline_settings", "requested_electrodes"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_trial_details = targets::tar_target_raw(name = "trial_details", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 k = sapply(lapply(first_condition_groupings, 
                   `[[`, "conditions"), length)
                 fcgs <- first_condition_groupings[k > 0]
@@ -566,6 +576,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "trial_details", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   k = sapply(lapply(first_condition_groupings, 
                     `[[`, "conditions"), length)
                   fcgs <- first_condition_groupings[k > 0]
@@ -602,14 +613,15 @@ rm(._._env_._.)
                   rownames(trial_details) = trial_details$Trial
                 }
                 trial_details
-            }), target_depends = c("first_condition_groupings", 
-            "repository", "condition_variable", "enable_second_condition_groupings", 
-            "second_condition_groupings")), deps = c("first_condition_groupings", 
-        "repository", "condition_variable", "enable_second_condition_groupings", 
+            }), target_depends = c("repository", "first_condition_groupings", 
+            "condition_variable", "enable_second_condition_groupings", 
+            "second_condition_groupings")), deps = c("repository", 
+        "first_condition_groupings", "condition_variable", "enable_second_condition_groupings", 
         "second_condition_groupings"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_analysis_groups = targets::tar_target_raw(name = "analysis_groups", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 if (isTRUE(enable_second_condition_groupings)) {
                   by_group <- split(trial_details, list(trial_details$Factor1, 
                     trial_details$Factor2))
@@ -657,6 +669,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "analysis_groups", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   if (isTRUE(enable_second_condition_groupings)) {
                     by_group <- split(trial_details, list(trial_details$Factor1, 
                       trial_details$Factor2))
@@ -695,12 +708,13 @@ rm(._._env_._.)
                     `[[`, "label")
                 }
                 analysis_groups
-            }), target_depends = c("enable_second_condition_groupings", 
-            "trial_details", "repository", "condition_variable", 
-            "first_condition_groupings")), deps = c("enable_second_condition_groupings", 
-        "trial_details", "repository", "condition_variable", 
-        "first_condition_groupings"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), build_pluriform_power = targets::tar_target_raw(name = "pluriform_power", 
+            }), target_depends = c("repository", "enable_second_condition_groupings", 
+            "trial_details", "condition_variable", "first_condition_groupings", 
+            "epoch_choice__load_single_trial")), deps = c("repository", 
+        "enable_second_condition_groupings", "trial_details", 
+        "condition_variable", "first_condition_groupings", "epoch_choice__load_single_trial"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), build_pluriform_power = targets::tar_target_raw(name = "pluriform_power", 
         command = quote({
             .__target_expr__. <- quote({
                 pluriform_power <- NULL
@@ -723,6 +737,7 @@ rm(._._env_._.)
     build_by_frequency_over_time_data = targets::tar_target_raw(name = "by_frequency_over_time_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes, 
                   drop = FALSE)
@@ -782,6 +797,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "by_frequency_over_time_data", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes, 
                     drop = FALSE)
@@ -833,15 +849,16 @@ rm(._._env_._.)
                     }, simplify = FALSE, USE.NAMES = TRUE))
                 }
                 by_frequency_over_time_data
-            }), target_depends = c("baselined_power", "requested_electrodes", 
-            "repository", "analysis_settings_clean", "analysis_groups", 
-            "trial_outliers_list", "baseline_settings")), deps = c("baselined_power", 
-        "requested_electrodes", "repository", "analysis_settings_clean", 
-        "analysis_groups", "trial_outliers_list", "baseline_settings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_by_frequency_correlation_data = targets::tar_target_raw(name = "by_frequency_correlation_data", 
+            }), target_depends = c("repository", "baselined_power", 
+            "requested_electrodes", "analysis_settings_clean", 
+            "analysis_groups", "trial_outliers_list", "baseline_settings"
+            )), deps = c("repository", "baselined_power", "requested_electrodes", 
+        "analysis_settings_clean", "analysis_groups", "trial_outliers_list", 
+        "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_by_frequency_correlation_data = targets::tar_target_raw(name = "by_frequency_correlation_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
                 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -905,6 +922,7 @@ rm(._._env_._.)
             target_export = "by_frequency_correlation_data", 
             target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                   epoch_event_types = get_available_events(repository$epoch$columns)
@@ -958,13 +976,13 @@ rm(._._env_._.)
                     }, simplify = FALSE, USE.NAMES = TRUE))
                 }
                 by_frequency_correlation_data
-            }), target_depends = c("baselined_power", "requested_electrodes", 
-            "repository", "analysis_settings_clean", "analysis_groups", 
-            "trial_outliers_list", "baseline_settings")), deps = c("baselined_power", 
-        "requested_electrodes", "repository", "analysis_settings_clean", 
-        "analysis_groups", "trial_outliers_list", "baseline_settings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_by_trial_tf_data = targets::tar_target_raw(name = "by_trial_tf_data", 
+            }), target_depends = c("repository", "baselined_power", 
+            "requested_electrodes", "analysis_settings_clean", 
+            "analysis_groups", "trial_outliers_list", "baseline_settings"
+            )), deps = c("repository", "baselined_power", "requested_electrodes", 
+        "analysis_settings_clean", "analysis_groups", "trial_outliers_list", 
+        "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_by_trial_tf_data = targets::tar_target_raw(name = "by_trial_tf_data", 
         command = quote({
             .__target_expr__. <- quote({
                 by_trial_tf_data = NULL
@@ -987,6 +1005,7 @@ rm(._._env_._.)
     build_over_time_by_electrode_data = targets::tar_target_raw(name = "over_time_by_electrode_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
                 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1050,6 +1069,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_electrode_data", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                   epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1104,15 +1124,16 @@ rm(._._env_._.)
                     }, simplify = FALSE, USE.NAMES = TRUE))
                 }
                 over_time_by_electrode_data
-            }), target_depends = c("baselined_power", "requested_electrodes", 
-            "repository", "analysis_settings_clean", "analysis_groups", 
-            "trial_outliers_list", "baseline_settings")), deps = c("baselined_power", 
-        "requested_electrodes", "repository", "analysis_settings_clean", 
-        "analysis_groups", "trial_outliers_list", "baseline_settings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_over_time_by_electrode_similiarity_data = targets::tar_target_raw(name = "by_electrode_similarity_data", 
+            }), target_depends = c("repository", "baselined_power", 
+            "requested_electrodes", "analysis_settings_clean", 
+            "analysis_groups", "trial_outliers_list", "baseline_settings"
+            )), deps = c("repository", "baselined_power", "requested_electrodes", 
+        "analysis_settings_clean", "analysis_groups", "trial_outliers_list", 
+        "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_over_time_by_electrode_similiarity_data = targets::tar_target_raw(name = "by_electrode_similarity_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 curr_electrodes <- data.frame(NA)
                 all_els <- NULL
                 if (length(over_time_by_electrode_data) > 0) {
@@ -1214,6 +1235,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "by_electrode_similarity_data", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   curr_electrodes <- data.frame(NA)
                   all_els <- NULL
                   if (length(over_time_by_electrode_data) > 0) {
@@ -1306,13 +1328,14 @@ rm(._._env_._.)
                   }
                 }
                 by_electrode_similarity_data
-            }), target_depends = c("over_time_by_electrode_data", 
-            "repository", "enable_custom_ROI", "custom_roi_type"
-            )), deps = c("over_time_by_electrode_data", "repository", 
-        "enable_custom_ROI", "custom_roi_type"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), build_over_time_by_electrode_and_trial_data = targets::tar_target_raw(name = "over_time_by_electrode_and_trial_data", 
+            }), target_depends = c("repository", "over_time_by_electrode_data", 
+            "enable_custom_ROI", "custom_roi_type")), deps = c("repository", 
+        "over_time_by_electrode_data", "enable_custom_ROI", "custom_roi_type"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), build_over_time_by_electrode_and_trial_data = targets::tar_target_raw(name = "over_time_by_electrode_and_trial_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
                 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1378,6 +1401,7 @@ rm(._._env_._.)
             target_export = "over_time_by_electrode_and_trial_data", 
             target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                   epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1433,15 +1457,16 @@ rm(._._env_._.)
                     }, simplify = FALSE, USE.NAMES = TRUE))
                 }
                 over_time_by_electrode_and_trial_data
-            }), target_depends = c("baselined_power", "requested_electrodes", 
-            "repository", "analysis_settings_clean", "analysis_groups", 
-            "trial_outliers_list", "baseline_settings")), deps = c("baselined_power", 
-        "requested_electrodes", "repository", "analysis_settings_clean", 
-        "analysis_groups", "trial_outliers_list", "baseline_settings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_over_time_by_condition_data = targets::tar_target_raw(name = "over_time_by_condition_data", 
+            }), target_depends = c("repository", "baselined_power", 
+            "requested_electrodes", "analysis_settings_clean", 
+            "analysis_groups", "trial_outliers_list", "baseline_settings"
+            )), deps = c("repository", "baselined_power", "requested_electrodes", 
+        "analysis_settings_clean", "analysis_groups", "trial_outliers_list", 
+        "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_over_time_by_condition_data = targets::tar_target_raw(name = "over_time_by_condition_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
                 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1521,6 +1546,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_condition_data", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                   epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1592,13 +1618,13 @@ rm(._._env_._.)
                   }
                 }
                 over_time_by_condition_data
-            }), target_depends = c("baselined_power", "requested_electrodes", 
-            "repository", "analysis_settings_clean", "analysis_groups", 
-            "trial_outliers_list", "baseline_settings")), deps = c("baselined_power", 
-        "requested_electrodes", "repository", "analysis_settings_clean", 
-        "analysis_groups", "trial_outliers_list", "baseline_settings"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), build_over_time_by_electrode_dataframe = targets::tar_target_raw(name = "over_time_by_electrode_dataframe", 
+            }), target_depends = c("repository", "baselined_power", 
+            "requested_electrodes", "analysis_settings_clean", 
+            "analysis_groups", "trial_outliers_list", "baseline_settings"
+            )), deps = c("repository", "baselined_power", "requested_electrodes", 
+        "analysis_settings_clean", "analysis_groups", "trial_outliers_list", 
+        "baseline_settings"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), build_over_time_by_electrode_dataframe = targets::tar_target_raw(name = "over_time_by_electrode_dataframe", 
         command = quote({
             .__target_expr__. <- quote({
                 over_time_by_electrode_dataframe <- NULL
@@ -1726,6 +1752,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), build_over_time_by_trial = targets::tar_target_raw(name = "over_time_by_trial_data", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 baselined_power_data <- subset(baselined_power, 
                   Electrode ~ Electrode %in% requested_electrodes)
                 epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1793,6 +1820,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "over_time_by_trial_data", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   baselined_power_data <- subset(baselined_power, 
                     Electrode ~ Electrode %in% requested_electrodes)
                   epoch_event_types = get_available_events(repository$epoch$columns)
@@ -1852,11 +1880,11 @@ rm(._._env_._.)
                     }, simplify = FALSE, USE.NAMES = TRUE))
                 }
                 over_time_by_trial_data
-            }), target_depends = c("baselined_power", "requested_electrodes", 
-            "repository", "analysis_settings_clean", "analysis_groups", 
-            "baseline_settings", "trial_details", "condition_variable", 
-            "trial_outliers_list")), deps = c("baselined_power", 
-        "requested_electrodes", "repository", "analysis_settings_clean", 
+            }), target_depends = c("repository", "baselined_power", 
+            "requested_electrodes", "analysis_settings_clean", 
+            "analysis_groups", "baseline_settings", "trial_details", 
+            "condition_variable", "trial_outliers_list")), deps = c("repository", 
+        "baselined_power", "requested_electrodes", "analysis_settings_clean", 
         "analysis_groups", "baseline_settings", "trial_details", 
         "condition_variable", "trial_outliers_list"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), build_internal_omnibus_results = targets::tar_target_raw(name = "internal_omnibus_results", 
@@ -2521,6 +2549,7 @@ rm(._._env_._.)
                 if (getOption("knit_rave_pipelines", default = FALSE)) {
                   data_for_export <- NULL
                 } else {
+                  repository$mount_data(electrodes = NA)
                   prog <- shidashi::shiny_progress("Building export data", 
                     max = 4, shiny_auto_close = TRUE)
                   data_for_export = FALSE
@@ -2714,6 +2743,7 @@ rm(._._env_._.)
                   if (getOption("knit_rave_pipelines", default = FALSE)) {
                     data_for_export <- NULL
                   } else {
+                    repository$mount_data(electrodes = NA)
                     prog <- shidashi::shiny_progress("Building export data", 
                       max = 4, shiny_auto_close = TRUE)
                     data_for_export = FALSE
@@ -2900,18 +2930,20 @@ rm(._._env_._.)
                   }
                 }
                 data_for_export
-            }), target_depends = c("electrodes_to_export", "repository", 
+            }), target_depends = c("repository", "electrodes_to_export", 
             "electrodes_to_export_roi_name", "electrodes_to_export_roi_categories", 
             "baseline_settings", "analysis_settings_clean", "trials_to_export", 
             "analysis_groups", "trial_outliers_list", "condition_variable", 
-            "times_to_export", "frequencies_to_export")), deps = c("electrodes_to_export", 
-        "repository", "electrodes_to_export_roi_name", "electrodes_to_export_roi_categories", 
-        "baseline_settings", "analysis_settings_clean", "trials_to_export", 
-        "analysis_groups", "trial_outliers_list", "condition_variable", 
-        "times_to_export", "frequencies_to_export"), cue = targets::tar_cue("always"), 
+            "times_to_export", "frequencies_to_export")), deps = c("repository", 
+        "electrodes_to_export", "electrodes_to_export_roi_name", 
+        "electrodes_to_export_roi_categories", "baseline_settings", 
+        "analysis_settings_clean", "trials_to_export", "analysis_groups", 
+        "trial_outliers_list", "condition_variable", "times_to_export", 
+        "frequencies_to_export"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), build_data_for_group_analysis = targets::tar_target_raw(name = "data_for_group_analysis", 
         command = quote({
             .__target_expr__. <- quote({
+                repository$mount_data(electrodes = NA)
                 data_for_group_analysis <- list()
                 data_for_group_analysis$baseline_settings <- baseline_settings
                 data_for_group_analysis$analysis_settings_clean <- analysis_settings_clean
@@ -2931,6 +2963,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_for_group_analysis", target_expr = quote({
                 {
+                  repository$mount_data(electrodes = NA)
                   data_for_group_analysis <- list()
                   data_for_group_analysis$baseline_settings <- baseline_settings
                   data_for_group_analysis$analysis_settings_clean <- analysis_settings_clean
@@ -2942,9 +2975,9 @@ rm(._._env_._.)
                   data_for_group_analysis$omnibus_data <- omnibus_results$data_with_outliers
                 }
                 data_for_group_analysis
-            }), target_depends = c("baseline_settings", "analysis_settings_clean", 
-            "repository", "over_time_by_electrode_data", "omnibus_results"
-            )), deps = c("baseline_settings", "analysis_settings_clean", 
-        "repository", "over_time_by_electrode_data", "omnibus_results"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"))
+            }), target_depends = c("repository", "baseline_settings", 
+            "analysis_settings_clean", "over_time_by_electrode_data", 
+            "omnibus_results")), deps = c("repository", "baseline_settings", 
+        "analysis_settings_clean", "over_time_by_electrode_data", 
+        "omnibus_results"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"))
