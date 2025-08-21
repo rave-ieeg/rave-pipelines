@@ -1,6 +1,13 @@
 ---
 date: "`r Sys.Date()`"
 output: 
+  html_document: 
+    toc: true
+    toc_float: 
+      collapsed: true
+    toc_depth: 3
+    df_print: kable
+    theme: spacelab
   distill::distill_article:
     theme: spacelab
     code_folding: true
@@ -9,13 +16,6 @@ output:
     toc_depth: 3
     toc_float: true
     css: "report_styles.css"
-  html_document: 
-    toc: true
-    toc_float: 
-      collapsed: true
-    toc_depth: 3
-    df_print: kable
-    theme: spacelab
 params:
   plots_to_include: 
     - over_time_by_electrode
@@ -42,6 +42,7 @@ ravepipeline::pipeline_set_preferences(
 
 # Load pipeline
 pipeline <- ravepipeline::pipeline_from_path(".")
+pipeline$clean()
 shared_env <- pipeline$shared_env()
 settings <- pipeline$get_settings()
 
@@ -340,9 +341,10 @@ for(ee in seq_along(all_els)) {
     content = header_content
   ))
   
-  cat(sprintf("\n\n### %s {#%s}\n\n", header_content, header_id))
-  
-  print(shiny::p(edesc$body))
+  print(shiny::tagList(
+    shiny::h3(id = header_id, header_content),
+    shiny::p(edesc$body)
+  ))
   
   
   # gsi$analysis_electrodes <- as.character(ee)

@@ -2539,11 +2539,14 @@ module_server <- function(input, output, session, ...){
       job_id <- pipeline$generate_report(
         "univariatePower",
         subject = subject,
+        output_format = "html_document",
+        theme = "spacelab",
         params = list(
           plots_to_include = pti,
           do_overall_plots = TRUE,
           do_individual_plots = do_ip
-        )
+        ),
+        code_folding = "none"
         # output_format = "html_document",
         # theme = 'spacelab'
       )
