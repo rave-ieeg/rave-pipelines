@@ -82,7 +82,8 @@ loader_server <- function(input, output, session, ...){
       # gather information from preset UIs
       settings <- list(
         project_names = input$loader_project_names,
-        template_subject = input$loader_template_subject
+        template_subject = input$loader_template_subject,
+        use_cache = !isTRUE(input$loader_clear_cache)
       )
 
       # Save the variables into pipeline settings file
@@ -100,7 +101,7 @@ loader_server <- function(input, output, session, ...){
         {
           pipeline$run(
             as_promise = FALSE,
-            names = c("project_overview"),
+            names = c("snapshot_results", "project_overview"),
             scheduler = "none",
             type = "vanilla"
           )

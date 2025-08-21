@@ -18,6 +18,7 @@ Imports:
     rutabaga,
     ravebuiltins,
     magrittr,
+    cluster,
     lme4,
     stringr,
     stringi,

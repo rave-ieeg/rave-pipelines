@@ -71,36 +71,55 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
     }), loader_project$current_value, loader_subject$current_value,
       loader_electrodes$current_value, loader_reference$current_value,
       ignoreNULL = TRUE, ignoreInit = TRUE)
-    viewer <- shiny::bindEvent(shiny::bindCache(shiny::reactive({
-      shiny::invalidateLater(500)
-      brain <- comp$container$get_cache("loader_subject_brain",
-        default = NULL)
-      if (!inherits(brain, "rave-brain")) {
-        return()
-      }
-      tbl <- electrode_table()
-      if (is.data.frame(tbl) && nrow(tbl)) {
-        brain$set_electrode_values(tbl)
-      }
-      theme <- shidashi::get_theme(tools$theme_event)
-      ravedash::logger("Re-generate loader's viewer", level = "trace")
-      wg <- brain$plot(volumes = FALSE, start_zoom = 1,
-        atlases = FALSE, side_canvas = FALSE, control_display = FALSE,
-        background = theme$background, palettes = list(Value = c("orange",
-          "pink", "gray30")),
-        controllers = list(`Background Color` = theme$background,
-          `Show Time` = FALSE))
-      wg
-    }), shidashi::get_theme(tools$theme_event), electrode_table(),
-      cache = "session"), shidashi::get_theme(tools$theme_event),
-      electrode_table(), ignoreNULL = TRUE)
-    ravedash::register_output(shiny::bindEvent(threeBrain::renderBrain({
-      wg <- viewer()
-      shiny::validate(shiny::need(!is.null(wg), message = ""))
-      return(wg)
-    }), viewer(), ignoreNULL = FALSE, ignoreInit = FALSE),
-      outputId = "loader_3d_viewer", export_type = "3dviewer",
-      session = session)
+    brain_proxy <- threeBrain::brain_proxy(outputId = "loader_3d_viewer", session = session)
+
+    shiny::bindEvent(
+      ravedash::safe_observe({
+        tbl <- electrode_table()
+        brain_proxy$set_electrode_data(tbl, palettes = list(Value = c("orange", "pink", "gray30", "black")))
+      }),
+      ignoreNULL = TRUE, ignoreInit = TRUE,
+      electrode_table()
+    )
+
+    ravedash::register_output(
+      threeBrain::renderBrain({
+        # if (!loader_subject$sv$is_valid()) {
+        #   return()
+        # }
+        subject <- get_subject()
+        subject_code <- loader_subject$current_value
+        project_name <- loader_project$current_value
+
+        brain <- raveio::rave_brain(sprintf("%s/%s", project_name, subject_code))
+        # print()
+        shiny::validate(shiny::need(inherits(brain, "rave-brain"), message = ""))
+
+        tbl <- shiny::isolate(electrode_table())
+        if (is.data.frame(tbl) && nrow(tbl)) {
+          brain$set_electrode_values(tbl)
+        }
+        theme <- shidashi::get_theme(tools$theme_event)
+        ravedash::logger("Re-generate loader's viewer", level = "trace")
+        brain$plot(
+          # outputId = "loader_3d_viewer",
+          volumes = FALSE,
+          # start_zoom = 1,
+          atlases = FALSE,
+          side_canvas = FALSE,
+          control_display = FALSE,
+          # background = theme$background,
+          palettes = list(Value = c("orange", "pink", "gray30")),
+          controllers = list(
+            `Background Color` = theme$background,
+            `Show Time` = FALSE
+          )
+        )
+      }),
+      outputId = "loader_3d_viewer",
+      export_type = "3dviewer",
+      session = session
+    )
   }
   comp
 }
@@ -488,6 +507,8 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
   pre_varname <- comp$get_sub_element_varnames("trial_starts")
   post_varname <- comp$get_sub_element_varnames("trial_ends")
 
+  lst_varname <- comp$get_sub_element_varnames("load_single_trial")
+
   allow_stitch <- isTRUE(as.logical(allow_stitch))
   pre_event_varname <- comp$get_sub_element_varnames("trial_starts_rel_to_event")
   post_event_varname <- comp$get_sub_element_varnames("trial_ends_rel_to_event")
@@ -497,6 +518,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
     post <- comp$get_settings_value(key = post_varname, default = 2)
     pre_event <- comp$get_settings_value(key = pre_event_varname, default = "Trial Onset")
     post_event <- comp$get_settings_value(key = post_event_varname, default = "Trial Onset")
+    lst <- comp$get_settings_value(key = lst_varname, default = FALSE)
 
     ravedash::flex_group_box(title = label,
       shidashi::flex_item(size = 2,
@@ -509,6 +531,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
       shidashi::flex_item(shiny::numericInput(inputId = comp$get_sub_element_id("trial_starts",
         with_namespace = TRUE), label = "Pre", min = -10, step = .1,
         value = pre)),
+
       local({
         if(allow_stitch) {
           shiny::tagList(
@@ -547,13 +570,23 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
       shidashi::flex_item(shinyWidgets::prettyCheckbox(inputId = comp$get_sub_element_id("default",
         with_namespace = TRUE), label = "Set as the default",
         status = "success", shape = "square", animation = "smooth")
+      ),
+      shidashi::flex_break(),
+      shidashi::flex_item(shinyWidgets::prettyCheckbox(
+        inputId = comp$get_sub_element_id("load_single_trial",
+                                          with_namespace = TRUE), label = "Load first block as single trial",
+        status = "success", shape = "square", animation = "smooth", value=lst)
       )
     )
+
+
+
   }
   comp$server_func <- function(input, output, session) {
     loader_project <- comp$get_dependent_component(loader_project_id)
     loader_subject <- comp$get_dependent_component(loader_subject_id)
     get_subject <- loader_subject$get_tool("get_subject")
+
     get_time_window <- function() {
       subject <- get_subject()
       if (inherits(subject, "RAVESubject")) {
@@ -572,9 +605,9 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
         post <- comp$get_settings_value(key = post_varname,
           default = 2)
       }
-      raveio::validate_time_window(as.vector(rbind(pre,
-        post)))
+      raveio::validate_time_window(as.vector(rbind(pre,post)))
     }
+
     shiny::bindEvent(ravedash::safe_observe({
       open_loader <- ravedash::watch_loader_opened(session = session)
       if (!open_loader) {
