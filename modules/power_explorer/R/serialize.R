@@ -48,7 +48,7 @@ serialize_pluriform_power <- function(object, data_path) {
     unlink(data_path, recursive = TRUE, force = TRUE)
   }
   # make sure data_path exists
-  data_path <- raveio::dir_create2(data_path)
+  data_path <- ravepipeline::dir_create2(data_path)
 
   trimmed <- structure(
     names = names(object),
@@ -59,7 +59,7 @@ serialize_pluriform_power <- function(object, data_path) {
         lapply(seq_along(sub), function(jj) {
 
           item <- sub[[ jj ]]
-          item_path <- raveio::dir_create2(file.path(data_path, ii, jj))
+          item_path <- ravepipeline::dir_create2(file.path(data_path, ii, jj))
 
           # convert to filearray and fst
           fst::write_fst(item$data$events, file.path(item_path, "events"))

@@ -26,7 +26,7 @@ require(fontawesome)
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=NA)
 
 pe_graphics_settings_cache <- dipsaus::rds_map(file.path('preferences', 'graphics'))
-raveio::pipeline_set_preferences("power_explorer.graphics.reset_on_load" = FALSE)
+ravepipeline::pipeline_set_preferences("power_explorer.graphics.reset_on_load" = FALSE)
 
 
 pipeline <- ravepipeline::pipeline_from_path(".")
@@ -46,7 +46,7 @@ repository <- pipeline$read('repository')
 project <- repository$project$name
 subject <- repository$subject$subject_code
 
-brain <- raveio::rave_brain(repository$subject)
+brain <- ravecore::rave_brain(repository$subject)
 # 
 # og.pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
 # 

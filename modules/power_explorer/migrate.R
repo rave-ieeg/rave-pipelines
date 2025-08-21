@@ -26,10 +26,10 @@ migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup =
   } else {
 
     # create the subject instance
-    subject <-
-      raveio::RAVESubject$new(project_name = project_name,
-                              subject_code = subject_code,
-                              strict = FALSE)
+    subject <- ravecore::RAVESubject$new(
+      project_name = project_name,
+      subject_code = subject_code,
+      strict = FALSE)
     # initialize folders
     subject$initialize_paths(include_freesurfer = FALSE)
 
@@ -68,14 +68,14 @@ migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup =
     settings_path <- file.path(subject$pipeline_path, target_name, "settings.yaml")
 
     # ensure settings.yaml is correctly set
-    settings <- raveio::load_yaml(settings_path)
+    settings <- ravepipeline::load_yaml(settings_path)
 
     # change the subject to the targeting subject
     settings$project_name <- project_name
     settings$subject_code <- subject_code
 
     # save changes
-    raveio::save_yaml(settings, file = settings_path)
+    ravepipeline::save_yaml(settings, file = settings_path)
 
 
     ## END: customized code

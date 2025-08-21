@@ -1084,7 +1084,7 @@ module_server <- function(input, output, session, ...){
       update_custom_roi_var_list()
 
       # grab new brain
-      brain <- raveio::rave_brain(new_repository$subject$subject_id)
+      brain <- ravecore::rave_brain(new_repository$subject$subject_id)
       local_data$available_electrodes = new_repository$power$dimnames$Electrode
 
       # update the list of available forked pipelines
@@ -2256,7 +2256,7 @@ module_server <- function(input, output, session, ...){
         if(isTRUE(input$cluster_do_overwrite)) {
           utils::write.csv(x, file = fname)
         } else {
-          raveio::safe_write_csv(x, file = fname, quiet = TRUE)
+          ravecore:::safe_write_csv(x, file = fname, quiet = TRUE)
         }
 
         ravedash::show_notification(paste("Clusters written to: ", fname, ' in column: ', cname),
@@ -2282,7 +2282,7 @@ module_server <- function(input, output, session, ...){
 
       cond <- basic_checks(local_reactives$update_3dviewer, check_uni = FALSE)
 
-      brain <- raveio::rave_brain(component_container$data$repository$subject)
+      brain <- ravecore::rave_brain(component_container$data$repository$subject)
 
       if(!cond || is.null(brain)) {
         return(threeBrain::threejs_brain(title = "No 3D model found"))
@@ -2361,7 +2361,7 @@ module_server <- function(input, output, session, ...){
     render_function = threeBrain::renderBrain({
       cond <- basic_checks(local_reactives$update_3dviewer)
 
-      brain <- raveio::rave_brain(component_container$data$repository$subject)
+      brain <- ravecore::rave_brain(component_container$data$repository$subject)
 
       if(!cond || is.null(brain)) {
         return(threeBrain::threejs_brain(title = "No 3D model found"))
@@ -2526,7 +2526,7 @@ module_server <- function(input, output, session, ...){
       repository <- pipeline$read('repository')
 
       outdir <- file.path(repository$subject$rave_path,'reports', 'power_explorer')
-      raveio::dir_create2(outdir)
+      ravepipeline::dir_create2(outdir)
 
       fname <- paste0('PowExplHtmlReport_', format(Sys.time(), "%b-%d-%Y-%H-%M"))
 
@@ -2715,7 +2715,8 @@ module_server <- function(input, output, session, ...){
 
       } else {
         # make sure this is available
-        prog <- raveio::progress_with_logger("Saving results for group analysis", max = 3)
+        prog <- ravepipeline::rave_progress(title = "Saving results for group analysis",
+                                            max = 3L, shiny_auto_close = TRUE)
         prog$inc('Load data')
         pipeline$run('data_for_group_analysis')
 
@@ -2783,10 +2784,11 @@ module_server <- function(input, output, session, ...){
                                     mapply(save_list_to_h5, v,
                                            paste0(nm, '/', names(v)))
                                   } else {
-                                    raveio::save_h5(x=v, file=h5file, name=nm,
-                                                    level=ifelse(is.numeric(v), 4, 9),
-                                                    ctype=ifelse(is.numeric(v), 'numeric', 'character'),
-                                                    replace = TRUE
+                                    ieegio::io_write_h5(
+                                      x=v, file=h5file, name=nm,
+                                      level=ifelse(is.numeric(v), 4, 9),
+                                      ctype=ifelse(is.numeric(v), 'numeric', 'character'),
+                                      replace = TRUE
                                     )
                                   }
                                 }

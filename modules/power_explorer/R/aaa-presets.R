@@ -43,7 +43,7 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
       if (!inherits(brain, "rave-brain") || !identical(brain$subject_code,
         subject_code)) {
         ravepipeline::logger("Re-generate loader's brain", level = "trace")
-        brain <- raveio::rave_brain(subject, surfaces = "pial")
+        brain <- ravecore::rave_brain(subject, surfaces = "pial")
       }
       else {
         ravepipeline::logger("Using cached loader's brain", level = "trace")
@@ -91,7 +91,7 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
         subject_code <- loader_subject$current_value
         project_name <- loader_project$current_value
 
-        brain <- raveio::rave_brain(sprintf("%s/%s", project_name, subject_code))
+        brain <- ravecore::rave_brain(sprintf("%s/%s", project_name, subject_code))
         # print()
         shiny::validate(shiny::need(inherits(brain, "rave-brain"), message = ""))
 
@@ -605,7 +605,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
         post <- comp$get_settings_value(key = post_varname,
           default = 2)
       }
-      raveio::validate_time_window(as.vector(rbind(pre,post)))
+      ravecore::validate_time_window(as.vector(rbind(pre,post)))
     }
 
     shiny::bindEvent(ravedash::safe_observe({

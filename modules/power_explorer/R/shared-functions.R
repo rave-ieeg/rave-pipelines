@@ -18,8 +18,8 @@ str_collapse <- rutabaga::str_collapse
 which.equal <- rutabaga::which.equal
 fast_median <- ravetools::fast_median
 rbind_list <- rutabaga::rbind_list
-rand_string <- raveio:::rand_string
-stopifnot2 <- raveio:::stopifnot2
+rand_string <- ravecore:::rand_string
+stopifnot2 <- ravecore:::stopifnot2
 
 # require(data.table)
 .datatable.aware = TRUE
@@ -908,10 +908,16 @@ frequency_export_types <- function() {
 }
 
 new_shift_array <- function() {
-  repository <- raveio::prepare_subject_power('demo/DemoSubject', time_windows = c(-1,2))
+  # Do NOT call `ravepipeline::with_rave_parallel` by yourself, RAVE will call
+  # it internally
+  # ravepipeline::with_rave_parallel({
+
+  repository <- ravecore::prepare_subject_power_with_epochs('demo/DemoSubject', time_windows = c(-1,2))
+
+  # })
 
   # baseline
-  raveio::power_baseline(repository, baseline_windows = c(-1,0))
+  ravecore::power_baseline(repository, baseline_windows = c(-1,0))
 
   shift_amount <- sample(1:10, size = repository$epoch$n_trials, replace = TRUE)
 

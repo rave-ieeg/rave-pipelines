@@ -2831,7 +2831,8 @@ plot_by_trial_electrode_similarity <- function(by_trial_electrode_similarity_dat
 # add in plot options used by power explorer
 # the defaults here should match the defaults in the UI / plot function
 
-if(raveio::pipeline_get_preferences("power_explorer.graphics.reset_on_load", ifnotfound = TRUE) || !exists('pe_graphics_settings_cache')) {
+if(ravepipeline::pipeline_get_preferences("power_explorer.graphics.reset_on_load", ifnotfound = TRUE) ||
+   !exists('pe_graphics_settings_cache')) {
   # chdir = TRUE, current working directory is this folder
   # pipeline <- ravepipeline::pipeline(pipeline_name = "power_explorer", paths = "../..")
 

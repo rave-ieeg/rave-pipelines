@@ -18,7 +18,7 @@ options(knit_rave_pipelines = TRUE)
 ```
 
 ```{rave check_load_power, language = "R", export = "repository", format = "rave_prepare_power"}
-subject <- raveio::as_rave_subject(subject_id = sprintf("%s/%s", project_name, subject_code))
+subject <- ravecore::as_rave_subject(subject_id = sprintf("%s/%s", project_name, subject_code))
 
 if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
   
@@ -38,7 +38,7 @@ if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single
   write.csv(x = block1[1, , drop=FALSE], 
             file=ec2_path, row.names = FALSE)
   
-  repository <- raveio::prepare_subject_power(
+  repository <- ravecore::prepare_subject_power_with_epochs(
     subject = subject, electrodes = loaded_electrodes, 
     epoch_name = ec2, reference_name = reference_name,
     
@@ -46,7 +46,7 @@ if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single
   )
   
 } else {
-  repository <- raveio::prepare_subject_power(
+  repository <- ravecore::prepare_subject_power_with_epochs(
     subject = subject, electrodes = loaded_electrodes, 
     epoch_name = epoch_choice, reference_name = reference_name,
     time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends))
@@ -207,7 +207,7 @@ analysis_checks_passed=TRUE
 ```{rave calculate_baseline, language = "R", export = "baselined_power", cue = "always", format = "user-defined-r"}
 
 if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
-  raveio::power_baseline(
+  ravecore::power_baseline(
     x = repository,
     baseline_windows = list(
       range(repository$time_points)
@@ -235,7 +235,7 @@ if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single
   
   
 } else {
-  raveio::power_baseline(
+  ravecore::power_baseline(
     x = repository,
     baseline_windows = baseline_settings$window,
     method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
@@ -479,7 +479,8 @@ pluriform_power <- NULL
 
 # grab only the electrodes we need
 baselined_power_data <- subset(baselined_power,
-                               Electrode ~ Electrode %in% requested_electrodes)
+                               Electrode ~ Electrode %in% requested_electrodes,
+                               drop = FALSE)
 epoch_event_types = get_available_events(repository$epoch$columns)
 
 # flatten the settings / trial group hierarchy with the do.call(c, ...)
@@ -503,7 +504,7 @@ by_frequency_over_time_data <- do.call(
     
     ei <- which(dn_el %in% electrodes_to_use)
     
-    collapse_e <- raveio::collapse2(baselined_power_data[,,,ei,drop=FALSE], keep = 1:3, method = "mean")
+    collapse_e <- ravecore::collapse2(baselined_power_data[,,,ei,drop=FALSE], keep = 1:3, method = "mean")
     
     # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_e) = c(dim(baselined_power_data)[1:3], 1)
@@ -530,7 +531,7 @@ by_frequency_over_time_data <- do.call(
       ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
       
       # 3 now collapse over trial (and drop the electrode dimension)
-      ag$data = raveio::collapse2(re$data[,,ti,,drop=FALSE], keep = 2:1, method = "mean")
+      ag$data = ravecore::collapse2(re$data[,,ti,,drop=FALSE], keep = 2:1, method = "mean")
       
       # dimnames(ag$data) <-
       ag$x = as.numeric(dimnames(re$data)$Time)
@@ -594,7 +595,7 @@ by_frequency_correlation_data <- do.call(
     
     ei <- which(dn_el %in% electrodes_to_use)
     
-    collapse_e <- raveio::collapse2(baselined_power_data[,,,ei,drop=FALSE], keep = 1:3, method = "mean")
+    collapse_e <- ravecore::collapse2(baselined_power_data[,,,ei,drop=FALSE], keep = 1:3, method = "mean")
     
     # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_e) = c(dim(baselined_power_data)[1:3], 1)
@@ -622,7 +623,8 @@ by_frequency_correlation_data <- do.call(
       aw <- as.numeric(dimnames(re$data)$Time) %within% asc$time
       
       # 3 now collapse over trial (and drop the electrode dimension)
-      tmp = raveio::collapse2(re$data[,aw,ti,,drop=FALSE], keep = c(3,1), method = "mean")
+      tmp = ravecore::collapse2(re$data[,aw,ti,,drop=FALSE], 
+                                keep = c(3,1), method = "mean")
       ag$data = cor(tmp)
       
       ag$y = as.numeric(dimnames(re$data)$Frequency)
@@ -733,7 +735,8 @@ over_time_by_electrode_data <- do.call(
     ei <- which(dn_el %in% electrodes_to_use)
     
     fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
-    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:4, method = "mean")
+    collapse_f <- ravecore::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], 
+                                      keep = 2:4, method = "mean")
     # 
     # # add back in the 1st dimension (freq) b/c the shift function expects it
     dim(collapse_f) = c(1, dim(baselined_power_data)[2:3], length(ei))
@@ -760,7 +763,8 @@ over_time_by_electrode_data <- do.call(
       ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
       
       # 3 now collapse over trial (and drop the frequency dimension)
-      ag$data = raveio::collapse2(re$data[,,ti,,drop=FALSE], keep = c(2,4), method = "mean")
+      ag$data = ravecore::collapse2(re$data[,,ti,,drop=FALSE],
+                                    keep = c(2,4), method = "mean")
       
       # dimnames(ag$data) <-
       ag$x = as.numeric(dimnames(re$data)$Time)
@@ -949,7 +953,8 @@ over_time_by_electrode_and_trial_data <- do.call(
     
     fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
     
-    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:4, method = "mean")
+    collapse_f <- ravecore::collapse2(baselined_power_data[fi,,,ei,drop=FALSE],
+                                      keep = 2:4, method = "mean")
     # 
     # # add back in the 1st dimension (freq) b/c the shift function expects it
     dim(collapse_f) = c(1, dim(baselined_power_data)[-1])
@@ -1061,7 +1066,8 @@ re <- #do.call(
     ei <- which(dn_el %in% electrodes_to_use)
     
     
-    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:4, method = "mean")
+    collapse_f <- ravecore::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], 
+                                      keep = 2:4, method = "mean")
     # 
     # # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_f) = c(1, dim(baselined_power_data)[2:3], length(ei))
@@ -1089,7 +1095,8 @@ re <- #do.call(
       ti <- as.numeric(dimnames(re$data)$Trial) %in% trials_to_keep
       
       # 3 now collapse over trial, drop the frequency dimension, but keep electrode for now
-      coll_trial = raveio::collapse2(re$data[,,ti,,drop=FALSE], keep = c(2,4), method = "mean")
+      coll_trial = ravecore::collapse2(re$data[,,ti,,drop=FALSE], 
+                                       keep = c(2,4), method = "mean")
       
       ag$data <- cbind(
         .rowMeans(coll_trial, nrow(coll_trial), ncol(coll_trial)),
@@ -1150,7 +1157,7 @@ for(ii in seq_along(over_time_by_condition_data)) {
 over_time_by_electrode_dataframe <- NULL
 # building data for the movie viewer
 # first baseline all the electrodes
-raveio::power_baseline(
+ravecore::power_baseline(
   repository,
   baseline_windows = baseline_settings$window,
   method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
@@ -1268,7 +1275,7 @@ over_time_by_trial_data <- do.call(
     ei <- which(dn_el %in% electrodes_to_use)
     
     fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
-    collapse_fe <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:3, method = "mean")
+    collapse_fe <- ravecore::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:3, method = "mean")
     # 
     # # add back in the 4th dimension (electrode) b/c the shift function expects it
     dim(collapse_fe) = c(1, dim(baselined_power_data)[2:3], 1)
@@ -1353,7 +1360,7 @@ ravepipeline::logger('top of IOR', level='debug')
 
 if(isTRUE(omnibus_includes_all_electrodes)) {
   # first baseline all the electrodes
-  raveio::power_baseline(
+  ravecore::power_baseline(
     repository,
     baseline_windows = baseline_settings$window,
     method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
@@ -1386,7 +1393,8 @@ by_condition_group <- lapply(
       fi <- as.integer(dimnames(ob_baselined_power)$Frequency) %within% as$frequency
       trials <- as.integer(dimnames(ob_baselined_power)$Trial) %in% ag$trials
       
-      collapse_f <- raveio::collapse2(ob_baselined_power[fi,,trials,,drop=FALSE], keep = 2:4, method = "mean")
+      collapse_f <- ravecore::collapse2(ob_baselined_power[fi,,trials,,drop=FALSE], 
+                                        keep = 2:4, method = "mean")
       
       # # add back in the 1st dimension (freq) b/c the shift function expects it
       dn <- dimnames(ob_baselined_power)[-1]
@@ -1852,7 +1860,7 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
   prog$inc("Baseline data [export loop]")
   
   ## ensure the data are available
-  raveio::power_baseline(
+  ravecore::power_baseline(
     repository,
     baseline_windows = baseline_settings$window,
     method = get_unit_of_analysis(baseline_settings$unit_of_analysis),
@@ -1870,7 +1878,7 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
   dd <- paste0('pe_export_', stringr::str_replace_all(format(Sys.time(), "%X__%b_%d_%Y"), stringr::fixed(':'), '_'))
   out_path <- file.path(repository$subject$path, 'power_explorer', dd)
   
-  raveio::dir_create2(out_path)
+  ravepipeline::dir_create2(out_path)
   
   uoa <- get_unit_of_analysis_varname(baseline_settings$unit_of_analysis)
   for(current_electrode in electrodes_to_keep) {
@@ -2084,8 +2092,9 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
     electrodes = subset(repository$electrode_table, Electrode %in% electrodes_to_keep)
   )
   
-  raveio::save_yaml(
-    metadata, file = file.path(out_path, 'metadata.yaml')
+  ieegio::io_write_yaml(
+    metadata, file = file.path(out_path, 'metadata.yaml'),
+    sorted = TRUE
   )
   
   # target result for this block is the path to the exported data
