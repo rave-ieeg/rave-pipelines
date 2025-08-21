@@ -1,0 +1,18 @@
+atlas_name: ''
+mapping_method: high-density
+mapping_params:
+  width: 12
+  height: 12
+  interpolator: 0.7
+  flip_hemisphere: ~
+mapping_threshold: 1
+project_name: YAEL
+subject_codes:
+- Precision003
+- Precision004
+- Precision006
+- Precision009
+template_name: fsaverage
+value_name: Fun_Channels
+value_table: ${EXTDATA-SETTINGS|value_table|csv}
+value_type: numerical

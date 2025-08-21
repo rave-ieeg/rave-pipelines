@@ -1,0 +1,5 @@
+generate_surface_atlas:
+  script: make-main.R
+  store: shared
+  reporter_make: terse
+  reporter_outdated: terse

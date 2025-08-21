@@ -1,0 +1,256 @@
+---
+title: "Project Report"
+format: html
+---
+
+```{r setup, include=FALSE}
+source("./columns.R")
+
+read_subject_snapshot <- function(subject) {
+  snapshot_path <- file.path('cache', subject$project_name, subject$subject_code, "snapshot.rds")
+  readRDS(snapshot_path)
+}
+
+project_name <- "{{PROJECT_NAME}}"
+template_name <- "{{TEMPLATE_NAME}}"
+
+reading_errors <- list()
+print_error <- function(err_text) {
+    reading_errors <<- c(reading_errors, err_text)
+}
+
+get_cache_file <- function(file_name) {
+    file_path <- glue::glue("cache/{project_name}/{file_name}")
+    if (!dir.exists(dirname(file_path))) {
+        dir.create(dirname(file_path), recursive = TRUE)
+    }
+    list(
+        exists = file.exists(file_path),
+        write_path = file_path,
+        link_tag = function(text) {
+            glue::glue(
+                # "<a class=\"nowrap\" href=\"../cache/{project_name}/{file_name}?t={as.numeric(Sys.time())}\" target=\"viewer_iframe\" onclick=\"showIframeDrawer()\">{text}</a>"
+              "<a class=\"nowrap\" href=\"../cache/{project_name}/{file_name}?t={as.numeric(Sys.time())}\" target=\"_blank\">{text}</a>"
+            )
+        }
+    )
+}
+
+get_subject_cache_file <- function(file_name, subject) {
+    subject_code <- subject$subject_code
+    get_cache_file(glue::glue("{subject_code}/{file_name}"))
+}
+
+project <- raveio::as_rave_project(project_name)
+subjects_codes <- project$subjects()
+
+number_of_subjects <- length(subjects_codes)
+```
+
+### `r project_name` (`r number_of_subjects` subjects)
+
+```{r, echo=FALSE, results='asis', warning=FALSE}
+#| column: screen-inset-right
+
+group_level_viewer_cache_file <- get_cache_file(sprintf("group_viewer-%s.html", template_name))
+if (!group_level_viewer_cache_file$exists) {
+   return("Could not find group viewer file")
+}
+group_level_viewer_cache_file$link_tag("Group Level 3D Viewer")
+```
+
+
+#### Electrodes Table
+
+```{r, echo=FALSE, warning=FALSE}
+#| column: screen-inset-right
+subjects_label_counts <- list()
+all_labels <- list()
+for (subject_code in subjects_codes) {
+    tryCatch(
+        {
+            subject <- raveio::RAVESubject$new(project_name = project$name, subject_code = subject_code)
+            snapshot <- read_subject_snapshot(subject)
+            electrode_labels <- snapshot$electrode_coordinates$FSLabel
+            if (!is.null(electrode_labels)) {
+                subjects_label_counts[[subject_code]] <- as.list(table(electrode_labels))
+                all_labels <- unique(c(all_labels, electrode_labels))
+            }
+        },
+        error = function(e) {
+            print_error(
+                glue::glue("Could not get electrodes of {subject_code}: {e$message}")
+            )
+        }
+    )
+}
+
+electrodes_rows <- lapply(all_labels, function(label) {
+    if (is.null(label) || is.na(label) || label == "") {
+        return(NULL)
+    }
+    result <- list("FS Label" = label)
+    for (subject_code in subjects_codes) {
+        value <- subjects_label_counts[[subject_code]][[label]]
+        result[[subject_code]] <- if (is.null(value)) 0 else value
+    }
+    result
+})
+
+# electrodes_df <- dplyr::bind_rows(electrodes_rows)
+electrodes_df <- data.table::rbindlist(electrodes_rows)
+DT::datatable(
+    electrodes_df,
+    rownames = FALSE,
+    options = list(
+        fixedColumns = list(leftColumns = 1),
+        scrollX = TRUE,
+        width = "100%"
+    )
+)
+```
+
+
+#### Subjects Table
+
+```{r, echo=FALSE, warning=FALSE}
+#| column: screen-inset-right
+subjects_data <- lapply(subjects_codes, function(subject_name) {
+    subject_id <- paste0(project_name, "/", subject_name)
+    subject <- raveio::as_rave_subject(subject_id)
+
+    lapply(
+        subjects_columns,
+        function(column) {
+            column(subject)
+        }
+    )
+})
+
+# subjects_df <- dplyr::bind_rows(subjects_data)
+subjects_df <- data.table::rbindlist(subjects_data)
+DT::datatable(subjects_df, escape = FALSE)
+```
+
+#### Validations
+
+```{r, echo=FALSE, results='asis', warning=FALSE}
+#| column: screen-inset-right
+
+errors <- list()
+check_error <- function(subject_code, error_name, rave_validation_object) {
+    if (!isTRUE(rave_validation_object$valid)) {
+        errors <<- append(errors, list(list(
+            Name = error_name,
+            Subject = subject_code,
+            Description = rave_validation_object$description,
+            "Error Message" = rave_validation_object$message
+        )))
+    }
+}
+
+for (subject_code in subjects_codes) {
+    subject_id <- paste0(project_name, "/", subject_code)
+    subject <- raveio::as_rave_subject(subject_id)
+    snapshot <- read_subject_snapshot(subject)
+    subject_validation <- snapshot$validation
+    
+    for (ref_name in snapshot$reference_names) {
+        check_error(subject_code, paste0("Reference ", ref_name), subject_validation$reference_tables[[ref_name]])
+    }
+    for (epoch_name in snapshot$epoch_names) {
+        check_error(subject_code, paste0("Reference ", epoch_name), subject_validation$epoch_tables[[epoch_name]])
+    }
+    check_error(subject_code, "Electrodes Preprocess", subject_validation$preprocess$electrodes_set)
+    check_error(subject_code, "Blocks Preprocess", subject_validation$preprocess$blocks_set)
+    check_error(subject_code, "Metadata", subject_validation$meta$meta_data_valid)
+}
+
+errors_df <- data.table::rbindlist(errors)
+knitr::kable(errors_df, format = "simple")
+```
+
+#### Report Generation Errors
+
+```{r, echo=FALSE, results='asis', warning=FALSE}
+#| column: screen-inset-right
+if (length(reading_errors) > 0) {
+    cat(paste0(lapply(reading_errors, function(error) {
+        glue::glue("<li> {error} </li>")
+    })))
+    cat("</ul>")
+} else {
+    cat("None")
+}
+```
+
+<style>
+  .drawer {
+    height: 100%;
+    width: 95vw;
+    position: fixed;
+    top: 0;
+    right: -95vw;
+    background-color: #ffffff;
+    transition: 0.4s ease-out;
+    padding: 20px;
+    padding-top: 40px;
+    z-index: 999;
+  }
+
+  .drawer.open {
+    right: 0;
+    box-shadow: 2px 0 20px rgba(0,0,0,0.5);
+  }
+
+  .close-drawer-btn {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    border-radius: 5px;
+    width: 26px;
+    height: 26px;
+    line-height: 0;
+    box-sizing: border-box;
+    border: solid 2px #b4b4b4;
+    background: #e6e6e6;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    padding-bottom: 2px;
+    color: #474747;
+  }
+
+  .nowrap {
+    white-space: nowrap;
+  }
+</style>
+
+<div id="iframe-drawer" class="drawer">
+  <button class="close-drawer-btn" onclick="closeIframeDrawer()"> x </button>
+  <p style="height: 100%">
+    <iframe name="viewer_iframe" style="width: 100%; height: 100%"></iframe>
+  </p>
+</div>
+
+<script>
+  function showIframeDrawer() {
+    const $drawer = document.getElementById('iframe-drawer');
+    let drawerHeight = parseInt(document.body.getAttribute('wrapper-height'));
+    if( isFinite(drawerHeight) && drawerHeight > 100 ) {
+      $drawer.style.maxHeight = `${drawerHeight}px`;
+    } else {
+      $drawer.style.maxHeight = `100vh`;
+    }
+    $drawer.classList.add('open');
+  }
+  function closeIframeDrawer() {
+    document.getElementById('iframe-drawer').classList.remove('open');
+  }
+
+  document.addEventListener('keydown', function(event) {
+    if (event.key === "Escape") {
+      closeIframeDrawer();
+    }
+  });
+</script>

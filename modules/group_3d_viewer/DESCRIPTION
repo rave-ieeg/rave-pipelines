@@ -1,0 +1,15 @@
+Package: group_3d_viewer
+Type: rave-pipeline
+Title: Map Electrodes and View Them on Template Brain
+Version: 0.0.1
+Language: en-US
+Encoding: UTF-8
+License: CC-BY-4.0
+Authors@R: c(
+    person("Zhengjia", "Wang", email = "zhengjia.wang@pennmedicine.upenn.edu", role = c("aut", "cre"))
+    )
+Description: Show electrodes on group brain; upload any comma-separated value 
+    (csv) file with the following case-sensitive columns (Subject, Electrode), 
+    followed by the value columns for the corresponding electrodes. 
+BugReports: https://github.com/orgs/rave-ieeg/discussions
+URL: https://rave.wiki, https://github.com/rave-ieeg/rave-pipelines

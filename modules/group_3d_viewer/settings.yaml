@@ -1,0 +1,16 @@
+electrode_radius: .na
+mapping_method: auto
+project_name: YAEL
+subject_codes:
+- LOC_01_LT
+- OCD1
+- OCD3AB_DBS
+- OCD5
+- PAV023
+- PAV058
+- Precision001
+- Precision003
+- Precision007
+- yael_demo_001
+template_name: cvs_avg35_inMNI152
+use_cache: yes

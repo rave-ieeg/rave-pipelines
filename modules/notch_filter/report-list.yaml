@@ -1,0 +1,4 @@
+- name: diagnostics
+  label: Notch Filter Diagnostic Plots
+  entry: diagnostics.Rmd
+  fork_policy: default

@@ -5,6 +5,22 @@ divider:
     order: 10
   Settings:
     order: 10000
+groups:
+  Import Signals:
+    order: 1
+    open: no
+  LFP Processing:
+    order: 2
+    open: no
+  Auxiliary Processing:
+    order: 3
+    open: no
+  Images & Electrodes:
+    order: 7
+    open: no
+  Group Viewers:
+    order: 13
+    open: no
 modules:
   import_lfp_native:
     label: Native Structure
@@ -16,7 +32,7 @@ modules:
     order: 1.2
   power_explorer:
     label: Power Explorer
-    order: 13
+    order: 14
     badge: N=1|badge-primary
   jupyterlab:
     label: JupyterLab
@@ -58,10 +74,15 @@ modules:
     order: 20
   custom_3d_viewer:
     label: Subject 3D Viewer
-    order: 11
+    order: 12
+  generate_surface_atlas:
+    label: Generate Surface Atlases
+    group: Group Viewers
+    order: 13.2
   connectivity_viewer:
     label: Connectivity Viewer
-    order: 12
+    group: Group Viewers
+    order: 13.3
   configure_rave:
     label: Configurations
     order: 10001
@@ -69,16 +90,10 @@ modules:
     label: Stimulation Explorer
   phase_explorer:
     label: Phase Explorer
-groups:
-  Import Signals:
-    order: 1
-    open: no
-  LFP Processing:
-    order: 2
-    open: no
-  Auxiliary Processing:
-    order: 3
-    open: no
-  Images & Electrodes:
-    order: 7
-    open: no
+  group_3d_viewer:
+    label: Group 3D Viewer
+    group: Group Viewers
+    order: 13.1
+  project_overview:
+    label: Project Overview
+    order: 11
