@@ -1536,13 +1536,13 @@ module_server <- function(input, output, session, ...){
       po <- pe_graphics_settings_cache$get('over_time_by_condition_plot_options')
 
       po$condition_switch = input$over_time_by_condition_switch
-      po$plot_range <- input$over_time_plot_range
+      po$plot_range <- input$over_time_by_condition_plot_range
 
       pe_graphics_settings_cache$set('over_time_by_condition_plot_options', po)
 
       local_reactives$update_over_time_plot = Sys.time()
 
-    }), input$over_time_by_condition_switch, input$over_time_plot_range,
+    }), input$over_time_by_condition_switch, input$over_time_by_condition_plot_range,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 

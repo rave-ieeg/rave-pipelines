@@ -849,7 +849,7 @@ if(nrow(curr_electrodes) < 3) {
     
     fslabel = 'FSLabel'
     if(is.null(etbl[[fslabel]])) {
-      if(!is.null(etbl['Area_fs'])) {
+      if(!is.null(etbl[['Area_fs']])) {
         etbl[[fslabel]] = etbl$Area_fs
       }
     }
@@ -922,41 +922,109 @@ if(nrow(curr_electrodes) < 3) {
 
 ```{rave build_over_time_by_electrode_and_trial_data, language="R", export ="over_time_by_electrode_and_trial_data"}
 
-# not implemented yet
-over_time_by_electrode_and_trial_data <- NULL
-build_data <- function(data, analysis_settings, condition_group, baseline_settings, ...) {
-  dm <- dimnames(data)
-  to_keep <- sapply(c('Time', 'Electrode', 'Trial'), which.equal, names(dm))
-  res <- list(
-    data = ravetools::collapse(data, keep = to_keep),
-    xlab='Time (s)',
-    ylab='Electrode #',
-    zlab='Trial',
-    analysis_unit = baseline_settings$unit_of_analysis,
-    condition_group = condition_group$label,
-    electrodes = as.integer(dm$Electrode)
-  )
-  
-  res[c('x', 'y', 'z')] <- dimnames(data)[to_keep] %>% lapply(as.numeric)
-  dimnames(res$data) = dimnames(data)[to_keep]
-  res$N = length(dm$Trial)
-  
-  if(isTRUE(analysis_settings$censor_info$enabled)) {
+
+## new method for OTBETD
+# grab only the electrodes we need
+baselined_power_data <- subset(baselined_power,
+                               Electrode ~ Electrode %in% requested_electrodes)
+epoch_event_types = get_available_events(repository$epoch$columns)
+
+over_time_by_electrode_and_trial_data <- do.call(
+  c,
+  sapply(analysis_settings_clean, function(asc) {
+    # asc <- analysis_settings_clean$AudStart50
     
-    ti = res$x %within% analysis_settings$censor_info$window
-    res$range <- range(res$data[!ti,,])
-  } else {
-    res$range <- range(res$data)
-  }
-  
-  return(res)
-}
-
-# over_time_by_electrode_and_trial_data <- data_builder(pluriform_power = pluriform_power,
-#                                                       condition_group = analysis_groups, 
-#                                                       baseline_settings = baseline_settings,
-#                                                       build_data)
-
+    # 1) collapse over frequencies in the analysis window
+    # 2) shift the data in time
+    
+    # check if this analysis settings is specifying an electrode subset
+    dn_el <- as.integer(dimnames(baselined_power_data)$Electrode)
+    electrodes_to_use <- dn_el
+    
+    if(!is.null(asc[['electrodes']])) {
+      electrodes_to_use <- electrodes_to_use[electrodes_to_use %in% asc$electrodes]
+    }
+    
+    ei <- which(dn_el %in% electrodes_to_use)
+    
+    fi <- as.integer(dimnames(baselined_power_data)$Frequency) %within% asc$frequency
+    
+    collapse_f <- raveio::collapse2(baselined_power_data[fi,,,ei,drop=FALSE], keep = 2:4, method = "mean")
+    # 
+    # # add back in the 1st dimension (freq) b/c the shift function expects it
+    dim(collapse_f) = c(1, dim(baselined_power_data)[-1])
+    
+    dimnames(collapse_f) <- append(list('Frequency'='Avg'),
+                                   dimnames(baselined_power_data)[2:4])
+    
+    # 2
+    re <- shift_baselined_power(
+      baselined_data=collapse_f,
+      events = repository$epoch$table,
+      epoch_event_types = epoch_event_types,
+      event_of_interest = asc$event,
+      sample_rate = repository$subject$power_sample_rate
+    )
+    
+    # now that we've shifted the data, split into analysis groups and then collapse over nothing 
+    all_ag <- sapply(analysis_groups, function(ag) {
+      # ag <- analysis_groups[[1]]
+      
+      # get the trials we need
+      ti <- as.numeric(dimnames(re$data)$Trial) %in% ag$trials
+      
+      # 3 now extract the trials we need, dropping the frequency dimension
+      ag$data = re$data[,,ti,,drop=TRUE]
+      
+      stopifnot(length(dim(ag$data)) == 3)
+      
+      # we need to add back in the trial (d=3) and electrode (d=4) dimensions if there were dropped
+      # newdim <- dim(ag$data)
+      # if(3 %in% has_length_one) {
+      #   newdim %<>% c(1)
+      # }
+      # 
+      # if(4 %in% has_length_one) {
+      #   newdim %<>% c(1)
+      # }
+      
+      # dimnames(ag$data) = dimnames(re$data)[-1]
+      
+      # we want to re-arrage the dimensions so that d=2 is electrode and d=3 is trial
+      dm <- dimnames(ag$data)
+      to_keep <- sapply(c('Time', 'Electrode', 'Trial'), which.equal, names(dm))
+      ag$data <- aperm(ag$data, perm = to_keep)
+      
+      ag$xlab='Time (s)'
+      ag$ylab='Electrode #'
+      ag$zlab='Trial'
+      
+      ag[c('x', 'y', 'z')] <- lapply(dimnames(ag$data), as.numeric)
+      
+      ag$range <- range(ag$data)
+      
+      # now add in trial number and outlier status, using the sorted order
+      ag$trial_number = ag$trials
+      ag$is_outlier = ag$trials %in% trial_outliers_list
+      
+      ag$N <- prod(dim(ag$data)[-1])
+      
+      ag$condition_group = ag$label
+      ag$electrodes <- electrodes_to_use
+      
+      # ag$settings = asc
+      ag$outliers = trial_outliers_list
+      ag$events = subset(re$events, Trial %in% ag$trials)
+      
+      ag %<>% add_analysis_settings(asc, baseline_settings)
+      
+      ag
+    }, simplify=FALSE)
+    
+    return(all_ag)
+    
+  }, simplify = FALSE, USE.NAMES = TRUE)
+)
 
 ```
 

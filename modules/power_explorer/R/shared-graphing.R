@@ -89,16 +89,17 @@ build_palettes_and_ranges_for_omnibus_data <- function(omnidata) {
   )
 }
 
-draw_many_heat_maps <- function (hmaps,
-                                 max_zlim = 0, percentile_range = FALSE, global_scale = TRUE, log_scale = FALSE,
-                                 show_color_bar = TRUE, useRaster = TRUE, PANEL.FIRST = NULL,
-                                 PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL,
-                                 axes = c(TRUE, TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
-                                 ncol = 3, byrow=TRUE, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
-                                 ignore_time_range = NULL,
-                                 #marginal_text_fields = c("Subject", "Electrodes"),
-                                 extra_plot_parameters = NULL,
-                                 do_layout = TRUE, ...)
+draw_many_heat_maps <- function (
+    hmaps,
+    max_zlim = 0, percentile_range = FALSE, global_scale = TRUE, log_scale = FALSE,
+    show_color_bar = TRUE, useRaster = TRUE, PANEL.FIRST = NULL,
+    PANEL.LAST = NULL, PANEL.COLOR_BAR = NULL,
+    axes = c(TRUE, TRUE), plot_time_range = NULL, special_case_first_plot = FALSE,
+    ncol = 3, byrow=TRUE, decorate_all_plots = FALSE, center_multipanel_title = FALSE,
+    ignore_time_range = NULL,
+    #marginal_text_fields = c("Subject", "Electrodes"),
+    extra_plot_parameters = NULL,
+    do_layout = TRUE, ...)
 {
 
   #pe_graphics_settings_cache is defined above
