@@ -934,6 +934,9 @@ module_server <- function(input, output, session, ...){
         }
       }
 
+      # Lazy-load the data_list
+      new_repository$mount_data(electrodes = NA)
+
       # TODO: reset UIs to default
 
       # Reset preset UI & data
@@ -2515,47 +2518,141 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      dipsaus::shiny_alert2(title = "Generating HTML Report",
-                            text = "See console for progress", icon = "info",
-                            danger_mode = FALSE, auto_close = FALSE, buttons = FALSE)
-
-      on.exit({
-        dipsaus::close_alert2()
-      })
+      # dipsaus::shiny_alert2(title = "Generating HTML Report",
+      #                       text = "See console for progress", icon = "info",
+      #                       danger_mode = FALSE, auto_close = FALSE, buttons = FALSE)
+      #
+      # on.exit({
+      #   dipsaus::close_alert2()
+      # })
 
       repository <- pipeline$read('repository')
+      subject <- repository$subject
 
-      outdir <- file.path(repository$subject$rave_path,'reports', 'power_explorer')
-      ravepipeline::dir_create2(outdir)
-
-      fname <- paste0('PowExplHtmlReport_', format(Sys.time(), "%b-%d-%Y-%H-%M"))
+      # outdir <- file.path(repository$subject$rave_path, 'reports', 'power_explorer')
+      # ravepipeline::dir_create2(outdir)
+      # fname <- paste0('PowExplHtmlReport_', format(Sys.time(), "%b-%d-%Y-%H-%M"))
 
       pti <- stringr::str_replace_all(input$exp_html_graphs, stringr::fixed(' '), '_')
       do_ip <- isTRUE(input$exp_html_electrodes_to_include == 'Aggregate + individual')
 
-      rmarkdown::render(file.path(pipeline$pipeline_path,'univariate_report.Rmd'),
-                        params = list(
-                          plots_to_include = pti,
-                          do_overall_plots = TRUE,
-                          do_individual_plots = do_ip
-                        ),
-                        output_dir = outdir,
-                        clean = TRUE,
-                        output_file = fname,
-                        output_format = rmarkdown::html_document(
-                          toc = TRUE, toc_depth = 3, toc_float = list(collapsed=TRUE),
-                          df_print = 'kable',
-                          theme = 'spacelab'
-                        )
+      job_id <- pipeline$generate_report(
+        "univariatePower",
+        subject = subject,
+        params = list(
+          plots_to_include = pti,
+          do_overall_plots = TRUE,
+          do_individual_plots = do_ip
+        )
+        # output_format = "html_document",
+        # theme = 'spacelab'
+      )
+      # Need to store the job somewhere so the process is not killed
+      local_data$report_job_id <- job_id
+
+      ravedash::clear_notifications(class = ns("_report_wizard_notif"), session = session)
+      ravedash::show_notification(
+        title = "Report(s) scheduled",
+        message = shiny::div(
+          shiny::p(
+            "Report scheduled. Please check the subject report directory later: \n",
+            subject$report_path,
+            " \nFeel free to dismiss this message."
+          )
+        ),
+        autohide = FALSE,
+        type = "white",
+        class = ns("_report_wizard_notif"),
+        session = session,
+        close = TRUE
+      )
+      job_promise <- ravepipeline::as.promise(job_id)
+
+      # return a promise that allows the job to pop up notifications once done
+      # Thie reactive return a promise or shiny will not recognize
+      handling_promise <- job_promise$then(
+        onFulfilled = function(path) {
+          params <- as.list(attr(path, "params"))
+          params$module <- "standalone_report"
+          params$type <- "widget"
+          params$project_name <- subject$project_name
+          params$subject_code <- subject$subject_code
+          if(!length(params$report_filename)) {
+            params$report_filename <- basename(dirname(path))
+          }
+          params <- unlist(lapply(names(params), function(nm) {
+            sprintf("%s=%s", nm, htmltools::urlEncodePath(params[[nm]]))
+          }))
+          params <- paste(params, collapse = "&")
+          url <- sprintf("/?%s", params)
+
+          ravedash::clear_notifications(class = ns("_report_wizard_notif"),
+                                        session = session)
+          ravedash::show_notification(
+            title = "Report generated!",
+            type = "default",
+            message = shiny::div(
+              shiny::p(
+                "Univariate analysis report has been generated. Check the following path"
+              ),
+              shiny::p(
+                shiny::tags$code(
+                  class = "bg-secondary",
+                  path
+                )
+              ),
+              if(!is.null(url)) {
+                shiny::a(target = "_blank", href = url, class = "btn btn-sm btn-success",
+                         shiny::span("View report ", ravedash::shiny_icons$external_link))
+              }
+            ),
+            close = TRUE,
+            autohide = FALSE
+          )
+        },
+        onRejected = function(e) {
+          ravepipeline::logger_error_condition(e)
+          ravedash::error_notification(cond = e,
+                                       title = "Error while generating reports",
+                                       autohide = FALSE,
+                                       prefix = "Report generating error: ")
+        }
       )
 
-      # we made it, show manually close the old alert before showing the new one
-      dipsaus::close_alert2()
-      on.exit({})
+      # Must handle the errors of onFulfilled or shiny will crash
+      handling_promise$then(
+        onRejected = function(e) {
+          ravepipeline::logger_error_condition(e)
+          ravedash::error_notification(cond = e)
+        }
+      )
 
-      dipsaus::shiny_alert2(title = "Done exporting HTML report!",
-                            text = sprintf("Report is here: %s", outdir), icon = "success",
-                            danger_mode = FALSE, auto_close = FALSE)
+      # return job_promise so non-block
+      return()
+
+      # rmarkdown::render(file.path(pipeline$pipeline_path,'report-univariate.Rmd'),
+      #                   params = list(
+      #                     plots_to_include = pti,
+      #                     do_overall_plots = TRUE,
+      #                     do_individual_plots = do_ip
+      #                   ),
+      #                   output_dir = outdir,
+      #                   clean = TRUE,
+      #                   output_file = fname,
+      #                   output_format = rmarkdown::html_document(
+      #                     toc = TRUE, toc_depth = 3, toc_float = list(collapsed=TRUE),
+      #                     df_print = 'kable',
+      #                     theme = 'spacelab'
+      #                   )
+      # )
+
+      # we made it, show manually close the old alert before showing the new one
+      # dipsaus::close_alert2()
+      # on.exit({})
+      #
+      # dipsaus::shiny_alert2(title = "Done exporting HTML report!",
+      #                       text = sprintf("Report is here: %s", outdir), icon = "success",
+      #                       danger_mode = FALSE, auto_close = FALSE)
 
     }), input$btn_export_html_report, ignoreNULL = TRUE, ignoreInit = TRUE
   )

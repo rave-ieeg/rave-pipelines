@@ -1,0 +1,4 @@
+- name: univariatePower
+  label: Univariate Power Spectrogram Analysis
+  entry: report-univariate.Rmd
+  fork_policy: minimal
