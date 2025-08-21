@@ -978,8 +978,15 @@ over_time_by_electrode_and_trial_data <- do.call(
       # get the trials we need
       ti <- as.numeric(dimnames(re$data)$Trial) %in% ag$trials
       
-      # 3 now extract the trials we need, dropping the frequency dimension
-      ag$data = re$data[,,ti,,drop=TRUE]
+      # 3 now extract the trials we need, 
+      ag$data = re$data[,,ti,,drop=FALSE]
+      
+      # dropping the frequency dimension, keeping the dimnames
+      ag$data <- structure(
+        ag$data,
+        dim = dim(ag$data)[-1],
+        dimnames = dimnames(ag$data)[c("Time", "Trial", "Electrode")]
+      )
       
       stopifnot(length(dim(ag$data)) == 3)
       
