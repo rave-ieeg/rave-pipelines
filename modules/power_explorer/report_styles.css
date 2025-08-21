@@ -6,7 +6,7 @@ d-article.d-article-with-toc {
   contain: none;
 }
 
-.d-article-with-toc .d-contents-float {
+d-article.d-article-with-toc .d-contents-float {
   position: relative;
   z-index: 50;
   height: 1px;
@@ -17,7 +17,7 @@ d-article.d-article-with-toc {
   max-width: 20%;
 }
 
-#TOC {
+d-article #TOC {
   position: fixed;
   transform: translateX(-100%);
   background: #ebebeb;
@@ -33,7 +33,7 @@ d-article.d-article-with-toc {
 
 /* Hide the ToC when resized to mobile or tablet:  480px, 768px, 900px */
 @media screen and (max-width: 999px) {
-  .d-article-with-toc .d-contents-float {
+  d-article.d-article-with-toc .d-contents-float {
     position: relative;
     height: unset;
     max-height: 500px;
@@ -42,7 +42,7 @@ d-article.d-article-with-toc {
     width: 100%;
     justify-self: left;
   }
-  #TOC {
+  d-article #TOC {
     position: relative;
     transform: none;
     width: 100%;
@@ -51,7 +51,7 @@ d-article.d-article-with-toc {
   }
 }
 
-ul li {
+d-article ul li {
   margin-top: 0;
   margin-bottom: 0;
 }
