@@ -86,7 +86,7 @@ loader_server <- function(input, output, session, ...){
 
       # Check if user has asked to set the epoch & reference to be the default
       default_epoch <- isTRUE(loader_epoch$get_sub_element_input("default"))
-      default_reference <- isTRUE(loader_epoch$get_sub_element_input("default"))
+      default_reference <- isTRUE(loader_reference$get_sub_element_input("default"))
 
       # --------------------- Run the pipeline! ---------------------
 

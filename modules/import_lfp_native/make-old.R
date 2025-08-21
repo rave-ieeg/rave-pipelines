@@ -292,7 +292,7 @@ pipeline_targets$generate_electrode_file <- tar_target(
       RAVESubject$new(project_name = settings$project_name,
                               subject_code = settings$subject_code)
 
-    etable <- subject$meta_data("electrodes")
+    etable <- subject$meta_data("electrodes", strict = FALSE)
 
     if(is.null(etable)){
       etable <- data.frame(
