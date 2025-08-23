@@ -1,0 +1,6 @@
+loaded_electrodes: 13-16,24
+project_name: demo
+reference_name: default
+subject_code: DemoSubject
+epoch_name: auditory_onset
+epoch_events: ""
