@@ -9,28 +9,34 @@ StreamSignalPlot <- R6::R6Class(
     # for shiny output and proxy
     .output_id = character(),
 
+
     .start_time = numeric(),
     .sample_rates = numeric(),
-    # list of channel signals
-    .data = NULL,
+    .data = NULL,    # list of channel signals
     .channel_names = character(),
-    .channel_needs_update = logical(),
-
     .channel_gap = numeric(),
+    .channel_gap_needs_update = FALSE,
     .channel_color = character(),
     .channel_lwd = numeric(),
+    .channel_needs_update = logical(),
+
 
     .title = character(),
     .xlab = character(),
     .ylab = character(),
-
     .ytick_size = numeric(),
+    .axes_needs_update = FALSE,
+
 
     .annotations = NULL,
+    .annotations_needs_update = FALSE,
+
+
     prepare_annotations = function() {
       annot_table <- private$.annotations
       max_duration <- self$max_duration
       start_time <- self$start_time
+      end_time <- start_time + max_duration
       font_size <- self$channel_ticksize
 
       if(!is.data.frame(annot_table) || nrow(annot_table) == 0) {
@@ -54,61 +60,255 @@ StreamSignalPlot <- R6::R6Class(
       annot_colors <- sprintf("rgb(%d,%d,%d)", annot_colors[1, ],
                               annot_colors[2, ], annot_colors[3, ])
 
-      event_shapes <- lapply(seq_len(n_annots), function(ii) {
+      events <- lapply(seq_len(n_annots), function(ii) {
         t0 <- annot_table$time[[ii]]
-        list(
-          type  = "line",
-          # build shapes against x2 so they ignore the main zoom
-          xref  = "x2",       # IMPORTANT: use the full-range axis
-          yref  = "paper",
-          x0    = t0, x1 = t0,
-          y0    = 0,  y1 = 1,
-          line  = list(color = annot_colors[[ii]], width = 1),
-          layer = "below"     # draw above traces
-        )
-      })
+        if(t0 > end_time || t0 < start_time) { return(NULL) }
 
-      event_labels <- lapply(seq_len(n_annots), function(ii) {
-
-        # if(ii == 1L) {
-        #   ii_prev <- 1L
-        #   ii_next <- 2L
-        # } else if (ii == n_annots) {
-        #   ii_prev <- ii - 1L
-        #   ii_next <- ii
-        # } else {
-        #   ii_prev <- ii - 1L
-        #   ii_next <- ii + 1L
-        # }
-        # t_prev <- annot_table$time[[ii_prev]]
-        t_now <- annot_table$time[[ii]]
-        # t_next <- annot_table$time[[ii_next]]
-        #
-        # a <- (t_now - t_prev) / max_duration
-        # b <- (t_next - t_now) / max_duration
         label <- annot_table$label[[ii]]
 
         list(
-          xref = "x2", yref = "paper",
-          x = t_now, y = 1,                # top edge of plotting area
-          xanchor = "center", yanchor = "bottom",
-          yshift = 2,                   # tiny offset into the margin
-          text = label,
-          showarrow = FALSE,
-          font = list(size = font_size),
-          align = "center",
-          bgcolor = "rgba(255,255,255,0.6)",  # subtle background to improve legibility
-          bordercolor = "rgba(0,0,0,0.2)",
-          borderwidth = 0.5
+          shape = list(
+            type  = "line",
+            # build shapes against x2 so they ignore the main zoom
+            xref  = "x2",       # IMPORTANT: use the full-range axis
+            yref  = "paper",
+            x0    = t0, x1 = t0,
+            y0    = 0,  y1 = 1,
+            line  = list(color = annot_colors[[ii]], width = 1),
+            layer = "below"     # draw above traces
+          ),
+          annot = list(
+            xref = "x2", yref = "paper",
+            x = t0, y = 1,                # top edge of plotting area
+            xanchor = "center", yanchor = "bottom",
+            yshift = 2,                   # tiny offset into the margin
+            text = label,
+            showarrow = FALSE,
+            font = list(size = font_size),
+            align = "center",
+            bgcolor = "rgba(255,255,255,0.6)",  # subtle background to improve legibility
+            bordercolor = "rgba(0,0,0,0.2)",
+            borderwidth = 0.5
+          ),
+          time = t0
         )
       })
+      events <- events[!vapply(events, is.null, FALSE)]
+
+      if(!length(events)) {
+        return(list(
+          margin_top = font_size * 6 + 16,
+          vlines = list(),
+          annots = list(),
+          ranges = start_time + c(0, max_duration)
+        ))
+      }
 
       return(list(
         margin_top = font_size * 6 + 16,
-        vlines = event_shapes,
-        annots = event_labels,
-        ranges = range(annot_table$time)
+        vlines = lapply(events, "[[", "shape"),
+        annots = lapply(events, "[[", "annot"),
+        ranges = start_time + c(0, max_duration)
       ))
+    }
+
+  ),
+  active = list(
+
+    channel_names = function(v) {
+      if(!missing(v)) {
+        v <- as.character(v)
+        if(length(v) != length(private$.channel_names)) {
+          stop("Inconsistent number of channels to visualize.")
+        }
+        if(anyDuplicated(v) || anyNA(v)) {
+          stop("Channel names cannot be duplicated nor N/A")
+        }
+        if(!identical(private$.channel_names, v)) {
+          private$.channel_needs_update[private$.channel_names != v] <- TRUE
+          private$.channel_names <- v
+          self$needs_update <- TRUE
+        }
+      }
+      private$.channel_names
+    },
+
+    channel_colors = function(v) {
+      if(!missing(v)) {
+        v[!is.na(v)] <- grDevices::adjustcolor(v[!is.na(v)])
+        n_channels <- length(private$.channel_names)
+        if(length(v) == 1) {
+          v <- rep(v, n_channels)
+        } else if(length(v) != n_channels) {
+          stop("Inconsistent number of colors.")
+        }
+        if(!identical(private$.channel_color, v)) {
+          private$.channel_needs_update[private$.channel_color != v] <- TRUE
+          private$.channel_color <- v
+          self$needs_update <- TRUE
+        }
+      }
+      private$.channel_color
+    },
+
+    channel_linewidth = function(v) {
+      if(!missing(v)) {
+        v <- as.double(v)
+        v[!is.finite(v)] <- 1
+        n_channels <- length(private$.channel_names)
+        if(length(v) == 1) {
+          v <- rep(v, n_channels)
+        } else if(length(v) != n_channels) {
+          stop("Inconsistent number of linewidths.")
+        }
+        if(!identical(private$.channel_lwd, v)) {
+          private$.channel_needs_update[private$.channel_lwd != v] <- TRUE
+          private$.channel_lwd <- v
+          self$needs_update <- TRUE
+        }
+      }
+      private$.channel_lwd
+    },
+
+    channel_gap = function(v) {
+      gap <- private$.channel_gap
+      if(!missing(v)) {
+        v <- unname(as.numeric(v)[[1]])
+        stopifnot(is.finite(v))
+        if(!isTRUE(gap == v)) {
+          private$.channel_gap <- v
+          gap <- v
+          private$.channel_gap_needs_update <- TRUE
+          private$.channel_needs_update[] <- TRUE
+          self$needs_update <- TRUE
+        }
+      } else if( gap <= 0 ) {
+        # automatic
+        gap <- quantile(abs(unlist(private$.data)), na.rm = TRUE, probs = 0.999) * 2
+      }
+      gap
+    },
+
+    channel_ticksize = function(v) {
+      if(!missing(v)) {
+        v <- as.integer(v)[[1]]
+        stopifnot(isTRUE(v > 0))
+        if(private$.ytick_size != v) {
+          private$.ytick_size <- v
+          private$.axes_needs_update <- TRUE
+          self$needs_update <- TRUE
+        }
+      }
+      private$.ytick_size
+    },
+
+    start_time = function(v) {
+      if(!missing(v)) {
+        v <- as.numeric(v)[[1]]
+        stopifnot(is.finite(v))
+        if(private$.start_time != v) {
+          private$.start_time <- v
+          private$.channel_needs_update[] <- TRUE
+          private$.annotations_needs_update <- TRUE
+          self$needs_update <- TRUE
+        }
+      }
+      private$.start_time
+    },
+
+    sample_rates = function(v) {
+      if(!missing(v)) {
+        v <- as.double(v)
+        if(anyNA(v) || any(v <= 0)) {
+          stop("Sample rates cannot be N/A or negative")
+        }
+        n_channels <- length(private$.channel_names)
+        if(length(v) == 1) {
+          v <- rep(v, n_channels)
+        } else if(length(v) != n_channels) {
+          stop("Inconsistent number of sample rates.")
+        }
+        if(!identical(private$.sample_rates, v)) {
+          private$.sample_rates <- v
+          private$.channel_needs_update[] <- TRUE
+          self$needs_update <- TRUE
+        }
+      }
+      private$.sample_rates
+    },
+
+    durations = function() {
+      n_timepoints <- vapply(private$.data, length, 0L)
+      n_timepoints / private$.sample_rates
+    },
+
+    max_duration = function() {
+      max(self$durations)
+    },
+
+    title = function(v){
+      if(!missing(v)) {
+        v <- paste(as.character(v), collapse = " ")
+        if(!identical(private$.xlab, v)) {
+          private$.title <- v
+          private$.axes_needs_update <- TRUE
+          self$needs_update <- TRUE
+        }
+      }
+      private$.title
+    },
+
+    xlab = function(v) {
+      if(!missing(v)) {
+        v <- paste(as.character(v), collapse = " ")
+        if(!identical(private$.xlab, v)) {
+          private$.xlab <- v
+          private$.axes_needs_update <- TRUE
+          self$needs_update <- TRUE
+        }
+      }
+      private$.xlab
+    },
+
+    ylab = function(v) {
+      if(!missing(v)) {
+        v <- paste(as.character(v), collapse = " ")
+        if(!identical(private$.ylab, v)) {
+          private$.ylab <- v
+          private$.axes_needs_update <- TRUE
+          self$needs_update <- TRUE
+        }
+      }
+      private$.ylab
+    },
+
+    annotations = function(v) {
+      if(!missing(v)) {
+        if( length(v) ) {
+          # time, event, group, color
+          if(!is.data.frame(v)) {
+            stop("Annotations must be NULL or a data frame")
+          }
+          if(!all(c("time", "label") %in% names(v)) || !is.numeric(v$time)) {
+            stop("Annotation must have column `time` (numeric) and `label` (character)")
+          }
+          v <- v[!is.na(v$time), ]
+          if(nrow(v)) {
+            v$label <- as.character(v$label)
+            if(length(v$color)) {
+              v$color <- grDevices::adjustcolor(v$color)
+            }
+          } else {
+            v <- NULL
+          }
+        } else {
+          v <- NULL
+        }
+        private$.annotations <- v
+        private$.annotations_needs_update <- TRUE
+        self$needs_update <- TRUE
+      }
+      private$.annotations
     }
 
   ),
@@ -205,19 +405,40 @@ StreamSignalPlot <- R6::R6Class(
       ch_info <- self$get_channel_info(n)
       private$.data[[ch_info$index]] <- data
       private$.channel_needs_update[[ch_info$index]] <- TRUE
+      private$.annotations_needs_update <- TRUE
       self$needs_update <- TRUE
       invisible(self)
     },
 
-    update = function(proxy) {
-      needs_update <- self$needs_update || any(private$.channel_needs_update)
-      if(!needs_update) { return(invisible(self)) }
+    proxy_update_annotations = function(proxy) {
+      if(!private$.annotations_needs_update) { return() }
+      # annotations
+      event_decor <- private$prepare_annotations()
+
+      plotly::plotlyProxyInvoke(
+        proxy, "relayout",
+        list(
+          "shapes" = I(event_decor$vlines),
+          "annotations" = I(event_decor$annots),
+          "margin.t" = event_decor$margin_top,
+
+          "xaxis2.range" = I(event_decor$ranges)
+          # "xaxis2.range" = I(c(start_time, start_time + duration)),
+        )
+      )
+      private$.annotations_needs_update <- FALSE
+    },
+
+    proxy_update_channels = function(proxy) {
+
+      channels_to_update <- which(private$.channel_needs_update)
+      if(!length(channels_to_update)) { return() }
 
       channel_gap <- self$channel_gap
-      channel_names <- private$.channel_names
+      channel_names <- self$channel_names
       n_channels <- length(channel_names)
-      sample_rates <- private$.sample_rates
-      start_time <- private$.start_time
+      sample_rates <- self$sample_rates
+      start_time <- self$start_time
 
       # estimate down-sampling
       total_timepoints <- vapply(private$.data, length, 0L)
@@ -225,39 +446,45 @@ StreamSignalPlot <- R6::R6Class(
       duration <- max(total_timepoints / sample_rates)
       ratio <- ceiling(sum(total_timepoints) / self$MAX_POINTS)
 
-      channels_to_update <- which(private$.channel_needs_update)
-
-      # data
-      data <- lapply(channels_to_update, function(ii) {
-        s <- private$.data[[ii]]
+      # underlying time and data
+      plot_data <- lapply(channels_to_update, function(channel_ii) {
+        s <- private$.data[[channel_ii]]
         if(ratio > 1 && length(s) > 20) {
           s <- ravetools::decimate(s, ratio)
+          tm <- (seq_along(s) - 1L) * (ratio / sample_rates[[channel_ii]])
+        } else {
+          tm <- (seq_along(s) - 1L) / sample_rates[[channel_ii]]
         }
-        s + channel_gap * (n_channels + 1 - ii)
+
+        list(time = tm + start_time, data = s)
+        # s + channel_gap * (n_channels + 1 - ii)
+      })
+
+      # data to plot
+      data <- lapply(seq_along(channels_to_update), function(ii) {
+        channel_ii <- channels_to_update[[ii]]
+        plot_data[[ii]]$data + channel_gap * (n_channels + 1 - channel_ii)
       })
 
       # time
-      time <- lapply(channels_to_update, function(ii) {
-        tm <- seq_along(data[[ii]] - 1L) / sample_rates[[ii]]
-        if(ratio > 1 && length(tm) > 20) {
-          tm <- tm * ratio
-        }
-        tm + start_time
+      time <- lapply(seq_along(channels_to_update), function(ii) {
+        plot_data[[ii]]$time
       })
 
       # hover-text
-      text <- lapply(channels_to_update, function(ii) {
-        sprintf(
-          "%.2f [%s, t=%.3f]",
-          data[[ii]] - channel_gap * (n_channels + 1 - ii),
-          channel_names[[ii]], time[[ii]]
-        )
+      text <- lapply(seq_along(channels_to_update), function(ii) {
+        item <- plot_data[[ii]]
+        channel_ii <- channels_to_update[[ii]]
+        sprintf("%.2f [%s, t=%.3f]", item$data, channel_names[[channel_ii]], item$time)
       })
 
       # color
-      colors <- private$.channel_color
+      colors <- private$.channel_color[channels_to_update]
       colors[is.na(colors)] <- graphics::par("fg")
-      colors <- grDevices::adjustcolor(colors)
+      colors <- as.list(grDevices::adjustcolor(colors))
+
+      # line widths
+      linewidths <- as.list(private$.channel_lwd[channels_to_update])
 
       # push new y values into first trace
       plotly::plotlyProxyInvoke(
@@ -266,49 +493,50 @@ StreamSignalPlot <- R6::R6Class(
           x = I(time),
           y = I(data),
           text = I(text),
-          "line.color" = I(as.list(colors)),
-          "line.width" = I(as.list(private$.channel_lwd))
+          "line.color" = I(colors),
+          "line.width" = I(linewidths)
         ),
         as.list(channels_to_update)
       )
 
-      # annotations
-      event_decor <- private$prepare_annotations()
+      relayout_list <- list(
+        "xaxis.range" = I(c(start_time, start_time + duration)),
+        "yaxis.tickvals" = rev(seq_len(n_channels)) * channel_gap,
+        "yaxis.ticktext" = channel_names
+      )
+      if(private$.channel_gap_needs_update || !isTRUE(private$.channel_gap > 0)) {
+        relayout_list[["yaxis.range"]] <- c(0, channel_gap * (n_channels + 1))
+        private$.channel_gap_needs_update <- FALSE
+      }
+      plotly::plotlyProxyInvoke(proxy, "relayout", relayout_list)
+
+      private$.channel_needs_update[] <- FALSE
+      return()
+    },
+
+    proxy_update_axes = function(proxy) {
+
+      if(!private$.axes_needs_update) { return() }
 
       plotly::plotlyProxyInvoke(
         proxy, "relayout",
         list(
           "title.text" = self$title,
-          "shapes" = I(event_decor$vlines),
-          "annotations" = I(event_decor$annots),
-          # "margin.t" = event_decor$margin_top,
-
           "xaxis.title.text" = self$xlab,
-          "xaxis.range" = I(c(start_time, start_time + duration)),
-          # "xaxis.rangeslider.visible" = TRUE,
-
-          # "xaxis2.range" = I(event_decor$ranges),
-          "xaxis2.range" = I(c(start_time, start_time + duration)),
-
           "yaxis.title.text" = self$ylab,
-          "yaxis.tickvals" = rev(seq_len(n_channels)) * channel_gap,
-          "yaxis.tickfont.size" = self$channel_ticksize,
-          "yaxis.ticktext" = channel_names
-          # "yaxis.range" = c(0, channel_gap * (n_channels + 1))
+          "yaxis.tickfont.size" = self$channel_ticksize
         )
       )
+      private$.axes_needs_update <- FALSE
+    },
 
-      # private$.impl <- plotly::layout(
-      #   private$.impl,
-      #   showlegend = FALSE,
-      #   xaxis = list(title = private$.xlab),
-      #   yaxis = list(
-      #     title = private$.xlab,
-      #     tickmode = "array",
-      #     tickvals = seq_len(n_channels) * gap,
-      #     ticktext = channel_names
-      #   )
-      # )
+    update = function(proxy) {
+      if(!self$needs_update) { return(invisible(self)) }
+
+      self$proxy_update_annotations(proxy)
+      self$proxy_update_channels(proxy)
+      self$proxy_update_axes(proxy)
+
       invisible(self)
     },
 
@@ -413,199 +641,6 @@ StreamSignalPlot <- R6::R6Class(
         self$needs_update <- FALSE
       }
       private$.impl
-    }
-
-  ),
-  active = list(
-
-    channel_names = function(v) {
-      if(!missing(v)) {
-        v <- as.character(v)
-        if(length(v) != length(private$.channel_names)) {
-          stop("Inconsistent number of channels to visualize.")
-        }
-        if(anyDuplicated(v) || anyNA(v)) {
-          stop("Channel names cannot be duplicated nor N/A")
-        }
-        if(!identical(private$.channel_names, v)) {
-          private$.channel_needs_update[private$.channel_names != v] <- TRUE
-          private$.channel_names <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.channel_names
-    },
-
-    channel_colors = function(v) {
-      if(!missing(v)) {
-        v[!is.na(v)] <- grDevices::adjustcolor(v[!is.na(v)])
-        n_channels <- length(private$.channel_names)
-        if(length(v) == 1) {
-          v <- rep(v, n_channels)
-        } else if(length(v) != n_channels) {
-          stop("Inconsistent number of colors.")
-        }
-        if(!identical(private$.channel_color, v)) {
-          private$.channel_needs_update[private$.channel_color != v] <- TRUE
-          private$.channel_color <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.channel_color
-    },
-
-    channel_linewidth = function(v) {
-      if(!missing(v)) {
-        v <- as.double(v)
-        v[!is.finite(v)] <- 1
-        n_channels <- length(private$.channel_names)
-        if(length(v) == 1) {
-          v <- rep(v, n_channels)
-        } else if(length(v) != n_channels) {
-          stop("Inconsistent number of linewidths.")
-        }
-        if(!identical(private$.channel_lwd, v)) {
-          private$.channel_needs_update[private$.channel_lwd != v] <- TRUE
-          private$.channel_lwd <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.channel_lwd
-    },
-
-    channel_gap = function(v) {
-      gap <- private$.channel_gap
-      if(!missing(v)) {
-        v <- unname(as.numeric(v)[[1]])
-        stopifnot(is.finite(v))
-        if(!isTRUE(gap == v)) {
-          private$.channel_gap <- v
-          gap <- v
-
-          private$.channel_needs_update[] <- TRUE
-          self$needs_update <- TRUE
-        }
-      } else if( gap <= 0 ) {
-        # automatic
-        gap <- quantile(abs(unlist(private$.data)), na.rm = TRUE, probs = 0.999) * 2
-      }
-      gap
-    },
-
-    channel_ticksize = function(v) {
-      if(!missing(v)) {
-        v <- as.integer(v)[[1]]
-        stopifnot(isTRUE(v > 0))
-        if(private$.ytick_size != v) {
-          private$.ytick_size <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.ytick_size
-    },
-
-    start_time = function(v) {
-      if(!missing(v)) {
-        v <- as.numeric(v)[[1]]
-        stopifnot(is.finite(v))
-        if(private$.start_time != v) {
-          private$.start_time <- v
-          private$.channel_needs_update[] <- TRUE
-          self$needs_update <- TRUE
-        }
-      }
-      private$.start_time
-    },
-
-    sample_rates = function(v) {
-      if(!missing(v)) {
-        v <- as.double(v)
-        if(anyNA(v) || any(v <= 0)) {
-          stop("Sample rates cannot be N/A or negative")
-        }
-        n_channels <- length(private$.channel_names)
-        if(length(v) == 1) {
-          v <- rep(v, n_channels)
-        } else if(length(v) != n_channels) {
-          stop("Inconsistent number of sample rates.")
-        }
-        if(!identical(private$.sample_rates, v)) {
-          private$.sample_rates <- v
-          private$.channel_needs_update[] <- TRUE
-          self$needs_update <- TRUE
-        }
-      }
-      private$.sample_rates
-    },
-
-    durations = function() {
-      n_timepoints <- vapply(private$.data, length, 0L)
-      n_timepoints / private$.sample_rates
-    },
-
-    max_duration = function() {
-      max(self$durations)
-    },
-
-    title = function(v){
-      if(!missing(v)) {
-        v <- paste(as.character(v), collapse = " ")
-        if(!identical(private$.xlab, v)) {
-          private$.title <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.title
-    },
-
-    xlab = function(v) {
-      if(!missing(v)) {
-        v <- paste(as.character(v), collapse = " ")
-        if(!identical(private$.xlab, v)) {
-          private$.xlab <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.xlab
-    },
-
-    ylab = function(v) {
-      if(!missing(v)) {
-        v <- paste(as.character(v), collapse = " ")
-        if(!identical(private$.ylab, v)) {
-          private$.ylab <- v
-          self$needs_update <- TRUE
-        }
-      }
-      private$.ylab
-    },
-
-    annotations = function(v) {
-      if(!missing(v)) {
-        if( length(v) ) {
-          # time, event, group, color
-          if(!is.data.frame(v)) {
-            stop("Annotations must be NULL or a data frame")
-          }
-          if(!all(c("time", "label") %in% names(v)) || !is.numeric(v$time)) {
-            stop("Annotation must have column `time` (numeric) and `label` (character)")
-          }
-          v <- v[!is.na(v$time), ]
-          if(nrow(v)) {
-            v$label <- as.character(v$label)
-            if(length(v$color)) {
-              v$color <- grDevices::adjustcolor(v$color)
-            }
-          } else {
-            v <- NULL
-          }
-        } else {
-          v <- NULL
-        }
-        private$.annotations <- v
-        self$needs_update <- TRUE
-      }
-      private$.annotations
     }
 
   )

@@ -1,7 +1,7 @@
 epoch_events: Trial Onset
-epoch_name: ~
-loaded_electrodes: 1-114
-pre_downsample: 10
-project_name: demo@bids:ds005574
+epoch_name: auditory_onset
+loaded_electrodes: 13-16,24
+pre_downsample: 4
+project_name: demo
 reference_name: noref
-subject_code: '01'
+subject_code: DemoSubject
