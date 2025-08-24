@@ -19,18 +19,24 @@ document.addEventListener("DOMContentLoaded", function () {
 
 document.addEventListener("DOMContentLoaded", function () {
   // for toggle button
-  const toggle_buttons = document.querySelectorAll("[data-toggle='collapse']")
+  const toggle_buttons = document.querySelectorAll("[data-toggle='collapse']");
   toggle_buttons.forEach((btn) => {
-    btn.onclick = function() {
-      const target_selector = this.getAttribute("data-target");
-      const targets = document.querySelectorAll(target_selector);
-      targets.forEach(target => {
-        if ( target.style.display == 'block' || target.style.display == '' ) {
-          target.style.display = 'none';
-        } else {
-          target.style.display = 'block';
-        }
-      })
-    }
+
+    const collapse = btn.classList.contains("collapsed");
+    const target_selector = btn.getAttribute("data-target");
+    const targets = document.querySelectorAll(target_selector);
+
+    btn.setAttribute("aria-expanded", collapse ? "false" : "true");
+    targets.forEach(target => {
+      if( collapse ) {
+        target.classList.add("collapse");
+        target.setAttribute("aria-expanded", "false");
+        target.style.height = "0";
+      } else {
+        target.classList.remove("collapse");
+        target.setAttribute("aria-expanded", "true");
+        target.style.height = null;
+      }
+    });
   })
 });

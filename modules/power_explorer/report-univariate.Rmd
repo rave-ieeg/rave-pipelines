@@ -181,7 +181,7 @@ knitr::kable(
 
 ## Brain viewer
 
-<button class="btn btn-primary btn-xs" data-toggle="collapse" data-target="#htmlwidget_container"> Show/Hide 3D Viewer </button>  
+<button class="btn btn-primary btn-xs collapsed" data-toggle="collapse" data-target="#htmlwidget_container" aria-expanded="false"> Show/Hide 3D Viewer </button>  
 
 ```{r}
 #| layout: l-screen-insert-right
