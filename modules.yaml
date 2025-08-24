@@ -107,5 +107,5 @@ modules:
     label: Standalone Report Viewer
     hidden: yes
   trace_viewer:
-    label: Recording Block Viewer
-    badge: (testing)|badge-default
+    label: Recording Block Inspector
+    order: 15
