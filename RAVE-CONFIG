@@ -53,7 +53,6 @@ SubPipelines:
     modules/surface_reconstruction,
     modules/yael_preprocess,
     modules/custom_3d_viewer,
-    modules/block_explorer,
     modules/import_bids,
     modules/power_explorer,
     modules/generate_surface_atlas,

@@ -3,7 +3,7 @@ divider:
     order: 0
   Built-ins:
     order: 10
-  Settings:
+  Utilities:
     order: 10000
 groups:
   Import Signals:
@@ -22,6 +22,12 @@ groups:
     order: 13
     open: no
 modules:
+  standalone_viewer:
+    label: Standalone Viewer
+    hidden: yes
+  standalone_report:
+    label: Standalone Report Viewer
+    hidden: yes
   import_signals:
     label: Import Signal Data
     group: Import Signals
@@ -36,18 +42,14 @@ modules:
     group: Import Signals
     order: 1.3
     badge: (legacy)|badge-default
-  power_explorer:
-    label: Power Explorer
-    order: 14
-    badge: N=1|badge-primary
-  jupyterlab:
-    label: JupyterLab
-    order: 100
-    badge: Local|badge-warning
   notch_filter:
     label: Notch Filter
     group: LFP Processing
     order: 2.1
+  reference_module:
+    label: Reference Channels
+    group: LFP Processing
+    order: 2.2
   wavelet_module:
     label: Wavelet
     group: LFP Processing
@@ -56,10 +58,6 @@ modules:
     label: Generate Epoch
     group: Auxiliary Processing
     order: 3.1
-  reference_module:
-    label: Reference Channels
-    group: LFP Processing
-    order: 2.2
   yael_preprocess:
     label: MRI/CT Preprocessing
     group: Images & Electrodes
@@ -71,16 +69,16 @@ modules:
   compatibility_rave1:
     label: Data Tools
     order: 8
-  standalone_viewer:
-    label: Standalone Viewer
-    hidden: yes
-  block_explorer:
-    label: Block Explorer
-    badge: Beta|badge-info
-    order: 20
+  project_overview:
+    label: Project Overview
+    order: 11
   custom_3d_viewer:
     label: Subject 3D Viewer
     order: 12
+  group_3d_viewer:
+    label: Group 3D Viewer
+    group: Group Viewers
+    order: 13.1
   generate_surface_atlas:
     label: Generate Surface Atlases
     group: Group Viewers
@@ -89,23 +87,17 @@ modules:
     label: Connectivity Viewer
     group: Group Viewers
     order: 13.3
-  configure_rave:
-    label: Configurations
-    order: 10001
-  stimulation_explorer:
-    label: Stimulation Explorer
-  phase_explorer:
-    label: Phase Explorer
-  group_3d_viewer:
-    label: Group 3D Viewer
-    group: Group Viewers
-    order: 13.1
-  project_overview:
-    label: Project Overview
-    order: 11
-  standalone_report:
-    label: Standalone Report Viewer
-    hidden: yes
+  power_explorer:
+    label: Power Explorer
+    order: 14
+    badge: N=1|badge-primary
   trace_viewer:
     label: Recording Block Inspector
     order: 15
+  configure_rave:
+    label: Configurations
+    order: 10001
+  jupyterlab:
+    label: JupyterLab
+    order: 10002
+    badge: Local-only|badge-warning
