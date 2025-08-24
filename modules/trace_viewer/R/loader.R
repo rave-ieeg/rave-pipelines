@@ -133,7 +133,7 @@ loader_server <- function(input, output, session, ...){
     if(length(sample_rates$LFP)) {
       srate <- sample_rates$LFP[[1]]
       suggested_dsample <- floor(srate / 400)
-      dsample_suggestion <- sprintf("If you want to analyze LFP signals with frequency < 200 Hz, you might want to down-sample the channels to improve speed, for example, by %d. If you don't want any down-sample, leave this field blank.", suggested_dsample)
+      dsample_suggestion <- sprintf("If you want to analyze LFP signals with frequency < 200 Hz, you might want to down-sample the channels to improve speed (for example, by %d). If you don't want to down-sample, leave this field blank.", suggested_dsample)
     } else {
       dsample_suggestion <- NULL
     }

@@ -86,7 +86,7 @@ module_html <- function(){
               ),
               footer = shidashi::flex_container(
                 shidashi::flex_item(
-                  size = 1,
+                  size = 2,
                   shiny::numericInput(
                     inputId = ns("viewer_channel_gap"),
                     label = "Channel gap",
@@ -95,36 +95,57 @@ module_html <- function(){
                     updateOn = "blur"
                   )
                 ),
-                shidashi::flex_item(
-                  size = 6,
-                  shiny::fluidRow(
 
-                    shiny::column(
-                      width = 2L,
-                      shiny::numericInput(
-                        inputId = ns("viewer_start_time"),
-                        min = 0,
-                        max = 1,
-                        step = 4,
-                        label = "Start time",
-                        value = 0
-                      )
+                shidashi::flex_item(
+                  size = 2,
+                  shiny::numericInput(
+                    inputId = ns("viewer_start_time"),
+                    min = 0,
+                    max = 1,
+                    step = 4,
+                    label = "Start time",
+                    value = 0
+                  )
+                ),
+
+                shidashi::flex_item(
+                  size = 2,
+                  shiny::numericInput(
+                    inputId = ns("viewer_duration"),
+                    label = "Max duration",
+                    min = 1,
+                    value = 5, step = 1
+                  )
+                ),
+
+                shidashi::flex_item(
+                  size = 1,
+
+                  shiny::div(
+                    style = "width:100%;",
+                    shiny::div(
+                      shiny::tags$label("Sync", class = "control-label")
                     ),
-                    shiny::column(
-                      width = 2L,
-                      shiny::numericInput(
-                        inputId = ns("viewer_duration"),
-                        label = "Max duration",
-                        min = 1,
-                        value = 5, step = 1
+                    shiny::div(
+                      shiny::actionButton(
+                        inputId = ns("viewer_apply_brush"),
+                        label = "",
+                        icon = ravedash::shiny_icons$sync
                       )
-                    ),
-                    shiny::column(width = 6L, shiny::selectInput(
+                    )
+                  )
+
+                ),
+
+                shidashi::flex_item(
+                  size = 7,
+                  shiny::fluidRow(
+                    shiny::column(width = 9L, shiny::selectInput(
                       inputId = ns("viewer_trial"),
                       label = "Condition",
                       choices = "", selectize = FALSE
                     )),
-                    shiny::column(width = 2L, shiny::div(
+                    shiny::column(width = 3L, shiny::div(
                       style = "width:100%;",
                       shiny::div(
                         shiny::tags$label("Switch trials", class = "control-label")

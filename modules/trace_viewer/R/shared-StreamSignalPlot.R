@@ -170,7 +170,7 @@ StreamSignalPlot <- R6::R6Class(
       })
 
       # automatic gap according to the data median
-      private$.channel_gap <- as.double(channel_gap)
+      self$channel_gap <- channel_gap
       self$title <- title
       self$xlab <- xlab
       self$ylab <- ylab
@@ -287,13 +287,14 @@ StreamSignalPlot <- R6::R6Class(
           "xaxis.range" = I(c(start_time, start_time + duration)),
           # "xaxis.rangeslider.visible" = TRUE,
 
-          "xaxis2.range" = I(event_decor$ranges),
+          # "xaxis2.range" = I(event_decor$ranges),
+          "xaxis2.range" = I(c(start_time, start_time + duration)),
 
           "yaxis.title.text" = self$ylab,
           "yaxis.tickvals" = rev(seq_len(n_channels)) * channel_gap,
           "yaxis.tickfont.size" = self$channel_ticksize,
-          "yaxis.ticktext" = channel_names,
-          "yaxis.range" = c(0, channel_gap * (n_channels + 1))
+          "yaxis.ticktext" = channel_names
+          # "yaxis.range" = c(0, channel_gap * (n_channels + 1))
         )
       )
 
@@ -394,7 +395,8 @@ StreamSignalPlot <- R6::R6Class(
             overlaying = "x",  # share the same plotting domain
             matches    = "x",
             visible    = FALSE,
-            range      = event_decor$ranges,
+            # range      = event_decor$ranges,
+            range = start_time + c(0, max_duration),
             fixedrange = FALSE
           ),
           yaxis = list(
@@ -474,11 +476,11 @@ StreamSignalPlot <- R6::R6Class(
     channel_gap = function(v) {
       gap <- private$.channel_gap
       if(!missing(v)) {
-        v <- as.numeric(v)[[1]]
+        v <- unname(as.numeric(v)[[1]])
         stopifnot(is.finite(v))
         if(!isTRUE(gap == v)) {
           private$.channel_gap <- v
-          gap <- private$.channel_gap
+          gap <- v
 
           private$.channel_needs_update[] <- TRUE
           self$needs_update <- TRUE

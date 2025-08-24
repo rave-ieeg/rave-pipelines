@@ -78,32 +78,6 @@ module_server <- function(input, output, session, ...){
       channel_names <- sprintf("%s|ch%d", electrode_table$Label, electrode_table$Electrode)
       local_data$electrode_table <- electrode_table
 
-      # build plotly instance
-      stream_plot_container <- StreamSignalPlot$new(
-        n_channels = length(channels),
-        sample_rates = sample_rates,
-        start_time = 0,
-        channel_names = channel_names,
-        channel_gap = 0,
-        title = sprintf("Recording block: %s", recording_block),
-        ylab = "Channel"
-      )
-
-      if(is.data.frame(annotation_table)) {
-        annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
-        stream_plot_container$annotations <- annotation_subset
-
-        condition_label <- annotation_subset$trial_name
-      } else {
-        condition_label <- character()
-      }
-      shiny::updateSelectInput(
-        session = session,
-        input = "viewer_trial",
-        choices = condition_label,
-        selected = NA
-      )
-
       signal_container <- repository$get_container()
       block_info <- signal_container[[recording_block]]
       preferred_names <- c("LFP", "Spike", "Auxiliary", names(block_info)[[1]])
@@ -129,8 +103,6 @@ module_server <- function(input, output, session, ...){
         channel_gap <- max(0, ceiling(qt[[2]] - qt[[1]]))
         if(is.finite(channel_gap)) {
 
-          stream_plot_container$channel_gap <- channel_gap
-
           shiny::updateNumericInput(
             session = session,
             input = "viewer_channel_gap",
@@ -141,6 +113,33 @@ module_server <- function(input, output, session, ...){
           channel_gap <- 0
         }
       }
+
+      # build plotly instance
+      stream_plot_container <- StreamSignalPlot$new(
+        n_channels = length(channels),
+        sample_rates = sample_rates,
+        start_time = 0,
+        channel_names = channel_names,
+        channel_gap = channel_gap,
+        title = sprintf("Recording block: %s", recording_block),
+        ylab = "Channel"
+      )
+
+      if(is.data.frame(annotation_table)) {
+        annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
+        stream_plot_container$annotations <- annotation_subset
+
+        condition_label <- annotation_subset$trial_name
+      } else {
+        condition_label <- character()
+      }
+
+      shiny::updateSelectInput(
+        session = session,
+        input = "viewer_trial",
+        choices = condition_label,
+        selected = NA
+      )
 
       local_reactives$stream_plot_container <- stream_plot_container
       update_plot(update = FALSE)
@@ -174,7 +173,7 @@ module_server <- function(input, output, session, ...){
     start_time <- shiny::isolate(input$viewer_start_time)
     duration <- shiny::isolate(input$viewer_duration)
     channel_gap <- shiny::isolate(input$viewer_channel_gap)
-    if(is.na(channel_gap)) { channel_gap <- 0 }
+    if(is.na(channel_gap)) { channel_gap <- stream_plot_container$channel_gap }
 
     end_time <- start_time + duration
 
@@ -201,14 +200,12 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       if(!ravedash::watch_data_loaded()) { return() }
-      if(!length(local_reactives$stream_plot_container)) { return() }
 
-      annotation_table <- local_data$annotation_table
-      if(!is.data.frame(annotation_table)) { return() }
+      stream_plot_container <- local_reactives$stream_plot_container
+      if(!length(stream_plot_container)) { return() }
 
-      recording_block <- local_data$recording_block
-      annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
-      if(!nrow(annotation_subset)) { return() }
+      annotation_subset <- stream_plot_container$annotations
+      if(!is.data.frame(annotation_subset) || !nrow(annotation_subset)) { return() }
 
       sel <- annotation_subset$trial_name %in% input$viewer_trial
       if(!any(sel)) { return() }
@@ -227,13 +224,13 @@ module_server <- function(input, output, session, ...){
 
   switch_trial <- function(delta = 1) {
     if(!ravedash::watch_data_loaded()) { return() }
-    if(!length(local_reactives$stream_plot_container)) { return() }
 
-    annotation_table <- local_data$annotation_table
-    if(!is.data.frame(annotation_table)) { return() }
+    stream_plot_container <- local_reactives$stream_plot_container
+    if(!length(stream_plot_container)) { return() }
 
-    recording_block <- local_data$recording_block
-    annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
+    annotation_subset <- stream_plot_container$annotations
+    if(!is.data.frame(annotation_subset) || !nrow(annotation_subset)) { return() }
+
     nr <- nrow(annotation_subset)
     if(!nr) { return() }
 
@@ -351,7 +348,7 @@ module_server <- function(input, output, session, ...){
       )
 
       # make sure selectors have correct values
-      later::later(delay = 0.5, function() {
+      later::later(delay = 1, function() {
 
         shiny::updateTextInput(
           session = session,
@@ -395,7 +392,26 @@ module_server <- function(input, output, session, ...){
   )
 
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      relayout <- as.list(plotly::event_data("plotly_relayout"))
+      start_time <- as.numeric(relayout[["xaxis.range[0]"]])
+      end_time <- as.numeric(relayout[["xaxis.range[1]"]])
+      if(length(start_time) != 1 || is.na(start_time)) { return() }
+      # start_time <- floor(start_time)
+      shiny::updateNumericInput(session = session,
+                                inputId = 'viewer_start_time',
+                                value = start_time)
 
+      if(length(end_time) != 1 || is.na(end_time)) { return() }
+      duration <- end_time - start_time
+      shiny::updateNumericInput(session = session,
+                                inputId = 'viewer_duration',
+                                value = duration)
+    }),
+    input$viewer_apply_brush,
+    ignoreInit = TRUE, ignoreNULL = TRUE
+  )
 
   # Register outputs
   output$channel_viewer <- plotly::renderPlotly({
