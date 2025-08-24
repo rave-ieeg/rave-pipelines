@@ -13,13 +13,59 @@ module_html <- function(){
           shiny::column(
             width = 12L,
 
+            ravedash::input_card(
+              title = "Data Configurations",
+              shiny::fluidRow(
+                shiny::column(
+                  width = 12L,
+
+                  ravedash::flex_group_box(
+                    title = "Recording block",
+
+                    shidashi::flex_item(
+                      shiny::selectInput(
+                        inputId = ns("recording_block"),
+                        label = "Block name",
+                        choices = c(""),
+                        selected = ""
+                      )
+                    )
+
+                  ),
+
+                  ravedash::flex_group_box(
+                    title = "Source of annotations",
+
+                    shidashi::flex_item(
+                      shiny::selectInput(
+                        inputId = ns("annotation_source"),
+                        label = "Epoch name",
+                        choices = c(""),
+                        selected = ""
+                      )
+                    ),
+
+                    shidashi::flex_break(),
+
+                    shidashi::flex_item(
+                      shiny::selectInput(
+                        inputId = ns("annotation_events"),
+                        label = "Event names (trial onset is always included)",
+                        choices = character(),
+                        selected = character(),
+                        multiple = TRUE
+                      )
+                    )
+
+                  ), # Source of annotations
+
+                  ravedash::run_analysis_button("Visualize!", width = "100%")
+
+                ) # col-12
+              ) # row
+            ), # "Data Configurations"
+
             electrode_selector$ui_func(),
-
-            comp_condition_groups$ui_func(),
-
-            baseline_choices$ui_func(),
-
-            comp_analysis_ranges$ui_func()
 
           )
         )
@@ -32,13 +78,74 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'Collapsed over frequency',
-              class_body = "no-padding fill-width height-450 min-height-450 resize-vertical",
+              'Channel Viewer',
+              class_body = "no-padding fill-width height-vh75 min-height-450 resize-vertical",
               shiny::div(
                 class = 'position-relative fill',
-                shiny::plotOutput(ns("collapse_over_trial"), width = '100%', height = "100%")
+                plotly::plotlyOutput(ns("channel_viewer"), width = '100%', height = "100%")
+              ),
+              footer = shidashi::flex_container(
+                shidashi::flex_item(
+                  size = 1,
+                  shiny::numericInput(
+                    inputId = ns("viewer_channel_gap"),
+                    label = "Channel gap",
+                    value = NA,
+                    min = 0, width = "100%",
+                    updateOn = "blur"
+                  )
+                ),
+                shidashi::flex_item(
+                  size = 6,
+                  shiny::fluidRow(
+
+                    shiny::column(
+                      width = 2L,
+                      shiny::numericInput(
+                        inputId = ns("viewer_start_time"),
+                        min = 0,
+                        max = 1,
+                        step = 4,
+                        label = "Start time",
+                        value = 0
+                      )
+                    ),
+                    shiny::column(
+                      width = 2L,
+                      shiny::numericInput(
+                        inputId = ns("viewer_duration"),
+                        label = "Max duration",
+                        min = 1,
+                        value = 5, step = 1
+                      )
+                    ),
+                    shiny::column(width = 6L, shiny::selectInput(
+                      inputId = ns("viewer_trial"),
+                      label = "Condition",
+                      choices = "", selectize = FALSE
+                    )),
+                    shiny::column(width = 2L, shiny::div(
+                      style = "width:100%;",
+                      shiny::div(
+                        shiny::tags$label("Switch trials", class = "control-label")
+                      ),
+                      shiny::div(
+                        shiny::actionButton(
+                          inputId = ns("prev_trial"),
+                          label = "",
+                          icon = ravedash::shiny_icons$angle_left
+                        ),
+                        shiny::actionButton(
+                          inputId = ns("next_trial"),
+                          label = "",
+                          icon = ravedash::shiny_icons$angle_right
+                        )
+                      )
+                    ))
+                  )
+                )
               )
-            )
+            ) # ravedash::output_card( 'Channel Viewer',
           )
         )
       )

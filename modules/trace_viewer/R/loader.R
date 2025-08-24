@@ -1,5 +1,6 @@
 # UI components for loader
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+  pre_downsample <- pipeline$get_settings("pre_downsample", default = NA)
 
   ravedash::simple_layout(
     input_width = 4L,
@@ -37,6 +38,29 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             ))
         ),
 
+        ravedash::flex_group_box(
+          title = "Preprocess",
+
+          shidashi::flex_item(
+
+            shiny::numericInput(
+              inputId = ns("loader_pre_downsample"),
+              label = "Down-sample signals",
+              min = 0L, step = 1L,
+              width = "100%", value = pre_downsample
+            ),
+
+            shiny::p(shiny::tags$small(shiny::tags$span(
+              style = "font-style:italic",
+              shiny::textOutput(
+                outputId = ns("loader_pre_downsample_info"),
+                inline = TRUE
+              )
+            )))
+          )
+
+        ),
+
         footer = shiny::tagList(
           dipsaus::actionButtonStyled(
             inputId = ns("loader_ready_btn"),
@@ -63,6 +87,62 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 # Server functions for loader
 loader_server <- function(input, output, session, ...){
 
+  get_subject <- loader_subject$get_tool("get_subject")
+
+  local_reactives <- shiny::reactiveValues(
+    sample_rates = NULL
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if (!loader_subject$sv$is_valid()) {
+        return()
+      }
+      subject <- get_subject()
+      if (is.null(subject)) {
+        return()
+      }
+
+      tbl <- data.frame(
+        type = subject$electrode_types,
+        sample_rate = subject$raw_sample_rates
+      )
+      if(!nrow(tbl)) { return() }
+      tbl <- unique(tbl)
+
+      local_reactives$sample_rates <- structure(
+        names = tbl$type,
+        as.list(tbl$sample_rate)
+      )
+    }),
+    loader_project$current_value,
+    loader_subject$current_value,
+    ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  output$loader_pre_downsample_info <- shiny::renderText({
+
+    sample_rates <- local_reactives$sample_rates
+    if(!length(sample_rates)) { return("This subject has no data imported") }
+
+    srate_info <- paste(
+      sprintf("%s (%g Hz)", names(sample_rates), unlist(sample_rates)),
+      collapse = ", "
+    )
+
+    if(length(sample_rates$LFP)) {
+      srate <- sample_rates$LFP[[1]]
+      suggested_dsample <- floor(srate / 400)
+      dsample_suggestion <- sprintf("If you want to analyze LFP signals with frequency < 200 Hz, you might want to down-sample the channels to improve speed, for example, by %d. If you don't want any down-sample, leave this field blank.", suggested_dsample)
+    } else {
+      dsample_suggestion <- NULL
+    }
+
+    re <- c(sprintf("Sampling rate(s) found for this subject: %s.", srate_info),
+            dsample_suggestion)
+    paste(re, collapse = " ")
+  })
+
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
   shiny::bindEvent(
@@ -76,21 +156,28 @@ loader_server <- function(input, output, session, ...){
           "loader_reference_name"
         )
       )
-      # TODO: add your own input values to the settings file
+      # add your own input values to the settings file
+      pre_downsample <- input$loader_pre_downsample
+      if(!is.na(pre_downsample)) {
+        if(pre_downsample < 1 || abs(pre_downsample - round(pre_downsample)) > 0.001) {
+          stop("Down-sampling rate must be an positive integer")
+        }
+        pre_downsample <- round(pre_downsample)
+        if(pre_downsample == 1) {
+          pre_downsample <- NA
+        }
+      }
 
       # Save the variables into pipeline settings file
-      pipeline$set_settings(.list = settings)
+      pipeline$set_settings(
+        pre_downsample = as.integer(pre_downsample),
+        .list = settings
+      )
 
       # Check if user has asked to set the epoch & reference to be the default
       default_reference <- isTRUE(loader_reference$get_sub_element_input("default"))
 
-      stop("Hey!")
-
       # --------------------- Run the pipeline! ---------------------
-
-      # Calculate the progress bar
-      tarnames <- pipeline$target_table$Names
-      count <- length(tarnames) + length(dipsaus::parse_svec(loader_electrodes$current_value)) + 4
 
       # Pop up alert to prevent user from making any changes (auto_close=FALSE)
       # This requires manually closing the alert window
@@ -105,12 +192,10 @@ loader_server <- function(input, output, session, ...){
       # Use `as_promise=TRUE` to make result as a promise
       res <- pipeline$run(
         as_promise = TRUE,
-        names = "repository",
         scheduler = "none",
-        type = "smart",  # parallel
-        # async = TRUE,
-        callr_function = NULL,
-        progress_quiet = TRUE
+        type = "vanilla",
+        names = "repository",
+        return_values = FALSE
       )
 
       # The `res` contains a promise that might not have finished yet,
@@ -121,19 +206,14 @@ loader_server <- function(input, output, session, ...){
         onFulfilled = function(e){
 
           # Set epoch and/or reference as default
-          if(default_epoch || default_reference){
-            repo <- pipeline$read("repository")
-            if(default_epoch){
-              repo$subject$set_default("epoch_name", repo$epoch_name)
-            }
-            if(default_reference) {
-              repo$subject$set_default("reference_name", repo$reference_name)
-            }
+          repo <- pipeline$read("repository")
+          if(default_reference) {
+            repo$subject$set_default("reference_name", repo$reference_name)
           }
 
           # Let the module know the data has been changed
           ravedash::fire_rave_event('data_changed', Sys.time())
-          ravedash::logger("Data has been loaded loaded")
+          ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
           dipsaus::close_alert2()
@@ -144,13 +224,14 @@ loader_server <- function(input, output, session, ...){
         onRejected = function(e){
 
           # Close the alert
+          Sys.sleep(0.5)
           dipsaus::close_alert2()
 
           # Immediately open a new alert showing the error messages
           dipsaus::shiny_alert2(
             title = "Errors",
             text = paste(
-              "Found an error while loading the power data:\n\n",
+              "Found an error while loading the subject data:\n\n",
               paste(e$message, collapse = "\n")
             ),
             icon = "error",
@@ -159,7 +240,7 @@ loader_server <- function(input, output, session, ...){
           )
         }
       )
-    }),
+    }, error_wrapper = "alert"),
     input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 

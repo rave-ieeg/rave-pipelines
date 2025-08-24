@@ -23,19 +23,20 @@ With `export="subject"`, the subject variable will be registered for the followi
 
 #### Step 2: Load epoch and reference information
 
-```{rave load_epoch, language = "R", export = "repository"}
+```{rave load_repository, language = "R", export = "repository"}
 repository <- ravecore::prepare_subject_voltage_with_blocks(
   subject = subject,
   electrodes = loaded_electrodes,
   blocks = subject$blocks,
   reference_name = reference_name,
   strict = TRUE, 
+  downsample = pre_downsample,
   # Load data and generate cache
   lazy_load = FALSE
 )
 ```
 
-```{rave load_reference, language = "R", export = "annotation_table"}
+```{rave generate_annotation_table, language = "R", export = "annotation_table"}
 if(is.null(epoch_name) || is.na(epoch_name)) {
   annotation_table <- NULL
 } else {
@@ -49,7 +50,13 @@ if(is.null(epoch_name) || is.na(epoch_name)) {
     annotation_table <- data.frame(
       block = epoch$table$Block,
       time = epoch$table[[event_cname]], 
-      label = sprintf("%s<br>%s", event_name, epoch$table$Trial),
+      label = sprintf(
+        "%s[%s,t=%.1f]<br>%s",
+        event_name,
+        epoch$table$Trial,
+        epoch$table[[event_cname]],
+        epoch$table$Condition
+      ), 
       group = event_name,
       color = ii + 1
     )

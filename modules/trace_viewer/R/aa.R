@@ -19,8 +19,20 @@ debug <- TRUE
 #' resulting in calling function \code{loader_html}.
 #' @returns Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE){
-  # Always use loading screen
-  FALSE
+
+  if(first_time) { return(FALSE) }
+
+  re <- tryCatch({
+    repository <- pipeline$read("repository")
+    if(!inherits(repository, "rave_repository")) {
+      stop("No repository found")
+    }
+    ravedash::fire_rave_event('loader_message', repository$subject$subject_id)
+    TRUE
+  }, error = function(e){
+    ravedash::fire_rave_event('loader_message', NULL)
+    FALSE
+  })
 }
 
 
@@ -29,9 +41,9 @@ check_data_loaded <- function(first_time = FALSE){
 
 # Change the logger level when `debug` is enabled
 if(exists('debug', inherits = FALSE) && isTRUE(get('debug'))){
-  ravedash::logger_threshold("trace", module_id = module_id)
+  ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
-  ravedash::logger_threshold("info", module_id = module_id)
+  ravepipeline::logger_threshold("info", module_id = module_id)
 }
 
 

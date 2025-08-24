@@ -1,3 +1,5 @@
+`%OF%` <- dipsaus::`%OF%`
+
 StreamSignalPlot <- R6::R6Class(
   classname = "StreamSignalPlot",
   portable = FALSE,
@@ -33,7 +35,7 @@ StreamSignalPlot <- R6::R6Class(
 
       if(!is.data.frame(annot_table) || nrow(annot_table) == 0) {
         return(list(
-          margin_top = 0,
+          margin_top = font_size * 6 + 16,
           vlines = list(),
           annots = list(),
           ranges = start_time + c(0, max_duration)
@@ -102,7 +104,7 @@ StreamSignalPlot <- R6::R6Class(
       })
 
       return(list(
-        margin_top = font_size * 4,
+        margin_top = font_size * 6 + 16,
         vlines = event_shapes,
         annots = event_labels,
         ranges = range(annot_table$time)
@@ -119,14 +121,14 @@ StreamSignalPlot <- R6::R6Class(
 
     #' @field MAX_POINTS maximum number of points to plot before down-sampling
     #' kicks in
-    MAX_POINTS = 100000,
+    MAX_POINTS = 500000,
 
     initialize = function(n_channels, sample_rates,
                           start_time = 0,
                           channel_names = sprintf("ch%04d", seq_len(n_channels)),
                           channel_gap = 0, title = "",
                           xlab = "Time (s)", ylab = "Channel", ytick_size = 8) {
-      if(!package_installed("plotly")) {
+      if(!ravepipeline:::package_installed("plotly")) {
         stop("Signal plot with streaming data requires installing package plotly. Please run `install.packages('plotly')`")
       }
 
@@ -279,10 +281,10 @@ StreamSignalPlot <- R6::R6Class(
           "title.text" = self$title,
           "shapes" = I(event_decor$vlines),
           "annotations" = I(event_decor$annots),
-          "margin.t" = event_decor$margin_top,
+          # "margin.t" = event_decor$margin_top,
 
           "xaxis.title.text" = self$xlab,
-          # "xaxis.range" = I(c(start_time, start_time + duration)),
+          "xaxis.range" = I(c(start_time, start_time + duration)),
           # "xaxis.rangeslider.visible" = TRUE,
 
           "xaxis2.range" = I(event_decor$ranges),
@@ -290,8 +292,8 @@ StreamSignalPlot <- R6::R6Class(
           "yaxis.title.text" = self$ylab,
           "yaxis.tickvals" = rev(seq_len(n_channels)) * channel_gap,
           "yaxis.tickfont.size" = self$channel_ticksize,
-          "yaxis.ticktext" = channel_names
-          # "yaxis.range" = c(0, channel_gap * (n_channels + 1))
+          "yaxis.ticktext" = channel_names,
+          "yaxis.range" = c(0, channel_gap * (n_channels + 1))
         )
       )
 
@@ -336,7 +338,7 @@ StreamSignalPlot <- R6::R6Class(
             channel_data <- ravetools::decimate(channel_data, ratio)
             time <- (seq_along(channel_data) - 1) * (ratio / sample_rates[[ii]])
           } else {
-            time <- (seq_along(channel_data) - 1) * sample_rates[[ii]]
+            time <- (seq_along(channel_data) - 1) / sample_rates[[ii]]
           }
           list(
             Time = time + start_time,
@@ -374,13 +376,15 @@ StreamSignalPlot <- R6::R6Class(
           margin = list(t = event_decor$margin_top),
 
           title = list(
-            text = self$title
-            # x = 0.5,
-            # xanchor = "center",
-            # y = 0.95,
-            # yanchor = "top",
-            # font = list(size = 16)
+            text = self$title,
+            x = 0,
+            xanchor = "left",
+            xref = "paper",
+            y = 0.98,
+            yanchor = "center",
+            font = list(size = 16)
           ),
+
           xaxis = list(
             title = private$.xlab,
             range = start_time + c(0, max_duration)

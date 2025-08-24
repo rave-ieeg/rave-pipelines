@@ -17,13 +17,7 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_epoch_events = targets::tar_target_raw("epoch_events", 
-        quote({
-            settings[["epoch_events"]]
-        }), deps = "settings"), input_epoch_name = targets::tar_target_raw("epoch_name", 
-        quote({
-            settings[["epoch_name"]]
-        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
+    input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
             settings[["subject_code"]]
         }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
@@ -32,9 +26,18 @@ rm(._._env_._.)
         }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
         quote({
             settings[["project_name"]]
+        }), deps = "settings"), input_pre_downsample = targets::tar_target_raw("pre_downsample", 
+        quote({
+            settings[["pre_downsample"]]
         }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
         quote({
             settings[["loaded_electrodes"]]
+        }), deps = "settings"), input_epoch_name = targets::tar_target_raw("epoch_name", 
+        quote({
+            settings[["epoch_name"]]
+        }), deps = "settings"), input_epoch_events = targets::tar_target_raw("epoch_events", 
+        quote({
+            settings[["epoch_events"]]
         }), deps = "settings"), load_subject = targets::tar_target_raw(name = "subject", 
         command = quote({
             .__target_expr__. <- quote({
@@ -57,13 +60,13 @@ rm(._._env_._.)
                 subject
             }), target_depends = c("project_name", "subject_code"
             )), deps = c("project_name", "subject_code"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), load_epoch = targets::tar_target_raw(name = "repository", 
+        pattern = NULL, iteration = "list"), load_repository = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
                 repository <- ravecore::prepare_subject_voltage_with_blocks(subject = subject, 
                   electrodes = loaded_electrodes, blocks = subject$blocks, 
                   reference_name = reference_name, strict = TRUE, 
-                  lazy_load = FALSE)
+                  downsample = pre_downsample, lazy_load = FALSE)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -78,13 +81,14 @@ rm(._._env_._.)
                   repository <- ravecore::prepare_subject_voltage_with_blocks(subject = subject, 
                     electrodes = loaded_electrodes, blocks = subject$blocks, 
                     reference_name = reference_name, strict = TRUE, 
-                    lazy_load = FALSE)
+                    downsample = pre_downsample, lazy_load = FALSE)
                 }
                 repository
             }), target_depends = c("subject", "loaded_electrodes", 
-            "reference_name")), deps = c("subject", "loaded_electrodes", 
-        "reference_name"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), load_reference = targets::tar_target_raw(name = "annotation_table", 
+            "reference_name", "pre_downsample")), deps = c("subject", 
+        "loaded_electrodes", "reference_name", "pre_downsample"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), generate_annotation_table = targets::tar_target_raw(name = "annotation_table", 
         command = quote({
             .__target_expr__. <- quote({
                 if (is.null(epoch_name) || is.na(epoch_name)) {
@@ -104,8 +108,9 @@ rm(._._env_._.)
                         event_name <- "Onset"
                       }
                       annotation_table <- data.frame(block = epoch$table$Block, 
-                        time = epoch$table[[event_cname]], label = sprintf("%s<br>%s", 
-                          event_name, epoch$table$Trial), group = event_name, 
+                        time = epoch$table[[event_cname]], label = sprintf("%s[%s,t=%.1f]<br>%s", 
+                          event_name, epoch$table$Trial, epoch$table[[event_cname]], 
+                          epoch$table$Condition), group = event_name, 
                         color = ii + 1)
                     }))
                 }
@@ -138,8 +143,9 @@ rm(._._env_._.)
                         }
                         annotation_table <- data.frame(block = epoch$table$Block, 
                           time = epoch$table[[event_cname]], 
-                          label = sprintf("%s<br>%s", event_name, 
-                            epoch$table$Trial), group = event_name, 
+                          label = sprintf("%s[%s,t=%.1f]<br>%s", 
+                            event_name, epoch$table$Trial, epoch$table[[event_cname]], 
+                            epoch$table$Condition), group = event_name, 
                           color = ii + 1)
                       }))
                   }
