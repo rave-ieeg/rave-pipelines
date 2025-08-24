@@ -692,7 +692,8 @@ loader_project <- ravedash::presets_loader_project()
 loader_subject <- ravedash::presets_loader_subject()
 loader_electrodes <- ravedash::presets_loader_electrodes()
 loader_reference <- ravedash::presets_loader_reference()
-loader_viewer <- get_loader_3dviewer()#ravedash::presets_loader_3dviewer(height = "100%")
+# loader_viewer <- get_loader_3dviewer()#ravedash::presets_loader_3dviewer(height = "100%")
+loader_viewer <- ravedash::presets_loader_3dviewer(height = "100%")
 
 # str(loader_viewer$get_settings_value)
 
