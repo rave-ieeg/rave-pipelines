@@ -73,7 +73,7 @@ module_html <- function(){
                     shidashi::flex_item(
                       shiny::numericInput(
                         inputId = ns("filter_lowpass"),
-                        label = "Low-pass filter (Hz)",
+                        label = "Low-pass (Hz)",
                         min = 0, value = NA, max = 100
                       )
                     )

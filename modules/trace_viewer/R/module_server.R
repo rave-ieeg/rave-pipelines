@@ -393,7 +393,7 @@ module_server <- function(input, output, session, ...){
     }),
     input$filter_highpass,
     input$filter_lowpass,
-    ignoreNULL = TRUE, ignoreInit = TRUE
+    ignoreNULL = FALSE, ignoreInit = TRUE
   )
 
   shiny::bindEvent(
