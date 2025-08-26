@@ -1633,13 +1633,18 @@ loader_server <- function(input, output, session, ...){
 
               nsinfo <- lapply(split(elec_table, elec_table$labelprefix), function(x) {
                 labelprefix <- x$labelprefix[[1]]
-                shiny::tags$li(
-                  sprintf(
-                    "%s: %s", labelprefix,
-                    dipsaus::deparse_svec(x$electrode_id)
+                list(
+                  min_channel = min(x$electrode_id),
+                  tag = shiny::tags$li(
+                    sprintf(
+                      "%s: %s", labelprefix,
+                      dipsaus::deparse_svec(x$electrode_id)
+                    )
                   )
                 )
               })
+              nsinfo <- nsinfo[order(sapply(nsinfo, "[[", "min_channel"))]
+              nsinfo <- lapply(nsinfo, "[[", "tag")
 
               local_reactives$snapshot <- shiny::p(
                 "With given data format (BlackRock), I found the following NEV information from ",
