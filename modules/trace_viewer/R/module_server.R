@@ -210,7 +210,16 @@ module_server <- function(input, output, session, ...){
       } else {
         stream_plot_container$annotations <- NULL
       }
-      stream_plot_container$title <- sprintf("Recording block: %s", recording_block)
+
+      msg <- NULL
+      if(!is.na(highpass_freq)) {
+        msg <- sprintf(" HighPass=%g", highpass_freq)
+      }
+      if(!is.na(lowpass_freq)) {
+        msg <- c(msg, sprintf(" LowPass=%g", lowpass_freq))
+      }
+      msg <- paste(msg, collapse = ",")
+      stream_plot_container$title <- sprintf("Recording block: %s%s", recording_block, msg)
 
       signal_types <- unique(electrode_table$SignalType)
 
@@ -261,6 +270,7 @@ module_server <- function(input, output, session, ...){
             )
           })
         )
+
       }
 
 
