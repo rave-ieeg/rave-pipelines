@@ -14,7 +14,7 @@ module_html <- function(){
             width = 12L,
 
             ravedash::input_card(
-              title = "Data Configurations",
+              title = "Configurations",
               shiny::fluidRow(
                 shiny::column(
                   width = 12L,
@@ -87,6 +87,16 @@ module_html <- function(){
               footer = shidashi::flex_container(
                 shidashi::flex_item(
                   size = 2,
+                  shiny::selectInput(
+                    inputId = ns("auto_decimate"),
+                    label = "Quality",
+                    choices = c("performance", "balanced", "high-quality"),
+                    selected = "performance"
+                  )
+                ),
+
+                shidashi::flex_item(
+                  size = 2,
                   shiny::numericInput(
                     inputId = ns("viewer_channel_gap"),
                     label = "Channel gap",
@@ -138,14 +148,14 @@ module_html <- function(){
                 ),
 
                 shidashi::flex_item(
-                  size = 7,
+                  size = 5,
                   shiny::fluidRow(
-                    shiny::column(width = 9L, shiny::selectInput(
+                    shiny::column(width = 8L, shiny::selectInput(
                       inputId = ns("viewer_trial"),
                       label = "Condition",
                       choices = "", selectize = FALSE
                     )),
-                    shiny::column(width = 3L, shiny::div(
+                    shiny::column(width = 4L, shiny::div(
                       style = "width:100%;",
                       shiny::div(
                         shiny::tags$label("Switch trials", class = "control-label")

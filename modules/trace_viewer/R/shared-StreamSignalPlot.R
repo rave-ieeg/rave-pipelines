@@ -1,5 +1,28 @@
 `%OF%` <- dipsaus::`%OF%`
 
+show_rendering_notification <- function(message = "Rendering in progress...",
+                                        session = shiny::getDefaultReactiveDomain()) {
+  if(!is.null(session)) {
+    ravedash::clear_notifications(class = "StreamSignalPlot-rendering", session = session)
+    ravedash::show_notification(
+      title = "Rendering...",
+      message = message,
+      type = "default",
+      close = FALSE,
+      autohide = FALSE,
+      session = session,
+      class = "StreamSignalPlot-rendering"
+    )
+  }
+}
+
+hide_rendering_notification <- function(session = shiny::getDefaultReactiveDomain()) {
+  if(!is.null(session)) {
+    ravedash::clear_notifications(class = "StreamSignalPlot-rendering", session = session)
+  }
+}
+
+
 StreamSignalPlot <- R6::R6Class(
   classname = "StreamSignalPlot",
   portable = FALSE,
@@ -32,11 +55,10 @@ StreamSignalPlot <- R6::R6Class(
     .annotations_needs_update = FALSE,
 
 
-    prepare_annotations = function() {
+    prepare_annotations = function(start_time = self$start_time,
+                                   duration = self$max_duration) {
       annot_table <- private$.annotations
-      max_duration <- self$max_duration
-      start_time <- self$start_time
-      end_time <- start_time + max_duration
+      end_time <- start_time + duration
       font_size <- self$channel_ticksize
 
       if(!is.data.frame(annot_table) || nrow(annot_table) == 0) {
@@ -44,7 +66,7 @@ StreamSignalPlot <- R6::R6Class(
           margin_top = font_size * 6 + 16,
           vlines = list(),
           annots = list(),
-          ranges = start_time + c(0, max_duration)
+          ranges = start_time + c(0, duration)
         ))
       }
       # annot_table <- data.frame(time = runif(10) * 2, label = letters[1:10], color = 1:10)
@@ -100,7 +122,7 @@ StreamSignalPlot <- R6::R6Class(
           margin_top = font_size * 6 + 16,
           vlines = list(),
           annots = list(),
-          ranges = start_time + c(0, max_duration)
+          ranges = start_time + c(0, duration)
         ))
       }
 
@@ -108,7 +130,7 @@ StreamSignalPlot <- R6::R6Class(
         margin_top = font_size * 6 + 16,
         vlines = lapply(events, "[[", "shape"),
         annots = lapply(events, "[[", "annot"),
-        ranges = start_time + c(0, max_duration)
+        ranges = start_time + c(0, duration)
       ))
     }
 
@@ -410,10 +432,66 @@ StreamSignalPlot <- R6::R6Class(
       invisible(self)
     },
 
-    proxy_update_annotations = function(proxy) {
+    get_channel_data = function(n, start_time = NA, duration = NA, fill = TRUE) {
+      ch_info <- self$get_channel_info(n)
+      idx <- ch_info$index
+
+      sample_rate <- self$sample_rates[[idx]]
+      if(is.na(start_time)) {
+        start_time <- self$start_time
+      }
+
+      start_index <- round((start_time - self$start_time) * sample_rate) + 1L
+      if(is.na(duration)) {
+        duration <- self$max_duration
+      }
+      len <- ceiling(duration * sample_rate)
+
+      signal <- private$.data[[ch_info$index]]
+
+      end_index <- start_index + len - 1L
+      if(fill) {
+        if(end_index <= 0 || start_index > length(signal))  {
+          return(rep(NA_real_, len))
+        }
+        signal[seq.int(start_index, by = 1L, length.out = len)]
+      } else {
+
+        if(end_index <= 0 || start_index > length(signal))  {
+          return(structure(NA_real_, time = start_time))
+        }
+
+        if( start_index <= 0 ) {
+          start_index <- 1L
+        }
+        if( end_index > length(signal) ) {
+          end_index <- length(signal)
+        }
+        if(end_index <= start_index) {
+          end_index <- start_index + 1L
+        }
+        time_idx <- seq.int(start_index, by = 1L, to = end_index)
+        structure(
+          signal[time_idx],
+          time = self$start_time + ((time_idx - 1L) / sample_rate)
+        )
+      }
+
+
+    },
+
+    subset_channel_data = function(n, start_time, duration, fill = NA_real_) {
+      ch_info <- self$get_channel_info(n)
+      idx <- ch_info$index
+      orig_pts <- floor(self$start_time * self$sample_rates[[idx]])
+
+      private$.data[[]]
+    },
+
+    proxy_update_annotations = function(proxy, start_time, duration) {
       if(!private$.annotations_needs_update) { return() }
       # annotations
-      event_decor <- private$prepare_annotations()
+      event_decor <- private$prepare_annotations(start_time, duration)
 
       plotly::plotlyProxyInvoke(
         proxy, "relayout",
@@ -429,7 +507,7 @@ StreamSignalPlot <- R6::R6Class(
       private$.annotations_needs_update <- FALSE
     },
 
-    proxy_update_channels = function(proxy) {
+    proxy_update_channels = function(proxy, start_time, duration) {
 
       channels_to_update <- which(private$.channel_needs_update)
       if(!length(channels_to_update)) { return() }
@@ -438,25 +516,28 @@ StreamSignalPlot <- R6::R6Class(
       channel_names <- self$channel_names
       n_channels <- length(channel_names)
       sample_rates <- self$sample_rates
-      start_time <- self$start_time
+      # start_time <- self$start_time
 
       # estimate down-sampling
       total_timepoints <- vapply(private$.data, length, 0L)
-      n_timepoints <- max(total_timepoints)
-      duration <- max(total_timepoints / sample_rates)
-      ratio <- ceiling(sum(total_timepoints) / self$MAX_POINTS)
+      # n_timepoints <- max(total_timepoints)
+      max_duration <- max(total_timepoints / sample_rates)
+      ratio <- ceiling(sum(total_timepoints) * duration / max_duration / self$MAX_POINTS)
 
       # underlying time and data
       plot_data <- lapply(channels_to_update, function(channel_ii) {
-        s <- private$.data[[channel_ii]]
+        sample_rate <- sample_rates[[channel_ii]]
+        s <- self$get_channel_data(
+          channel_ii, start_time = start_time, duration = duration, fill = FALSE)
+        tm <- attr(s, "time")
+
+        # s <- private$.data[[channel_ii]]
         if(ratio > 1 && length(s) > 20) {
           s <- ravetools::decimate(s, ratio)
-          tm <- (seq_along(s) - 1L) * (ratio / sample_rates[[channel_ii]])
-        } else {
-          tm <- (seq_along(s) - 1L) / sample_rates[[channel_ii]]
+          tm <- tm[[1]] + (seq_along(s) - 1L) * (ratio / sample_rates[[channel_ii]])
         }
 
-        list(time = tm + start_time, data = s)
+        list(time = tm, data = s)
         # s + channel_gap * (n_channels + 1 - ii)
       })
 
@@ -514,14 +595,22 @@ StreamSignalPlot <- R6::R6Class(
       return()
     },
 
-    proxy_update_axes = function(proxy) {
+    proxy_update_axes = function(proxy, duration) {
 
-      if(!private$.axes_needs_update) { return() }
+      # if(!private$.axes_needs_update) { return() }
+      total_timepoints <- vapply(private$.data, length, 0L)
+      ratio <- ceiling(sum(total_timepoints) * duration / self$max_duration / self$MAX_POINTS)
+
+      if(isTRUE(ratio > 1)) {
+        title_text <- sprintf("%s (decimate=%d)", self$title, ratio)
+      } else {
+        title_text <- self$title
+      }
 
       plotly::plotlyProxyInvoke(
         proxy, "relayout",
         list(
-          "title.text" = self$title,
+          "title.text" = title_text,
           "xaxis.title.text" = self$xlab,
           "yaxis.title.text" = self$ylab,
           "yaxis.tickfont.size" = self$channel_ticksize
@@ -530,18 +619,46 @@ StreamSignalPlot <- R6::R6Class(
       private$.axes_needs_update <- FALSE
     },
 
-    update = function(proxy) {
+    update = function(proxy, start_time = NA, duration = NA) {
+      start_time0 <- self$start_time
+      duration0 <- self$max_duration
+      if(isTRUE(start_time == start_time0)) {
+        start_time <- NA
+      }
+      if(is.na(start_time) && !is.na(duration) && isTRUE(duration == duration0)) {
+        duration <- NA
+      }
+      if(!is.na(start_time) || !is.na(duration)) {
+        self$needs_update <- TRUE
+        private$.annotations_needs_update <- TRUE
+        private$.channel_needs_update[] <- TRUE
+      }
       if(!self$needs_update) { return(invisible(self)) }
 
-      self$proxy_update_annotations(proxy)
-      self$proxy_update_channels(proxy)
-      self$proxy_update_axes(proxy)
+      if(is.na(start_time)) {
+        start_time <- start_time0
+      }
+
+      if(is.na(duration)) {
+        duration <- start_time0 + duration0 - start_time
+        if(duration <= 0) { duration <- 0.1 }
+      }
+
+      self$proxy_update_annotations(proxy = proxy,
+                                    start_time = start_time,
+                                    duration = duration)
+      self$proxy_update_channels(proxy = proxy,
+                                 start_time = start_time,
+                                 duration = duration)
+      self$proxy_update_axes(proxy = proxy,
+                             duration = duration)
 
       invisible(self)
     },
 
     render = function() {
       if(self$needs_update) {
+
         # prepare initial plot data
         channel_names <- private$.channel_names
         sample_rates <- private$.sample_rates
@@ -596,6 +713,13 @@ StreamSignalPlot <- R6::R6Class(
 
         event_decor <- private$prepare_annotations()
 
+        if(isTRUE(ratio > 1)) {
+          title_text <- sprintf("%s (decimate=%d)", self$title, ratio)
+        } else {
+          title_text <- self$title
+        }
+
+
         impl <- plotly::layout(
           impl,
           showlegend = FALSE,
@@ -605,7 +729,7 @@ StreamSignalPlot <- R6::R6Class(
           margin = list(t = event_decor$margin_top),
 
           title = list(
-            text = self$title,
+            text = title_text,
             x = 0,
             xanchor = "left",
             xref = "paper",

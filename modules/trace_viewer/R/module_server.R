@@ -151,50 +151,109 @@ module_server <- function(input, output, session, ...){
   )
 
   update_plot <- function(update = TRUE) {
+    show_rendering_notification(message = "Loading & processing data...", session = session)
+    on.exit({
+      Sys.sleep(0.5)
+      hide_rendering_notification(session = session)
+    })
     stream_plot_container <- shiny::isolate(local_reactives$stream_plot_container)
-    electrode_table <- local_data$electrode_table
 
-    recording_block <- local_data$recording_block
-    repository <- local_data$repository
-    signal_container <- repository$get_container()
 
-    block_data <- signal_container[[recording_block]]
-
-    # Set annotations
-    annotation_table <- local_data$annotation_table
-    if(is.data.frame(annotation_table)) {
-      stream_plot_container$annotations <- annotation_table[annotation_table$block %in% recording_block, ]
-    } else {
-      stream_plot_container$annotations <- NULL
-    }
-    stream_plot_container$title <- sprintf("Recording block: %s", recording_block)
-
-    # TODO: duration, start time, gap
     start_time <- shiny::isolate(input$viewer_start_time)
+    if(is.na(start_time)) { start_time <- stream_plot_container$start_time }
+
     duration <- shiny::isolate(input$viewer_duration)
+    if(is.na(duration)) { start_time <- stream_plot_container$max_duration }
+
     channel_gap <- shiny::isolate(input$viewer_channel_gap)
     if(is.na(channel_gap)) { channel_gap <- stream_plot_container$channel_gap }
 
+    auto_decimate <- paste(input$auto_decimate, collapse = "")
     end_time <- start_time + duration
 
-    lapply(seq_len(nrow(electrode_table)), function(ii) {
-      signal_type <- electrode_table$SignalType[[ii]]
-      signal_info <- block_data[[signal_type]]
-      channel <- electrode_table$Electrode[[ii]]
-      signal_data <- subset(
-        signal_info$data,
-        Electrode ~ Electrode == channel,
-        Time ~ Time >= start_time & Time <= end_time,
-        drop = TRUE, .env = environment()
-      )
-      stream_plot_container$set_channel_data(ii, data = unname(signal_data))
-      return()
-    })
-    stream_plot_container$start_time <- start_time
-    stream_plot_container$channel_gap <- channel_gap
-    if(update) {
-      stream_plot_container$update(proxy = stream_proxy)
+    needs_update <- FALSE
+    current_range <- stream_plot_container$start_time + c(0, stream_plot_container$max_duration)
+    if(
+      current_range[[1]] > start_time ||
+      current_range[[2]] < end_time
+    ) {
+      needs_update <- TRUE
     }
+
+    stream_plot_container$channel_gap <- channel_gap
+    switch (
+      auto_decimate,
+      "high-quality" = { stream_plot_container$MAX_POINTS <- 2000000 },
+      "performance" = { stream_plot_container$MAX_POINTS <- 100000 },
+      { stream_plot_container$MAX_POINTS <- 500000 }
+    )
+
+    # Update stream_plot_container
+    if( needs_update ) {
+      electrode_table <- local_data$electrode_table
+      recording_block <- local_data$recording_block
+      repository <- local_data$repository
+      signal_container <- repository$get_container()
+      block_data <- signal_container[[recording_block]]
+
+      # Set annotations
+      annotation_table <- local_data$annotation_table
+      if(is.data.frame(annotation_table)) {
+        stream_plot_container$annotations <- annotation_table[annotation_table$block %in% recording_block, ]
+      } else {
+        stream_plot_container$annotations <- NULL
+      }
+      stream_plot_container$title <- sprintf("Recording block: %s", recording_block)
+
+      # preload duration
+      total_sample_rates <- sum(electrode_table$SampleRate)
+      total_timepoints <- duration * total_sample_rates
+      if(total_timepoints <= 1e6) {
+        # 40 MB from disk
+        load_duration <- 1e7 / total_sample_rates
+        load_start_time <- start_time - ((load_duration - duration) * 0.5)
+        if(load_start_time < 0) {
+          load_start_time <- 0
+        }
+      } else if(total_timepoints <= 1e7){
+        # max 100 MB from disk
+        load_start_time <- start_time
+        load_duration <- duration + ceiling(duration * 0.75)
+      } else {
+        load_start_time <- start_time
+        load_duration <- duration
+      }
+      # print(c(load_start_time, load_duration))
+
+      lapply(seq_len(nrow(electrode_table)), function(ii) {
+        signal_type <- electrode_table$SignalType[[ii]]
+        signal_info <- block_data[[signal_type]]
+        channel <- electrode_table$Electrode[[ii]]
+
+        signal_data <- subset(
+          signal_info$data,
+          Electrode ~ Electrode == channel,
+          Time ~ Time >= load_start_time & Time <= (load_start_time + load_duration),
+          drop = TRUE, .env = environment()
+        )
+
+        # signal_data <- seq(load_start_time, length.out = load_duration * signal_info$sample_rate, by = 1/signal_info$sample_rate)
+
+        stream_plot_container$set_channel_data(ii, data = unname(signal_data))
+        return()
+      })
+
+      stream_plot_container$start_time <- load_start_time
+    }
+
+
+    if(update) {
+      show_rendering_notification(message = "Updating graphics...", session = session)
+      stream_plot_container$update(proxy = stream_proxy,
+                                   start_time = start_time,
+                                   duration = duration)
+    }
+    hide_rendering_notification(session = session)
   }
 
   shiny::bindEvent(
@@ -290,6 +349,7 @@ module_server <- function(input, output, session, ...){
     input$viewer_start_time,
     input$viewer_duration,
     input$viewer_channel_gap,
+    input$auto_decimate,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
@@ -429,7 +489,21 @@ module_server <- function(input, output, session, ...){
     )
 
     stream_plot_container <- local_reactives$stream_plot_container
-    stream_plot_container$render()
+
+    start_time <- shiny::isolate(input$viewer_start_time)
+    if(is.na(start_time)) { start_time <- stream_plot_container$start_time }
+
+    duration <- shiny::isolate(input$viewer_duration)
+    if(is.na(duration)) { start_time <- stream_plot_container$max_duration }
+
+    impl <- stream_plot_container$render()
+    plotly::layout(
+      impl,
+      showlegend = FALSE,
+      xaxis = list(
+        range = start_time + c(0, duration)
+      )
+    )
   })
 
 
