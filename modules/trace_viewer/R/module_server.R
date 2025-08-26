@@ -206,23 +206,29 @@ module_server <- function(input, output, session, ...){
       stream_plot_container$title <- sprintf("Recording block: %s", recording_block)
 
       # preload duration
-      total_sample_rates <- sum(electrode_table$SampleRate)
-      total_timepoints <- duration * total_sample_rates
-      if(total_timepoints <= 1e6) {
-        # 40 MB from disk
-        load_duration <- 1e7 / total_sample_rates
-        load_start_time <- start_time - ((load_duration - duration) * 0.5)
-        if(load_start_time < 0) {
-          load_start_time <- 0
+      if( update ) {
+        total_sample_rates <- sum(electrode_table$SampleRate)
+        total_timepoints <- duration * total_sample_rates
+        if(total_timepoints <= 1e6) {
+          # 40 MB from disk
+          load_duration <- 1e7 / total_sample_rates
+          load_start_time <- start_time - ((load_duration - duration) * 0.5)
+          if(load_start_time < 0) {
+            load_start_time <- 0
+          }
+        } else if(total_timepoints <= 1e7){
+          # max 100 MB from disk
+          load_start_time <- start_time
+          load_duration <- duration + ceiling(duration * 0.75)
+        } else {
+          load_start_time <- start_time
+          load_duration <- duration
         }
-      } else if(total_timepoints <= 1e7){
-        # max 100 MB from disk
-        load_start_time <- start_time
-        load_duration <- duration + ceiling(duration * 0.75)
       } else {
         load_start_time <- start_time
         load_duration <- duration
       }
+
       # print(c(load_start_time, load_duration))
 
       lapply(seq_len(nrow(electrode_table)), function(ii) {

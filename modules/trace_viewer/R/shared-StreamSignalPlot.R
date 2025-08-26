@@ -538,13 +538,13 @@ StreamSignalPlot <- R6::R6Class(
         }
 
         list(time = tm, data = s)
-        # s + channel_gap * (n_channels + 1 - ii)
+        # s + channel_gap * (n_channels - ii)
       })
 
       # data to plot
       data <- lapply(seq_along(channels_to_update), function(ii) {
         channel_ii <- channels_to_update[[ii]]
-        plot_data[[ii]]$data + channel_gap * (n_channels + 1 - channel_ii)
+        plot_data[[ii]]$data + channel_gap * (n_channels - channel_ii)
       })
 
       # time
@@ -582,11 +582,11 @@ StreamSignalPlot <- R6::R6Class(
 
       relayout_list <- list(
         "xaxis.range" = I(c(start_time, start_time + duration)),
-        "yaxis.tickvals" = rev(seq_len(n_channels)) * channel_gap,
+        "yaxis.tickvals" = rev(seq_len(n_channels) - 1) * channel_gap,
         "yaxis.ticktext" = channel_names
       )
       if(private$.channel_gap_needs_update || !isTRUE(private$.channel_gap > 0)) {
-        relayout_list[["yaxis.range"]] <- c(0, channel_gap * (n_channels + 1))
+        relayout_list[["yaxis.range"]] <- c(-channel_gap, channel_gap * n_channels)
         private$.channel_gap_needs_update <- FALSE
       }
       plotly::plotlyProxyInvoke(proxy, "relayout", relayout_list)
@@ -689,7 +689,7 @@ StreamSignalPlot <- R6::R6Class(
           list(
             Time = time + start_time,
             Data = channel_data,
-            y = channel_data + channel_gap * (n_channels + 1 - ii),
+            y = channel_data + channel_gap * (n_channels - ii),
             Name = channel_name,
             Color = colors[[ii]],
             Linewidth = private$.channel_lwd[[ii]]
@@ -754,11 +754,12 @@ StreamSignalPlot <- R6::R6Class(
           yaxis = list(
             title = private$.ylab,
             tickmode = "array",
-            tickvals = rev(seq_len(n_channels)) * channel_gap,
+            tickvals = rev(seq_len(n_channels) - 1) * channel_gap,
             ticktext = channel_names,
             tickfont = list(size = private$.ytick_size),
-            range = c(0, channel_gap * (n_channels + 1)),   # tight range
-            automargin = TRUE
+            range = c(-channel_gap, channel_gap * n_channels),   # tight range
+            automargin = TRUE,
+            zeroline = FALSE
           )
         )
         private$.impl <- impl

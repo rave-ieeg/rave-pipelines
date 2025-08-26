@@ -100,9 +100,8 @@ module_html <- function(){
                   shiny::numericInput(
                     inputId = ns("viewer_channel_gap"),
                     label = "Channel gap",
-                    value = NA,
-                    min = 0, width = "100%",
-                    updateOn = "blur"
+                    value = NA, step = 50,
+                    min = 0, width = "100%"
                   )
                 ),
 
