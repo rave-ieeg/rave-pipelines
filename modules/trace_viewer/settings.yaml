@@ -1,6 +1,6 @@
 epoch_events: Trial Onset
 epoch_name: ~
-loaded_electrodes: 1-104
+loaded_electrodes: 22-26, 47-48,56-58,67-69,76-78,91-93
 pre_downsample: .na.integer
 project_name: test
 reference_name: noref

@@ -9,8 +9,6 @@ module_server <- function(input, output, session, ...){
 
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
-  local_data$highpass_freq <- NA
-  local_data$lowpass_freq <- NA
 
   # get server tools to tweek
   server_tools <- get_default_handlers(session = session)
@@ -173,6 +171,7 @@ module_server <- function(input, output, session, ...){
 
     highpass_freq <- local_data$highpass_freq
     lowpass_freq <- local_data$lowpass_freq
+    # print(c(highpass_freq, lowpass_freq))
 
     auto_decimate <- paste(input$auto_decimate, collapse = "")
     end_time <- start_time + duration
@@ -464,6 +463,8 @@ module_server <- function(input, output, session, ...){
 
       # Mark flags to update outputs
       local_data$`@reset`()
+      local_data$highpass_freq <- NA
+      local_data$lowpass_freq <- NA
       local_data$repository <- new_repository
       local_reactives$stream_plot_container <- NULL
       local_reactives$update_outputs <- Sys.time()
