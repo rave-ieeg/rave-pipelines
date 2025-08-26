@@ -1,7 +1,7 @@
 epoch_events: Trial Onset
-epoch_name: auditory_onset
-loaded_electrodes: 13-16,24
-pre_downsample: 4
-project_name: demo
+epoch_name: ~
+loaded_electrodes: 1-104
+pre_downsample: .na.integer
+project_name: test
 reference_name: noref
-subject_code: DemoSubject
+subject_code: HUP111

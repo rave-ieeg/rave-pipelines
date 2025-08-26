@@ -59,6 +59,27 @@ module_html <- function(){
 
                   ), # Source of annotations
 
+                  ravedash::flex_group_box(
+                    title = "Signal filters",
+
+                    shidashi::flex_item(
+                      shiny::numericInput(
+                        inputId = ns("filter_highpass"),
+                        label = "High-pass (Hz)",
+                        min = 0, value = NA, max = 100
+                      )
+                    ),
+
+                    shidashi::flex_item(
+                      shiny::numericInput(
+                        inputId = ns("filter_lowpass"),
+                        label = "Low-pass filter (Hz)",
+                        min = 0, value = NA, max = 100
+                      )
+                    )
+
+                  ),
+
                   ravedash::run_analysis_button("Visualize!", width = "100%")
 
                 ) # col-12

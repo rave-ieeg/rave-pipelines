@@ -9,6 +9,8 @@ module_server <- function(input, output, session, ...){
 
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
+  local_data$highpass_freq <- NA
+  local_data$lowpass_freq <- NA
 
   # get server tools to tweek
   server_tools <- get_default_handlers(session = session)
@@ -142,7 +144,8 @@ module_server <- function(input, output, session, ...){
       )
 
       local_reactives$stream_plot_container <- stream_plot_container
-      update_plot(update = FALSE)
+
+      update_plot(init = TRUE)
 
       return()
     }),
@@ -150,7 +153,7 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  update_plot <- function(update = TRUE) {
+  update_plot <- function(init = FALSE) {
     show_rendering_notification(message = "Loading & processing data...", session = session)
     on.exit({
       Sys.sleep(0.5)
@@ -168,12 +171,16 @@ module_server <- function(input, output, session, ...){
     channel_gap <- shiny::isolate(input$viewer_channel_gap)
     if(is.na(channel_gap)) { channel_gap <- stream_plot_container$channel_gap }
 
+    highpass_freq <- local_data$highpass_freq
+    lowpass_freq <- local_data$lowpass_freq
+
     auto_decimate <- paste(input$auto_decimate, collapse = "")
     end_time <- start_time + duration
 
     needs_update <- FALSE
     current_range <- stream_plot_container$start_time + c(0, stream_plot_container$max_duration)
     if(
+      init ||
       current_range[[1]] > start_time ||
       current_range[[2]] < end_time
     ) {
@@ -205,8 +212,14 @@ module_server <- function(input, output, session, ...){
       }
       stream_plot_container$title <- sprintf("Recording block: %s", recording_block)
 
-      # preload duration
-      if( update ) {
+      signal_types <- unique(electrode_table$SignalType)
+
+      if( init ) {
+        load_start_time <- start_time
+        load_duration <- duration
+      } else {
+        # preload duration
+
         total_sample_rates <- sum(electrode_table$SampleRate)
         total_timepoints <- duration * total_sample_rates
         if(total_timepoints <= 1e6) {
@@ -224,28 +237,62 @@ module_server <- function(input, output, session, ...){
           load_start_time <- start_time
           load_duration <- duration
         }
-      } else {
-        load_start_time <- start_time
-        load_duration <- duration
       }
 
-      # print(c(load_start_time, load_duration))
+      # construct filters
+      filters <- list()
+      if(!is.na(highpass_freq) || !is.na(lowpass_freq)) {
 
-      lapply(seq_len(nrow(electrode_table)), function(ii) {
-        signal_type <- electrode_table$SignalType[[ii]]
-        signal_info <- block_data[[signal_type]]
-        channel <- electrode_table$Electrode[[ii]]
+        # print(c(highpass_freq, lowpass_freq))
 
-        signal_data <- subset(
-          signal_info$data,
-          Electrode ~ Electrode == channel,
-          Time ~ Time >= load_start_time & Time <= (load_start_time + load_duration),
-          drop = TRUE, .env = environment()
+        filters[[length(filters) + 1]] <- structure(
+          names = signal_types,
+          lapply(signal_types, function(signal_type) {
+            sample_rate <- repository$sample_rates[[signal_type]]
+
+            max_order <- floor(load_duration * sample_rate / 3) - 1
+
+            ravetools::design_filter(
+              sample_rate = sample_rate,
+              method = "firls",
+              high_pass_freq = highpass_freq,
+              low_pass_freq = lowpass_freq,
+              filter_order = min(1600, max_order)
+            )
+          })
         )
+      }
 
-        # signal_data <- seq(load_start_time, length.out = load_duration * signal_info$sample_rate, by = 1/signal_info$sample_rate)
 
-        stream_plot_container$set_channel_data(ii, data = unname(signal_data))
+      lapply(signal_types, function(signal_type) {
+        row_selector <- which(electrode_table$SignalType == signal_type)
+        signal_info <- block_data[[signal_type]]
+
+        channels <- electrode_table$Electrode[row_selector]
+
+        signal_data <- unname(subset(
+          signal_info$data,
+          Electrode ~ Electrode %in% channels,
+          Time ~ Time >= load_start_time & Time <= (load_start_time + load_duration),
+          drop = FALSE, .env = environment()
+        ))
+
+        dimnames(signal_data) <- NULL
+
+
+        for(filter in filters) {
+          # print(filter)
+          filter_impl <- filter[[signal_type]]
+          if(length(filter_impl)) {
+            signal_data <- ravetools::filtfilt(b = filter_impl$b, a = filter_impl$a, x = signal_data)
+          }
+        }
+
+        lapply(seq_along(row_selector), function(ii) {
+          stream_plot_container$set_channel_data(row_selector[[ii]], data = signal_data[, ii])
+          return()
+        })
+
         return()
       })
 
@@ -253,7 +300,7 @@ module_server <- function(input, output, session, ...){
     }
 
 
-    if(update) {
+    if(!init) {
       show_rendering_notification(message = "Updating graphics...", session = session)
       stream_plot_container$update(proxy = stream_proxy,
                                    start_time = start_time,
@@ -330,6 +377,27 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
+      highpass_freq <- input$filter_highpass
+      if(length(highpass_freq) != 1 || is.na(highpass_freq) || highpass_freq <= 0) {
+        highpass_freq <- NA
+      }
+
+      lowpass_freq <- input$filter_lowpass
+
+      if(length(lowpass_freq) != 1 || is.na(lowpass_freq) || lowpass_freq <= 0) {
+        lowpass_freq <- NA
+      }
+
+      local_data$highpass_freq <- highpass_freq
+      local_data$lowpass_freq <- lowpass_freq
+    }),
+    input$filter_highpass,
+    input$filter_lowpass,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
       if(!ravedash::watch_data_loaded()) { return() }
       duration <- input$viewer_duration
       if(!is.numeric(duration) || is.na(duration)) { return() }
@@ -350,7 +418,7 @@ module_server <- function(input, output, session, ...){
       stream_plot_container <- local_reactives$stream_plot_container
       if(!length(stream_plot_container)) { return() }
 
-      update_plot(update = TRUE)
+      update_plot(init = FALSE)
     }),
     input$viewer_start_time,
     input$viewer_duration,
@@ -429,6 +497,19 @@ module_server <- function(input, output, session, ...){
         )
       })
 
+      # find nyquist
+      nyquist <- floor(min(unlist(new_repository$sample_rates)) / 2)
+      shiny::updateNumericInput(
+        session = session,
+        inputId = 'filter_highpass',
+        max = nyquist
+      )
+
+      shiny::updateNumericInput(
+        session = session,
+        inputId = 'filter_lowpass',
+        max = nyquist
+      )
 
     }, priority = 1001),
     ravedash::watch_data_loaded(),
