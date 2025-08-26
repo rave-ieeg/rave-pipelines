@@ -171,6 +171,8 @@ module_server <- function(input, output, session, ...){
 
     highpass_freq <- local_data$highpass_freq
     lowpass_freq <- local_data$lowpass_freq
+    if(!length(highpass_freq)) { highpass_freq <- NA }
+    if(!length(lowpass_freq)) { lowpass_freq <- NA }
     # print(c(highpass_freq, lowpass_freq))
 
     auto_decimate <- paste(input$auto_decimate, collapse = "")
