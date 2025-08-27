@@ -21,39 +21,82 @@ subject <- ravecore::new_rave_subject(
 ```{rave load_epoch, language = "R", export = "repository"}
 repository <- ravecore::prepare_subject_power_with_epochs(
   subject = subject,
-  electrodes = load_electrodes,
+  electrodes = loaded_electrodes,
   reference_name = reference_name,
-  epoch_name = epoch_name,
-  time_windows = time_window
+  epoch_name = epoch_choice,
+  time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends),
+  stitch_events = c(
+    epoch_choice__trial_starts_rel_to_event,
+    epoch_choice__trial_ends_rel_to_event
+  )
 )
 ```
 
 
 ```{rave calculate_baseline, language = "R", export = "baseline_power"}
+units <- switch (
+  baseline__global_baseline_choice,
+  # case = action,
+  "Across electrode" = c("Trial", "Frequency"),
+  "Across trial" = c("Frequency", "Electrode"),
+  "Across trial and electrode" = c("Frequency"),
+  {
+    # Per frequency, trial, and electrode
+    c("Trial", "Frequency", "Electrode")
+  }
+)
+
+method <- switch (
+  baseline__unit_of_analysis,
+  '% Change Power' = "percentage",
+  '% Change Amplitude' = "sqrt_percentage",
+  'z-score Power' = "zscore",
+  'z-score Amplitude' = "sqrt_zscore",
+  {
+    # c("percentage", "sqrt_percentage", "decibel", "zscore", "sqrt_zscore")
+    "decibel"
+  }
+)
+
+baseline_window <- as.double(unname(unlist(baseline__windows)))
 res <- ravecore::power_baseline(x = repository,
-                         baseline_windows = unlist(baseline_window),
-                         method = baseline_method)
+                         baseline_windows = baseline_window,
+                         method = method, units = units)
 baseline_power <- ravepipeline::RAVEFileArray$new(res$power$baselined)
 ```
+
 
 ```{rave prepare_clustering_input, language = "R", export = "group_data"}
 electrode_list <- repository$electrode_list
 sample_rate <- repository$sample_rate
+
 analysis_window_clean <- range(unlist(analysis_window))
-default_duration <- analysis_window_clean[[2]] - analysis_window_clean[[1]]
+default_duration <- max(analysis_window_clean[[2]], 0)
+start_offset <- analysis_window_clean[[1]]
 
 if(default_duration < 2 / sample_rate) {
   stop("Analysis time duration is too narrow. Please choose a larger time window")
 }
 
-group_data <- unname(lapply(seq_along(condition_groupings), function(group_ii) {
-  group <- condition_groupings[[group_ii]]
-  label <- trimws(paste(group$label, collapse = ""))
+default_zeta_threshold <- as.numeric(zeta_threshold)
+if(
+  length(default_zeta_threshold) != 1 ||
+  is.na(default_zeta_threshold) ||
+  default_zeta_threshold <= 0 || default_zeta_threshold >= 1
+) {
+  default_zeta_threshold <- 0.5
+}
+
+
+group_data <- unname(lapply(seq_along(condition_groups), function(group_ii) {
+  # group_ii <- 1
+  group <- condition_groups[[group_ii]]
+  label <- trimws(paste(group$group_name, collapse = ""))
   if(is.na(label) || !nzchar(label)) {
     label <- sprintf("group%02d", group_ii)
   }
   
-  conditions <- group$conditions
+  conditions <- group$group_conditions
   conditions <- conditions[conditions %in% repository$epoch_table$Condition]
   if(!length(conditions)) { return(NULL) }
   
@@ -61,10 +104,16 @@ group_data <- unname(lapply(seq_along(condition_groupings), function(group_ii) {
   if(length(initial_rank) != 1 || is.na(initial_rank)) {
     initial_rank <- min(length(conditions), length(electrode_list))
   }
-  zeta_threshold <- group$zeta_threshold %||% 0.5
+  zeta_threshold <- group$zeta_threshold %||% default_zeta_threshold
   
-  event_start <- group$event_start %||% ""
-  event_end <- group$event_end
+  event_start <- group$group_start_event %||% ""
+  if(tolower(event_start) %in% c("trial onset", "trial_onset")) {
+    event_start <- ""
+  }
+  event_end <- group$group_finish_event
+  if(length(event_end) == 1 && startsWith(event_end, "[")) {
+    event_end <- NULL
+  }
   duration <- group$duration
   if(length(duration) == 0 || is.na(duration)) {
     duration <- default_duration
@@ -76,7 +125,8 @@ group_data <- unname(lapply(seq_along(condition_groupings), function(group_ii) {
     group_conditions = conditions,
     event_start = event_start,
     event_end = event_end,
-    duration = duration
+    duration = duration, 
+    start_offset = start_offset
   )
   
   list(
@@ -87,6 +137,7 @@ group_data <- unname(lapply(seq_along(condition_groupings), function(group_ii) {
     average_responses = group_fpca_data$average_responses,
     event_start = event_start,
     event_end = event_end,
+    start_offset = start_offset,
     duration = duration,
     initial_rank = initial_rank,
     zeta_threshold = zeta_threshold,
@@ -108,6 +159,7 @@ initial_decomposition <- lapply(group_data, function(group) {
   res$electrode_channels <- group$electrode_channels
   res$sample_rate <- group$sample_rate
   res$event_start <- group$event_start
+  res$start_offset <- group$start_offset
   res
 })
 combined_group_results <- combine_condition_groups(.list = initial_decomposition)

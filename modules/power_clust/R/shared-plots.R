@@ -51,6 +51,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results) {
   )
 
   group_n_time_points <- combined_group_results$group_n_time_points
+  group_start_offset <- combined_group_results$group_start_offset
 
   group_finish <- cumsum(group_n_time_points)
   group_separator <- c(1, group_finish)
@@ -58,11 +59,13 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results) {
   group_center <- group_finish - group_n_time_points / 2
   axis(1L, at = group_separator, labels = rep("", length(group_separator)), tick = TRUE)
 
-  start_events <- combined_group_results$group_event_starts
-  start_events[tolower(start_events) %in% c("", "trial onset", "trial_onset")] <- "TrialOnset"
-  axis(1L, at = group_start, labels = start_events, tick = FALSE, hadj = -0.1, cex.axis = 0.8, line = -1)
+  # start_events <- combined_group_results$group_event_starts
+  # start_events[tolower(start_events) %in% c("", "trial onset", "trial_onset")] <- "TrialOnset"
+  group_start_offset_labels <- sprintf("%.2f s", group_start_offset)
+  group_start_offset_labels[group_start_offset == 0] <- "0 s"
+  axis(1L, at = group_start, labels = group_start_offset_labels, tick = FALSE, hadj = -0.1, cex.axis = 0.8, line = -1)
 
-  durations <- sprintf("+%.2f s", group_n_time_points / combined_group_results$sample_rate)
+  durations <- sprintf("+%.2f s", group_start_offset + group_n_time_points / combined_group_results$sample_rate)
   axis(1L, at = group_finish, labels = durations, tick = FALSE, hadj = 1.1, cex.axis = 0.8, line = -1)
 
   axis(

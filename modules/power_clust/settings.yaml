@@ -1,52 +1,46 @@
-project_name: "demo"
-subject_code: "DemoSubject"
-epoch_name: auditory_onset
-reference_name: default
-load_electrodes: 13-24
-time_window:
-- - -1.0
-  - 3.0
-baseline_window:
-- - -1
-  - -0.2
-baseline_method: "decibel"
-frequency_range:
-- - 70
-  - 150
-condition_groupings:
-  '1':
-    label: audio_visual
-    conditions:
-    - known_av
-    - meant_av
-    - last_av
-    - drive_av
-    event_start: ~
-    event_end: ~
-    initial_rank: 10
-    zeta_threshold: 0.5
-  '2':
-    label: auditory_only
-    conditions:
-    - last_a
-    - drive_a
-    - known_a
-    - meant_a
-    event_start: ~
-    event_end: ~
-    initial_rank: 10
-    zeta_threshold: 0.5
-  '3':
-    label: visual_only
-    conditions:
-    - last_v
-    - drive_v
-    - known_v
-    - meant_v
-    event_start: ~
-    event_end: ~
-    initial_rank: 10
-    zeta_threshold: 0.5
 analysis_window:
 - - 0
-  - 3
+  - 2
+baseline__global_baseline_choice: Per frequency, trial, and electrode
+baseline__unit_of_analysis: Decibel
+baseline__windows:
+  '1':
+    window_interval:
+    - -1
+    - -0.57
+condition_groups:
+  '1':
+    group_name: All Conditions
+    group_conditions:
+    - AdriveVlast
+    - AknownVmeant
+    - AlastVknown
+    - AmeantVdrive
+    - drive_a
+    - drive_av
+    - drive_v
+    - known_a
+    - known_av
+    - known_v
+    - last_a
+    - last_av
+    - last_v
+    - meant_a
+    - meant_av
+    - meant_v
+    - press_AV
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+epoch_choice: auditory_onset
+epoch_choice__trial_ends: 2
+epoch_choice__trial_ends_rel_to_event: ~
+epoch_choice__trial_starts: -1
+epoch_choice__trial_starts_rel_to_event: ~
+frequency_range:
+- 70
+- 150
+loaded_electrodes: 13-16,24
+project_name: demo
+reference_name: default
+subject_code: DemoSubject
+zeta_threshold: 0.5

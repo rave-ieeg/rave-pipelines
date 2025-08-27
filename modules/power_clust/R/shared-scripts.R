@@ -220,6 +220,9 @@ calc_average_responses <- function(
 #' computed as from `event_start` to `event_end`; otherwise use `duration`,
 #' a numeric vector of duration for each trial in the `group_conditions`;
 #' if both are provided, then `duration` is the max cutoff
+#' @param start_offset start-time offset; this is relative to the event start,
+#' if users want to include or exclude time points near the event start.
+#' `duration` and `start_offset` are always relative to the event start.
 #' @returns A list of similarity matrix and average_responses (time over channel
 #' ) for the condition group
 prepare_fpca_data <- function(
@@ -228,8 +231,9 @@ prepare_fpca_data <- function(
     frequency_range,
     group_conditions,
     event_start = "Trial Onset",
-    event_end,
-    duration,
+    event_end = NULL,
+    start_offset = 0,
+    duration = NULL,
     ...
 ) {
 
@@ -249,11 +253,11 @@ prepare_fpca_data <- function(
   event_start_cname <- repository$epoch$get_event_colname(
     event = event_start, missing = "error")
 
-  if(missing(event_end) && missing(duration)) {
-    stop("Please specify either `event_end` or `duration`")
+  if(is.null(event_end) && is.null(duration)) {
+    stop("Please specify either `event_end` and/or `duration`")
   }
-  if(!missing(event_end) && length(event_end)) {
-    if(missing(duration) || length(duration) != 1 || is.na(duration)) {
+  if(length(event_end) > 0) {
+    if(length(duration) == 0 || is.na(duration)) {
       max_duration <- Inf
     } else {
       max_duration <- rep(duration, ceiling(nrow(epoch_table) / length(duration)))
@@ -275,7 +279,7 @@ prepare_fpca_data <- function(
   if(!any(epoch_rows)) { return(NULL) }
 
   trial_numbers <- epoch_table$Trial[epoch_rows]
-  trial_start <- (epoch_table[[event_start_cname]] - epoch_table$Time)[epoch_rows]
+  trial_start <- (epoch_table[[event_start_cname]] - epoch_table$Time + start_offset)[epoch_rows]
   trial_duration <- duration[epoch_rows]
 
   frequency_range <- range(unlist(frequency_range), na.rm = TRUE)
@@ -305,7 +309,8 @@ prepare_fpca_data <- function(
 
   list(
     similarity_matrix = similarity_matrix,
-    average_responses = average_responses
+    average_responses = average_responses,
+    start_offset = start_offset
   )
 }
 
@@ -510,6 +515,8 @@ combine_condition_groups <- function(..., .list = list()) {
   sample_rate <- results[[1]]$sample_rate
   group_event_starts <- sapply(results, "[[", "event_start")
 
+  group_start_offset <- sapply(results, "[[", "start_offset")
+
   return(list(
     group_indexes = group_indexes,
     group_labels = group_labels,
@@ -519,6 +526,7 @@ combine_condition_groups <- function(..., .list = list()) {
     group_n_clusters = initial_n_clusters,
     group_n_time_points = group_time_points,
     group_event_starts = group_event_starts,
+    group_start_offset = group_start_offset,
     electrode_channels = electrode_channels,
     sample_rate = sample_rate
   ))

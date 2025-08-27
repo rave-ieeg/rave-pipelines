@@ -86,66 +86,44 @@ loader_server <- function(input, output, session, ...){
 
       # Check if user has asked to set the epoch & reference to be the default
       default_epoch <- isTRUE(loader_epoch$get_sub_element_input("default"))
-      default_reference <- isTRUE(loader_epoch$get_sub_element_input("default"))
+      default_reference <- isTRUE(loader_reference$get_sub_element_input("default"))
 
       # --------------------- Run the pipeline! ---------------------
-
-      # Calculate the progress bar
-      tarnames <- pipeline$target_table$Names
-      count <- length(tarnames) + length(dipsaus::parse_svec(loader_electrodes$current_value)) + 4
 
       # Pop up alert to prevent user from making any changes (auto_close=FALSE)
       # This requires manually closing the alert window
       dipsaus::shiny_alert2(
         title = "Loading in progress",
         text = paste(
-          "Everything takes time. Some might need more patience than others."
+          "A good meal takes time to cook."
         ), icon = "info", auto_close = FALSE, buttons = FALSE
       )
 
       # Run the pipeline target `repository`
-      # Use `as_promise=TRUE` to make result as a promise
-      res <- pipeline$run(
-        as_promise = TRUE,
-        names = "repository",
-        scheduler = "none",
-        type = "smart",  # parallel
-        # async = TRUE,
-        callr_function = NULL,
-        progress_quiet = TRUE
-      )
-
-      # The `res` contains a promise that might not have finished yet,
-      # so register functions to run when the promise is resolved
-      res$promise$then(
-
-        # When data can be imported
-        onFulfilled = function(e){
-
-          # Set epoch and/or reference as default
-          if(default_epoch || default_reference){
-            repo <- pipeline$read("repository")
-            if(default_epoch){
-              repo$subject$set_default("epoch_name", repo$epoch_name)
-            }
-            if(default_reference) {
-              repo$subject$set_default("reference_name", repo$reference_name)
-            }
+      tryCatch(
+        {
+          repo <- pipeline$run(
+            as_promise = FALSE,
+            names = "repository",
+            return_values = TRUE
+          )
+          if(default_epoch){
+            repo$subject$set_default("epoch_name", repo$epoch_name)
+          }
+          if(default_reference) {
+            repo$subject$set_default("reference_name", repo$reference_name)
           }
 
           # Let the module know the data has been changed
           ravedash::fire_rave_event('data_changed', Sys.time())
-          ravedash::logger("Data has been loaded loaded")
+          ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
           dipsaus::close_alert2()
         },
-
-
-        # this is what should happen when pipeline fails
-        onRejected = function(e){
-
+        error = function(e) {
           # Close the alert
+          Sys.sleep(0.5)
           dipsaus::close_alert2()
 
           # Immediately open a new alert showing the error messages

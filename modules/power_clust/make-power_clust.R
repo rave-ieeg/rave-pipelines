@@ -17,39 +17,54 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_analysis_window = targets::tar_target_raw("analysis_window", 
+    input_zeta_threshold = targets::tar_target_raw("zeta_threshold", 
         quote({
-            settings[["analysis_window"]]
-        }), deps = "settings"), input_condition_groupings = targets::tar_target_raw("condition_groupings", 
-        quote({
-            settings[["condition_groupings"]]
-        }), deps = "settings"), input_frequency_range = targets::tar_target_raw("frequency_range", 
-        quote({
-            settings[["frequency_range"]]
-        }), deps = "settings"), input_baseline_method = targets::tar_target_raw("baseline_method", 
-        quote({
-            settings[["baseline_method"]]
-        }), deps = "settings"), input_baseline_window = targets::tar_target_raw("baseline_window", 
-        quote({
-            settings[["baseline_window"]]
-        }), deps = "settings"), input_time_window = targets::tar_target_raw("time_window", 
-        quote({
-            settings[["time_window"]]
-        }), deps = "settings"), input_load_electrodes = targets::tar_target_raw("load_electrodes", 
-        quote({
-            settings[["load_electrodes"]]
-        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
-        quote({
-            settings[["reference_name"]]
-        }), deps = "settings"), input_epoch_name = targets::tar_target_raw("epoch_name", 
-        quote({
-            settings[["epoch_name"]]
+            settings[["zeta_threshold"]]
         }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
             settings[["subject_code"]]
+        }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
+        quote({
+            settings[["reference_name"]]
         }), deps = "settings"), input_project_name = targets::tar_target_raw("project_name", 
         quote({
             settings[["project_name"]]
+        }), deps = "settings"), input_loaded_electrodes = targets::tar_target_raw("loaded_electrodes", 
+        quote({
+            settings[["loaded_electrodes"]]
+        }), deps = "settings"), input_frequency_range = targets::tar_target_raw("frequency_range", 
+        quote({
+            settings[["frequency_range"]]
+        }), deps = "settings"), input_epoch_choice__trial_starts_rel_to_event = targets::tar_target_raw("epoch_choice__trial_starts_rel_to_event", 
+        quote({
+            settings[["epoch_choice__trial_starts_rel_to_event"]]
+        }), deps = "settings"), input_epoch_choice__trial_starts = targets::tar_target_raw("epoch_choice__trial_starts", 
+        quote({
+            settings[["epoch_choice__trial_starts"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends_rel_to_event = targets::tar_target_raw("epoch_choice__trial_ends_rel_to_event", 
+        quote({
+            settings[["epoch_choice__trial_ends_rel_to_event"]]
+        }), deps = "settings"), input_epoch_choice__trial_ends = targets::tar_target_raw("epoch_choice__trial_ends", 
+        quote({
+            settings[["epoch_choice__trial_ends"]]
+        }), deps = "settings"), input_epoch_choice = targets::tar_target_raw("epoch_choice", 
+        quote({
+            settings[["epoch_choice"]]
+        }), deps = "settings"), input_condition_groups = targets::tar_target_raw("condition_groups", 
+        quote({
+            settings[["condition_groups"]]
+        }), deps = "settings"), input_baseline__windows = targets::tar_target_raw("baseline__windows", 
+        quote({
+            settings[["baseline__windows"]]
+        }), deps = "settings"), input_baseline__unit_of_analysis = targets::tar_target_raw("baseline__unit_of_analysis", 
+        quote({
+            settings[["baseline__unit_of_analysis"]]
+        }), deps = "settings"), input_baseline__global_baseline_choice = targets::tar_target_raw("baseline__global_baseline_choice", 
+        quote({
+            settings[["baseline__global_baseline_choice"]]
+        }), deps = "settings"), input_analysis_window = targets::tar_target_raw("analysis_window", 
+        quote({
+            settings[["analysis_window"]]
         }), deps = "settings"), load_subject = targets::tar_target_raw(name = "subject", 
         command = quote({
             .__target_expr__. <- quote({
@@ -76,8 +91,10 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 repository <- ravecore::prepare_subject_power_with_epochs(subject = subject, 
-                  electrodes = load_electrodes, reference_name = reference_name, 
-                  epoch_name = epoch_name, time_windows = time_window)
+                  electrodes = loaded_electrodes, reference_name = reference_name, 
+                  epoch_name = epoch_choice, time_windows = c(epoch_choice__trial_starts, 
+                    epoch_choice__trial_ends), stitch_events = c(epoch_choice__trial_starts_rel_to_event, 
+                    epoch_choice__trial_ends_rel_to_event))
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -90,20 +107,40 @@ rm(._._env_._.)
             target_export = "repository", target_expr = quote({
                 {
                   repository <- ravecore::prepare_subject_power_with_epochs(subject = subject, 
-                    electrodes = load_electrodes, reference_name = reference_name, 
-                    epoch_name = epoch_name, time_windows = time_window)
+                    electrodes = loaded_electrodes, reference_name = reference_name, 
+                    epoch_name = epoch_choice, time_windows = c(epoch_choice__trial_starts, 
+                      epoch_choice__trial_ends), stitch_events = c(epoch_choice__trial_starts_rel_to_event, 
+                      epoch_choice__trial_ends_rel_to_event))
                 }
                 repository
-            }), target_depends = c("subject", "load_electrodes", 
-            "reference_name", "epoch_name", "time_window")), 
-        deps = c("subject", "load_electrodes", "reference_name", 
-        "epoch_name", "time_window"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), calculate_baseline = targets::tar_target_raw(name = "baseline_power", 
+            }), target_depends = c("subject", "loaded_electrodes", 
+            "reference_name", "epoch_choice", "epoch_choice__trial_starts", 
+            "epoch_choice__trial_ends", "epoch_choice__trial_starts_rel_to_event", 
+            "epoch_choice__trial_ends_rel_to_event")), deps = c("subject", 
+        "loaded_electrodes", "reference_name", "epoch_choice", 
+        "epoch_choice__trial_starts", "epoch_choice__trial_ends", 
+        "epoch_choice__trial_starts_rel_to_event", "epoch_choice__trial_ends_rel_to_event"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), calculate_baseline = targets::tar_target_raw(name = "baseline_power", 
         command = quote({
             .__target_expr__. <- quote({
+                units <- switch(baseline__global_baseline_choice, 
+                  `Across electrode` = c("Trial", "Frequency"), 
+                  `Across trial` = c("Frequency", "Electrode"), 
+                  `Across trial and electrode` = c("Frequency"), 
+                  {
+                    c("Trial", "Frequency", "Electrode")
+                  })
+                method <- switch(baseline__unit_of_analysis, 
+                  `% Change Power` = "percentage", `% Change Amplitude` = "sqrt_percentage", 
+                  `z-score Power` = "zscore", `z-score Amplitude` = "sqrt_zscore", 
+                  {
+                    "decibel"
+                  })
+                baseline_window <- as.double(unname(unlist(baseline__windows)))
                 res <- ravecore::power_baseline(x = repository, 
-                  baseline_windows = unlist(baseline_window), 
-                  method = baseline_method)
+                  baseline_windows = baseline_window, method = method, 
+                  units = units)
                 baseline_power <- ravepipeline::RAVEFileArray$new(res$power$baselined)
             })
             tryCatch({
@@ -116,34 +153,57 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "baseline_power", target_expr = quote({
                 {
+                  units <- switch(baseline__global_baseline_choice, 
+                    `Across electrode` = c("Trial", "Frequency"), 
+                    `Across trial` = c("Frequency", "Electrode"), 
+                    `Across trial and electrode` = c("Frequency"), 
+                    {
+                      c("Trial", "Frequency", "Electrode")
+                    })
+                  method <- switch(baseline__unit_of_analysis, 
+                    `% Change Power` = "percentage", `% Change Amplitude` = "sqrt_percentage", 
+                    `z-score Power` = "zscore", `z-score Amplitude` = "sqrt_zscore", 
+                    {
+                      "decibel"
+                    })
+                  baseline_window <- as.double(unname(unlist(baseline__windows)))
                   res <- ravecore::power_baseline(x = repository, 
-                    baseline_windows = unlist(baseline_window), 
-                    method = baseline_method)
+                    baseline_windows = baseline_window, method = method, 
+                    units = units)
                   baseline_power <- ravepipeline::RAVEFileArray$new(res$power$baselined)
                 }
                 baseline_power
-            }), target_depends = c("repository", "baseline_window", 
-            "baseline_method")), deps = c("repository", "baseline_window", 
-        "baseline_method"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), prepare_clustering_input = targets::tar_target_raw(name = "group_data", 
+            }), target_depends = c("baseline__global_baseline_choice", 
+            "baseline__unit_of_analysis", "baseline__windows", 
+            "repository")), deps = c("baseline__global_baseline_choice", 
+        "baseline__unit_of_analysis", "baseline__windows", "repository"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), prepare_clustering_input = targets::tar_target_raw(name = "group_data", 
         command = quote({
             .__target_expr__. <- quote({
                 electrode_list <- repository$electrode_list
                 sample_rate <- repository$sample_rate
                 analysis_window_clean <- range(unlist(analysis_window))
-                default_duration <- analysis_window_clean[[2]] - 
-                  analysis_window_clean[[1]]
+                default_duration <- max(analysis_window_clean[[2]], 
+                  0)
+                start_offset <- analysis_window_clean[[1]]
                 if (default_duration < 2/sample_rate) {
                   stop("Analysis time duration is too narrow. Please choose a larger time window")
                 }
-                group_data <- unname(lapply(seq_along(condition_groupings), 
+                default_zeta_threshold <- as.numeric(zeta_threshold)
+                if (length(default_zeta_threshold) != 1 || is.na(default_zeta_threshold) || 
+                  default_zeta_threshold <= 0 || default_zeta_threshold >= 
+                  1) {
+                  default_zeta_threshold <- 0.5
+                }
+                group_data <- unname(lapply(seq_along(condition_groups), 
                   function(group_ii) {
-                    group <- condition_groupings[[group_ii]]
-                    label <- trimws(paste(group$label, collapse = ""))
+                    group <- condition_groups[[group_ii]]
+                    label <- trimws(paste(group$group_name, collapse = ""))
                     if (is.na(label) || !nzchar(label)) {
                       label <- sprintf("group%02d", group_ii)
                     }
-                    conditions <- group$conditions
+                    conditions <- group$group_conditions
                     conditions <- conditions[conditions %in% 
                       repository$epoch_table$Condition]
                     if (!length(conditions)) {
@@ -155,9 +215,18 @@ rm(._._env_._.)
                         length(electrode_list))
                     }
                     zeta_threshold <- group$zeta_threshold %||% 
-                      0.5
-                    event_start <- group$event_start %||% ""
-                    event_end <- group$event_end
+                      default_zeta_threshold
+                    event_start <- group$group_start_event %||% 
+                      ""
+                    if (tolower(event_start) %in% c("trial onset", 
+                      "trial_onset")) {
+                      event_start <- ""
+                    }
+                    event_end <- group$group_finish_event
+                    if (length(event_end) == 1 && startsWith(event_end, 
+                      "[")) {
+                      event_end <- NULL
+                    }
                     duration <- group$duration
                     if (length(duration) == 0 || is.na(duration)) {
                       duration <- default_duration
@@ -165,14 +234,15 @@ rm(._._env_._.)
                     group_fpca_data <- prepare_fpca_data(repository = repository, 
                       baseline_power = baseline_power, frequency_range = frequency_range, 
                       group_conditions = conditions, event_start = event_start, 
-                      event_end = event_end, duration = duration)
+                      event_end = event_end, duration = duration, 
+                      start_offset = start_offset)
                     list(group_index = group_ii, label = label, 
                       conditions = conditions, similarity_matrix = group_fpca_data$similarity_matrix, 
                       average_responses = group_fpca_data$average_responses, 
                       event_start = event_start, event_end = event_end, 
-                      duration = duration, initial_rank = initial_rank, 
-                      zeta_threshold = zeta_threshold, electrode_channels = electrode_list, 
-                      sample_rate = sample_rate)
+                      start_offset = start_offset, duration = duration, 
+                      initial_rank = initial_rank, zeta_threshold = zeta_threshold, 
+                      electrode_channels = electrode_list, sample_rate = sample_rate)
                   }))
                 group_data <- group_data[!vapply(group_data, 
                   is.null, FALSE)]
@@ -190,19 +260,27 @@ rm(._._env_._.)
                   electrode_list <- repository$electrode_list
                   sample_rate <- repository$sample_rate
                   analysis_window_clean <- range(unlist(analysis_window))
-                  default_duration <- analysis_window_clean[[2]] - 
-                    analysis_window_clean[[1]]
+                  default_duration <- max(analysis_window_clean[[2]], 
+                    0)
+                  start_offset <- analysis_window_clean[[1]]
                   if (default_duration < 2/sample_rate) {
                     stop("Analysis time duration is too narrow. Please choose a larger time window")
                   }
-                  group_data <- unname(lapply(seq_along(condition_groupings), 
+                  default_zeta_threshold <- as.numeric(zeta_threshold)
+                  if (length(default_zeta_threshold) != 1 || 
+                    is.na(default_zeta_threshold) || default_zeta_threshold <= 
+                    0 || default_zeta_threshold >= 1) {
+                    default_zeta_threshold <- 0.5
+                  }
+                  group_data <- unname(lapply(seq_along(condition_groups), 
                     function(group_ii) {
-                      group <- condition_groupings[[group_ii]]
-                      label <- trimws(paste(group$label, collapse = ""))
+                      group <- condition_groups[[group_ii]]
+                      label <- trimws(paste(group$group_name, 
+                        collapse = ""))
                       if (is.na(label) || !nzchar(label)) {
                         label <- sprintf("group%02d", group_ii)
                       }
-                      conditions <- group$conditions
+                      conditions <- group$group_conditions
                       conditions <- conditions[conditions %in% 
                         repository$epoch_table$Condition]
                       if (!length(conditions)) {
@@ -214,9 +292,18 @@ rm(._._env_._.)
                           length(electrode_list))
                       }
                       zeta_threshold <- group$zeta_threshold %||% 
-                        0.5
-                      event_start <- group$event_start %||% ""
-                      event_end <- group$event_end
+                        default_zeta_threshold
+                      event_start <- group$group_start_event %||% 
+                        ""
+                      if (tolower(event_start) %in% c("trial onset", 
+                        "trial_onset")) {
+                        event_start <- ""
+                      }
+                      event_end <- group$group_finish_event
+                      if (length(event_end) == 1 && startsWith(event_end, 
+                        "[")) {
+                        event_end <- NULL
+                      }
                       duration <- group$duration
                       if (length(duration) == 0 || is.na(duration)) {
                         duration <- default_duration
@@ -224,13 +311,15 @@ rm(._._env_._.)
                       group_fpca_data <- prepare_fpca_data(repository = repository, 
                         baseline_power = baseline_power, frequency_range = frequency_range, 
                         group_conditions = conditions, event_start = event_start, 
-                        event_end = event_end, duration = duration)
+                        event_end = event_end, duration = duration, 
+                        start_offset = start_offset)
                       list(group_index = group_ii, label = label, 
                         conditions = conditions, similarity_matrix = group_fpca_data$similarity_matrix, 
                         average_responses = group_fpca_data$average_responses, 
                         event_start = event_start, event_end = event_end, 
-                        duration = duration, initial_rank = initial_rank, 
-                        zeta_threshold = zeta_threshold, electrode_channels = electrode_list, 
+                        start_offset = start_offset, duration = duration, 
+                        initial_rank = initial_rank, zeta_threshold = zeta_threshold, 
+                        electrode_channels = electrode_list, 
                         sample_rate = sample_rate)
                     }))
                   group_data <- group_data[!vapply(group_data, 
@@ -238,9 +327,10 @@ rm(._._env_._.)
                 }
                 group_data
             }), target_depends = c("repository", "analysis_window", 
-            "condition_groupings", "baseline_power", "frequency_range"
-            )), deps = c("repository", "analysis_window", "condition_groupings", 
-        "baseline_power", "frequency_range"), cue = targets::tar_cue("thorough"), 
+            "zeta_threshold", "condition_groups", "baseline_power", 
+            "frequency_range")), deps = c("repository", "analysis_window", 
+        "zeta_threshold", "condition_groups", "baseline_power", 
+        "frequency_range"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), prepare_fpca_per_condition = targets::tar_target_raw(name = "combined_group_results", 
         command = quote({
             .__target_expr__. <- quote({
@@ -249,6 +339,7 @@ rm(._._env_._.)
                   res$electrode_channels <- group$electrode_channels
                   res$sample_rate <- group$sample_rate
                   res$event_start <- group$event_start
+                  res$start_offset <- group$start_offset
                   res
                 })
                 combined_group_results <- combine_condition_groups(.list = initial_decomposition)
@@ -269,6 +360,7 @@ rm(._._env_._.)
                       res$electrode_channels <- group$electrode_channels
                       res$sample_rate <- group$sample_rate
                       res$event_start <- group$event_start
+                      res$start_offset <- group$start_offset
                       res
                     })
                   combined_group_results <- combine_condition_groups(.list = initial_decomposition)
