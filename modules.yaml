@@ -101,3 +101,5 @@ modules:
     label: JupyterLab
     order: 10002
     badge: Local-only|badge-warning
+  power_clust:
+    label: Power Clustering

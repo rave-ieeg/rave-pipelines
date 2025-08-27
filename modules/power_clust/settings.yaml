@@ -1,0 +1,52 @@
+project_name: "demo"
+subject_code: "DemoSubject"
+epoch_name: auditory_onset
+reference_name: default
+load_electrodes: 13-24
+time_window:
+- - -1.0
+  - 3.0
+baseline_window:
+- - -1
+  - -0.2
+baseline_method: "decibel"
+frequency_range:
+- - 70
+  - 150
+condition_groupings:
+  '1':
+    label: audio_visual
+    conditions:
+    - known_av
+    - meant_av
+    - last_av
+    - drive_av
+    event_start: ~
+    event_end: ~
+    initial_rank: 10
+    zeta_threshold: 0.5
+  '2':
+    label: auditory_only
+    conditions:
+    - last_a
+    - drive_a
+    - known_a
+    - meant_a
+    event_start: ~
+    event_end: ~
+    initial_rank: 10
+    zeta_threshold: 0.5
+  '3':
+    label: visual_only
+    conditions:
+    - last_v
+    - drive_v
+    - known_v
+    - meant_v
+    event_start: ~
+    event_end: ~
+    initial_rank: 10
+    zeta_threshold: 0.5
+analysis_window:
+- - 0
+  - 3
