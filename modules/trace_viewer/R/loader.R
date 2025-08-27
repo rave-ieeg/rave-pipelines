@@ -33,6 +33,10 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
               label = "Data type",
               choices = c("voltage", "raw-voltage"),
               selected = repository_datatype
+            ),
+            shiny::tags$small(
+              style = "font-style:italic;",
+              shiny::textOutput(outputId = ns("loader_repository_datatype_info"), inline = TRUE)
             )
           ),
           loader_reference$ui_func(),
@@ -128,6 +132,22 @@ loader_server <- function(input, output, session, ...){
     loader_subject$current_value,
     ignoreNULL = TRUE, ignoreInit = FALSE
   )
+
+  output$loader_repository_datatype_info <- shiny::renderText({
+    dtype <- paste(input$loader_repository_datatype, collapse = "")
+    switch (
+      dtype,
+      "voltage" = {
+        "Notch filter & re-referenced"
+      },
+      "raw-voltage" = {
+        "Reference will be ignored"
+      },
+      {
+        ""
+      }
+    )
+  })
 
   output$loader_pre_downsample_info <- shiny::renderText({
 

@@ -465,8 +465,8 @@ module_server <- function(input, output, session, ...){
 
       # Mark flags to update outputs
       local_data$`@reset`()
-      local_data$highpass_freq <- NA
-      local_data$lowpass_freq <- NA
+      local_data$highpass_freq <- c(input$filter_highpass, NA)[[1]]
+      local_data$lowpass_freq <- c(input$filter_lowpass, NA)[[1]]
       local_data$repository <- new_repository
       local_reactives$stream_plot_container <- NULL
       local_reactives$update_outputs <- Sys.time()
