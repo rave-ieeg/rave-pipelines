@@ -4,4 +4,5 @@ loaded_electrodes: 22-26, 47-48,56-58,67-69,76-78,91-93
 pre_downsample: .na.integer
 project_name: test
 reference_name: noref
+repository_datatype: voltage
 subject_code: HUP111

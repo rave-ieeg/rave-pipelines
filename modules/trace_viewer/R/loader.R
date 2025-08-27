@@ -1,6 +1,7 @@
 # UI components for loader
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
   pre_downsample <- pipeline$get_settings("pre_downsample", default = NA)
+  repository_datatype <- pipeline$get_settings("repository_datatype", default = "raw-voltage")
 
   ravedash::simple_layout(
     input_width = 4L,
@@ -26,6 +27,14 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
         ravedash::flex_group_box(
           title = "Electrodes and Reference",
 
+          shidashi::flex_item(
+            shiny::selectInput(
+              inputId = ns("loader_repository_datatype"),
+              label = "Data type",
+              choices = c("voltage", "raw-voltage"),
+              selected = repository_datatype
+            )
+          ),
           loader_reference$ui_func(),
           shidashi::flex_break(),
           shidashi::flex_item(
@@ -170,6 +179,7 @@ loader_server <- function(input, output, session, ...){
 
       # Save the variables into pipeline settings file
       pipeline$set_settings(
+        repository_datatype = input$loader_repository_datatype,
         pre_downsample = as.integer(pre_downsample),
         .list = settings
       )

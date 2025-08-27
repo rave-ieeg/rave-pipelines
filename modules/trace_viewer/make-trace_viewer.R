@@ -17,7 +17,10 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_subject_code = targets::tar_target_raw("subject_code", 
+    input_repository_datatype = targets::tar_target_raw("repository_datatype", 
+        quote({
+            settings[["repository_datatype"]]
+        }), deps = "settings"), input_subject_code = targets::tar_target_raw("subject_code", 
         quote({
             settings[["subject_code"]]
         }), deps = "settings"), input_reference_name = targets::tar_target_raw("reference_name", 
@@ -63,10 +66,17 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), load_repository = targets::tar_target_raw(name = "repository", 
         command = quote({
             .__target_expr__. <- quote({
-                repository <- ravecore::prepare_subject_voltage_with_blocks(subject = subject, 
-                  electrodes = loaded_electrodes, blocks = subject$blocks, 
-                  reference_name = reference_name, strict = TRUE, 
-                  downsample = pre_downsample, lazy_load = FALSE)
+                repository <- switch(repository_datatype, voltage = {
+                  ravecore::prepare_subject_voltage_with_blocks(subject = subject, 
+                    electrodes = loaded_electrodes, blocks = subject$blocks, 
+                    reference_name = reference_name, strict = TRUE, 
+                    downsample = pre_downsample, lazy_load = FALSE)
+                }, {
+                  ravecore::prepare_subject_raw_voltage_with_blocks(subject = subject, 
+                    electrodes = loaded_electrodes, blocks = subject$blocks, 
+                    strict = TRUE, downsample = pre_downsample, 
+                    lazy_load = FALSE)
+                })
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -78,17 +88,24 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "repository", target_expr = quote({
                 {
-                  repository <- ravecore::prepare_subject_voltage_with_blocks(subject = subject, 
-                    electrodes = loaded_electrodes, blocks = subject$blocks, 
-                    reference_name = reference_name, strict = TRUE, 
-                    downsample = pre_downsample, lazy_load = FALSE)
+                  repository <- switch(repository_datatype, voltage = {
+                    ravecore::prepare_subject_voltage_with_blocks(subject = subject, 
+                      electrodes = loaded_electrodes, blocks = subject$blocks, 
+                      reference_name = reference_name, strict = TRUE, 
+                      downsample = pre_downsample, lazy_load = FALSE)
+                  }, {
+                    ravecore::prepare_subject_raw_voltage_with_blocks(subject = subject, 
+                      electrodes = loaded_electrodes, blocks = subject$blocks, 
+                      strict = TRUE, downsample = pre_downsample, 
+                      lazy_load = FALSE)
+                  })
                 }
                 repository
-            }), target_depends = c("subject", "loaded_electrodes", 
-            "reference_name", "pre_downsample")), deps = c("subject", 
-        "loaded_electrodes", "reference_name", "pre_downsample"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), generate_annotation_table = targets::tar_target_raw(name = "annotation_table", 
+            }), target_depends = c("repository_datatype", "subject", 
+            "loaded_electrodes", "reference_name", "pre_downsample"
+            )), deps = c("repository_datatype", "subject", "loaded_electrodes", 
+        "reference_name", "pre_downsample"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), generate_annotation_table = targets::tar_target_raw(name = "annotation_table", 
         command = quote({
             .__target_expr__. <- quote({
                 if (is.null(epoch_name) || is.na(epoch_name)) {
