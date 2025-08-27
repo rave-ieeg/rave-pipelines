@@ -94,6 +94,9 @@ modules:
   trace_viewer:
     label: Recording Block Inspector
     order: 15
+  power_clust:
+    label: Channel Clustering - Power
+    order: 16
   configure_rave:
     label: Configurations
     order: 10001
@@ -101,5 +104,3 @@ modules:
     label: JupyterLab
     order: 10002
     badge: Local-only|badge-warning
-  power_clust:
-    label: Power Clustering
