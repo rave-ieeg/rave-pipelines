@@ -10,39 +10,25 @@ baseline__windows:
     - -0.57
 condition_groups:
   '1':
-    group_name: Inc
+    group_name: All Conditions
     group_conditions:
     - AdriveVlast
     - AknownVmeant
     - AlastVknown
     - AmeantVdrive
-    group_start_event: Trial Onset
-    group_finish_event: '[Analysis end]'
-  '2':
-    group_name: A
-    group_conditions:
     - drive_a
-    - last_a
-    - known_a
-    - meant_a
-    group_start_event: Trial Onset
-    group_finish_event: '[Analysis end]'
-  '3':
-    group_name: AV
-    group_conditions:
-    - last_av
     - drive_av
+    - known_a
     - known_av
-    - meant_av
-    group_start_event: Trial Onset
-    group_finish_event: '[Analysis end]'
-  '4':
-    group_name: V
-    group_conditions:
-    - meant_v
-    - last_v
-    - drive_v
     - known_v
+    - last_a
+    - last_av
+    - last_v
+    - meant_av
+    - meant_a
+    - meant_v
+    - drive_v
+    - press_AV
     group_start_event: Trial Onset
     group_finish_event: '[Analysis end]'
 epoch_choice: auditory_onset
