@@ -449,7 +449,7 @@ module_server <- function(input, output, session, ...){
       if(length(click_x) != 1 || is.na(click_x)) { return() }
       click_x <- round(click_x)
       if(click_x < 0) { return() }
-      if(click_x == input$n_clusters) { return() }
+      if(isTRUE(click_x == input$n_clusters)) { return() }
       shiny::updateNumericInput(
         session = session,
         input = 'n_clusters',
