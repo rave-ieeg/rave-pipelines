@@ -65,7 +65,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results) {
   group_start_offset_labels[group_start_offset == 0] <- "0 s"
   axis(1L, at = group_start, labels = group_start_offset_labels, tick = FALSE, hadj = -0.1, cex.axis = 0.8, line = -1)
 
-  durations <- sprintf("+%.2f s", group_start_offset + group_n_time_points / combined_group_results$sample_rate)
+  durations <- sprintf("%.2f s", group_start_offset + group_n_time_points / combined_group_results$sample_rate)
   axis(1L, at = group_finish, labels = durations, tick = FALSE, hadj = 1.1, cex.axis = 0.8, line = -1)
 
   axis(
@@ -99,4 +99,59 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results) {
 
   invisible()
 
+}
+
+
+rect_hclust2 <- function (tree, k = NULL, which = NULL, x = NULL, h = NULL, border = threeBrain:::DEFAULT_COLOR_DISCRETE,  cluster = NULL)
+{
+  if (length(h) > 1L || length(k) > 1L)
+    stop("'k' and 'h' must be a scalar")
+  if (!is.null(h)) {
+    if (!is.null(k))
+      stop("specify exactly one of 'k' and 'h'")
+    k <- min(which(rev(tree$height) < h))
+    k <- max(k, 2)
+  }
+  else if (is.null(k))
+    stop("specify exactly one of 'k' and 'h'")
+  if (k < 2 || k > length(tree$height))
+    stop(gettextf("k must be between 2 and %d", length(tree$height)),
+         domain = NA)
+  if (is.null(cluster)) {
+    cluster <- cutree(tree, k = k)
+  }
+
+  clustab <- table(cluster)[unique(cluster[tree$order])]
+  cluster_order <- as.integer(names(clustab))
+  m <- c(0, cumsum(clustab))
+
+  if (!is.null(x)) {
+    if (!is.null(which)) {
+      stop("specify exactly one of 'which' and 'x'")
+    }
+    which <- x
+    for (n in seq_along(x)) which[n] <- max(which(m < x[n]))
+  } else if (is.null(which)) {
+    which <- 1L:k
+  }
+  if (any(which > k)) {
+    stop(gettextf("all elements of 'which' must be between 1 and %d",
+                  k), domain = NA)
+  }
+  # border <- rep_len(border, length(which))
+  retval <- list()
+  for (n in seq_along(which)) {
+    actual_cluster_id <- cluster_order[[which[n]]]
+    color <- border[actual_cluster_id]
+    rect(
+      xleft = m[which[n]] + 0.66,
+      ybottom = par("usr")[3L],
+      xright = m[which[n] +1] + 0.33,
+      ytop = mean(rev(tree$height)[(k - 1):k]),
+      border = color,
+      col = adjustcolor(color, alpha.f = 0.3),
+    )
+    retval[[n]] <- which(cluster == as.integer(names(clustab)[which[n]]))
+  }
+  invisible(retval)
 }

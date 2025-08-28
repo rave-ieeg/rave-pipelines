@@ -13,14 +13,6 @@ module_html <- function(){
           shiny::column(
             width = 12L,
 
-            # electrode_selector$ui_func(),
-
-            comp_condition_groups$ui_func(),
-
-            baseline_choices$ui_func(),
-
-            # comp_analysis_ranges$ui_func()
-
             ravedash::input_card(
               class_header = "shidashi-anchor",
               title = "Configure Analysis",
@@ -54,10 +46,33 @@ module_html <- function(){
                     min = 0.05, max = 0.95, step = 0.05,
                     value = 0.5
                   )
+                ),
+
+
+                shiny::column(
+                  width = 6L,
+                  shiny::actionButton(
+                    inputId = ns("btn_load_settings"),
+                    label = "Load Settings",
+                    icon = ravedash::shiny_icons$upload
+                  )
+                ),
+                shiny::column(
+                  width = 6L,
+                  shiny::downloadButton(
+                    outputId = ns("btn_download_settings"),
+                    label = "Download Settings",
+                    icon = ravedash::shiny_icons$download,
+                    class = "fill-width"
+                  )
                 )
 
               )
-            )
+            ),
+
+            baseline_choices$ui_func(),
+
+            comp_condition_groups$ui_func()
           )
         )
       ),
@@ -68,8 +83,18 @@ module_html <- function(){
           class = "row screen-height overflow-y-scroll output-wrapper",
           shiny::column(
             width = 12L,
+
+            ravedash::output_card(
+              title = "3D Viewer",
+              class_body = "no-padding fill-width height-550 min-height-450 resize-vertical",
+              shiny::div(
+                class = 'position-relative fill',
+                threeBrain::threejsBrainOutput(outputId = ns("viewer"), height = "100%")
+              )
+            ),
+
             ravedash::output_cardset(
-              title = 'Reuslts',
+              title = ' ',
               class_body = "no-padding fill-width min-height-450",
 
               "Channel time-series" = shiny::div(
@@ -77,10 +102,10 @@ module_html <- function(){
                 shiny::plotOutput(ns("channel_cluster_timeseries"), width = '100%', height = "100%")
               ),
 
-              "Diagnosis" = shiny::div(
-                class = 'position-relative fill-width height-450 min-height-450 resize-vertical',
+              "Diagnosic plots" = shiny::div(
+                class = 'position-relative fill-width height-800 min-height-600 resize-vertical',
                 shidashi::flex_container(
-                  direction = "row", style = "height: 100%",
+                  direction = "row", style = "height: 50%",
 
                   shidashi::flex_item(
                     size = 2,
@@ -89,10 +114,21 @@ module_html <- function(){
 
                   shidashi::flex_item(
                     size = 1,
-                    shiny::plotOutput(ns("cluster_silhouette_plot"), width = '100%', height = "100%")
+                    shiny::plotOutput(ns("cluster_silhouette_plot"), width = '100%', height = "100%", click = shiny::clickOpts(id = ns("cluster_silhouette_plot_click")))
                   )
 
+                ),
+                shidashi::flex_container(
+                  direction = "row", style = "height: 50%",
+                  shidashi::flex_item(
+                    shiny::plotOutput(ns("cluster_mean_plot"), width = '100%', height = "100%")
+                  )
                 )
+              ),
+
+              "Clustering table" = shiny::div(
+                class = 'position-relative fill-width height-500 resize-vertical',
+                shiny::tableOutput(outputId = ns("cluster_table"))
               ),
 
               footer = shiny::fluidRow(

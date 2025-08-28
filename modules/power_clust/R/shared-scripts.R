@@ -609,8 +609,12 @@ choose_n_clusters <- function(cluster_result, cluster_range = NULL, plot = TRUE)
       main = 'Clustering index',
       xlab = 'number of clusters',
       ylab = "Silhouette score",
-      pch = 16
+      pch = 16,
+      axes = FALSE,
+      xlim = c(1, max(k_list))
     )
+    axis(1, at = c(1, k_list))
+    axis(2, pretty(cvi_indexes))
   }
 
 
