@@ -238,7 +238,7 @@ module_server <- function(input, output, session, ...){
       value_table <- data.frame(
         Electrode = combined_group_results$electrode_channels,
         Loaded = TRUE,
-        Cluster = factor(sprintf("class% 2d", clusters), levels = sprintf("class% 2d", seq_len(n_clusters)))
+        Cluster = factor(sprintf("class% 3d", clusters), levels = sprintf("class% 3d", seq_len(n_clusters)))
       )
 
       brain_proxy$set_electrode_data(value_table, clear_first = TRUE, update_display = TRUE)
