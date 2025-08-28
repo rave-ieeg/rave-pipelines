@@ -146,7 +146,8 @@ module_server <- function(input, output, session, ...){
       inputId = "time_range",
       min = full_timerange[[1]],
       max = full_timerange[[2]],
-      value = analysis_window
+      value = analysis_window,
+      step = 0.1
     )
 
     # Frequency range
@@ -159,7 +160,8 @@ module_server <- function(input, output, session, ...){
       inputId = "frequency_range",
       min = frequency_max_range[[1]],
       max = frequency_max_range[[2]],
-      value = frequency_range
+      value = frequency_range,
+      step = 1
     )
 
     # Zeta ?
@@ -168,6 +170,11 @@ module_server <- function(input, output, session, ...){
     if(length(zeta_threshold) != 1 || is.na(zeta_threshold) || zeta_threshold <= 0 || zeta_threshold >= 1) {
       zeta_threshold <- 0.5
     }
+    shiny::updateSliderInput(
+      session = session,
+      inputId = "zeta_threshold",
+      value = zeta_threshold
+    )
 
 
   }
@@ -287,9 +294,20 @@ module_server <- function(input, output, session, ...){
       current_settings <- pipeline$get_settings()
       nms <- names(settings)
       nms <- nms[nms %in% names(current_settings)]
+      nms <- nms[nms %in% c(
+        "frequency_range",
+        "condition_groups",
+        "baseline__windows",
+        "baseline__unit_of_analysis",
+        "baseline__global_baseline_choice",
+        "analysis_window",
+        "zeta_threshold"
+      )]
 
-      pipeline$set_settings(.list = settings[nms])
-      initialize_inputs()
+      if(length(nms)) {
+        pipeline$set_settings(.list = settings[nms])
+        initialize_inputs()
+      }
 
       shiny::removeModal(session = session)
 
