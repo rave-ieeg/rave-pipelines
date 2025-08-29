@@ -1,4 +1,4 @@
-diagnose_cluster <- function(cluster_result, k, combined_group_results) {
+diagnose_cluster <- function(cluster_result, k, combined_group_results, col_label = threeBrain:::DEFAULT_COLOR_DISCRETE) {
   # cluster_result <- clustering_tree
   # k <- 2
   average_responses <- combined_group_results$combined_average_responses
@@ -6,8 +6,11 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results) {
 
   channel_order <- order(result$cluster)
 
+  channel_color <- col_label[result$cluster]
+
   channels <- combined_group_results$electrode_channels
   channels_reordered <- channels[channel_order]
+  channel_color_reordered <- channel_color[channel_order]
   sample_rate <- combined_group_results$sample_rate
 
   myCol <- grDevices::colorRampPalette(
@@ -83,7 +86,21 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results) {
   abline(v = group_separator)
 
   abline(h = cumsum(table(result$cluster)) + 0.5)
-  axis(2L, at = seq_along(channels), labels = channels_reordered, las = 1, tick = FALSE)
+
+  channel_y_at <- seq_along(channels)
+  channel_y_label <- channels_reordered
+  for(cls in unique(channels_reordered)) {
+    sel <- channel_y_label == cls
+    axis(
+      2L,
+      at = channel_y_at[sel],
+      labels = channel_y_label[sel],
+      las = 1,
+      tick = FALSE,
+      col.axis = channel_color_reordered[sel][[1]]
+    )
+  }
+
 
   par(mar = c(4.1, 2.6, 4.1, 0.1))
   legend_z <- seq(zlim[[1]], zlim[[2]], length.out = 101)

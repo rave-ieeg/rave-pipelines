@@ -344,7 +344,7 @@ module_server <- function(input, output, session, ...){
                      k = n_clusters,
                      combined_group_results = combined_group_results)
 
-  })
+  }, res = 108)
 
   output$viewer <- threeBrain::renderBrain({
 
