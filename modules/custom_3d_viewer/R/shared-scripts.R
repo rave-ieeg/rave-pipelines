@@ -44,7 +44,7 @@ load_brain_from_subject_code <- function(
 
   surface_types <- unique(c("pial", surface_types, "sphere.reg"))
 
-  electrode_table <- ravepipeline::pipeline_load_extdata("suggested_electrode_table")
+  electrode_table <- ravepipeline::pipeline_load_extdata("suggested_electrode_table", pipe_dir = pipeline$pipeline_path)
 
   include_electrodes <- FALSE
   if(!is.data.frame(electrode_table)) {
