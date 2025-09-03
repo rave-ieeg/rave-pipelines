@@ -281,7 +281,7 @@ rm(._._env_._.)
                 localization_result_initial
             }), target_depends = c("subject", "brain", "localization_list"
             )), deps = c("subject", "brain", "localization_list"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        ), cue = targets::tar_cue("always"), pattern = NULL, 
         iteration = "list"), get_finalized_table = targets::tar_target_raw(name = "localization_result_final", 
         command = quote({
             .__target_expr__. <- quote({
@@ -440,6 +440,10 @@ rm(._._env_._.)
                     t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
                       from = "tkrRAS", to = "scannerRAS")
                     valids <- rowSums(tkr_ras^2) > 0
+                    t1_ras[!valids, ] <- 0
+                    electrode_table$T1R <- t1_ras[, 1]
+                    electrode_table$T1A <- t1_ras[, 2]
+                    electrode_table$T1S <- t1_ras[, 3]
                   } else {
                     t1_ras <- as.matrix(electrode_table[, c("T1R", 
                       "T1A", "T1S")])
@@ -512,6 +516,10 @@ rm(._._env_._.)
                       t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
                         from = "tkrRAS", to = "scannerRAS")
                       valids <- rowSums(tkr_ras^2) > 0
+                      t1_ras[!valids, ] <- 0
+                      electrode_table$T1R <- t1_ras[, 1]
+                      electrode_table$T1A <- t1_ras[, 2]
+                      electrode_table$T1S <- t1_ras[, 3]
                     } else {
                       t1_ras <- as.matrix(electrode_table[, c("T1R", 
                         "T1A", "T1S")])
@@ -582,6 +590,10 @@ rm(._._env_._.)
                     t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
                       from = "tkrRAS", to = "scannerRAS")
                     valids <- rowSums(tkr_ras^2) > 0
+                    t1_ras[!valids, ] <- 0
+                    electrode_table$T1R <- t1_ras[, 1]
+                    electrode_table$T1A <- t1_ras[, 2]
+                    electrode_table$T1S <- t1_ras[, 3]
                   } else {
                     t1_ras <- as.matrix(electrode_table[, c("T1R", 
                       "T1A", "T1S")])
@@ -623,6 +635,10 @@ rm(._._env_._.)
                       t1_ras <- brain$electrodes$apply_transform_points(positions = tkr_ras, 
                         from = "tkrRAS", to = "scannerRAS")
                       valids <- rowSums(tkr_ras^2) > 0
+                      t1_ras[!valids, ] <- 0
+                      electrode_table$T1R <- t1_ras[, 1]
+                      electrode_table$T1A <- t1_ras[, 2]
+                      electrode_table$T1S <- t1_ras[, 3]
                     } else {
                       t1_ras <- as.matrix(electrode_table[, c("T1R", 
                         "T1A", "T1S")])
