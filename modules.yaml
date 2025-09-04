@@ -12,7 +12,7 @@ groups:
   LFP Processing:
     order: 2
     open: no
-  Auxiliary Processing:
+  Epoch Processing:
     order: 3
     open: no
   Images & Electrodes:
@@ -56,8 +56,12 @@ modules:
     order: 2.3
   epoch_generator:
     label: Generate Epoch
-    group: Auxiliary Processing
+    group: Epoch Processing
     order: 3.1
+  stimpulse_finder:
+    label: Find Stimulation Pulses
+    group: Epoch Processing
+    order: 3.2
   yael_preprocess:
     label: MRI/CT Preprocessing
     group: Images & Electrodes

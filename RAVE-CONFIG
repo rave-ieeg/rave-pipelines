@@ -59,7 +59,8 @@ SubPipelines:
     modules/group_3d_viewer,
     modules/project_overview,
     modules/trace_viewer,
-    modules/power_clust
+    modules/power_clust,
+    modules/stimpulse_finder
 InteractiveModules:
     modules/import_lfp_native,
     modules/import_signals,
@@ -81,4 +82,5 @@ InteractiveModules:
     modules/generate_surface_atlas,
     modules/group_3d_viewer,
     modules/trace_viewer,
-    modules/power_clust
+    modules/power_clust,
+    modules/stimpulse_finder
