@@ -1,0 +1,15 @@
+Package: stimpulse_finder
+Type: rave-pipeline
+Title: Find Epochs of Stimulation Pulses
+Version: 0.0.1
+Language: en-US
+Encoding: UTF-8
+License: MIT
+Authors@R: c(
+    person("Zhengjia", "Wang", email = "zhengjia.wang@pennmedicine.upenn.edu", role = c("aut", "cre"))
+    )
+Description: 
+    Find epochs (onset and offset) of stimulation pulses based on the signals;
+    output as a 'RAVE' epoch table (comma-separated value, 'CSV') file.
+BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+URL: https://rave.wiki, https://github.com/rave-ieeg/rave-pipelines

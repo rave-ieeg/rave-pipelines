@@ -50,7 +50,7 @@ module_server <- function(input, output, session, ...){
           dipsaus::close_alert2()
         }, add = TRUE, after = FALSE)
       }
-      validation_results <- raveio::validate_subject(
+      validation_results <- ravecore::validate_subject(
         subject = subject$subject_id,
         method = mode,
         version = as.integer(version))
@@ -79,8 +79,8 @@ module_server <- function(input, output, session, ...){
           icon = "info"
         )
         Sys.sleep(0.5)
-        raveio::with_future_parallel({
-          raveio::rave_subject_format_conversion(subject = subject)
+        ravepipeline::with_rave_parallel({
+          ravecore::rave_legacy_subject_format_conversion(subject = subject)
         })
 
         dipsaus::close_alert2()
@@ -94,7 +94,7 @@ module_server <- function(input, output, session, ...){
       }, error = function(e) {
 
         dipsaus::close_alert2()
-        ravedash::logger_error_condition(e)
+        ravepipeline::logger_error_condition(e)
         dipsaus::shiny_alert2(
           title = "Conversion failed",
           icon = "error",
@@ -358,11 +358,11 @@ module_server <- function(input, output, session, ...){
       ravedash::close_alert2()
     }, add = TRUE, after = TRUE)
 
-    path <- raveio::with_future_parallel({
+    path <- ravepipeline::with_rave_parallel({
       repository <- switch(
         export_type,
         "raw-voltage" = {
-          raveio::prepare_subject_raw_voltage_with_epoch(
+          ravecore::prepare_subject_raw_voltage_with_epochs(
             subject = subject,
             electrodes = export_electrode,
             epoch_name = export_epoch,
@@ -371,7 +371,7 @@ module_server <- function(input, output, session, ...){
           )
         },
         "voltage" = {
-          raveio::prepare_subject_voltage_with_epoch(
+          ravecore::prepare_subject_voltage_with_epochs(
             subject = subject,
             electrodes = export_electrode,
             epoch_name = export_epoch,
@@ -381,13 +381,12 @@ module_server <- function(input, output, session, ...){
           )
         },
         "power" = {
-          raveio::prepare_subject_power(
+          ravecore::prepare_subject_power_with_epochs(
             subject = subject,
             electrodes = export_electrode,
             epoch_name = export_epoch,
             time_windows = export_window,
-            reference_name = export_reference,
-            signal_type = "LFP"
+            reference_name = export_reference
           )
         },
         {
@@ -395,7 +394,21 @@ module_server <- function(input, output, session, ...){
         }
       )
 
-      path <- raveio::rave_export(repository, zip = zip)
+      export_folder <- repository$export_matlab()
+      if(zip) {
+        wd <- getwd()
+        setwd(dirname(export_folder))
+        on.exit({ setwd(wd) }, add = TRUE, after = FALSE)
+        fname <- basename(export_folder)
+        utils::zip(zipfile = sprintf("%s.zip", fname), files = fname)
+        setwd(wd)
+
+        path <- normalizePath(file.path(export_folder, sprintf("%s.zip", fname)),
+                              winslash = "/")
+      } else {
+        path <- export_folder
+      }
+
       path
     })
 
@@ -427,7 +440,7 @@ module_server <- function(input, output, session, ...){
     content = function(con) {
       ravedash::with_error_alert({
         path <- export_repository(zip = TRUE)
-        file.rename(sprintf("%s.zip", path), con)
+        file.rename(path, con)
       })
 
       return(con)

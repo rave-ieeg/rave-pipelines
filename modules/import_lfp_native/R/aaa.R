@@ -31,13 +31,23 @@ comp_import_channels <- with(asNamespace("ravedash"), {
     import_setup_id = "import_setup",
     import_blocks_id = "import_blocks"
   ){
+    IMPORT_FORMATS <- list(
+      `.mat/.h5 file per electrode per block` = "native_matlab",
+      `Single .mat/.h5 file per block` = "native_matlab2",
+      `Single EDF(+) file per block` = "native_edf",
+      `Single BrainVision file (.vhdr+.eeg, .vhdr+.dat) per block` = "native_brainvis",
+      `BIDS & EDF(+)` = "bids_edf",
+      `BIDS & BrainVision (.vhdr+.eeg, .vhdr+.dat)` = "bids_brainvis",
+      `Single BlackRock file (.nev+.nsx) per block` = "native_blackrock"
+    )
+
 
     comp <- RAVEShinyComponent$new(id = id)
     comp$depends <- c(import_setup_id, import_blocks_id)
     comp$no_save <- c("", "msg", "actions", "actions_alt", "snapshot",
                       "do_import")
 
-    all_formats <- raveio::IMPORT_FORMATS[c(1,2,3,4,7)]
+    all_formats <- IMPORT_FORMATS[c(1,2,3,4,7)]
 
     comp$ui_func <- function(id, value, depends){
 
@@ -346,7 +356,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           blocks <- info$current_blocks
           format <- info$current_format
 
-          subject <- raveio::RAVESubject$new(project_name = project_name,
+          subject <- ravecore::RAVESubject$new(project_name = project_name,
                                              subject_code = subject_code, strict = FALSE)
           preproc <- subject$preprocess_settings
 
@@ -381,7 +391,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           )
           shidashi::card2_close(id)
 
-          # preproc <- raveio::RAVEPreprocessSettings$new(subject = )
+          # preproc <- RAVEPreprocessSettings$new(subject = )
 
         }),
         block_setups(),
@@ -431,7 +441,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                 edf_path <- edf_path[which.max(file.size(edf_path))]
               }
               tryCatch({
-                header <- raveio::read_edf_header(edf_path)
+                header <- read_edf_header(edf_path)
 
                 local_reactives$snapshot <- shiny::p(
                   "With given data format (EDF), I found the following file in ",
@@ -489,7 +499,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
               )
             } else {
               tryCatch({
-                brfile <- raveio::BlackrockFile$new(
+                brfile <- BlackrockFile$new(
                   path = file.path(preproc$raw_path, blocks[[1]], electrode_file[[1]]),
                   block = blocks[[1]], nev_data = FALSE
                 )
@@ -547,7 +557,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           misc_channels <- preproc$electrodes[misc_sel]
 
           # get composed channels
-          # preproc <- raveio::RAVEPreprocessSettings$new("demo/DemoSubject")
+          # preproc <- RAVEPreprocessSettings$new("demo/DemoSubject")
 
           # Update LFP inputs
           compose_params <- lapply(lfp_channels, function(e) {
@@ -895,8 +905,8 @@ comp_import_channels <- with(asNamespace("ravedash"), {
             }
           }, add = TRUE, after = FALSE)
 
-          raveio::lapply_async(compose_setup, function(item) {
-            raveio::compose_channel(
+          lapply_async(compose_setup, function(item) {
+            compose_channel(
               subject = subject,
               number = item$number,
               from = item$from,
@@ -1120,7 +1130,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
 
           pipeline <- comp$container$get_pipeline()
 
-          settings <- raveio::load_yaml(comp$container$settings_path)
+          settings <- load_yaml(comp$container$settings_path)
           settings <- comp$container$collect_settings(c(
             import_setup_id,
             import_blocks_id,
@@ -1130,7 +1140,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           settings$skip_validation <- TRUE
           settings$force_import <- TRUE
 
-          # raveio::save_yaml(settings, comp$container$settings_path, sorted = TRUE)
+          # save_yaml(settings, comp$container$settings_path, sorted = TRUE)
           pipeline$set_settings(.list = settings)
 
 

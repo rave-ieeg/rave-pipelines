@@ -127,11 +127,11 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
 
-      ravedash::logger("Reading data loaded flag...", level = "debug")
+      ravepipeline::logger("Reading data loaded flag...", level = "debug")
 
       if(!loaded_flag){ return() }
 
-      ravedash::logger("Data read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Data read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       # old_data <- component_container$data$loaded_brain
@@ -142,12 +142,12 @@ module_server <- function(input, output, session, ...){
       #     # identical(old_data$electrode_table, loaded_data$electrode_table) &&
       #     setequal(old_data$surface_types, loaded_brain$surface_types)
       #   ) {
-      #     ravedash::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
+      #     ravepipeline::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
       #     return()
       #   }
       # }
 
-      ravedash::logger("Trying to initialize", level = "debug", use_glue = TRUE)
+      ravepipeline::logger("Trying to initialize", level = "debug", use_glue = TRUE)
 
       # TODO: reset UIs to default
       shidashi::clear_notifications()
@@ -198,7 +198,7 @@ module_server <- function(input, output, session, ...){
           utils::read.csv(info$datapath, header = TRUE)
         },
         "fst" = {
-          raveio::load_fst(info$datapath)
+          ieegio::io_read_fst(info$datapath, method = "data_table")
         },
         "xlsx" = {
           read_xlsx(info$datapath)

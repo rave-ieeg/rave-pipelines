@@ -139,7 +139,7 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
     stop("Filter ", type, " is disallowed at this stage.")
   }
 
-  ravedash::logger("Checking pre-analysis filter {type}", level = "debug", use_glue = TRUE)
+  ravepipeline::logger("Checking pre-analysis filter {type}", level = "debug", use_glue = TRUE)
 
   if( type == "fir" ) {
     type <- "fir_kaiser"

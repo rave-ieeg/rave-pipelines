@@ -17,7 +17,7 @@ module_server <- function(input, output, session, ...){
     if(!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
-    ravedash::logger_error_condition(e)
+    ravepipeline::logger_error_condition(e)
     shidashi::show_notification(
       message = e$message,
       title = "Error found!",
@@ -29,7 +29,7 @@ module_server <- function(input, output, session, ...){
     )
   }
   info_notification <- function(...) {
-    ravedash::logger(..., level = "info")
+    ravepipeline::logger(..., level = "info")
     shidashi::show_notification(
       message = paste(..., sep = ""),
       title = "Notification",
@@ -55,10 +55,10 @@ module_server <- function(input, output, session, ...){
     refs <- unique(refs)
 
     if(!length(refs)) {
-      ravedash::logger("Trying to get reference signals... No reference found.", level = "trace")
+      ravepipeline::logger("Trying to get reference signals... No reference found.", level = "trace")
       return()
     }
-    ravedash::logger("Trying to get reference signals... Available references are: ",
+    ravepipeline::logger("Trying to get reference signals... Available references are: ",
                      paste(refs, collapse = ", "), level = "trace")
 
     return(refs)
@@ -76,7 +76,11 @@ module_server <- function(input, output, session, ...){
 
     re <- local_data$reference_data[[name]]
 
-    has_wavelet <- all(subject$has_wavelet)
+    # get electrode channels for the reference channels, be careful here
+    # as not all the channels have spectro
+    ref_channels <- dipsaus::parse_svec(gsub("^ref_", "", name))
+    has_wavelets <- subject$has_wavelet[subject$electrodes %in% ref_channels]
+    has_wavelet <- all(has_wavelets)
 
     if( has_wavelet ) {
       if(all(c("voltage", "wavelet") %in% names(re))){ return(re) }
@@ -85,11 +89,17 @@ module_server <- function(input, output, session, ...){
     }
 
     re <- list()
-    inst <- raveio::new_reference(subject = subject, number = name)
+    inst <- ravecore::new_reference(subject = subject, number = name)
     re$voltage <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "voltage")
 
     if( has_wavelet ) {
-      re$wavelet <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "wavelet-coefficient")
+      tryCatch({
+        re$wavelet <- inst$load_blocks(
+          subject$blocks, simplify = FALSE,
+          type = "wavelet-coefficient")
+      }, error = function(e) {
+        ravepipeline::logger_error_condition(e, level = "warning")
+      })
     }
     local_data$reference_data[[name]] <- re
     return(re)
@@ -498,7 +508,7 @@ module_server <- function(input, output, session, ...){
 
       table <- table[order(table$Electrode), ]
 
-      raveio::safe_write_csv(table, save_path, row.names = FALSE)
+      ravecore:::safe_write_csv(table, save_path, row.names = FALSE)
 
       dipsaus::shiny_alert2(
         title = "Succeed!",
@@ -1135,7 +1145,7 @@ module_server <- function(input, output, session, ...){
   #     # Invalidate previous results (stop them because they are no longer needed)
   #     if(!is.null(local_data$results)) {
   #       local_data$results$invalidate()
-  #       ravedash::logger("Invalidating previous run", level = "trace")
+  #       ravepipeline::logger("Invalidating previous run", level = "trace")
   #     }
   #
   #
@@ -1165,11 +1175,11 @@ module_server <- function(input, output, session, ...){
   #
   #
   #     local_data$results <- results
-  #     ravedash::logger("Scheduled: ", pipeline_name, level = 'debug', reset_timer = TRUE)
+  #     ravepipeline::logger("Scheduled: ", pipeline_name, level = 'debug', reset_timer = TRUE)
   #
   #     results$promise$then(
   #       onFulfilled = function(...){
-  #         ravedash::logger("Fulfilled: ", pipeline_name, level = 'debug')
+  #         ravepipeline::logger("Fulfilled: ", pipeline_name, level = 'debug')
   #         shidashi::clear_notifications(class = "pipeline-error")
   #         local_reactives$update_outputs <- Sys.time()
   #         return(TRUE)
@@ -1177,8 +1187,8 @@ module_server <- function(input, output, session, ...){
   #       onRejected = function(e, ...){
   #         msg <- paste(e$message, collapse = "\n")
   #         if(inherits(e, "error")){
-  #           ravedash::logger(msg, level = 'error')
-  #           ravedash::logger(traceback(e), level = 'error', .sep = "\n")
+  #           ravepipeline::logger(msg, level = 'error')
+  #           ravepipeline::logger(traceback(e), level = 'error', .sep = "\n")
   #           shidashi::show_notification(
   #             message = msg,
   #             title = "Error while running pipeline", type = "danger",
@@ -1204,14 +1214,18 @@ module_server <- function(input, output, session, ...){
       if(!loaded_flag){ return() }
 
       new_subject <- pipeline$read("subject")
-      new_subject <- raveio::as_rave_subject(new_subject$subject_id)
-      new_repository <- raveio::prepare_subject_bare0(subject = new_subject, electrodes = new_subject$electrodes, reference_name = "_unsaved")
+      new_repository <- ravecore::prepare_subject_bare0(
+        subject = new_subject,
+        electrodes = new_subject$electrodes,
+        reference_name = "_unsaved",
+        auto_exclude = FALSE
+      )
 
       if(!inherits(new_repository, "rave_prepare_subject_bare0")){
-        ravedash::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_subject_bare0`. Abort initialization", level = "warning")
+        ravepipeline::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_subject_bare0`. Abort initialization", level = "warning")
         return()
       }
-      ravedash::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
@@ -1219,7 +1233,7 @@ module_server <- function(input, output, session, ...){
 
         if( !attr(loaded_flag, "force") &&
             identical(old_repository$signature, new_repository$signature) ){
-          ravedash::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
+          ravepipeline::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
       }
@@ -1237,7 +1251,7 @@ module_server <- function(input, output, session, ...){
         )
       }))
 
-      ravedash::logger("The initial reference table is generated, with {length(electrode_group)} groups.", level = "trace", use_glue = TRUE)
+      ravepipeline::logger("The initial reference table is generated, with {length(electrode_group)} groups.", level = "trace", use_glue = TRUE)
       dipsaus::updateCompoundInput2(
         session = session, inputId = "electrode_group",
         value = electrode_group, ncomp = length(electrode_group)
@@ -1279,7 +1293,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      ravedash::logger("Applying changes to electrode groups", level = "trace")
+      ravepipeline::logger("Applying changes to electrode groups", level = "trace")
 
       electrode_group <- input$electrode_group
       pipeline$set_settings(
@@ -1312,7 +1326,7 @@ module_server <- function(input, output, session, ...){
           shidashi::clear_notifications(class = ns("error_notif"))
         },
         onRejected = function(e){
-          ravedash::logger_error_condition(e)
+          ravepipeline::logger_error_condition(e)
           error_notification(e)
         }
       )
@@ -1328,7 +1342,7 @@ module_server <- function(input, output, session, ...){
       ref_tbl <- local_reactives$reference_table
       if(!is.data.frame(ref_tbl)){ return(list()) }
 
-      ravedash::logger("Gathering reference group information...",
+      ravepipeline::logger("Gathering reference group information...",
                        level = "trace")
       group_names <- unique(ref_tbl$Group)
 
@@ -1366,7 +1380,7 @@ module_server <- function(input, output, session, ...){
       channels <- gsub("^ref_", "", channels)
       channels <- dipsaus::parse_svec(channels)
 
-      ravedash::logger("Generating reference channels from ", dipsaus::deparse_svec(channels), level = "trace")
+      ravepipeline::logger("Generating reference channels from ", dipsaus::deparse_svec(channels), level = "trace")
 
       repo <- component_container$data$repository
       subject_id <- repo$subject$subject_id
@@ -1381,8 +1395,8 @@ module_server <- function(input, output, session, ...){
       progress <- dipsaus::progress2(max = 2, shiny_auto_close = TRUE, title = "Overall progress")
       progress$inc("")
 
-      raveio::with_future_parallel({
-        raveio::generate_reference(subject = subject_id, electrodes = channels)
+      ravepipeline::with_rave_parallel({
+        ravecore::generate_reference(subject = subject_id, electrodes = channels)
       })
 
 
@@ -1394,7 +1408,7 @@ module_server <- function(input, output, session, ...){
       )
       selected <- sprintf("ref_%s", dipsaus::deparse_svec(channels)) %OF% ref_choices
 
-      ravedash::logger("Updating `Reference to` ", selected, level = "trace")
+      ravepipeline::logger("Updating `Reference to` ", selected, level = "trace")
       shiny::updateSelectInput(
         session = session,
         inputId = "reference_channels",
@@ -1752,9 +1766,9 @@ module_server <- function(input, output, session, ...){
 
       ginfo$sample_rate <- sample_rate[[1]]
 
-      ravedash::logger("Current reference group is set to [{ginfo$name}]",
+      ravepipeline::logger("Current reference group is set to [{ginfo$name}]",
                        level = "trace", use_glue = TRUE)
-      ravedash::logger("Reference group [{ginfo$name}] contains electrodes [{ginfo$electrode_text}] with reference type [{ginfo$data$Type[[1]]}]", level = "trace", use_glue = TRUE)
+      ravepipeline::logger("Reference group [{ginfo$name}] contains electrodes [{ginfo$electrode_text}] with reference type [{ginfo$data$Type[[1]]}]", level = "trace", use_glue = TRUE)
       return(ginfo)
 
     }),
@@ -1789,7 +1803,7 @@ module_server <- function(input, output, session, ...){
       )
     )
     subject <- ginfo$subject
-    brain <- raveio::rave_brain(subject = subject)
+    brain <- ravecore::rave_brain(subject = subject)
 
     shiny::validate(shiny::need(!is.null(brain), message = "No 3D brain available"))
 
@@ -1839,7 +1853,7 @@ module_server <- function(input, output, session, ...){
 
       # get current type
       ref_type <- ginfo$data$Type[[1]] %OF% reference_choices
-      ravedash::logger("Triggered UI update: `Reference type` [{ref_type}]", level = "trace", use_glue = TRUE)
+      ravepipeline::logger("Triggered UI update: `Reference type` [{ref_type}]", level = "trace", use_glue = TRUE)
       shiny::updateSelectInput(
         session = session,
         inputId = "reference_type",
@@ -1851,7 +1865,7 @@ module_server <- function(input, output, session, ...){
       ref_chan <- ref_chan[startsWith(ref_chan, "ref_")]
       if(length(ref_chan)) {
         ref_chan <- ref_chan[[1]]
-        ravedash::logger("Triggered UI update: `Reference to` [{ref_chan}]", level = "trace", use_glue = TRUE)
+        ravepipeline::logger("Triggered UI update: `Reference to` [{ref_chan}]", level = "trace", use_glue = TRUE)
         shiny::updateSelectInput(
           session = session,
           inputId = "reference_channels",
@@ -1873,7 +1887,7 @@ module_server <- function(input, output, session, ...){
       #   electrode_text = dipsaus::deparse_svec(sub$Electrode)
       # )
 
-      ravedash::logger("Applying changes to reference group [{ginfo$name}]",
+      ravepipeline::logger("Applying changes to reference group [{ginfo$name}]",
                        level = "trace", use_glue = TRUE)
 
       ref_type <- input$reference_type

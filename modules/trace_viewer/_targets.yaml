@@ -1,0 +1,3 @@
+trace_viewer:
+  script: make-main.R
+  store: shared

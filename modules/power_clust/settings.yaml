@@ -1,0 +1,46 @@
+analysis_window:
+- - 0
+  - 2
+baseline__global_baseline_choice: Per frequency, trial, and electrode
+baseline__unit_of_analysis: Decibel
+baseline__windows:
+  '1':
+    window_interval:
+    - -1
+    - -0.57
+condition_groups:
+  '1':
+    group_name: All Conditions
+    group_conditions:
+    - AdriveVlast
+    - AknownVmeant
+    - AlastVknown
+    - AmeantVdrive
+    - drive_a
+    - drive_av
+    - known_a
+    - known_av
+    - known_v
+    - last_a
+    - last_av
+    - last_v
+    - meant_av
+    - meant_a
+    - meant_v
+    - drive_v
+    - press_AV
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+epoch_choice: auditory_onset
+epoch_choice__trial_ends: 2
+epoch_choice__trial_ends_rel_to_event: ~
+epoch_choice__trial_starts: -1
+epoch_choice__trial_starts_rel_to_event: ~
+frequency_range:
+- 70
+- 150
+loaded_electrodes: 13-16,24
+project_name: demo
+reference_name: default
+subject_code: DemoSubject
+zeta_threshold: 0.5

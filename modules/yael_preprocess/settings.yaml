@@ -1,0 +1,48 @@
+acpc_infile: MRI_RAW.nii.gz
+afni_path: ''
+dcm2niix_path: /opt/homebrew/Cellar/dcm2niix/1.0.20241211/bin/dcm2niix
+freesurfer_path: /Applications/freesurfer/8.0.0
+fsl_path: ''
+params:
+  nii_t1: MRI_acpc.nii.gz
+  nii_ct: CT_RAW.nii.gz
+  template_brain: ~
+  dcm2niix:
+    merge: Auto
+    float: 'Yes'
+    crop: 'No'
+  segmentation:
+    program: YAEL+recon-all
+    fresh_start: no
+  niftyreg:
+    reference: MRI_acpc.nii.gz
+    reg_type: rigid
+    interp: trilinear
+  ants:
+    reference: MRI_acpc.nii.gz
+    reg_type: Rigid
+    aff_metric: mattes
+    syn_metric: mattes
+  flirt:
+    reference: MRI_acpc.nii.gz
+    dof: 6
+    cost: mutualinfo
+    search: 90
+    searchcost: mutualinfo
+  nipy:
+    reference: MRI_acpc.nii.gz
+    clean_source: yes
+    inverse_target: yes
+    precenter_source: yes
+    reg_type: rigid
+    similarity: crl1
+    interp: pv
+    optimizer: powell
+  afni:
+    reference: MRI_acpc.nii.gz
+path_ct: rave-uploads/CT/CT_RAW.nii.gz
+path_mri: rave-uploads/MRI/MRI_reference.nii.gz
+project_name: test@bids:ds005953
+skip_coregistration: no
+skip_recon: no
+subject_code: '01'

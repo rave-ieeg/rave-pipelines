@@ -35,9 +35,16 @@ check_data_loaded <- function(first_time = FALSE){
     return(FALSE)
   }
 
-  subject <-  raveio::RAVESubject$new(project_name = project_name,
-                                      subject_code = subject_code,
-                                      strict = FALSE)
+  subject <-  ravecore::RAVESubject$new(project_name = project_name,
+                                        subject_code = subject_code,
+                                        strict = FALSE)
+
+  repository <- ravecore::prepare_subject_bare0(
+    subject = subject,
+    electrodes = subject$electrodes,
+    reference_name = "_unsaved",
+    auto_exclude = FALSE
+  )
 
   # If not imported at all, then returns FALSE
   if(any(subject$preprocess_settings$data_imported)) {
@@ -55,9 +62,9 @@ check_data_loaded <- function(first_time = FALSE){
 
 # Change the logger level when `debug` is enabled
 if(exists('debug', inherits = FALSE) && isTRUE(get('debug'))){
-  ravedash::logger_threshold("trace", module_id = module_id)
+  ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
-  ravedash::logger_threshold("info", module_id = module_id)
+  ravepipeline::logger_threshold("info", module_id = module_id)
 }
 
 

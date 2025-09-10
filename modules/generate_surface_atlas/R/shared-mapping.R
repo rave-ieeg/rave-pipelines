@@ -11,7 +11,7 @@ map_to_template <- function(subject, method = c("high-density"), ...) {
 
 map_to_template_thinfilm <- function(subject, template = "fsaverage", volumetric_transform = "affine",
                                      interpolator = 0.3, save_to = NULL, flip_hemisphere = FALSE, n_segments = c(16, 16), ...) {
-  subject <- raveio::as_rave_subject(subject, strict = FALSE)
+  subject <- ravecore::as_rave_subject(subject, strict = FALSE)
   # Make sure fspath exists
   freesurfer_path <- subject$freesurfer_path
   tryCatch({
@@ -19,7 +19,7 @@ map_to_template_thinfilm <- function(subject, template = "fsaverage", volumetric
   }, error = function(e) {
     stop("Check FreeSurfer folder failed for subject ", subject$subject_id, ". Please make sure the FreeSurfer folder `fs` exists under folder [", subject$imaging_path, "] and the FreeSurfer pipeline is finished successfully")
   })
-  mapped_table <- raveio::transform_thinfilm_to_mni152(
+  mapped_table <- ravecore::transform_thinfilm_to_mni152(
     subject = subject,
     volumetric_transform = volumetric_transform,
     interpolator = interpolator,
@@ -45,14 +45,14 @@ map_to_template_thinfilm <- function(subject, template = "fsaverage", volumetric
 
   if(length(save_to) == 1) {
     if(isTRUE(save_to)) {
-      raveio::save_meta2(
+      ravecore::save_meta2(
         meta_type = "electrodes",
         project_name = subject$project_name,
         subject_code = subject$subject_code,
         data = electrode_table
       )
     } else if(is.character(save_to)) {
-      raveio::safe_write_csv(
+      ravecore:::safe_write_csv(
         x = sub_table,
         file = file.path(subject$meta_path, save_to),
         quiet = FALSE

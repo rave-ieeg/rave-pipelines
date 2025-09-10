@@ -20,12 +20,12 @@ local_data  <- dipsaus::fastmap2()
 check_data_loaded <- function(first_time = FALSE){
 
   if(isTRUE(ravepipeline::raveio_getopt("jupyter_disabled"))){
-    ravedash::logger("Jupyter server is disabled", level = "error", use_glue = TRUE)
+    ravepipeline::logger("Jupyter server is disabled", level = "error", use_glue = TRUE)
     return(FALSE)
   }
   if(!length(local_data$token)) {
-    ravedash::logger("Jupyter token not found. Trying to obtain it")
-    settings <- raveio::load_yaml("jupyter.yaml")
+    ravepipeline::logger("Jupyter token not found. Trying to obtain it")
+    settings <- yaml::read_yaml("jupyter.yaml")
     local_data$host <- settings$host
     local_data$port <- settings$port
     servers <- rpymat::jupyter_server_list()
@@ -39,7 +39,7 @@ check_data_loaded <- function(first_time = FALSE){
     return(TRUE)
   }
   session$sendCustomMessage("shidashi.show_header", list())
-  ravedash::logger("No active Jupyter server is detected", level = "error", use_glue = TRUE)
+  ravepipeline::logger("No active Jupyter server is detected", level = "error", use_glue = TRUE)
   return(FALSE)
 }
 
@@ -48,8 +48,8 @@ check_data_loaded <- function(first_time = FALSE){
 
 if(exists('debug') && isTRUE(get('debug'))){
   assign(".module_debug", environment(), envir = globalenv())
-  ravedash::logger_threshold("trace", module_id = module_id)
+  ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
-  ravedash::logger_threshold("info", module_id = module_id)
+  ravepipeline::logger_threshold("info", module_id = module_id)
 }
 

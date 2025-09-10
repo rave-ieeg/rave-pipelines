@@ -1,0 +1,267 @@
+bibentry(bibtype = "Article",
+         key          = "wang2023yael",
+         title        = "{YAEL}: Your advanced electrode localizer",
+         author       = c(as.person("Zhengjia Wang"),
+                          as.person("John F. Magnotti"),
+                          as.person("Xiang Zhang"),
+                          as.person("Michael S. Beauchamp")),
+         header       = "[YAEL] To cite this module in publications use:",
+         year         = "2023",
+         volume       = "10",
+         number       = "10",
+         doi          = "10.1523/ENEURO.0328-23.2023",
+         publisher    = "Society for Neuroscience",
+         URL          = "https://yael.wiki",
+         journal      = "eNeuro",
+         textVersion  = "[1] Wang, Z., Magnotti, J.F., Zhang, X., and Beauchamp, M.S., YAEL: Your advanced electrode localizer"
+)
+
+
+bibentry(bibtype = "Article",
+         key          = "magnotti2020rave",
+         title        = "{RAVE}: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data",
+         author       = c(as.person("John F. Magnotti"),
+                          as.person("Zhengjia Wang"),
+                          as.person("Michael S. Beauchamp")),
+         journal      = "NeuroImage",
+         year         = "2020",
+         volume       = "223",
+         pages        = "117341",
+         doi          = "10.1016/j.neuroimage.2020.117341",
+         header       = "[RAVE] To cite RAVE:",
+         textVersion  = "[2] Magnotti, J.F., Wang, Z. and Beauchamp, M.S., 2020. RAVE: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data. NeuroImage, 223, p.117341."
+)
+
+bibentry(bibtype = "Article",
+          key          = "li2016",
+         title        = "The first step for neuroimaging data analysis: {DICOM} to {NIfTI} conversion",
+         author       = c(as.person("Xiangrui Li"),
+                          as.person("Paul S. Morgan"),
+                          as.person("John Ashburner"),
+                          as.person("Jolinda Smith"),
+                          as.person("Christopher Rorden")),
+         journal      = "Journal of Neuroscience Methods",
+         year         = "2016",
+         volume       = "264",
+         pages        = "47--56",
+         doi          = "10.1016/j.jneumeth.2016.03.001",
+         header       = "[dcm2niix]",
+         textVersion  = "[3][dcm2niix] Li, X., Morgan, P.S., Ashburner, J., Smith, J. and Rorden, C., 2016. The first step for neuroimaging data analysis: DICOM to NIfTI conversion. Journal of neuroscience methods, 264, pp.47-56."
+)
+
+
+
+bibentry(bibtype = "Article",
+          key          = "dale1999",
+         title = "Cortical surface-based analysis. {I}. {Segmentation} and surface reconstruction",
+         journal = "NeuroImage",
+         year = "1999",
+         volume = "9",
+         number = "2",
+         pages = "179--194",
+         doi = "10.1006/nimg.1998.0395",
+         author = c(as.person("A. M. Dale"),
+                    as.person("B. Fischl"),
+                    as.person("M. I. Sereno")),
+         header       = "[FreeSurfer] If you use FreeSurfer (recon-all), cite one of the followings:",
+         textVersion = "[4][FreeSurfer] Dale, A.M., Fischl, Bruce, Sereno, M.I., (1999). Cortical Surface-Based Analysis I: Segmentation and Surface\nReconstruction. NeuroImage 9(2):179-194"
+)
+
+
+bibentry(
+  bibtype = "Article",
+  key          = "fischl1999",
+  title = "Cortical surface-based analysis. {II}: {Inflation}, flattening, and a surface-based coordinate system",
+  journal = "NeuroImage",
+  year = "1999",
+  volume = "9",
+  number = "2",
+  pages = "195--207",
+  doi = "10.1006/nimg.1998.0396",
+  author = c(
+    as.person("B. Fischl"),
+    as.person("M. I. Sereno"),
+    as.person("A. M. Dale")
+  ),
+  header       = "[FreeSurfer]",
+  textVersion = "[5][FreeSurfer] Fischl, B.R., Sereno, M.I.,Dale, A. M. (1999) Cortical Surface-Based Analysis II: Inflation, Flattening, and Surface-Based Coordinate System. NeuroImage, 9, 195-207."
+)
+
+
+bibentry(
+  bibtype = "Article",
+  key          = "fischl2002",
+  title = "Whole brain segmentation: automated labeling of neuroanatomical structures in the human brain",
+  journal = "Neuron",
+  year = "2002",
+  volume = "33",
+  number = "3",
+  pages = "341--355",
+  doi = "10.1016/s0896-6273(02)00569-x",
+  author = c(
+    as.person("Bruce Fischl"),
+    as.person("David H. Salat"),
+    as.person("Evelina Busa"),
+    as.person("Marilyn Albert"),
+    as.person("Megan Dieterich"),
+    as.person("Christian Haselgrove"),
+    as.person("Andre van der Kouwe"),
+    as.person("Ron Killiany"),
+    as.person("David Kennedy"),
+    as.person("Shuna Klaveness"),
+    as.person("Albert Montillo"),
+    as.person("Nikos Makris"),
+    as.person("Bruce Rosen"),
+    as.person("Anders M. Dale")
+  ),
+  header       = "[FreeSurfer]",
+  textVersion = "[6][FreeSurfer] Fischl B, Salat DH, Busa E, Albert M, Dieterich M, Haselgrove C,van der Kouwe A, Killiany R, Kennedy D, Klaveness S, Montillo A,Makris N, Rosen B, Dale AM. Whole brain segmentation: automatedlabeling of neuroanatomical structures in the humanbrain. Neuron. 2002 Jan 31;33(3):341-55."
+)
+
+bibentry(
+  bibtype = "Article",
+  key          = "fischl2002segment",
+  title = "Whole brain segmentation: automated labeling of neuroanatomical structures in the human brain",
+  journal = "Neuron",
+  year = "2002",
+  volume = "33",
+  number = "3",
+  pages = "341--355",
+  doi = "10.1016/s0896-6273(02)00569-x",
+  author = c(
+    as.person("Bruce Fischl"),
+    as.person("David H. Salat"),
+    as.person("Evelina Busa"),
+    as.person("Marilyn Albert"),
+    as.person("Megan Dieterich"),
+    as.person("Christian Haselgrove"),
+    as.person("Andre van der Kouwe"),
+    as.person("Ron Killiany"),
+    as.person("David Kennedy"),
+    as.person("Shuna Klaveness"),
+    as.person("Albert Montillo"),
+    as.person("Nikos Makris"),
+    as.person("Bruce Rosen"),
+    as.person("Anders M. Dale")
+  ),
+  header       = "[FreeSurfer]",
+  textVersion = "[6][FreeSurfer] Fischl B, Salat DH, Busa E, Albert M, Dieterich M, Haselgrove C,van der Kouwe A, Killiany R, Kennedy D, Klaveness S, Montillo A,Makris N, Rosen B, Dale AM. Whole brain segmentation: automatedlabeling of neuroanatomical structures in the humanbrain. Neuron. 2002 Jan 31;33(3):341-55."
+)
+
+bibentry(bibtype = "Article",
+        key          = "fischl2004",
+         title = "Automatically parcellating the human cerebral cortex",
+         journal = "Cerebral Cortex",
+         year = "2004",
+         volume = "14",
+         number = "1",
+         pages = "11--22",
+         doi = "10.1093/cercor/bhg087",
+         author = c(
+           as.person("Bruce Fischl"),
+           as.person("André van der Kouwe"),
+           as.person("Christophe Destrieux"),
+           as.person("Eric Halgren"),
+           as.person("Florent Ségonne"),
+           as.person("David H. Salat"),
+           as.person("Evelina Busa"),
+           as.person("Larry J. Seidman"),
+           as.person("Jill Goldstein"),
+           as.person("David Kennedy"),
+           as.person("Verne Caviness"),
+           as.person("Nikos Makris"),
+           as.person("Bruce Rosen"),
+           as.person("Anders M. Dale")
+         ),
+         header       = "[FreeSurfer]",
+         textVersion = "[7][FreeSurfer] Bruce Fischl, Andre van der Kouwe, Christophe Destrieux, EricHalgren, Florent Segonne, David H. Salat, Evelina Busa, LarryJ. Seidman, Jill Goldstein, David Kennedy, Verne Caviness, NikosMakris, Bruce Rosen, and Anders M. Dale.  Automatically Parcellatingthe Human Cerebral Cortex. Cerebral Cortex January 2004; 14:11-22."
+)
+
+
+bibentry(bibtype = "Manual",
+        key = "clayden2023",
+         title = "{RNiftyReg}: Image Registration Using the 'NiftyReg' Library",
+         year = "2023",
+         note = "R package version 2.8.0",
+         url = "https://CRAN.R-project.org/package=RNiftyReg",
+         author = c(
+           person("Jon", "Clayden", role=c("cre","aut"), email="code@clayden.org", comment=c(ORCID="0000-0002-6608-0619")),
+           person("Marc", "Modat", role="aut"),
+           person("Benoit", "Presles", role="aut"),
+           person("Thanasis", "Anthopoulos", role="aut"),
+           person("Pankaj", "Daga", role="aut")
+         ),
+         header       = "[RNiftyReg] Manual",
+         textVersion = "[8][RNiftyReg] Clayden J, Modat M, Presles B, Anthopoulos T, Daga P (2023). RNiftyReg: Image Registration Using the 'NiftyReg' Library. R package version 2.8.0, https://CRAN.R-project.org/package=RNiftyReg ."
+)
+
+
+bibentry(bibtype = "Article",
+        key = "modat2014",
+         title = "Global image registration using a symmetric block-matching approach",
+         journal = "Journal of Medical Imaging",
+         volume = "1",
+         number = "2",
+         year = "2014",
+         pages = "024003--024003",
+         doi = "10.1117/1.JMI.1.2.024003",
+         author = c(
+           as.person("Marc Modat"),
+           as.person("David M. Cash"),
+           as.person("Pankaj Daga"),
+           as.person("Gavin P. Winston"),
+           as.person("John S Duncan"),
+           as.person("Sébastien Ourselin")
+         ),
+         header       = "[NiftyReg]",
+         textVersion = "[9][NiftyReg] Modat, et al. (2014). Global image registration using a symmetric block- matching approach. Journal of Medical Imaging, 1(2), 024003–024003."
+)
+
+bibentry(bibtype = "Article",
+        key = "tustison2021",
+         title = "The {ANTsX} ecosystem for quantitative biological and medical imaging",
+         journal = "Scientific Reports",
+         year = "2021",
+         volume = "11",
+         number = "1",
+         pages = "9068",
+         doi = "10.1038/s41598-021-87564-6",
+         author = c(
+           as.person("Nicholas J. Tustison"),
+           as.person("Philip A. Cook"),
+           as.person("Andrew J. Holbrook"),
+           as.person("Hans J. Johnson"),
+           as.person("John Muschelli"),
+           as.person("Gabriel A. Devenyi"),
+           as.person("Jeffrey T. Duda"),
+           as.person("Sandhitsu R. Das"),
+           as.person("Nicholas C. Cullen"),
+           as.person("Daniel L. Gillen"),
+           as.person("Michael A. Yassa"),
+           as.person("James R. Stone"),
+           as.person("James C. Gee"),
+           as.person("Brian B. Avants")
+         ),
+         header       = "[ANTsPy, ANTsPyNet]",
+         textVersion = "[10][ANTsPy] Tustison, N.J., Cook, P.A., Holbrook, A.J., Johnson, H.J., Muschelli, J., Devenyi, G.A., Duda, J.T., Das, S.R., Cullen, N.C., Gillen, D.L. and Yassa, M.A., 2021. The ANTsX ecosystem for quantitative biological and medical imaging. Scientific reports, 11(1), p.9068."
+)
+
+bibentry(
+  bibtype = "Article",
+  key = "jenkinson2002",
+  title = "Improved optimization for the robust and accurate linear registration and motion correction of brain images",
+  journal = "NeuroImage",
+  year = "2002",
+  volume = "17",
+  number = "2",
+  pages = "825--841",
+  doi = "10.1016/s1053-8119(02)91132-8",
+  author = c(
+    as.person("Mark Jenkinson"),
+    as.person("Peter Bannister"),
+    as.person("Michael Brady"),
+    as.person("Stephen Smith")
+  ),
+  header       = "[FSL-FLIRT]",
+  textVersion = "[11][FSL-FLIRT] Jenkinson, M., Bannister, P., Brady, M. and Smith, S., 2002. Improved optimization for the robust and accurate linear registration and motion correction of brain images. Neuroimage, 17(2), pp.825-841."
+)

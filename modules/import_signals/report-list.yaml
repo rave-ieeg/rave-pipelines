@@ -1,0 +1,4 @@
+- name: config
+  label: "Subject Import Configurations"
+  entry: status.Rmd
+  fork_policy: default

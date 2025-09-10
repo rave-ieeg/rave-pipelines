@@ -33,7 +33,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
     class = "container",
     shiny::fluidRow(
       shiny::column(
-        width = 6L,
+        width = 6L, offset = 3L,
         ravedash::input_card(
           title = "Data Selection",
           class_header = "",
@@ -213,7 +213,7 @@ loader_server <- function(input, output, session, ...){
           # Let the module know the data has been changed
           ravedash::fire_rave_event('data_changed', Sys.time())
 
-          ravedash::logger("Data has been loaded!")
+          ravepipeline::logger("Data has been loaded!")
 
           # Close the alert
           dipsaus::close_alert2()

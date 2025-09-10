@@ -6,7 +6,7 @@ module_server <- function(input, output, session, ...){
     if(!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
-    ravedash::logger_error_condition(e)
+    ravepipeline::logger_error_condition(e)
     Sys.sleep(0.1)
     shidashi::show_notification(
       message = e$message,
@@ -19,7 +19,7 @@ module_server <- function(input, output, session, ...){
     )
   }
   info_notification <- function(...) {
-    ravedash::logger(..., level = "info")
+    ravepipeline::logger(..., level = "info")
     shidashi::show_notification(
       message = paste(..., sep = ""),
       title = "Notification",
@@ -520,7 +520,7 @@ module_server <- function(input, output, session, ...){
         error_notification(cmd$condition)
         return()
       }
-      ravedash::logger("Running dcm2niix from console - Importing T1 MRI", level = "info")
+      ravepipeline::logger("Running dcm2niix from console - Importing T1 MRI", level = "info")
 
       run_command_pipeline(cmd = cmd, wait = FALSE, title = "Importing T1")
     }),
@@ -535,7 +535,7 @@ module_server <- function(input, output, session, ...){
         error_notification(cmd$condition)
         return()
       }
-      ravedash::logger("Running dcm2niix from console - Importing CT", level = "info")
+      ravepipeline::logger("Running dcm2niix from console - Importing CT", level = "info")
 
       run_command_pipeline(cmd = cmd, wait = FALSE, title = "Importing CT")
     }),
@@ -587,7 +587,7 @@ module_server <- function(input, output, session, ...){
         error_notification(cmd$condition)
         return()
       }
-      ravedash::logger("Running FreeSurfer recon-all from console", level = "info")
+      ravepipeline::logger("Running FreeSurfer recon-all from console", level = "info")
       run_command_pipeline(cmd = cmd, wait = FALSE, title = "FreeSurfer recon-all")
     }),
     input$btn_recon_run,
@@ -687,7 +687,7 @@ module_server <- function(input, output, session, ...){
         error_notification(cmd$condition)
         return()
       }
-      ravedash::logger("Running {bin} from console", level = "info", use_glue = TRUE)
+      ravepipeline::logger("Running {bin} from console", level = "info", use_glue = TRUE)
 
       # set flag so rpymat is not checked
       check_rpymat <- FALSE
@@ -731,7 +731,7 @@ module_server <- function(input, output, session, ...){
         error_notification(cmd$condition)
         return()
       }
-      ravedash::logger("Running {bin} from console", level = "info", use_glue = TRUE)
+      ravepipeline::logger("Running {bin} from console", level = "info", use_glue = TRUE)
 
       # set flag so rpymat is not checked
       if(dipsaus::get_os() == "windows") {

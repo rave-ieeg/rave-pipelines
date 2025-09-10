@@ -19,7 +19,7 @@ rave_option_server <- function(input, output, session){
 
     raw_dir <- ravepipeline::raveio_getopt("raw_data_dir", default = "<Missing>")
     data_dir <- ravepipeline::raveio_getopt("data_dir", default = "<Missing>")
-    cache_dir <- raveio::cache_root()
+    cache_dir <- ravecore::cache_root()
 
     healthy_directory <- function(path){
       ifelse(dir.exists(path), "[healthy]", "[unable to reach]")
@@ -87,27 +87,30 @@ rave_option_server <- function(input, output, session){
       package_ver("ravetools"), ", ",
 
       "\n    ",
-      package_ver("filearray"), ", ",
-      package_ver("shidashi"), ", ",
-      package_ver("future"), ", ",
+      package_ver("ravepipeline"), ", ",
+      package_ver("ravecore"), ", ",
+      package_ver("ravedash"), ", ",
+
+      "\n    ",
+      package_ver("threeBrain"), ", ",
+      package_ver("ieegio"), ", ",
+      package_ver("readNSx"), ", ",
 
       "\n    ",
       package_ver("rpymat"), ", ",
-      package_ver("dipsaus"), ", ",
-      package_ver("threeBrain"), ", ",
-
-      "\n    ",
-      package_ver("shiny"), ", ",
-      package_ver("targets"), ", ",
-      package_ver("raveio"), ", ",
-
-      "\n    ",
-      package_ver("ravedash"), ", ",
-      package_ver("readNSx"), ", ",
       package_ver("rpyANTs"), ", ",
+      package_ver("filearray"), ", ",
 
       "\n    ",
+      package_ver("shidashi"), ", ",
+      package_ver("dipsaus"), ", ",
+      package_ver("shiny"), ", ",
+
+      "\n    ",
+      package_ver("targets"), ", ",
       package_ver("freesurferformats"), ", ",
+
+      "\n    ",
       package_ver("rutabaga"), ", ",
       package_ver("ravebuiltins"), ", ",
 

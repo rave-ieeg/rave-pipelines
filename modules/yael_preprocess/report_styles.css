@@ -1,0 +1,42 @@
+<style>
+html {
+  scroll-behavior: smooth;
+}
+
+d-article.d-article-with-toc {
+  contain: none;
+}
+
+.d-article-with-toc .d-contents-float {
+  position: fixed;
+  top: 3em;
+  z-index: 50;
+  left: 0;
+  height: calc( 100vh - 6em );
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+#TOC {
+  background: #ebebeb;
+  padding: 10px;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+/* Hide the ToC when resized to mobile or tablet:  480px, 768px, 900px */
+@media screen and (max-width: 1600px) {
+  .d-article-with-toc .d-contents-float {
+    position: relative;
+    height: auto;
+    top: unset;
+  }
+}
+
+.l-screen,
+.l-screen-inset {
+  z-index: 60;
+  position: relative;
+}
+</style>

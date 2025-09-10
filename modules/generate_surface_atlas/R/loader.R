@@ -114,7 +114,7 @@ loader_server <- function(input, output, session, ...){
           Sys.sleep(0.5)
           dipsaus::close_alert2()
           ravedash::fire_rave_event('data_changed', Sys.time())
-          ravedash::logger("Data has been loaded loaded")
+          ravepipeline::logger("Data has been loaded loaded")
 
         },
         error = function(e) {

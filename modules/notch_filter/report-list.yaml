@@ -1,4 +1,4 @@
 - name: diagnostics
   label: Notch Filter Diagnostic Plots
-  entry: diagnostics.Rmd
+  entry: report-diagnostics.Rmd
   fork_policy: default

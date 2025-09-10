@@ -38,9 +38,7 @@ rm(._._env_._.)
         }), deps = "settings"), load_subject = targets::tar_target_raw(name = "subject",
         command = quote({
             .__target_expr__. <- quote({
-                stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", project_name))
-                stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", subject_code))
-                subject <- raveio::RAVESubject$new(project_name = project_name,
+                subject <- ravecore::RAVESubject$new(project_name = project_name,
                   subject_code = subject_code)
                 print(subject)
             })
@@ -54,9 +52,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave-subject",
             target_export = "subject", target_expr = quote({
                 {
-                  stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", project_name))
-                  stopifnot(grepl("^[a-zA-Z0-9_]{1,}$", subject_code))
-                  subject <- raveio::RAVESubject$new(project_name = project_name,
+                  subject <- ravecore::RAVESubject$new(project_name = project_name,
                     subject_code = subject_code)
                   print(subject)
                 }
@@ -66,7 +62,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), clear_cache = targets::tar_target_raw(name = "clear_cache",
         command = quote({
             .__target_expr__. <- quote({
-                clear_cache <- raveio::clear_cached_files(subject_code = subject$subject_code)
+                clear_cache <- ravecore::clear_cached_files(subject_code = subject$subject_code)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -78,7 +74,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "clear_cache", target_expr = quote({
                 {
-                  clear_cache <- raveio::clear_cached_files(subject_code = subject$subject_code)
+                  clear_cache <- ravecore::clear_cached_files(subject_code = subject$subject_code)
                 }
                 clear_cache
             }), target_depends = "subject"), deps = "subject",
@@ -246,7 +242,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), run_wavelet = targets::tar_target_raw(name = "wavelet_params",
         command = quote({
             .__target_expr__. <- quote({
-                wavelet_params <- raveio:::run_wavelet(subject = subject,
+                wavelet_params <- ravecore::run_wavelet(subject = subject,
                   electrodes = notch_filtered_electrodes, freqs = kernels$freqs,
                   cycles = kernels$cycles, target_sample_rate = target_sample_rate,
                   kernels_precision = kernels$precision, pre_downsample = pre_downsample,
@@ -262,7 +258,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
             target_export = "wavelet_params", target_expr = quote({
                 {
-                  wavelet_params <- raveio:::run_wavelet(subject = subject,
+                  wavelet_params <- ravecore::run_wavelet(subject = subject,
                     electrodes = notch_filtered_electrodes, freqs = kernels$freqs,
                     cycles = kernels$cycles, target_sample_rate = target_sample_rate,
                     kernels_precision = kernels$precision, pre_downsample = pre_downsample,

@@ -37,7 +37,7 @@ module_server <- function(input, output, session, ...){
       project_name <- pipeline$get_settings("project_name")
       subject_code <- pipeline$get_settings("subject_code")
 
-      subject <- raveio::RAVESubject$new(project_name = project_name,
+      subject <- ravecore::RAVESubject$new(project_name = project_name,
                                          subject_code = subject_code,
                                          strict = FALSE)
       local_data$subject <- subject
@@ -98,7 +98,7 @@ module_server <- function(input, output, session, ...){
           time = epoch$Time
         )
       }, error = function(e){
-        ravedash::logger_error_condition(e)
+        ravepipeline::logger_error_condition(e)
         error_notification(e)
       })
 
@@ -123,13 +123,30 @@ module_server <- function(input, output, session, ...){
       }
       shidashi::clear_notifications(class = ns("error_notif"))
 
+      dipsaus::shiny_alert2(
+        title = "Loading...",
+        text = "Loading file(s): depending on the file types, the loading time varies. Please be patient",
+        icon = "info",
+        auto_close = FALSE,
+        buttons = FALSE,
+        session = session
+      )
+      on.exit({
+        Sys.sleep(0.5)
+        dipsaus::close_alert2(session = session)
+      })
+
       if(startsWith(epoch_file, "[Channel")) {
         aux_channel <- as.integer(gsub("[^0-9]", "", epoch_file))
-        repository <- raveio::prepare_subject_with_blocks(subject = subject, electrodes = aux_channel, blocks = block, raw = TRUE, time_frequency = FALSE, signal_type = "Auxiliary")
-        voltage <- repository$block_data[[block]]$voltage
+        repository <- ravecore::prepare_subject_raw_voltage_with_blocks(
+          subject = subject,
+          electrodes = aux_channel,
+          blocks = block
+        )
+        voltage <- repository$raw_voltage[[block]]$Auxiliary
         local_reactives$epoch_header <- list(
           header = list(
-            voltage = subset(voltage$data, Electrode ~ Electrode == aux_channel, drop = TRUE),
+            voltage = unname(subset(voltage$data, Electrode ~ Electrode == aux_channel, drop = TRUE)),
             sample_rate = voltage$sample_rate
           ),
           type = "Imported"
@@ -139,35 +156,67 @@ module_server <- function(input, output, session, ...){
       } else {
         epoch_channel_file <- file.path(subject$preprocess_settings$raw_path, input$block, epoch_file)
         if(length(epoch_channel_file) != 1 || !file.exists(epoch_channel_file)) {
+          epoch_channel_file <- file.path(subject$preprocess_settings$raw_path2, epoch_file)
+        }
+        if(length(epoch_channel_file) != 1 || !file.exists(epoch_channel_file)) {
           error_notification(list(message = "Epoch channel file is invalid"))
         }
 
         # read signal
         if(endsWith(tolower(epoch_channel_file), "edf")) {
-          header <- raveio::read_edf_header(epoch_channel_file)
-          varnames_choices <- header$sHeaders$label
+
+          temporary_path <- file.path(subject$cache_path, 'edf')
+          # ravecore import code
+          # header <- ieegio::read_edf(
+          #   epoch_channel_file,
+          #   extract_path = temporary_path,
+          #   header_only = FALSE,
+          #   cache_ok = TRUE,
+          #   verbose = TRUE
+          # )
+
+          header <- ieegio::read_edf(
+            epoch_channel_file,
+            extract_path = nullfile(),
+            header_only = TRUE,
+            cache_ok = TRUE,
+            verbose = TRUE
+          )
+          header$source_path <- epoch_channel_file
+          header$cache_path <- temporary_path
+
+          varnames_choices <- header$channel_table$Label
           varnames <- sprintf("DC%d", 1:12) %OF% varnames_choices
           local_reactives$epoch_header <- list(
             header = header,
             type = "EDF"
           )
         } else if(endsWith(tolower(epoch_channel_file), "nev")) {
-          header <- raveio::BlackrockFile$new(path = epoch_channel_file, block = block)
-          varnames_choices <- sprintf(
-            "Channel %d [%s] (%s)",
-            header$electrode_table$Electrode,
-            header$electrode_table$Label,
-            header$electrode_table$NSType
+
+          temporary_path <- ravepipeline::dir_create2(file.path(subject$cache_path, 'neuroevent'))
+          digest <- ravepipeline::digest(file = epoch_channel_file)
+          header <- ieegio::read_nsx(
+            file = epoch_channel_file,
+            extract_path = file.path(temporary_path, digest),
+            header_only = FALSE, include_waveform = FALSE,
+            cache_ok = TRUE,
+            verbose = TRUE
           )
-          sel <- header$electrode_table$NSType == "ns5"
+
+          varnames_choices <- sprintf(
+            "Channel %d [%s]",
+            header$channel_table$original_channel,
+            header$channel_table$name
+          )
+          sel <- order(header$channel_table$sampling_frequency, decreasing = TRUE)[[1]]
           varnames <- varnames_choices[sel] %OF% varnames_choices
           local_reactives$epoch_header <- list(
             header = header,
             type = "NEV"
           )
         } else {
-          header <- raveio::read_mat2(epoch_channel_file, ram = FALSE)
-          nm <- raveio:::guess_raw_trace(header, electrodes = subject$electrodes)
+          header <- ravecore:::read_mat2(epoch_channel_file, ram = FALSE)
+          nm <- ravecore:::guess_raw_trace(header, electrodes = subject$electrodes)
           varnames_choices <- names(header)
           varnames <- c(nm, "analogTraces") %OF% varnames_choices
           local_reactives$epoch_header <- list(
@@ -209,15 +258,20 @@ module_server <- function(input, output, session, ...){
       switch(
         type,
         "EDF" = {
-          sample_rate <- header$sampleRate2[header$sHeaders == input$varname]
+          sample_rate <- header$channel_table$SampleRate[
+            header$channel_table$Label == input$varname
+          ]
         },
         "NEV" = {
-          # "Channel %d [%s] (%s)"
-          # get ns type
-          m <- gregexpr("(ns[0-9])\\)$", input$varname)[[1]]
-          nstype <- substr(input$varname, start = m, stop = nchar(input$varname) - 1)
-          if(nstype %in% names(header$sample_rates)) {
-            sample_rate <- header$sample_rates[[nstype]]
+          # "Channel %d [%s]"
+          varnames_choices <- sprintf(
+            "Channel %d [%s]",
+            header$channel_table$original_channel,
+            header$channel_table$name
+          )
+          sel <- varnames_choices == input$varname
+          if(any(sel)) {
+            sample_rate <- header$channel_table$sampling_frequency[sel]
           } else {
             sample_rate <- 2000
           }
@@ -237,11 +291,11 @@ module_server <- function(input, output, session, ...){
           efile <- file.path(subject$preprocess_path, "voltage", sprintf("electrode_%s.h5", e))
           if(
             !file.exists(efile) ||
-            !raveio::h5_valid(efile) ||
-            !sprintf("raw/%s", block) %in% gsub("^/", "", raveio::h5_names(efile))
+            !ieegio::io_h5_valid(efile) ||
+            !sprintf("raw/%s", block) %in% gsub("^/", "", ieegio::io_h5_names(efile))
           ){ return() }
 
-          signal_len <- length(raveio::load_h5(efile, sprintf("raw/%s", block), ram = FALSE))
+          signal_len <- length(ieegio::io_read_h5(efile, sprintf("raw/%s", block), ram = FALSE))
           sample_rate <- dlen /signal_len * subject$raw_sample_rates[subject$electrodes == e]
         },
         "Imported" = {
@@ -292,6 +346,15 @@ module_server <- function(input, output, session, ...){
         include.dirs = FALSE, all.files = FALSE,
         ignore.case = TRUE, no.. = TRUE
       )
+      if(!length(epoch_files)) {
+        block_path <- subject$preprocess_settings$raw_path2
+        epoch_files <- list.files(
+          block_path, pattern = ".(h5|mat|edf|pd|aud|nev)",
+          full.names = FALSE, recursive = TRUE,
+          include.dirs = FALSE, all.files = FALSE,
+          ignore.case = TRUE, no.. = TRUE
+        )
+      }
       # also include auxiliary channels
       aux_channels <- subject$electrodes[subject$electrode_types %in% "Auxiliary"]
       if(length(aux_channels)) {
@@ -345,7 +408,6 @@ module_server <- function(input, output, session, ...){
       type <- epoch_header$type
       header <- epoch_header$header
 
-      raveio <- asNamespace("raveio")
       switch(
         type,
         "EDF" = {
@@ -356,21 +418,26 @@ module_server <- function(input, output, session, ...){
             autohide = FALSE, class = ns("loading_notif")
           )
 
-          idx <- which(header$sHeaders$label == varname)
-          s <- raveio$read_edf_signal2(header$fileName, convert_volt = NA,
-                                       signal_numbers = idx)
-          s <- s$get_signal(idx)
-          s <- s$signal
-
+          edf_cache <- ieegio::read_edf(
+            con = header$source_path,
+            extract_path = ravepipeline::dir_create2(header$cache_path),
+            header_only = FALSE,
+            cache_ok = TRUE
+          )
+          channel <- edf_cache$get_channel(varname)
+          s <- channel$value
           shidashi::clear_notifications(class = ns("loading_notif"))
         },
         "NEV" = {
-          m <- gregexec("^Channel ([0-9]+)\\ ", text = varname, ignore.case = TRUE)[[1]]
-          ml <- attr(m, "match.length")
-          channel <- substr(varname, m[[2]], m[[2]] + ml[[2]] - 1)
-          channel <- as.integer(channel)
-          header$refresh_data(verbose = TRUE)
-          s <- header$get_electrode(channel)
+          # "Channel %d [%s]"
+          varnames_choices <- sprintf(
+            "Channel %d [%s]",
+            header$channel_table$original_channel,
+            header$channel_table$name
+          )
+          channel <- header$channel_table$original_channel[varnames_choices == varname][[1]]
+          channel_data <- header$get_channel(channel)
+          s <- channel_data$value
         },
         "MAT" = {
           s <- header[[varname]][drop = TRUE]
@@ -966,7 +1033,7 @@ module_server <- function(input, output, session, ...){
         subject <- local_data$subject
 
         path <- file.path(subject$meta_path, get_epoch_filename())
-        raveio::safe_write_csv(tbl, path, row.names = FALSE)
+        ravecore:::safe_write_csv(tbl, path, row.names = FALSE)
       }
     }
   )

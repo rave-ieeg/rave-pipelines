@@ -13,13 +13,15 @@ module_server <- function(input, output, session, ...){
   # get server tools to tweek
   # ravedash::module_server_common(module_id = module_id, check_data_loaded = check_data_loaded, )
   server_tools <- ravedash::get_default_handlers(session = session)
+  server_registry <- ravedash::register_rave_session()
+  report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
 
   error_notification <- function(e) {
     if(!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
-    ravedash::logger_error_condition(e)
+    ravepipeline::logger_error_condition(e)
     shidashi::show_notification(
       message = e$message,
       title = "Error found!",
@@ -131,7 +133,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe(error_wrapper = "notification", {
 
       # finalize_electrode_table()
-      ravedash::logger("Check and save electrode table to subject.", level = "trace")
+      ravepipeline::logger("Check and save electrode table to subject.", level = "trace")
 
       ravedash::clear_notifications()
 
@@ -141,7 +143,20 @@ module_server <- function(input, output, session, ...){
         icon = "info", auto_close = FALSE, buttons = FALSE
       )
 
+      succeed <- FALSE
+      on.exit({
+        if(!succeed) {
+          Sys.sleep(0.5)
+          dipsaus::close_alert2(session = session)
+        }
+      }, after = FALSE, add = TRUE)
+
       postprocess_opt <- input$postprocess_opt
+      postprocess_opt2 <- structure(
+        names = postprocess_opt,
+        as.list(rep(TRUE, length(postprocess_opt)))
+      )
+      pipeline$set_settings(postprocess_opts = postprocess_opt2)
 
       result_final <- pipeline$run(
         as_promise = FALSE,
@@ -149,10 +164,13 @@ module_server <- function(input, output, session, ...){
         type = "callr",
         callr_function = NULL,
         async = FALSE,
-        names = "localization_result_final"
+        names = c(
+          "localization_result_final",
+          "burn_electrodes_to_t1"
+        )
       )
 
-      electrode_table <- result_final$electrode_table
+      electrode_table <- result_final$localization_result_final$electrode_table
       needs_update <- FALSE
 
       if( "nonlinear_surface_mapping" %in% postprocess_opt ) {
@@ -192,7 +210,7 @@ module_server <- function(input, output, session, ...){
               type = "callr",
               callr_function = NULL,
               async = FALSE,
-              names = "postprocess_ants"
+              names = "nonlinear_volumetric_mapping"
             )
             electrode_table$MNI152_x <- volume_mapping$MNI152_x
             electrode_table$MNI152_y <- volume_mapping$MNI152_y
@@ -213,16 +231,28 @@ module_server <- function(input, output, session, ...){
         )
       }
 
+      subject <- pipeline$read("subject")
       if( needs_update ) {
-        subject <- pipeline$read("subject")
-        raveio::save_meta2(
-          data = electrode_table,
-          meta_type = "electrodes",
-          project_name = subject$project_name,
-          subject_code = subject$subject_code
+        brain <- pipeline$read("brain")
+        save_electrode_table(
+          subject = subject,
+          brain = brain,
+          electrode_table = electrode_table,
+          ct_table = NULL,
+          prototype_definitions = NULL
         )
+        # ravecore::save_meta2(
+        #   data = electrode_table,
+        #   meta_type = "electrodes",
+        #   project_name = subject$project_name,
+        #   subject_code = subject$subject_code
+        # )
       }
 
+      # generate reports
+      report_wizard$generate(subject, "electrodeview")
+
+      succeed <- TRUE
       Sys.sleep(0.5)
       dipsaus::close_alert2()
 
@@ -299,7 +329,7 @@ module_server <- function(input, output, session, ...){
         names = c("localization_result_initial")
       )
 
-      ravedash::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = 'debug')
+      ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = 'debug')
 
       morph_mri_exists <- pipeline$read("morph_mri_exists")
       table_preview <- pipeline$read("localization_result_initial")
@@ -334,11 +364,13 @@ module_server <- function(input, output, session, ...){
                 inline = FALSE,
                 choiceNames = c(
                   "Surface mapping to inflated brain & fsaverage",
-                  "Non-linear MNI152 coordinates"
+                  "Non-linear MNI152 coordinates",
+                  "Burn electrodes to T1w MRI"
                 ),
                 choiceValues = c(
                   "nonlinear_surface_mapping",
-                  "nonlinear_volumetric_mapping"
+                  "nonlinear_volumetric_mapping",
+                  "burn_electrodes_to_t1"
                 )
               )
             ),
@@ -426,7 +458,7 @@ module_server <- function(input, output, session, ...){
       if(!loaded_flag){ return() }
 
       subject <- pipeline$read("subject")
-      subject <- raveio::as_rave_subject(subject$subject_id, strict = FALSE)
+      subject <- ravecore::as_rave_subject(subject$subject_id, strict = FALSE)
       plan_file <- file.path(subject$meta_path, "electrodes_unsaved.csv")
       if(!file.exists(plan_file)) {
         # stop("Cannot find `electrodes_unsaved.csv`. This file should have been generated by previous pipeline code.")
@@ -437,7 +469,7 @@ module_server <- function(input, output, session, ...){
       brain <- pipeline$read('brain')
       fslut <- pipeline$read('fslut')
 
-      ravedash::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
       # Reset preset UI & data
       component_container$reset_data()
@@ -512,7 +544,7 @@ module_server <- function(input, output, session, ...){
 
         group_info <- plan_list[[ii]]
         nm <- group_info$button_label
-        ravedash::logger("Switching to localization plan: {nm}", use_glue = TRUE, level = "trace")
+        ravepipeline::logger("Switching to localization plan: {nm}", use_glue = TRUE, level = "trace")
 
         old_plan <- shiny::isolate(local_reactives$active_plan)
         local_reactives$active_plan <- ii
@@ -805,11 +837,11 @@ module_server <- function(input, output, session, ...){
 
   # render group table here
   format_group_table <- function(df) {
-    mni152 <- raveio:::MNI305_to_MNI152 %*% rbind(df$MNI305_x, df$MNI305_y, df$MNI305_z, 1)
+    mni152 <- ravecore::MNI305_to_MNI152 %*% rbind(df$MNI305_x, df$MNI305_y, df$MNI305_z, 1)
     sel <- df$Coord_x == 0 & df$Coord_y == 0 & df$Coord_z == 0
     mni152[, sel] <- 0
     mni152_text <- sprintf("%.0f,%.0f,%.0f", mni152[1,], mni152[2,], mni152[3,])
-    mni152_link <- raveio::url_neurosynth(mni152[1,], mni152[2,], mni152[3,])
+    mni152_link <- url_neurosynth(mni152[1,], mni152[2,], mni152[3,])
     mni152_col <- sprintf('<a href="%s" target="_blank">%s</a>', mni152_link, mni152_text)
     mni152_col[sel] <- ""
     table_output <- data.frame(
@@ -1171,7 +1203,7 @@ module_server <- function(input, output, session, ...){
           m44 = prototype$transform
         )
       }, error = function(e) {
-        ravedash::logger("Geometry {prototype$name} up direction is not set. Reason: {paste(e$message, collapse = '\n')}",
+        ravepipeline::logger("Geometry {prototype$name} up direction is not set. Reason: {paste(e$message, collapse = '\n')}",
                          use_glue = TRUE, level = "debug")
       })
     }),
@@ -1253,7 +1285,7 @@ module_server <- function(input, output, session, ...){
             y = geometry_table$tkr_A,
             z = geometry_table$tkr_S
           )
-          ravedash::logger("Electrode {prototype$name} control point is set.", use_glue = TRUE, level = "debug")
+          ravepipeline::logger("Electrode {prototype$name} control point is set.", use_glue = TRUE, level = "debug")
           brain_proxy$set_matrix_world(
             name = sprintf("%s, Prototype - %s", subject$subject_code, prototype$name),
             m44 = prototype$transform
@@ -1264,7 +1296,7 @@ module_server <- function(input, output, session, ...){
             group_table[1:nn, c("Coord_x", "Coord_y", "Coord_z")] <- constact_tkr[, 1:3]
           }
         }, error = function(e) {
-          ravedash::logger("Geometry {prototype$name} control point is not yet set. Reason: {paste(e$message, collapse = '\n')}",
+          ravepipeline::logger("Geometry {prototype$name} control point is not yet set. Reason: {paste(e$message, collapse = '\n')}",
                            use_glue = TRUE, level = "debug")
         })
         if("Channel" %in% names(geometry_table)) {

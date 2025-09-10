@@ -3,7 +3,7 @@ library(targets)
 ...targets <- local({
   source("common.R", local = TRUE)
 
-  ._settings_ <- raveio::load_yaml("settings.yaml")
+  ._settings_ <- ravepipeline::load_yaml("settings.yaml")
   project_name <- ._settings_$project_name
   subject_code <- ._settings_$subject_code
   save_scripts <- ._settings_$save_pipeline
@@ -17,7 +17,7 @@ library(targets)
     creating_subject_instance = tar_target_raw(
       "subject",
       bquote({
-        subject <- raveio::RAVESubject$new(
+        subject <- RAVESubject$new(
           project_name = .(project_name),
           subject_code = .(subject_code),
           strict = FALSE
@@ -28,7 +28,7 @@ library(targets)
     preparing_preprocess_instance = tar_target(
       preprocess_instance,
       {
-        preprocess_instance <- raveio::RAVEPreprocessSettings$new(
+        preprocess_instance <- RAVEPreprocessSettings$new(
           subject = subject, read_only = FALSE
         )
         preprocess_instance$save()
@@ -49,9 +49,9 @@ library(targets)
         }
         timestamp <- Sys.time()
         dir <- file.path(subject$pipeline_path, "_shared")
-        raveio::dir_create2(dir)
+        ravepipeline::dir_create2(dir)
         fname <- paste0("timestamp-", .(target_name), ".yaml")
-        raveio::save_yaml(list(
+        ravepipeline::save_yaml(list(
           pipeline_name = .(target_name),
           last_modified = timestamp
         ), file.path(dir, fname))

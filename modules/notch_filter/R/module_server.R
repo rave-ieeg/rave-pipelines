@@ -8,14 +8,40 @@ module_server <- function(input, output, session, ...){
     update_outputs = NULL
   )
 
+  server_registry <- ravedash::register_rave_session()
   server_tools <- ravedash::get_default_handlers()
+
+  report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
   # local_data$subject
   # local_data$imported_electrodes
 
+  # ---- generate reports ------------------------------------
+  report_btn_onclick <- shiny::bindEvent(
+    shiny::reactive({
+      if(!ravedash::watch_data_loaded()) { return(FALSE) }
+      if(ravedash::watch_loader_opened()) { return(FALSE) }
+      res <- server_registry$rave_event$message_button_clicked
+      structure(!is.null(res), timestamp = res)
+    }),
+    server_registry$rave_event$message_button_clicked,
+    ignoreNULL = TRUE,
+    ignoreInit = FALSE
+  )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if(!report_btn_onclick()) { return() }
+      report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
+    }),
+    report_btn_onclick(),
+    ignoreNULL = TRUE,
+    ignoreInit = FALSE
+  )
+
+  # ---- on data loaded ------------------------------------
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
@@ -153,7 +179,7 @@ module_server <- function(input, output, session, ...){
         max = floor(sample_rate / 2)
       )
 
-      ravedash::logger("Switch to electrode ", electrode, level = "trace")
+      ravepipeline::logger("Switch to electrode ", electrode, level = "trace")
 
       return(electrode)
     }),
@@ -412,7 +438,7 @@ module_server <- function(input, output, session, ...){
           try({
             subject <- pipeline$read("subject")
             fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
-            raveio::backup_file(fork_path, remove = TRUE)
+            ravecore::backup_file(fork_path, remove = TRUE)
             pipeline$fork(fork_path)
           })
 
@@ -422,12 +448,14 @@ module_server <- function(input, output, session, ...){
           dipsaus::shiny_alert2(
             title = "Finished!",
             icon = "success",
-            text = ravedash::finished_text(),
-            auto_close = TRUE, buttons = list(
-              "Dismiss" = TRUE
-            )
+            text = "Notch filters have been applied. There is a report being generated at the background about the diagnostic plots. Please do not close RAVE. However, feel free dismissing this message and proceed on to the next modules.",
+            auto_close = TRUE,
+            buttons = list("Dismiss" = TRUE)
           )
           local_reactives$update_plots <- Sys.time()
+          try({
+            report_wizard$generate(subject = subject, "diagnostics")
+          })
         },
         onRejected = function(e) {
           dipsaus::close_alert2()

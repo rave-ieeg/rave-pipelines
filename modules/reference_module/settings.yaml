@@ -1,12 +1,11 @@
-changes:
-- group_name: NoLabel
-  electrodes: 14-16
-  reference_type: Common Average Reference
-  reference_signal: ref_14-16
+changes: []
 electrode_group:
   '1':
-    name: NoLabel
-    electrodes: 14-16
-project_name: test
+    name: A
+    electrodes: 1-17
+  '2':
+    name: B
+    electrodes: 18-20
+project_name: test@bids:ds005953
 reference_name: _unsaved
-subject_code: DemoSubject
+subject_code: '01'

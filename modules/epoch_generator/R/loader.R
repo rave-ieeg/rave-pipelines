@@ -58,7 +58,7 @@ loader_server <- function(input, output, session, ...){
         )
       )
 
-      subject <- raveio::RAVESubject$new(project_name = settings$project_name,
+      subject <- ravecore::RAVESubject$new(project_name = settings$project_name,
                                          subject_code = settings$subject_code,
                                          strict = FALSE)
       if(!length(subject$blocks)) {
@@ -70,7 +70,7 @@ loader_server <- function(input, output, session, ...){
 
       # Let the module know the data has been changed
       ravedash::fire_rave_event('data_changed', Sys.time())
-      ravedash::logger("Data has been loaded loaded")
+      ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code
       ravedash::session_setopt(

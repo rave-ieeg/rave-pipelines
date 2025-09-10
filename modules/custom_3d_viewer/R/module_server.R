@@ -198,10 +198,10 @@ module_server <- function(input, output, session, ...){
       loaded_data <- pipeline$read("loaded_brain")
 
       if(!is.list(loaded_data)) {
-        ravedash::logger("Data read from the pipeline, but it is not a list. Abort initialization", level = "warning")
+        ravepipeline::logger("Data read from the pipeline, but it is not a list. Abort initialization", level = "warning")
         return()
       }
-      ravedash::logger("Data read from the pipeline; initializing the module UI", level = "debug")
+      ravepipeline::logger("Data read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       old_data <- component_container$data$loaded_brain
@@ -213,7 +213,7 @@ module_server <- function(input, output, session, ...){
           identical(old_data$electrode_table, loaded_data$electrode_table) &&
           setequal(old_data$surface_types, loaded_data$surface_types)
         ) {
-          ravedash::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
+          ravepipeline::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
 
@@ -247,9 +247,14 @@ module_server <- function(input, output, session, ...){
     if(!loaded_flag){ return() }
 
     loaded_brain <- component_container$data$loaded_brain
-    if(!length(loaded_brain$subject_code) == 1) { return() }
+    subject <- get_brain_subject(loaded_brain)
+    if(is.null(subject)) { return() }
 
-    root_path <- get_subject_imaging_datapath(subject_code = loaded_brain$subject_code, type = "uploads")
+    root_path <- get_subject_imaging_datapath(
+      subject_code = subject$subject_code,
+      project_name = subject$project_name,
+      type = "uploads"
+    )
 
     candidates <- NULL
     if(dir.exists(root_path)) {
@@ -294,6 +299,10 @@ module_server <- function(input, output, session, ...){
         return()
       }
 
+      subject <- get_brain_subject(loaded_brain)
+      if(is.null(subject)) { return() }
+
+
       info <- input$uploaded_file
       if(!grepl("\\.(csv|fst|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
         ravedash::error_notification(list(message = "Unsupported file format: only [.csv] and [.fst] files are supported."))
@@ -314,7 +323,7 @@ module_server <- function(input, output, session, ...){
             utils::read.csv(info$datapath, header = TRUE)
           },
           "fst" = {
-            raveio::load_fst(info$datapath, to = 1)
+            ieegio::io_read_fst(info$datapath, method = "proxy")
           },
           "xlsx" = {
             read_xlsx(info$datapath)
@@ -325,15 +334,18 @@ module_server <- function(input, output, session, ...){
         }
 
         # save to somewhere?
-        raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
-        root_path <- get_subject_imaging_datapath(subject_code = loaded_brain$subject_code, type = "uploads")
+        root_path <- get_subject_imaging_datapath(
+          subject_code = subject$subject_code,
+          project_name = subject$project_name,
+          type = "uploads"
+        )
 
-        raveio::dir_create2(root_path)
+        ravepipeline::dir_create2(root_path)
         new_name <- gsub("\\.(csv|xls[x]{0,1})$", ".fst", info$name)
         fpath <- file.path(root_path, new_name)
 
         if(format != "fst") {
-          raveio::save_fst(header, path = fpath)
+          ieegio::io_write_fst(header, fpath)
         } else {
           file.copy(from = info$datapath, to = fpath, overwrite = TRUE)
         }
@@ -554,7 +566,8 @@ module_server <- function(input, output, session, ...){
       root_path <- get_subject_imaging_datapath(
         subject_code = loaded_brain$subject_code,
         project_name = project_name,
-        type = "pipeline")
+        type = "pipeline"
+      )
 
       avaialble_pipelines <- list.dirs(root_path, full.names = FALSE, recursive = FALSE)
       avaialble_pipelines <- unlist(lapply(avaialble_pipelines, function(pn) {
@@ -614,7 +627,8 @@ module_server <- function(input, output, session, ...){
         pipepath,
         subject_code = loaded_brain$subject_code,
         project_name = project_name,
-        type = "pipeline")
+        type = "pipeline"
+      )
 
       if(length(pipepath) != 1 || is.na(pipepath) || !dir.exists(pipepath)) {
         return()
@@ -732,13 +746,13 @@ module_server <- function(input, output, session, ...){
         if(length(mni305) != 3) {
           mni152 <- ""
         } else {
-          mni152 <- raveio::MNI305_to_MNI152 %*% c(mni305, 1)
+          mni152 <- ravecore::MNI305_to_MNI152 %*% c(mni305, 1)
           mni152 <- round(mni152[1:3])
           mni152 <- shiny::span(
             shiny::a(
               sprintf("MNI152: %s", paste(sprintf("%.0f", mni152), collapse = ",")),
               target = "_blank",
-              href = raveio::url_neurosynth(mni152[1], mni152[2], mni152[3])
+              href = url_neurosynth(mni152[1], mni152[2], mni152[3])
             )
           )
         }
@@ -787,13 +801,13 @@ module_server <- function(input, output, session, ...){
       electrode_mni <- as.numeric(electrode_mni)
       electrode_mni <- electrode_mni[!is.na(electrode_mni)]
       if( length(electrode_mni) == 3 ) {
-        electrode_mni <- raveio::MNI305_to_MNI152 %*% c(electrode_mni, 1)
+        electrode_mni <- ravecore::MNI305_to_MNI152 %*% c(electrode_mni, 1)
         electrode_mni <- shiny::tags$small(
           shiny::a(
             sprintf("[MNI152: %s]", paste(sprintf("%.0f", electrode_mni[1:3]),
                                          collapse = ",")),
             target = "_blank",
-            href = raveio::url_neurosynth(
+            href = url_neurosynth(
               electrode_mni[[1]], electrode_mni[[2]],
               electrode_mni[[3]])
           )

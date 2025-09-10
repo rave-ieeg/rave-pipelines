@@ -26,9 +26,8 @@ migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup =
   } else {
 
     # create the subject instance
-    raveio <- asNamespace("raveio")
     subject <-
-      raveio$RAVESubject$new(project_name = project_name,
+      ravecore::RAVESubject$new(project_name = project_name,
                              subject_code = subject_code,
                              strict = FALSE)
     # initialize folders

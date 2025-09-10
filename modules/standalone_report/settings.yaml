@@ -1,0 +1,15 @@
+project_name: "demo"
+subject_code: "DemoSubject"
+save_pipeline: yes
+epoch: auditory_onset
+electrodes: 14-16
+reference: default
+intervals:
+- - -1.0
+  - 2.0
+type:
+  - "power"
+baseline:
+- - -1
+  - -0.2
+baseline_method: "decibel"

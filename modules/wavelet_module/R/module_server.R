@@ -11,7 +11,9 @@ module_server <- function(input, output, session, ...){
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweek
+  server_registry <- ravedash::register_rave_session()
   server_tools <- get_default_handlers(session = session)
+  report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
   error_notification <- function(e) {
     shidashi::show_notification(
@@ -24,6 +26,32 @@ module_server <- function(input, output, session, ...){
       collapse = "\n"
     )
   }
+
+  # ---- generate reports ------------------------------------
+  report_btn_onclick <- shiny::bindEvent(
+    shiny::reactive({
+      if(!ravedash::watch_data_loaded()) { return(FALSE) }
+      if(ravedash::watch_loader_opened()) { return(FALSE) }
+      res <- server_registry$rave_event$message_button_clicked
+      structure(!is.null(res), timestamp = res)
+    }),
+    server_registry$rave_event$message_button_clicked,
+    ignoreNULL = TRUE,
+    ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if(!report_btn_onclick()) { return() }
+      if(is.null(report_wizard)) { return() }
+      report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
+    }),
+    report_btn_onclick(),
+    ignoreNULL = TRUE,
+    ignoreInit = FALSE
+  )
+
+  # --------------------------------------------------------
 
 
   # Register event: main pipeline need to run
@@ -128,19 +156,35 @@ module_server <- function(input, output, session, ...){
       buttons = FALSE
     )
 
-    res <- pipeline$run(
-      names = "wavelet_params",
-      scheduler = "none",
-      type = "smart",
-      callr_function = NULL,
-      async = async,
-      check_interval = 1,
-      progress_title = "Running wavelet in the background",
-      progress_max = 3,
-      as_promise = TRUE
-    )
+    if( async ) {
+      local_data$wavelet_jobid <- ravepipeline::start_job(
+        function(pipeline) {
+          print(pipeline)
+          pipeline$run(
+            names = "wavelet_params",
+            scheduler = "none",
+            type = "vanilla",
+            callr_function = NULL,
+            return_values = FALSE
+          )
+        },
+        fun_args = list(pipeline = pipeline),
+        name = "Running Wavelet", method = "callr"
+      )
+      promise <- promises::as.promise(local_data$wavelet_jobid)
+    } else {
+      local_data$wavelet_results <- pipeline$run(
+        names = "wavelet_params",
+        scheduler = "none",
+        type = "smart",
+        callr_function = NULL,
+        as_promise = TRUE,
+        return_values = FALSE
+      )
+      promise <- local_data$wavelet_results$promise
+    }
 
-    res$promise$then(
+    promise$then(
       onFulfilled = function(...){
 
         dipsaus::close_alert2()
@@ -168,7 +212,7 @@ module_server <- function(input, output, session, ...){
           subject <- pipeline$read("subject")
           fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
           if(file.exists(fork_path)) {
-            raveio::backup_file(fork_path, remove = TRUE)
+            ravecore::backup_file(fork_path, remove = TRUE)
           }
           pipeline$fork(fork_path)
 
@@ -237,7 +281,7 @@ module_server <- function(input, output, session, ...){
 
 
       subject <- pipeline$read("subject")
-      subject <- raveio::as_rave_subject(subject, strict = FALSE)
+      subject <- ravecore::as_rave_subject(subject, strict = FALSE)
 
       all_electrodes <- subject$electrodes
       etypes <- subject$preprocess_settings$electrode_types

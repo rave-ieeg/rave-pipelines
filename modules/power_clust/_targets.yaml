@@ -1,0 +1,3 @@
+power_clust:
+  script: make-main.R
+  store: shared

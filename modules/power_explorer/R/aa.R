@@ -70,8 +70,8 @@ check_data_loaded <- function(first_time = FALSE){
 
 
 if(exists('debug', inherits = FALSE) && isTRUE(get('debug'))){
-  ravedash::logger_threshold("trace", module_id = module_id)
+  ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
-  ravedash::logger_threshold("info", module_id = module_id)
+  ravepipeline::logger_threshold("info", module_id = module_id)
 }
 

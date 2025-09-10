@@ -1,0 +1,68 @@
+---
+title: "RAVE Pipeline Markdown Template"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("standalone_report")
+```
+
+## Introduction
+
+A RAVE pipeline markdown is an interactive notebook that can keep your notes, code blocks, and corresponding results together, generating reports in various formats such as `PDF`, `html`, `Word`, `PowerPoint`. 
+
+The note parts are simply `markdown`s - the same as `jupyter notebook`, or github documentations. The code blocks support `R`, `python`, `c++`. When you hit the `Knit` button in this code editor panel, the r-markdown file will be compiled, generating reproducible documentation.
+
+With carefully designed structures, this r-markdown file will automatically generate `RAVE` pipeline scripts during the compilation. The pipeline script can be used by `RAVE` to convert your pipeline into interactive dashboard application. (This feature is currently under development)
+
+## "RAVE" Pipeline Code Block
+
+A `RAVE` pipeline markdown code block starts with ` ```{rave ... `. The block label following `rave` informative description of the target. After the target, the following RAVE-specific parameters configures how the block should be treated:
+
+* `language`: specifies the programming language used; choices are: `R`, `python`
+* `export`: variable name to be exported that will be available to the rest chunks
+* `depends`: indicates current block depends on variables generated from other blocks; this helps `RAVE` to build non-interactive pipeline scripts internally. For blocks written in `R`, the dependence can be automatically determined.
+
+Other parameters are available at [this `rmarkdown` book](https://bookdown.org/yihui/rmarkdown/)
+
+## An Example
+
+In the rest of the documentation, let's import the subject power data, baseline, and plot the collapsed mean as image.
+
+#### Step 1: Create `RAVE` subject's instances
+
+Noting that all the items in the `settings.yaml` are available as variables.
+
+```{rave load_subject, language = "R", export = "subject"}
+subject <- ravecore::RAVESubject$new(
+  project_name = project_name, 
+  subject_code = subject_code
+)
+```
+
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-standalone_report.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-standalone_report.R")
+```
+
+
+Once the pipeline script `make-standalone_report.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+

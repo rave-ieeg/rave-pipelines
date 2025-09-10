@@ -1,0 +1,114 @@
+---
+title: ~
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: flatly
+    code_folding: hide
+    self_contained: true
+---
+
+<!--
+cosmo, yeti
+cerulean
+bootstrap
+simplex
+paper
+“default”, “bootstrap”, “cerulean”, “cosmo”, “darkly”, “flatly”, “journal”, “lumen”, “paper”, “readable”, “sandstone”, “simplex”, “spacelab”, “united”, “yeti”
+-->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, collapse = TRUE, warning = FALSE)
+options("raveio.debug" = TRUE)
+
+# Un-comment for debug use
+# setwd(dirname(rstudioapi::documentPath()))
+
+# Load pipeline
+pipeline_name <- "import_signals"
+pipeline <- ravepipeline::pipeline(pipeline_name, paths = "..", temporary = TRUE)
+
+subject <- pipeline$read("subject")
+```
+
+
+
+## Subject - ``r subject$subject_id``
+
+```{r, echo = TRUE, results='asis'}
+# Load pipeline
+pipeline_name <- "import_signals"
+pipeline <- ravepipeline::pipeline(pipeline_name, paths = "..", 
+                                   temporary = TRUE)
+
+# Load pipeline inputs
+inputs <- pipeline$get_settings()
+
+# Intermediate targets
+targets <- pipeline$read()
+
+# useful variables for the report
+preproc <- targets$preprocess_info
+subject <- targets$subject
+project <- subject$project
+
+selected_block_str <- paste(sprintf("`%s`", preproc$blocks), collapse = ", ")
+
+excluded_blocks <- preproc$all_blocks
+excluded_blocks <- excluded_blocks[!excluded_blocks %in% preproc$blocks]
+if(!length(excluded_blocks)) {
+  excluded_blocks_str <- "(none)"
+} else {
+  excluded_blocks_str <- paste(sprintf("`%s`", excluded_blocks), 
+                               collapse = ", ")
+}
+
+tbl <- data.table::rbindlist(list(
+  data.frame(Name = "Format Standard", 
+             Value = project$format_standard),
+  data.frame(Name = "Raw data source", 
+             Value = normalizePath(preproc$raw_path2, winslash = "/", mustWork = FALSE)),
+  data.frame(Name = "Imaging path", 
+             Value = subject$imaging_path),
+  data.frame(Name = "Project root", 
+             Value = project$path),
+  data.frame(Name = "Processed data", 
+             Value = sprintf(
+               "[project root]/%s", 
+               ravecore:::path_rel(subject$data_path, project$path))),
+  data.frame(Name = "Meta data", 
+             Value = sprintf(
+               "[project root]/%s", 
+               ravecore:::path_rel(subject$meta_path, project$path)))
+), ignore.attr = TRUE)
+knitr::kable(tbl)
+```
+
+The subject is located
+
+## Subject configurations
+
+* Selected recording blocks: `r selected_block_str`
+  * Excluded blocks: `r excluded_blocks_str`
+* Signal data format: ``r ravecore::IMPORT_FORMATS[[preproc$data$format]]`` - `r names(ravecore::IMPORT_FORMATS)[[preproc$data$format]]`
+* Channel configurations
+
+```{r}
+channels <- preproc$electrodes
+channel_table <- data.table::rbindlist(
+  lapply(channels, function(ch) {
+    ch_str <- as.character(ch)
+    ch_info <- preproc$data[[ch_str]]
+    list(
+      "Channel" = ch,
+      "Sample Rate" = c(ch_info$sample_rate, NA_real_)[[1]],
+      "Signal Type" = c(ch_info$electrode_type, "Unset")[[1]],
+      "Composed" = isTRUE(ch_info$composed),
+      "Imported" = isTRUE(ch_info$data_imported),
+      "Notch Filtered" = isTRUE(ch_info$notch_filtered),
+      "Spectrogram" = isTRUE(ch_info$has_wavelet)
+    )
+  }), use.names = TRUE, fill = TRUE, ignore.attr = TRUE
+)
+DT::datatable(channel_table, rownames = FALSE, class = "compact stripe")
+```

@@ -18,8 +18,8 @@ str_collapse <- rutabaga::str_collapse
 which.equal <- rutabaga::which.equal
 fast_median <- ravetools::fast_median
 rbind_list <- rutabaga::rbind_list
-rand_string <- raveio:::rand_string
-stopifnot2 <- raveio:::stopifnot2
+rand_string <- ravecore:::rand_string
+stopifnot2 <- ravecore:::stopifnot2
 
 # require(data.table)
 .datatable.aware = TRUE
@@ -134,6 +134,7 @@ determine_relative_shift_amount <- function(available_shift, event_time, sample_
   return(new_0_ind - new_range_ind[1])
 }
 
+
 get_pluriform_power <- function(
     baselined_data, trial_indices, events, epoch_event_types,
     event_of_interest, trial_outliers_list, sample_rate,
@@ -159,7 +160,7 @@ get_pluriform_power <- function(
   # event_of_interest = 'Lag_1'
   if(event_of_interest != epoch_event_types[1]) {
     # stop("shifting data not supported yet!")
-    ravedash::logger('Shifting data to: ' %&% event_of_interest, level='debug')
+    ravepipeline::logger('Shifting data to: ' %&% event_of_interest, level='debug')
 
     event_of_interest = paste0('Event_', event_of_interest)
     event_offsets = events[[event_of_interest]][ti] - events$Time[ti]
@@ -171,7 +172,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    # ravedash::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+    # ravepipeline::logger('available shift: ' %&% paste0(new_range, collapse=':'))
 
     shift_amount = determine_relative_shift_amount(
       event_time = event_offsets,
@@ -180,7 +181,7 @@ get_pluriform_power <- function(
       sample_rate = sample_rate
     )
 
-    # ravedash::logger('dispaus::shift')
+    # ravepipeline::logger('dispaus::shift')
 
     # this is checked above
     # stopifnot('Trial' == names(dimnames(res$data))[3])
@@ -204,10 +205,10 @@ get_pluriform_power <- function(
     dimnames(res$shifted_data)$Time = new_time[new_time %within% new_range]
 
     # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
-    # ravedash::logger('updating events file')
+    # ravepipeline::logger('updating events file')
     nms <- paste0('Event_', epoch_event_types[-1])
     events[nms] <- events[nms] - events[[event_of_interest]]
-    # ravedash::logger('done with shifting', level='debug')
+    # ravepipeline::logger('done with shifting', level='debug')
   }
 
   # handle outliers
@@ -215,7 +216,7 @@ get_pluriform_power <- function(
     res$clean_data <- res$data
     res$shifted_clean_data <- res$shifted_data
   } else {
-    ravedash::logger('Handling outliers...')
+    ravepipeline::logger('Handling outliers...')
 
     # UPDATED res$data is not a filearray now so res$data$subset is not a function!
     #res$clean_data <- res$data$subset(Trial = !(Trial %in% trial_outliers_list))
@@ -236,6 +237,75 @@ get_pluriform_power <- function(
 
   return(res)
 }
+
+shift_baselined_power <- function(
+    baselined_data, events, epoch_event_types, event_of_interest, sample_rate,
+    final_data_only = FALSE) {
+
+  dn.orig <- dimnames(baselined_data)
+  stopifnot(names(dn.orig)[3] == 'Trial', 'Time' == names(dn.orig)[2])
+
+  shift_amount = NULL
+
+  re <- baselined_data
+
+  # event_of_interest = 'Lag_1'
+  if(event_of_interest != epoch_event_types[1]) {
+    # stop("shifting data not supported yet!")
+    ravepipeline::logger('Shifting data to: ' %&% event_of_interest, level='debug')
+
+    # get the times for the trials needed
+    ti <- events$Trial %in% as.numeric(dimnames(baselined_data)$Trial)
+    event_column_name = paste0('Event_', event_of_interest)
+    event_offsets = events[[event_column_name]][ti] - events$Time[ti]
+
+    times = as.numeric(dn.orig$Time)
+
+    new_range = determine_available_shift(event_offsets,
+                                          available_time = range(times),
+                                          sample_rate = sample_rate
+    )
+
+    # ravepipeline::logger('available shift: ' %&% paste0(new_range, collapse=':'))
+
+    shift_amount = determine_relative_shift_amount(
+      event_time = event_offsets,
+      available_shift=new_range,
+      available_time_points = times,
+      sample_rate = sample_rate
+    )
+
+    if(length(shift_amount) != length(dn.orig$Trial)) {
+      # assign('shift_amt', shift_amount, envir = globalenv())
+      # assign('event_mat', events, envir = globalenv())
+      stop('shift amount != # trials... stopping')
+    }
+
+    re = get_shifted_data(data = baselined_data, shift_amount = shift_amount)
+
+    ## now we need to update the time dimension to reflect the new data range
+    # fill out times, then subset if we need to
+    new_time = round(seq(from=new_range[1], by = 1/sample_rate, length.out = length(dn.orig$Time)), 7)
+    to_keep = new_time %within% new_range
+    if(any(!to_keep)) {
+      re = re[,to_keep,,,drop=FALSE]
+    }
+    dimnames(re)$Time = new_time[new_time %within% new_range]
+
+    # alright, now that we've shifted the data we also need to shift the events dataset, so that future sorts on the event_of_interest don't do anything
+    # ravepipeline::logger('updating events file')
+    nms <- paste0('Event_', epoch_event_types[-1])
+    events[nms] <- events[nms] - events[[event_column_name]]
+
+
+    ravepipeline::logger('done!', level='debug')
+  }
+
+  # make sure to save out the updated time stamps to be used later
+  return(list(events = events, data=re))
+
+}
+
 
 get_shifted_data <- function(data, shift_amount, new_range) {
   dn <- names(dimnames(data))
@@ -462,6 +532,7 @@ build_scatter_bar_data <- function(data, data_wrapper,
 
   return(sbd)
 }
+
 build_scatter_bar_correlation_data <- function(sb1, sb2, data_wrapper, ...) {
   dv <- attr(sb1$data, 'ylab')
   do_str <- function(d) {
@@ -704,7 +775,7 @@ wrap_data = function(data, ...){
 }
 
 add_analysis_settings <- function(ll, analysis_settings, baseline_settings) {
-  append(ll, list(
+  re <- append(ll, list(
     subject_code = analysis_settings$subject_code,
     analysis_group = analysis_settings$label,
     analysis_event = analysis_settings$event,
@@ -714,6 +785,17 @@ add_analysis_settings <- function(ll, analysis_settings, baseline_settings) {
     baseline_scope = baseline_settings$scope,
     unit_of_analysis = baseline_settings$unit_of_analysis
   ))
+
+
+  # grab ROI names if they exist
+  for(rn in c('roi_label', 'roi_conditions')) {
+    if(rn %in% names(analysis_settings)) {
+      re[[rn]] = analysis_settings[[rn]]
+    }
+
+  }
+
+  return(re)
 }
 
 data_builder <- function(pluriform_power, condition_groups, baseline_settings,
@@ -826,10 +908,16 @@ frequency_export_types <- function() {
 }
 
 new_shift_array <- function() {
-  repository <- raveio::prepare_subject_power('demo/DemoSubject', time_windows = c(-1,2))
+  # Do NOT call `ravepipeline::with_rave_parallel` by yourself, RAVE will call
+  # it internally
+  # ravepipeline::with_rave_parallel({
+
+  repository <- ravecore::prepare_subject_power_with_epochs('demo/DemoSubject', time_windows = c(-1,2))
+
+  # })
 
   # baseline
-  raveio::power_baseline(repository, baseline_windows = c(-1,0))
+  ravecore::power_baseline(repository, baseline_windows = c(-1,0))
 
   shift_amount <- sample(1:10, size = repository$epoch$n_trials, replace = TRUE)
 
@@ -868,13 +956,152 @@ new_shift_array <- function() {
       baselined <- repository$power$baselined
       n_electrodes <- dim(baselined)[[4]]
 
-      raveio::lapply_async(seq_len(n_electrodes), function(ii) {
-        subarr <- baselined[,,,ii, drop = FALSE]
+      # Dipterix commented on Aug 20: shift_array is already multithreaded
+      # I wrote the following two so you can profile the speed
 
-        # trial is now at 3rd margin, time is at 2nd margin
-        shifted_array <- ravetools::shift_array(subarr, along_margin = 2L, shift_amount = shift_amount, unit_margin = 3L)
-        arr[,,,ii] <- shifted_array
-      })
+      # DIPSAUS DEBUG START
+      # # To profile the code, uncomment the following code or use dipsaus shortcut
+      # # On my computer this is command+1 (or option+1)
+      # profiling_setup <- function() {
+      #   set.seed(42)
+      #   baselined <- filearray::as_filearray(array(as.double(seq_len(6e8)), c(100, 300, 200, 100)))
+      #   baselined$.mode <- "readwrite"
+      #   dimnames(baselined) <- list(
+      #     Frequency = 1:100 * 2,
+      #     Time = seq_len(300) / 100 - 1,
+      #     Trial = 1:200,
+      #     Electrode = 1:100
+      #   )
+      #   shift_amount <- sample(100, 200, replace = TRUE) - 50
+      #   n_electrodes <- dim(baselined)[[4]]
+      #   arr_path <- tempfile()
+      #   arr <- filearray::filearray_create(filebase = arr_path, dimension = dim(baselined),
+      #                                      type = "float", partition_size = 1L, initialize = TRUE)
+      #   list(
+      #     baselined = baselined,
+      #     shift_amount = shift_amount,
+      #     n_electrodes = n_electrodes,
+      #     arr = arr
+      #   )
+      # }
+      # list2env(profiling_setup(), .GlobalEnv)
+      # profiling <- system.time
+
+      # profiling <- profvis::profvis
+
+
+      # # This is the original implementation
+      # # Under clean forked clusters
+      # # ravepipeline::raveio_setopt("disable_fork_clusters", FALSE)
+      #  user  system elapsed
+      # 0.301   1.199   6.312  <- with dimnames
+      # 1.003   1.371   6.090  <- with dimnames=FALSE
+      #
+      # # When the environment is dirty, fork will need to serialize
+      # # a lot of other things
+      # # This can be simulated with runing all the profiling examples
+      # # without GC() and come back and rerun
+      #  user  system elapsed  <- with dimnames=FALSE
+      # 0.305   1.262   9.546
+      #
+      # Another thing I noticed was the forked processes don't die out
+      # when I run the code again... RAM became 5GB + 1.3*11 (total 20 GB RAM)
+
+      # profiling({
+      # raveio::lapply_async(seq_len(n_electrodes), function(ii) {
+      #   subarr <- baselined[,,,ii, drop = FALSE, dimnames = FALSE]
+      #
+      #   # trial is now at 3rd margin, time is at 2nd margin
+      #   shifted_array <- ravetools::shift_array(
+      #     subarr,
+      #     along_margin = 2L,
+      #     shift_amount = shift_amount,
+      #     unit_margin = 3L
+      #   )
+      #
+      #   arr[,,,ii] <- shifted_array
+      # })
+      # })
+
+
+      # # With no parallel. the results fluctuate due to garbage collection
+      #  user  system elapsed
+      # 7.640   1.404   6.654  <- with dimnames
+      # 7.532   1.157   4.011  <- with dimnames=FALSE because you don't need to
+      # index and assign the dimnames
+      #
+      # Rerun under memory pressure (with previous 20+GB RAM occupied)
+      #    user  system elapsed
+      #   7.616   1.830   9.525
+
+      # profiling({
+      # subarr_dm <- dim(baselined)
+      # subarr_dm[[4]] <- 1L
+      # lapply(seq_len(n_electrodes), function(ii) {
+      #
+      #   # Speed up 1
+      #   # subarr <- baselined[,,,ii, drop = FALSE, dimnames = NULL]
+      #
+      #   # Speed up 2
+      #   subarr <- baselined[,,,ii, reshape = subarr_dm]
+      #
+      #   # trial is now at 3rd margin, time is at 2nd margin
+      #   shifted_array <- ravetools::shift_array(
+      #     subarr,
+      #     along_margin = 2L,
+      #     shift_amount = shift_amount,
+      #     unit_margin = 3L
+      #   )
+      #
+      #   arr[,,,ii] <- shifted_array
+      #   return()
+      # })
+      # })
+
+
+      # # With no parallel, but "stream" the data in
+      #  user  system elapsed
+      # 5.893   1.131   2.258 <-- This is a beast. the reason why it's fast
+      # I. pre-allocate and reuse the C++ buffers for read and write
+      # II. sequential reading from memory page
+      # III. lower memory pressure, garbage collection is less aggressive
+      #
+      # Under memory pressure:
+      #  user  system elapsed
+      # 5.733   1.531   3.516 <-- yay
+
+      # profiling({
+      subarr_dm <- dim(baselined)
+      subarr_dm[[4]] <- 1L
+      subarr_len <- prod(subarr_dm)
+      filearray::fmap(
+
+        # a list of one or multiple filearrays
+        x = list(baselined),
+
+        # output array
+        .y = arr,
+
+        # number of partitions - this is why electrode is the last dimension
+        # because the iteration on electrodes are iterating the partitions
+        .buffer_count = n_electrodes,
+
+        # slice_list is a list of data slices, each comes from `x`
+        fun = function(slice_list) {
+
+          ravetools::shift_array(
+
+            # only one input in `x`, so get the first element
+            array(slice_list[[1]], dim = subarr_dm),
+
+            along_margin = 2L,
+            shift_amount = shift_amount,
+            unit_margin = 3L
+          ) # returning the shifted array and stream directly to `arr`
+        }
+      )
+      # })
+
     }
   )
 

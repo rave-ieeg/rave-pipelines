@@ -20,7 +20,11 @@ module_html <- function(){
               shiny::selectInput(
                 inputId = ns("data_source"),
                 label = "Data source",
-                choices = c("Uploads", "Saved pipelines/modules", "None"),
+                choices = c(
+                  "Uploads",
+                  # "Saved pipelines/modules",
+                  "None"
+                ),
                 selected = pipeline$get_settings(
                   key = "data_source",
                   constraint = c("Uploads", "Saved pipelines/modules", "None")

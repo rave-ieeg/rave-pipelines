@@ -1,0 +1,151 @@
+---
+title: "Find Stimulation Pulses"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("stimpulse_finder")
+```
+
+
+```{rave load_subject, export = "subject"}
+subject <- ravecore::new_rave_subject(
+  project_name = project_name, 
+  subject_code = subject_code
+)
+```
+
+```{rave clean_loaded_electrodes, export = "loaded_electrodes_cleaned"}
+loaded_electrodes <- ravecore:::parse_svec(loaded_electrodes)
+if(!length(loaded_electrodes) %in% c(1, 2)) {
+  stop("Only two electrode channels are allowed. Please enter one channel, or two channels (for bipolar re-reference)")
+}
+
+electrode_types <- subject$electrode_types[subject$electrodes %in% loaded_electrodes]
+electrode_types <- unique(electrode_types)
+if(length(electrode_types) != 1) {
+  stop("Electrode channels must have the same signal type (e.g. both are LFP, or Aux, but not either).")
+}
+loaded_electrodes_cleaned <- sort(loaded_electrodes)
+```
+
+```{rave load_repository, export = "repository"}
+repository <- ravecore::prepare_subject_raw_voltage_with_blocks(
+  subject = subject, 
+  electrodes = loaded_electrodes_cleaned, 
+  downsample = NA
+)
+```
+
+```{rave preload_stim_epoch, export = "preloaded_stim_epoch"}
+if(isTRUE(epoch_name %in% subject$epoch_names)) {
+  preloaded_stim_epoch <- subject$get_epoch(epoch_name)
+} else {
+  preloaded_stim_epoch <- NULL
+}
+```
+
+```{rave load_signals, export = "loaded_signals"}
+filarray_root <- file.path("data", "raw-voltage")
+if(!dir.exists(filarray_root)) {
+  dir.create(filarray_root, showWarnings = FALSE, recursive = TRUE)
+}
+
+container <- repository$get_container()
+
+loaded_signals <- lapply(subject$blocks, function(block) {
+  # block <- subject$blocks[[1]]
+  fbase <- file.path(filarray_root, block)
+  
+  block_data <- container[[block]]
+  stype <- names(block_data)[[1]]
+  
+  signal_info <- container[[block]][[stype]]
+  
+  electrode_list <- repository$electrode_list
+  
+  signals <- signal_info$data[, signal_info$dimnames$Electrode %in% electrode_list, drop = FALSE, dimnames = FALSE]
+  
+  if(file.exists(fbase)) {
+    unlink(fbase, recursive = TRUE)
+  }
+  farr <- filearray::filearray_create(
+    filebase = fbase,
+    dimension = c(nrow(signals), 1L),
+    type = "float",
+    partition_size = 1L,
+    initialize = FALSE
+  )
+  
+  farr$set_header(key = "subject_id", value = repository$subject$subject_id, save = FALSE)
+  farr$set_header(key = "block", value = block, save = FALSE)
+  farr$set_header(key = "sample_rate", value = signal_info$sample_rate, save = FALSE)
+  farr$set_header(key = "max_duration", value = max(signal_info$dimnames$Time), save = FALSE)
+  
+  
+  # set epoch
+  if(!is.null(preloaded_stim_epoch)) {
+    epoch_table <- preloaded_stim_epoch$table
+    if(is.data.frame(epoch_table) && nrow(epoch_table)) {
+      block_epoch_table <- epoch_table[epoch_table$Block == block, ]
+      if(nrow(block_epoch_table)) {
+        farr$set_header("epoch_table", block_epoch_table, save = FALSE)
+      }
+    }
+  }
+  
+  if(length(electrode_list) == 1) {
+    
+    farr[] <- signals
+    
+    dimnames(farr) <- list(
+      Time = signal_info$dimnames$Time,
+      Electrode = electrode_list
+    )
+    
+  } else {
+    farr[] <- signals[, 2] - signals[, 1]
+    
+    
+    dimnames(farr) <- list(
+      Time = signal_info$dimnames$Time,
+      Electrode = sprintf(
+        "%s-%s",
+        electrode_list[[2]],
+        electrode_list[[1]]
+      )
+    )
+  }
+  
+  ravepipeline::RAVEFileArray$new(x = farr, temporary = FALSE)
+})
+names(loaded_signals) <- subject$blocks
+```
+
+
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-stimpulse_finder.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-stimpulse_finder.R")
+```
+
+
+Once the pipeline script `make-stimpulse_finder.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  ravepipeline:::pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+

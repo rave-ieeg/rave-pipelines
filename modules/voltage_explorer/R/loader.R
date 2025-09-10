@@ -86,7 +86,7 @@ loader_server <- function(input, output, session, ...){
 
       # Check if user has asked to set the epoch & reference to be the default
       default_epoch <- isTRUE(loader_epoch$get_sub_element_input("default"))
-      default_reference <- isTRUE(loader_epoch$get_sub_element_input("default"))
+      default_reference <- isTRUE(loader_reference$get_sub_element_input("default"))
 
       # --------------------- Run the pipeline! ---------------------
 
@@ -135,7 +135,7 @@ loader_server <- function(input, output, session, ...){
 
           # Let the module know the data has been changed
           ravedash::fire_rave_event('data_changed', Sys.time())
-          ravedash::logger("Data has been loaded loaded")
+          ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
           dipsaus::close_alert2()

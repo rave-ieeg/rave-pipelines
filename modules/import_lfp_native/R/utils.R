@@ -94,7 +94,7 @@ renderSteps <- function(..., env = parent.frame(), session = shiny::getDefaultRe
       if(!isTRUE(._item)){
         print(._item)
         ._pass <<- FALSE
-        cat(raveio::glue("Stopped at [{ step_names[[ii]] }], reason: { ._item$error$message }\n", .trim = FALSE))
+        cat(glue::glue("Stopped at [{ step_names[[ii]] }], reason: { ._item$error$message }\n", .trim = FALSE))
       }
       return(steps[[ii]]$render())
     })

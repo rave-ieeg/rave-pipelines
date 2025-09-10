@@ -15,7 +15,7 @@ options("raveio.debug" = TRUE)
 
 
 ```{rave load_subject, language = "R", export = "subject", cue = "always", format = "rave-subject"}
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code
 )
@@ -88,8 +88,8 @@ if(isTRUE(reference_name %in% subject$reference_names)) {
   }, error = function(e){
     
     # log
-    ravedash::logger("Unable to load reference [", reference_name, "]", level = "error")
-    ravedash::logger_error_condition(e)
+    ravepipeline::logger("Unable to load reference [", reference_name, "]", level = "error")
+    ravepipeline::logger_error_condition(e)
     stop("Unable to load reference [", reference_name, "]. Please check your reference file or simply start with a blank reference profile.")
   })
   
@@ -104,14 +104,14 @@ if(isTRUE(reference_name %in% subject$reference_names)) {
   if(!"LocationType" %in% names(electrode_table)) {
     electrode_table$LocationType <- "iEEG"
   } else {
-    electrode_table$LocationType[!electrode_table$LocationType %in% raveio::LOCATION_TYPES] <- "iEEG"
+    electrode_table$LocationType[!electrode_table$LocationType %in% ravecore::LOCATION_TYPES] <- "iEEG"
   }
   if(length(subject$electrode_types) == nrow(electrode_table)) {
     electrode_table$SignalType <- subject$electrode_types
   } else if(!"SignalType" %in% names(electrode_table)) {
     electrode_table$SignalType <- "LFP"
   } else {
-    electrode_table$SignalType[!electrode_table$SignalType %in% raveio::SIGNAL_TYPES] <- "LFP"
+    electrode_table$SignalType[!electrode_table$SignalType %in% ravecore::SIGNAL_TYPES] <- "LFP"
   }
   
   splits <- split(electrode_table, electrode_table$Group)
@@ -164,12 +164,12 @@ use_cache <- preprocessing_history$use_cache
 has_wavelet <- all(preprocessing_history$current$has_wavelet[is_lfp])
 
 cache_root <- file.path(subject$cache_path, "rave2", "voltage")
-raveio::dir_create2(cache_root)
+ravepipeline::dir_create2(cache_root)
 
 notch_params <- subject$preprocess_settings$notch_params
 
 first_e <- electrodes[is_lfp][[1]]
-first_inst <- raveio::new_electrode(subject = subject, 
+first_inst <- ravecore::new_electrode(subject = subject, 
                                     number = first_e)
 
 progress <- dipsaus::progress2("Check cache data", max = length(blocks), shiny_auto_close = TRUE)
@@ -183,9 +183,15 @@ voltage_signals <- structure(
     progress$inc(sprintf("%s", block))
     
     if( has_wavelet ) {
-      sample_signal <- raveio::load_h5(first_inst$voltage_file, name = sprintf("/raw/voltage/%s", block), ram = FALSE)
+      sample_signal <- ieegio::io_read_h5(
+        first_inst$voltage_file,
+        name = sprintf("/raw/voltage/%s", block),
+        ram = FALSE
+      )
     } else {
-      sample_signal <- raveio::load_h5(first_inst$preprocess_file, name = sprintf("/notch/%s", block), ram = FALSE)
+      sample_signal <- ieegio::io_read_h5(first_inst$preprocess_file,
+                                          name = sprintf("/notch/%s", block),
+                                          ram = FALSE)
     }
     
     
@@ -231,7 +237,7 @@ voltage_signals <- structure(
     
     list(
       exists = exists,
-      array = arr
+      array = ravepipeline::RAVEFileArray$new(arr)
     )
     
   })
@@ -245,36 +251,46 @@ subject_id <- subject$subject_id
 
 if(length(missing_blocks)) {
   
-  raveio::lapply_async(seq_along(lfp_channels), function(ii){
-    e <- lfp_channels[[ii]]
-    inst <- raveio::new_electrode(subject = subject_id, number = e)
-    if( has_wavelet ) {
-      voltage_file <- inst$voltage_file
-      for(block in missing_blocks) {
-        s <- raveio::load_h5(voltage_file, sprintf("/raw/voltage/%s", block), ram = TRUE)
-        voltage_signals[[block]]$array[, ii] <- s
+  ravepipeline::lapply_jobs(
+    seq_along(lfp_channels), 
+    function(ii){
+      e <- lfp_channels[[ii]]
+      inst <- ravecore::new_electrode(subject = subject_id, number = e)
+      if( has_wavelet ) {
+        voltage_file <- inst$voltage_file
+        h5_name_format <- "/raw/voltage/%s"
+      } else {
+        voltage_file <- inst$preprocess_file
+        h5_name_format <- "/notch/%s"
       }
-    } else {
-      voltage_file <- inst$preprocess_file
       for(block in missing_blocks) {
-        s <- raveio::load_h5(voltage_file, sprintf("/notch/%s", block), ram = TRUE)
-        voltage_signals[[block]]$array[, ii] <- s
+        s <- ieegio::io_read_h5(voltage_file, sprintf(h5_name_format, block), ram = TRUE)
+        arr <- voltage_signals[[block]]$array$`@impl`
+        arr[, ii] <- s
       }
+      return()
+    },
+    .globals = list(
+      lfp_channels = lfp_channels,
+      subject_id = subject_id,
+      missing_blocks = missing_blocks,
+      voltage_signals = voltage_signals,
+      has_wavelet = has_wavelet
+    ), callback = function(ii){
+      sprintf("Creating cache|Electrode %s", electrodes[[ii]])
     }
-    return()
-  }, callback = function(ii){
-    sprintf("Creating cache|Electrode %s", electrodes[[ii]])
-  })
+  )
   
 }
 
 voltage_data <- list(
   data = structure(lapply(voltage_signals, function(item){
+    arr <- item$array$`@impl`
     if(!item$exists) {
-      item$array$set_header("staged", TRUE)
+      arr$set_header("staged", TRUE)
     }
-    item$array$.mode <- "readonly"
-    item$array
+    arr$.mode <- "readonly"
+    arr
   }), names = blocks),
   electrodes = lfp_channels
 )
