@@ -80,7 +80,7 @@ module_server <- function(input, output, session, ...){
         )
         Sys.sleep(0.5)
         ravepipeline::with_rave_parallel({
-          ravecore:::rave_subject_format_conversion(subject = subject)
+          ravecore::rave_legacy_subject_format_conversion(subject = subject)
         })
 
         dipsaus::close_alert2()
