@@ -129,7 +129,9 @@ rm(._._env_._.)
                         blocks = blocks, electrodes = channels, 
                         check_content = TRUE)
                     }, native_matlab2 = {
-                      stop("TBD")
+                      ravecore:::validate_raw_h5_mat_per_block(subject = subject, 
+                        blocks = blocks, electrodes = channels, 
+                        check_content = TRUE)
                     }, native_edf = {
                       ravecore:::validate_raw_edf(subject = subject, 
                         blocks = blocks, electrodes = channels, 
@@ -226,7 +228,9 @@ rm(._._env_._.)
                           blocks = blocks, electrodes = channels, 
                           check_content = TRUE)
                       }, native_matlab2 = {
-                        stop("TBD")
+                        ravecore:::validate_raw_h5_mat_per_block(subject = subject, 
+                          blocks = blocks, electrodes = channels, 
+                          check_content = TRUE)
                       }, native_edf = {
                         ravecore:::validate_raw_edf(subject = subject, 
                           blocks = blocks, electrodes = channels, 
@@ -331,7 +335,7 @@ rm(._._env_._.)
                 rave_import <- switch(format, native_matlab = {
                   ravecore:::import_from_h5_mat_per_channel
                 }, native_matlab2 = {
-                  stop("TBD")
+                  ravecore::import_from_h5_mat_per_block
                 }, native_edf = {
                   ravecore:::import_from_edf
                 }, native_brainvis = {
@@ -464,7 +468,7 @@ rm(._._env_._.)
                   rave_import <- switch(format, native_matlab = {
                     ravecore:::import_from_h5_mat_per_channel
                   }, native_matlab2 = {
-                    stop("TBD")
+                    ravecore::import_from_h5_mat_per_block
                   }, native_edf = {
                     ravecore:::import_from_edf
                   }, native_brainvis = {

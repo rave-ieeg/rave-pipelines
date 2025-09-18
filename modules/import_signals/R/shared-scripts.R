@@ -13,7 +13,7 @@ all_projects <- c("", ravecore::get_projects(refresh = TRUE), "[New Project]")
 current_project <- pipeline$get_settings('project_name', "") %OF% all_projects
 
 native_regexps <- c(
-  native_matlab = "\\.(h5|mat)$",
+  native_matlab = "(\\.h5|\\.mat|_matlab|_hdf5)$",
   native_matlab2 = "\\.(h5|mat)$",
   native_edf = "\\.(edf)$",
   native_brainvis = "\\.(eeg|dat|vmrk|vhdr)$",
