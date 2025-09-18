@@ -3,13 +3,17 @@ auxiliary_sample_rate: .na
 compose_setup: []
 force_import: yes
 import_blocks:
-- mTurkWords_018
-- mTurkWords_019
+- 008
+- '010'
+- '011'
+- '012'
 import_format: native_matlab
-lfp_channels: 1-118
+lfp_channels: 13-16,24
 lfp_sample_rate: 2000
 microwire_channels: ''
 microwire_sample_rate: .na
-project_name: test
-skip_validation: yes
-subject_code: PAV058
+project_name: demo
+skip_validation:
+  value: no
+  time: 2025-09-18 17:18:19.416738
+subject_code: DemoSubject
