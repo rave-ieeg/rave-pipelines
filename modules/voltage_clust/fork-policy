@@ -1,3 +1,4 @@
 [default]
 ^shared
+^data
 ^main\.html$

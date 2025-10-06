@@ -1,6 +1,6 @@
 ##' Let RAVE switch to this module pipeline
 ##'
-Sys.setenv("RAVE_PIPELINE" = normalizePath("/Users/dipterix/Dropbox (Personal)/projects/rave-pipelines/modules/voltage_clust"))
+Sys.setenv("RAVE_PIPELINE" = normalizePath("~/Dropbox (Personal)/projects/rave-pipelines/modules/voltage_clust"))
 
 ##' Debug pipeline: assign variables to global environment
 ##' so that you can print them directly

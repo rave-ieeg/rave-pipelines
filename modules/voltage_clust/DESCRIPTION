@@ -1,13 +1,15 @@
 Package: voltage_clust
 Type: rave-pipeline
-Title: Please Add Title About What Your Pipeline Does in Caption Style
+Title: Clustering ERP by Electrode Channels and Condition Groups
 Version: 0.0.1
 Language: en-US
 Encoding: UTF-8
 License: MIT
 Authors@R: c(
-    person("your first name", "last/family name", email = "your.email@edu", role = c("aut", "cre"))
+    person("Xiang", "Zhang", email = "xiang.zhang@pennmedicine.upenn.edu", role = c("aut", "cre")),
+    person("Zhengjia", "Wang", email = "zhengjia.wang@pennmedicine.upenn.edu", role = c("aut"))
     )
-Description: Add short sentences to describe what this pipeline does
-BugReports: https://github.com/your_github_name/pipeline_repository/issues
-URL: https://github.com/your_github_name/pipeline_repository
+Description: Clustering event-related potentials (ERP) using non-negative 
+    matrix factorization to extract basis profile curves
+BugReports: https://github.com/orgs/rave-ieeg/discussions
+URL: https://github.com/rave-ieeg/rave-pipelines

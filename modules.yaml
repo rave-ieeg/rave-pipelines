@@ -21,6 +21,9 @@ groups:
   Group Viewers:
     order: 13
     open: no
+  Channel Clustering:
+    order: 15
+    open: no
 modules:
   standalone_viewer:
     label: Standalone Viewer
@@ -95,11 +98,16 @@ modules:
     label: Power Explorer
     order: 14
     badge: N=1|badge-primary
+  power_clust:
+    label: Power Clustering
+    order: 15.1
+    group: Channel Clustering
+  voltage_clust:
+    label: ERP Clustering
+    order: 15.2
+    group: Channel Clustering
   trace_viewer:
     label: Recording Block Inspector
-    order: 15
-  power_clust:
-    label: Channel Clustering - Power
     order: 16
   configure_rave:
     label: Configurations
