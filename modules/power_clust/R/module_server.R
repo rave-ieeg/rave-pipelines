@@ -248,7 +248,7 @@ module_server <- function(input, output, session, ...){
         Cluster = factor(sprintf("class% 3d", clusters), levels = sprintf("class% 3d", seq_len(n_clusters)))
       )
 
-      brain_proxy$set_electrode_data(value_table, clear_first = TRUE, update_display = TRUE)
+      brain_proxy$set_electrode_data(value_table, palettes = list("Cluster" = threeBrain:::DEFAULT_COLOR_DISCRETE), clear_first = TRUE, update_display = TRUE)
 
     }),
     local_reactives$n_clusters,
