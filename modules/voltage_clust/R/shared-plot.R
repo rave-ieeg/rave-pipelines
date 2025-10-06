@@ -46,7 +46,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
   group_start_offset <- combined_group_results$group_start_offset
 
   group_finish <- cumsum(group_n_time_points)
-  group_separator <- c(1, group_finish)
+  group_separator <- c(0, group_finish) + 0.5
   group_start <- group_separator[-length(group_separator)]
   group_center <- group_finish - group_n_time_points / 2
   axis(1L, at = group_separator, labels = rep("", length(group_separator)), tick = TRUE)
@@ -107,7 +107,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
   average_responses <- combined_group_results$combined_average_responses
   result <- calc_final_cut_tree(cluster_result, k, cvi = FALSE)
 
-  channel_order <- order(result$cluster)
+  channel_order <- order(result$cluster, decreasing = TRUE)
 
   channel_color <- col_label[result$cluster]
 
@@ -160,7 +160,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
   group_start_offset <- combined_group_results$group_start_offset
 
   group_finish <- cumsum(group_n_time_points)
-  group_separator <- c(1, group_finish)
+  group_separator <- c(0, group_finish) + 0.5
   group_start <- group_separator[-length(group_separator)]
   group_center <- group_finish - group_n_time_points / 2
   axis(1L, at = group_separator, labels = rep("", length(group_separator)), tick = TRUE)
@@ -188,7 +188,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
   )
   abline(v = group_separator)
 
-  abline(h = cumsum(table(result$cluster)) + 0.5)
+  abline(h = cumsum(rev(table(result$cluster))) + 0.5)
 
   channel_y_at <- seq_along(channels)
   channel_y_label <- channels_reordered
