@@ -4,7 +4,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
   average_responses <- combined_group_results$combined_average_responses
   result <- calc_final_cut_tree(cluster_result, k, cvi = FALSE)
 
-  channel_order <- order(result$cluster)
+  channel_order <- rev(order(result$cluster))
 
   channel_color <- col_label[result$cluster]
 
@@ -85,7 +85,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
   )
   abline(v = group_separator)
 
-  abline(h = cumsum(table(result$cluster)) + 0.5)
+  abline(h = cumsum(rev(table(result$cluster))) + 0.5)
 
   channel_y_at <- seq_along(channels)
   channel_y_label <- channels_reordered
