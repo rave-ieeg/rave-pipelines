@@ -6,8 +6,8 @@ baseline__unit_of_analysis: Decibel
 baseline__windows:
   '1':
     window_interval:
-    - -1
-    - -0.57
+    - -0.5
+    - 0
 condition_groups:
   '1':
     group_name: All Conditions
