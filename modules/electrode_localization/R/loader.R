@@ -674,9 +674,7 @@ loader_server <- function(input, output, session, ...){
       complete_cmd <- ravecore::cmd_run_yael_preprocess(
         subject = subject,
         normalize_template = c(
-          "mni_icbm152_nlin_asym_09b",
-          "mni_icbm152_nlin_asym_09a",
-          "mni_icbm152_nlin_asym_09c"
+          "mni_icbm152_nlin_asym_09b"
         ),
         run_recon_all = TRUE,
         dry_run = TRUE
