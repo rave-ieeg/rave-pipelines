@@ -138,7 +138,7 @@ module_server <- function(input, output, session, ...){
 
     # Time range
     full_timerange <- range(unlist(new_repository$time_windows))
-    analysis_window <- range(unlist(pipeline['analysis_window']))
+    analysis_window <- range(unlist(pipeline$get_settings('analysis_window')))
     analysis_window[analysis_window < full_timerange[[1]]] <- full_timerange[[1]]
     analysis_window[analysis_window > full_timerange[[2]]] <- full_timerange[[2]]
     shiny::updateSliderInput(
@@ -152,7 +152,7 @@ module_server <- function(input, output, session, ...){
 
     # Frequency range
     frequency_max_range <- range(new_repository$frequency)
-    frequency_range <- range(unlist(pipeline['frequency_range']))
+    frequency_range <- range(unlist(pipeline$get_settings('frequency_range')))
     frequency_range[frequency_range < frequency_max_range[[1]]] <- frequency_max_range[[1]]
     frequency_range[frequency_range > frequency_max_range[[2]]] <- frequency_max_range[[2]]
     shiny::updateSliderInput(
@@ -166,7 +166,7 @@ module_server <- function(input, output, session, ...){
 
     # Zeta ?
     # zeta_threshold
-    zeta_threshold <- as.double(unlist(pipeline['zeta_threshold']))
+    zeta_threshold <- as.double(unlist(pipeline$get_settings('zeta_threshold')))
     if(length(zeta_threshold) != 1 || is.na(zeta_threshold) || zeta_threshold <= 0 || zeta_threshold >= 1) {
       zeta_threshold <- 0.5
     }
