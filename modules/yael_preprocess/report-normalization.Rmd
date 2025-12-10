@@ -10,14 +10,6 @@ description: |
   </i></small>
 date: "`r Sys.Date()`"
 output: 
-  distill::distill_article:
-    theme: flatly
-    code_folding: true
-    self_contained: true
-    toc: true
-    toc_depth: 3
-    toc_float: true
-    css: "report_styles.css"
   html_document:
     theme: flatly
     code_folding: hide

@@ -7,14 +7,6 @@ output:
     toc_depth: 3
     df_print: kable
     theme: spacelab
-  distill::distill_article:
-    theme: spacelab
-    code_folding: true
-    self_contained: true
-    toc: true
-    toc_depth: 3
-    toc_float: true
-    css: "report_styles.css"
 params:
   plots_to_include: 
     - over_time_by_electrode

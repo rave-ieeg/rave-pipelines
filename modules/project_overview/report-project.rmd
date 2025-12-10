@@ -9,6 +9,13 @@ description: |
     on `r strftime(Sys.Date(), '%b %d, %Y')`
   </i></small>
 output: 
+  html_document:
+    theme: flatly
+    code_folding: hide
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float: true
   distill::distill_article:
     theme: flatly
     code_folding: true
@@ -17,13 +24,6 @@ output:
     toc_depth: 3
     toc_float: true
     css: "report_styles.css"
-  html_document:
-    theme: flatly
-    code_folding: hide
-    self_contained: true
-    toc: true
-    toc_depth: 3
-    toc_float: true
 params:
   project_name: demo
   template_subject: ~
