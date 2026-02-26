@@ -6,25 +6,18 @@
   <title>Preview</title>
   {{ shidashi::include_view("header.html") }}
 </head>
-<body class="layout-top-nav {{ class }}">
-<div class="wrapper">
-
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Main content -->
-    <section class="content">
+<body class="{{ class }}">
+<div class="shidashi-wrapper">
+  <div class="shidashi-content" style="margin-left:0;">
+    <section class="container-fluid py-3">
       <div class="row">
-        <div class="col-xs-12">
+        <div class="col-12">
           {{ x }}
         </div>
       </div>
     </section>
-    <!-- /.content -->
   </div>
-  <!-- /.content-wrapper -->
-
 </div>
-<!-- ./wrapper -->
 {{ shidashi::include_view("footer.html") }}
 </body>
 </html>
