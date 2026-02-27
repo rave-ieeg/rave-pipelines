@@ -12,7 +12,7 @@ Description: Builtin 'RAVE' (R Analysis and Visualization of 'iEEG')
     pipeline files, including importing neurophysiology data,
     preprocessing, analyzing and visualizing the data within the 'RAVE'
     framework
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://github.com/beauchamplab/rave-pipelines
 Depends: R (>= 4.1.0)
 Imports:

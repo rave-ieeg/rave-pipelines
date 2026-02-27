@@ -9,5 +9,5 @@ Authors@R: c(
     person("John", "Magnotti", email = "help@rave.wiki", role = c("aut", "cre"))
     )
 Description: Drag and drop spreadsheets to view data on template brain
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://github.com/rave-ieeg/rave-pipelines

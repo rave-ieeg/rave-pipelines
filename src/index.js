@@ -612,11 +612,22 @@ class ShidashiApp {
 
       case 'expand':
         card.classList.remove('shidashi-collapsed');
+        if (card.classList.contains('start-collapsed')) {
+          this.unbindAll(card);
+          card.classList.remove('start-collapsed');
+          this.bindAll(card);
+        }
         this._updateCardIcon(card, false);
         this.triggerResize(50);
         break;
 
       case 'maximize':
+        card.classList.add('shidashi-maximized');
+        document.body.classList.add('shidashi-card-maximized');
+        this._updateMaximizeIcon(card);
+        this.triggerResize(50);
+        break;
+
       case 'toggleMaximize':
         if (method === 'toggleMaximize' && card.classList.contains('shidashi-maximized')) {
           card.classList.remove('shidashi-maximized');
@@ -637,7 +648,7 @@ class ShidashiApp {
         break;
 
       case 'toggle':
-        if (card.classList.contains('shidashi-collapsed')) {
+        if (card.classList.contains('shidashi-collapsed') || card.classList.contains('start-collapsed')) {
           this._cardOperate(card, 'expand');
         } else {
           this._cardOperate(card, 'collapse');
@@ -654,7 +665,7 @@ class ShidashiApp {
   }
 
   _updateCardIcon(card, collapsed) {
-    const icon = card.querySelector('[data-shidashi-card-action="collapse"] i, [data-shidashi-card-action="collapse"] .fas');
+    const icon = card.querySelector('[data-card-widget="collapse"] i, [data-card-widget="collapse"] .fas');
     if (icon) {
       if (collapsed) {
         icon.classList.remove('fa-minus');
@@ -667,7 +678,7 @@ class ShidashiApp {
   }
 
   _updateMaximizeIcon(card) {
-    const btn = card.querySelector('[data-shidashi-card-action="maximize"]');
+    const btn = card.querySelector('[data-card-widget="maximize"]');
     if (!btn) return;
     const icon = btn.querySelector('i, .fas');
     if (icon) {
@@ -979,7 +990,7 @@ class ShidashiApp {
   _bindCardTools() {
     document.addEventListener('click', (evt) => {
       // Collapse/expand
-      const collapseBtn = evt.target.closest('[data-shidashi-card-action="collapse"]');
+      const collapseBtn = evt.target.closest('[data-card-widget="collapse"]');
       if (collapseBtn) {
         evt.preventDefault();
         const card = collapseBtn.closest('.card');
@@ -988,7 +999,7 @@ class ShidashiApp {
       }
 
       // Maximize/restore
-      const maxBtn = evt.target.closest('[data-shidashi-card-action="maximize"]');
+      const maxBtn = evt.target.closest('[data-card-widget="maximize"]');
       if (maxBtn) {
         evt.preventDefault();
         const card = maxBtn.closest('.card');
@@ -997,7 +1008,7 @@ class ShidashiApp {
       }
 
       // Refresh / loading
-      const refreshBtn = evt.target.closest('[data-shidashi-card-action="refresh"]');
+      const refreshBtn = evt.target.closest('[data-card-widget="refresh"]');
       if (refreshBtn) {
         evt.preventDefault();
         this.triggerResize(50);
@@ -1005,7 +1016,7 @@ class ShidashiApp {
       }
 
       // Flip
-      const flipBtn = evt.target.closest('[data-shidashi-card-action="flip"]');
+      const flipBtn = evt.target.closest('[data-card-widget="flip"]');
       if (flipBtn) {
         evt.preventDefault();
         const card = flipBtn.closest('.card');
@@ -1017,7 +1028,7 @@ class ShidashiApp {
       }
 
       // Remove
-      const removeBtn = evt.target.closest('[data-shidashi-card-action="remove"]');
+      const removeBtn = evt.target.closest('[data-card-widget="remove"]');
       if (removeBtn) {
         evt.preventDefault();
         const card = removeBtn.closest('.card');
@@ -1197,7 +1208,7 @@ class ShidashiApp {
 
     // Start-collapsed cards: after expand, remove start-collapsed class
     document.addEventListener('click', (evt) => {
-      const collapseBtn = evt.target.closest('[data-shidashi-card-action="collapse"]');
+      const collapseBtn = evt.target.closest('[data-card-widget="collapse"]');
       if (!collapseBtn) return;
       const card = collapseBtn.closest('.card.start-collapsed');
       if (!card) return;

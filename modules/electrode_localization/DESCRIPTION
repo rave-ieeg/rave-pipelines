@@ -11,7 +11,7 @@ Authors@R: c(
     person("Michael S.", "Beauchamp", role = c("aut"))
     )
 License: MIT
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://yael.wiki
 Description: 
     Abstract: Intracranial electroencephalography (iEEG) provides a unique 

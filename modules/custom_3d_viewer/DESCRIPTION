@@ -12,7 +12,7 @@ Description:
     Views subject brain with surface overlaid by 'MRI' slices and electrodes.
     The electrode can be colored by data table, which can be generated
     from a 'CSV' file (opened by Excel). Please check the 'URL' for manual.
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: 
     https://beauchamplab.github.io/raveio/reference/rave_brain.html, 
     https://dipterix.org/threeBrain/

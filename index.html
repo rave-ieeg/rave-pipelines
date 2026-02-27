@@ -83,7 +83,7 @@
   <!-- Sidebar -->
   <nav class="shidashi-sidebar {{ ifelse('dark-mode' %in% sidebar_class(), 'shidashi-sidebar--dark', 'shidashi-sidebar--light') }}">
     <!-- Brand Logo -->
-    <a href="#" class="shidashi-brand-link">
+    <a href="#" class="shidashi-brand-link justify-content-center align-items-center">
 {{ local({ logo <- page_logo('normal'); if(!is.null(logo) && nzchar(logo)) HTML(paste0('<img src="', logo, '" alt="Logo" class="shidashi-brand-image rounded" style="opacity:.8">')) else '' }) }}
       <span class="shidashi-brand-text">{{ page_title(FALSE) }}</span>
     </a>

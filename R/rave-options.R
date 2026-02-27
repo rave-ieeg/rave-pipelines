@@ -27,18 +27,18 @@ rave_option_server <- function(input, output, session){
 
     package_ver <- function(name, version_only = FALSE) {
       suppressWarnings({
-        if(name %in% names(session_info$otherPkgs)) {
+        if (name %in% names(session_info$otherPkgs)) {
           desc <- session_info$otherPkgs[[name]]
-        } else if(name %in% names(session_info$loadedOnly)) {
+        } else if (name %in% names(session_info$loadedOnly)) {
           desc <- session_info$loadedOnly[[name]]
         } else {
           desc <- utils::packageDescription(name, drop = TRUE)
         }
       })
 
-      if(!inherits(desc, "packageDescription")) { return(NULL) }
+      if (!inherits(desc, "packageDescription")) { return(NULL) }
 
-      if(version_only) {
+      if (version_only) {
         return(desc$Version)
       }
       sprintf("%s [%s]", desc$Package, desc$Version)
@@ -129,13 +129,13 @@ rave_option_server <- function(input, output, session){
     sv <- shinyvalidate::InputValidator$new(session = session)
 
     sv$add_rule(paste0(input_id, "_text"), function(value) {
-      if(length(value) != 1 || is.na(value) || trimws(value) == '') {
+      if (length(value) != 1 || is.na(value) || trimws(value) == '') {
         return(sprintf(
           "Path to [%s] is blank. Please enter a valid path",
           opt_name
         ))
       }
-      if(!ok_ifnot_exists && !dir.exists(value)) {
+      if (!ok_ifnot_exists && !dir.exists(value)) {
         return(sprintf(
           "Path to [%s] does not exists",
           opt_name
@@ -148,8 +148,8 @@ rave_option_server <- function(input, output, session){
 
     shiny::bindEvent(
       ravedash::safe_observe({
-        if(!sv$is_valid()) { return() }
-        val <- normalizePath(input[[input_id]])
+        if (!sv$is_valid()) { return() }
+        val <- normalizePath(input[[paste0(input_id, "_text")]])
         ravedash::logger(
           "Trying to set RAVE option [{opt_key}] <- {val}",
           level = "debug", use_glue = TRUE
@@ -177,7 +177,7 @@ rave_option_server <- function(input, output, session){
         local_reactives$refresh <- Sys.time()
 
       }),
-      input[[input_id]],
+      input[[paste0(input_id, "_search")]],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
 
@@ -203,10 +203,10 @@ rave_option_server <- function(input, output, session){
       suppressWarnings({
         value <- as.integer(value)
       })
-      if(length(value) != 1 || is.na(value)) {
+      if (length(value) != 1 || is.na(value)) {
         return("Invalid CPU cores: must be an integer")
       }
-      if(value < 1 || value > max_cores) {
+      if (value < 1 || value > max_cores) {
         return(sprintf("Invalid CPU cores: must be an integer from 1 to %.0f", max_cores))
       }
       return()
@@ -216,9 +216,9 @@ rave_option_server <- function(input, output, session){
 
     shiny::bindEvent(
       ravedash::safe_observe({
-        if(!sv$is_valid()) { return() }
-        max_worker <- as.integer(input$max_worker)
-        if(!length(max_worker) || is.na(max_worker) ||
+        if (!sv$is_valid()) { return() }
+        max_worker <- as.integer(input$max_worker_text)
+        if (!length(max_worker) || is.na(max_worker) ||
            max_worker < 1 || max_worker > max_cores) {
           return()
         }
@@ -250,7 +250,7 @@ rave_option_server <- function(input, output, session){
 
 
       }),
-      input$max_worker,
+      input$max_worker_search,
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
   })
@@ -259,7 +259,7 @@ rave_option_server <- function(input, output, session){
   shiny::bindEvent(
     ravedash::safe_observe({
       v <- input$allow_fork_clusters
-      if(length(v) != 1) { return() }
+      if (length(v) != 1) { return() }
       disable_fork_clusters <- !v
 
       ravedash::logger(
@@ -280,8 +280,8 @@ rave_option_server <- function(input, output, session){
 
   get_available_templates <- local({
     templates <- NULL
-    function(){
-      if(is.null(templates)) {
+    function() {
+      if (is.null(templates)) {
         templates <<- threeBrain::available_templates()
       }
       templates
@@ -291,11 +291,11 @@ rave_option_server <- function(input, output, session){
   shiny::bindEvent(
     ravedash::safe_observe({
       template_subject <- input$template_subject
-      if(!length(template_subject)) { return() }
-      if(is.na(template_subject)) { return() }
+      if (!length(template_subject)) { return() }
+      if (is.na(template_subject)) { return() }
 
       template_subject <- gsub("[^a-zA-Z0-9_-]", "", template_subject)
-      if( !nchar(template_subject) ) {
+      if ( !nchar(template_subject) ) {
         shinyWidgets::updateSearchInput(
           session = session, inputId = "template_subject",
           value = "", trigger = FALSE
@@ -312,12 +312,12 @@ rave_option_server <- function(input, output, session){
       root_path <- threeBrain::default_template_directory()
       path <- file.path(root_path, template_subject)
 
-      if(dir.exists(path)) {
+      if (dir.exists(path)) {
         ravepipeline::raveio_setopt("threeBrain_template_subject", value = template_subject)
         shidashi::show_notification("New template is set!", title = "Succeed!", type = "success")
       } else {
         templates <- get_available_templates()
-        if(template_subject %in% names(templates)) {
+        if (template_subject %in% names(templates)) {
 
           timeout <- getOption("timeout")
           shidashi::show_notification(

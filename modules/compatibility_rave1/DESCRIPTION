@@ -14,7 +14,7 @@ Description:
     'RAVE' 1.0 format so the old modules used on the subject. Users can
     also export the data into 'HDF5' formats for further analyses in 'Matlab',
     'Python', and 'R'. Please see 'URL' for the functions used in this module.
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: 
     https://beauchamplab.github.io/raveio/reference/validate_subject.html,
     https://beauchamplab.github.io/raveio/reference/rave_subject_format_conversion.html,

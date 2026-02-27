@@ -15,5 +15,5 @@ Description: Imports LFP, spike, and auxiliary (audio, photodiode) channels to
     creates and initializes subject folders within the 'RAVE' directory for
     other pipelines. To run the pipeline without GUI,
     see `ravepipeline::pipeline("import_lfp_native")`.
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 License: MIT
