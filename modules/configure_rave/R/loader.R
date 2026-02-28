@@ -751,7 +751,7 @@ loader_server <- function(input, output, session, ...){
     shiny::bindEvent(
       ravedash::safe_observe({
         if(!sv$is_valid()) { return() }
-        val <- normalizePath(input[[input_id]])
+        val <- normalizePath(input[[paste0(input_id, "_text")]])
         ravepipeline::logger(
           "Trying to set RAVE option [{opt_key}] <- {val}",
           level = "debug", use_glue = TRUE
@@ -779,7 +779,7 @@ loader_server <- function(input, output, session, ...){
         local_reactives$refresh <- Sys.time()
 
       }),
-      input[[input_id]],
+      input[[paste0(input_id, "_search")]],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
 
@@ -819,7 +819,7 @@ loader_server <- function(input, output, session, ...){
     shiny::bindEvent(
       ravedash::safe_observe({
         if(!sv$is_valid()) { return() }
-        max_worker <- as.integer(input$max_worker)
+        max_worker <- as.integer(input$max_worker_text)
         if(!length(max_worker) || is.na(max_worker) ||
            max_worker < 1 || max_worker > max_cores) {
           return()
@@ -852,7 +852,7 @@ loader_server <- function(input, output, session, ...){
 
 
       }),
-      input$max_worker,
+      input$max_worker_search,
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
   })
@@ -892,7 +892,7 @@ loader_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      template_subject <- input$template_subject
+      template_subject <- input$template_subject_text
       if(!length(template_subject)) { return() }
       if(is.na(template_subject)) { return() }
 
@@ -970,7 +970,7 @@ loader_server <- function(input, output, session, ...){
       local_reactives$refresh <- Sys.time()
 
     }),
-    input$template_subject,
+    input$template_subject_search,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
