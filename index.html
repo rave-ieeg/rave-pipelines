@@ -62,17 +62,23 @@
     <!-- Right navbar links -->
     <ul class="navbar-nav ms-auto">
 
+      <!-- Drawer toggle -->
+      <li class="nav-item d-sm-flex justify-content-center">
+        <a class="nav-link btn" href="#" data-shidashi-action="toggle-drawer" title="Toggle drawer">
+          <i class="fas fa-columns"></i>
+        </a>
+      </li>
       <!-- Theme switcher -->
-      <li class="nav-item">
-        <div class="theme-switch-wrapper nav-link">
+      <li class="nav-item d-sm-flex justify-content-center">
+        <div class="theme-switch-wrapper nav-link d-sm-flex justify-content-center">
           <label class="theme-switch" for="__checkbox__">
             <input type="checkbox" id="__checkbox__">
             <span class="slider round"></span>
           </label>
         </div>
       </li>
-      <li class="nav-item">
-        <a class="nav-link action-button" href="#" role="button" id="ravedash_shutdown_btn">
+      <li class="nav-item d-sm-inline-flex justify-content-center">
+        <a class="nav-link btn action-button" href="#" role="button" id="ravedash_shutdown_btn">
           <i class="fas fa-power-off"></i>
         </a>
       </li>
@@ -143,6 +149,15 @@
 
 </div>
 <!-- ./wrapper -->
+
+<!-- Slide-out Drawer -->
+<div class="shidashi-drawer" id="shidashi-drawer">
+  <button class="shidashi-drawer-close" aria-label="Close drawer">
+    <i class="fas fa-angle-right"></i>
+  </button>
+  <div class="shidashi-drawer-body">
+  </div>
+</div>
 
 {{ shidashi::include_view("footer.html") }}
 </body>

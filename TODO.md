@@ -107,3 +107,52 @@ shutdown button, `RAVEPipeline` global name) must be preserved.
 | highlight.js | Keep `www/highlightjs/` for now | May be used by modules; remove later if confirmed unused |
 | `src/build.R` | Remove | Version stamping no longer needed; esbuild handles build |
 | `shidashi::adminlte_ui()` | Keep as-is | bslib template also uses this function name |
+
+---
+
+## Slide-out Drawer (Per-Module)
+
+### Overview
+
+A right-side slide-out drawer panel (~400px) within each module iframe for AI agents,
+settings, or other secondary content. Module developers populate drawer content via R/Shiny.
+The drawer can be toggled from the module navbar, the parent shell navbar, or from R code.
+
+### Requirements
+
+- **Per-module**: Lives inside each module iframe (not the parent shell)
+- **Right side**: Fixed position, slides in from the right
+- **~400px wide**: Configurable via CSS variable
+- **No backdrop**: Does not dim/overlay the page content
+- **z-index > 1039**: Higher than back-to-top buttons and sidebar overlay
+- **Height**: `100vh` when in iframe (`body.in-iframe`); subtract navbar height when standalone
+- **Close button**: Floating angle-right icon on drawer top-left
+- **Toggle via**:
+  - `data-shidashi-action="toggle-drawer"` (also `open-drawer`, `close-drawer`)
+  - R/Shiny: `shidashi.toggle_drawer` custom message handler
+  - Parent shell propagates to active iframe via `iframeManager`
+- **Theme-aware**: Dark mode support via `.dark-mode` class
+
+### Implementation Plan
+
+1. **SCSS** (`src/shidashi.scss`): Add `.shidashi-drawer` section with:
+   - `position: fixed; right: 0; width: 400px; transform: translateX(100%); transition`
+   - `body:not(.in-iframe)` → `top: $navbar-height; height: calc(100vh - $navbar-height)`
+   - `body.in-iframe` → `top: 0; height: 100vh`
+   - `.shidashi-drawer.open { transform: translateX(0) }`
+   - `.shidashi-drawer-close` floating button styling
+   - Dark mode overrides
+
+2. **JS** (`src/index.js`): Add:
+   - `openDrawer()`, `closeDrawer()`, `toggleDrawer(open?)` methods
+   - Action handlers for `toggle-drawer`, `open-drawer`, `close-drawer` in `_bindCardTools()`
+   - Parent-to-iframe propagation via `iframeManager` active tab
+   - Shiny handler `shidashi.toggle_drawer`
+
+3. **HTML** (`modules/*/module-ui.html`): Add:
+   - `<div class="shidashi-drawer" id="shidashi-drawer"><button class="shidashi-drawer-close">…</button></div>`
+   - Toggle button `<li>` in module navbar with angle-right icon
+
+4. **HTML** (`index.html`): Add toggle button to parent navbar right side
+
+5. **Build**: `npm run build`

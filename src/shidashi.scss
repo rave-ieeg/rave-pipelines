@@ -189,7 +189,8 @@ body.has-active-module .preloader,
 // Layout: sidebar + content
 // ==========================================================================
 
-:root {
+:root,
+.modal-dialog {
   --bs-gutter-x: 0.5rem;
   --bs-gutter-y: 0.5rem;
   --bs-modal-margin: 1.5rem;
@@ -257,7 +258,9 @@ body {
     display: flex;
     align-items: center;
     min-height: $navbar-height;
-    padding: 0.8125rem 1rem;
+    padding: 0 1rem;
+    padding-top: calc(0.5 * #{$navbar-height} - 24px);
+    padding-bottom: calc(0.5 * #{$navbar-height} - 24px);
     font-size: 1.15rem;
     font-weight: 600;
     white-space: nowrap;
@@ -610,6 +613,10 @@ body.in-iframe .shidashi-header {
 
 .shidashi-header-right {
   margin-left: auto;
+}
+
+.shidashi-header .navbar-nav {
+  justify-content: center;
 }
 
 // ==========================================================================
@@ -968,8 +975,54 @@ input:checked + .slider::before { transform: translateX(26px); }
 
 .resize-vertical {
   @include overflow(hidden);
-  resize: vertical;
-  &:hover { @include overflow(auto); }
+  position: relative;
+
+  &:hover {
+    @include overflow(auto);
+  }
+}
+
+// Custom drag-to-resize handle at bottom center
+.shidashi-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  &::before {
+    content: "";
+    width: 48px;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 2px;
+    transition: background-color 0.15s ease;
+  }
+
+  &:hover::before,
+  &.active::before {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .dark-mode &::before {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+  .dark-mode &:hover::before,
+  .dark-mode &.active::before {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+.resize-vertical:hover > .shidashi-resize-handle,
+.shidashi-resize-handle.active {
+  opacity: 1;
 }
 
 // ==========================================================================
@@ -1029,8 +1082,8 @@ code {
 }
 
 pre > code {
-  display: block;
-  padding: 0.5em;
+  display: inline-block;
+  padding: 0;
   font-size: inherit;
   background-color: transparent;
   border-radius: 0;
@@ -1090,8 +1143,11 @@ $_card-themes: (
   margin-bottom: var(--bs-gutter-y, 0.5rem);
   transition: all 0.15s;
 
-  &.shidashi-collapsed > .card-body {
-    display: none;
+  // Animate card-body and card-footer for collapse/expand
+  > .card-body,
+  > .card-footer {
+    transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
+    overflow: hidden;
   }
 
   &.shidashi-maximized {
@@ -1105,6 +1161,10 @@ $_card-themes: (
     margin: 0;
     display: flex;
     flex-direction: column;
+    // Smooth maximize/restore transition
+    transition: top 0.25s ease, left 0.25s ease,
+                width 0.25s ease, height 0.25s ease,
+                border-radius 0.25s ease, margin 0.25s ease;
 
     > .card-header {
       flex-shrink: 0;
@@ -1121,9 +1181,6 @@ $_card-themes: (
     }
   }
 
-  &.start-collapsed > .card-body {
-    display: none;
-  }
 }
 
 // Maximize backdrop — no ::before overlay (blocks pointer events on the card).
@@ -1133,16 +1190,31 @@ body.shidashi-card-maximized {
 }
 
 // Collapsed card: soft-hide body & footer so Shiny outputs keep their width
-// and can still receive updates — only height is zeroed, not display.
-.card.shidashi-collapsed {
+// and can still receive updates — use max-height for smooth animation.
+.card.shidashi-collapsed,
+.card.start-collapsed {
   > .card-body {
-    height: 0 !important;
+    max-height: 0 !important;
     min-height: 0 !important;
     overflow: hidden !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+
+  // If card has a collapse tool, also collapse the footer
+  &:has([data-card-widget="collapse"]) > .card-footer {
+    max-height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    pointer-events: none !important;
   }
 }
 
-// Card header: title + tools on the same line
 .card-header {
   display: flex;
   align-items: center;
@@ -2326,6 +2398,95 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
     & label > span {
       font-size: 1.1rem;
       font-weight: 400 !important;
+    }
+  }
+}
+
+// ==========================================================================
+// Slide-out Drawer (parent frame only)
+// ==========================================================================
+
+.shidashi-drawer {
+  position: fixed;
+  top: $navbar-height;
+  right: 0;
+  width: 400px;
+  max-width: 90vw;
+  height: calc(100vh - #{$navbar-height});
+  z-index: 1045; // above back-to-top (1039), sidebar-overlay (1039), below maximized cards (1050)
+  background-color: $white;
+  border-left: 1px solid $border-color;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &.open {
+    transform: translateX(0);
+  }
+
+  // When navbar is hidden, revert to full viewport height
+  body.navbar-hidden & {
+    top: 0;
+    height: 100vh;
+  }
+}
+
+// Close button — floating on top-left of drawer
+.shidashi-drawer-close {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.06);
+  color: $gray-dark;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.12);
+    color: $dark;
+  }
+
+  &:focus {
+    outline: 2px solid $primary;
+    outline-offset: 2px;
+  }
+}
+
+// Drawer body — scrollable area for module content
+.shidashi-drawer-body {
+  flex: 1;
+  @include overflow(auto);
+  padding: 1rem;
+  padding-top: 2.5rem; // leave room for close button
+}
+
+// Dark mode overrides
+.dark-mode {
+  .shidashi-drawer {
+    background-color: $dark-mode-bg;
+    border-left-color: color.adjust($dark-mode-bg, $lightness: 10%);
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+  }
+
+  .shidashi-drawer-close {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: $dark-mode-text;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+      color: $white;
     }
   }
 }

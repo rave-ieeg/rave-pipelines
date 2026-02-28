@@ -1044,6 +1044,26 @@ class ShidashiApp {
         if (directChat) directChat.classList.toggle('direct-chat-contacts-open');
         return;
       }
+
+      // Drawer toggle / open / close
+      const drawerToggle = evt.target.closest('[data-shidashi-action="toggle-drawer"]');
+      if (drawerToggle) {
+        evt.preventDefault();
+        this.toggleDrawer();
+        return;
+      }
+      const drawerOpen = evt.target.closest('[data-shidashi-action="open-drawer"]');
+      if (drawerOpen) {
+        evt.preventDefault();
+        this.openDrawer();
+        return;
+      }
+      const drawerClose = evt.target.closest('[data-shidashi-action="close-drawer"]');
+      if (drawerClose) {
+        evt.preventDefault();
+        this.closeDrawer();
+        return;
+      }
     });
 
     // Double-click flip-box
@@ -1103,6 +1123,12 @@ class ShidashiApp {
 
     // Card tools delegation
     this._bindCardTools();
+
+    // Initialize custom resize handles for .resize-vertical elements
+    this._initResizeHandles();
+
+    // Bind drawer close button (the .shidashi-drawer-close inside the drawer)
+    this._initDrawer();
 
     // ------ RAVE-specific click handlers ------
 
@@ -1212,11 +1238,10 @@ class ShidashiApp {
       if (!collapseBtn) return;
       const card = collapseBtn.closest('.card.start-collapsed');
       if (!card) return;
-      setTimeout(() => {
-        this.unbindAll(card);
-        card.classList.remove('start-collapsed');
-        this.bindAll(card);
-      }, 200);
+
+      this.unbindAll(card);
+      card.classList.remove('start-collapsed');
+      this.bindAll(card);
     });
 
     // Theme switch checkbox
@@ -1365,6 +1390,112 @@ class ShidashiApp {
     }
   }
 
+  // ---------- Custom drag-to-resize handles ----------
+
+  _initResizeHandles() {
+    const containers = document.querySelectorAll('.resize-vertical');
+    if (!containers.length) return;
+
+    containers.forEach((container) => {
+      // Skip if already initialised
+      if (container.querySelector('.shidashi-resize-handle')) return;
+
+      const handle = document.createElement('div');
+      handle.className = 'shidashi-resize-handle';
+      container.appendChild(handle);
+
+      let startY = 0;
+      let startHeight = 0;
+
+      const onMouseMove = (e) => {
+        const delta = e.clientY - startY;
+        const newHeight = Math.max(60, startHeight + delta);
+        container.style.height = newHeight + 'px';
+      };
+
+      const onMouseUp = () => {
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        this.triggerResize(50);
+      };
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startY = e.clientY;
+        startHeight = container.offsetHeight;
+        handle.classList.add('active');
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ns-resize';
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    });
+  }
+
+  // ---------- Slide-out Drawer ----------
+
+  /**
+   * Initialize the drawer: bind close button.
+   */
+  _initDrawer() {
+    const drawer = document.getElementById('shidashi-drawer');
+    if (!drawer) return;
+    const closeBtn = drawer.querySelector('.shidashi-drawer-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.closeDrawer();
+      });
+    }
+  }
+
+  /**
+   * Open the slide-out drawer.
+   * Fires an @rave_action@ event (type: 'open_drawer') so the Shiny
+   * server (and all module iframes) can react to the drawer opening.
+   */
+  openDrawer() {
+    const drawer = document.getElementById('shidashi-drawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('open')) return; // already open
+    drawer.classList.add('open');
+    this.shinySetInput('@rave_action@', { type: 'open_drawer' }, true, true);
+  }
+
+  /**
+   * Close the slide-out drawer.
+   * Fires an @rave_action@ event (type: 'close_drawer') so the Shiny
+   * server (and all module iframes) can react to the drawer closing.
+   */
+  closeDrawer() {
+    const drawer = document.getElementById('shidashi-drawer');
+    if (!drawer) return;
+    if (!drawer.classList.contains('open')) return; // already closed
+    drawer.classList.remove('open');
+    this.shinySetInput('@rave_action@', { type: 'close_drawer' }, true, true);
+  }
+
+  /**
+   * Toggle the slide-out drawer.
+   * Delegates to openDrawer() / closeDrawer() so the rave action is
+   * always fired exactly once per state change.
+   * @param {boolean|undefined} open - Force open (true) or close (false).
+   *   If undefined, toggles the current state.
+   */
+  toggleDrawer(open) {
+    const drawer = document.getElementById('shidashi-drawer');
+    if (!drawer) return;
+    const shouldOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('open');
+    if (shouldOpen) {
+      this.openDrawer();
+    } else {
+      this.closeDrawer();
+    }
+  }
+
   // ---------- Register Shiny message handlers ----------
 
   _register_shiny() {
@@ -1448,6 +1579,17 @@ class ShidashiApp {
 
     this.shinyHandler('card2widget', (params) => {
       this.toggleCard2(params.selector);
+    });
+
+    this.shinyHandler('toggle_drawer', (params) => {
+      // params.open: true → open, false → close, undefined → toggle
+      if (params.open === true) {
+        this.openDrawer();
+      } else if (params.open === false) {
+        this.closeDrawer();
+      } else {
+        this.toggleDrawer();
+      }
     });
 
     this.shinyHandler('show_notification', (params) => {

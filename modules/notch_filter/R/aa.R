@@ -16,7 +16,9 @@ debug <- TRUE
 #' resulting in calling function \code{loader_html}.
 #' @return Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE){
-  if( first_time ) { return(FALSE) }
+  if (first_time) {
+    return(FALSE)
+  }
 
   project_name <- pipeline$get_settings("project_name")
   subject_code <- pipeline$get_settings("subject_code")
