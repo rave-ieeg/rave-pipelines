@@ -1209,15 +1209,28 @@ $_card-themes: (
 }
 
 .card {
-  margin-bottom: var(--bs-gutter-y, 0.5rem);
-  transition: all 0.15s;
 
   // Animate card-body and card-footer for collapse/expand
   > .card-body,
   > .card-footer {
-    transition: max-height 0.3s ease, padding 0.3s ease, opacity 0.2s ease;
-    overflow: hidden;
+    transition: height 0.3s ease, opacity 0.2s ease;
+    overflow-x: clip;
+    overflow-y: scroll;
   }
+
+}
+.ravedash-input-card {
+  &.card {
+    > .card-body,
+    > .card-footer {
+      overflow-y: visible;
+    }
+  }
+}
+
+.card {
+  margin-bottom: var(--bs-gutter-y, 0.5rem);
+  transition: all 0.15s;
 
   &.shidashi-maximized {
     position: fixed !important;
@@ -1256,6 +1269,14 @@ $_card-themes: (
 // Instead dim non-maximized content via the card's own box-shadow.
 body.shidashi-card-maximized {
   overflow: hidden;
+
+  // Hide sibling columns (e.g. input sidebar) so they don't overlap the
+  // maximized card.  Only the .screen-height that actually *contains* the
+  // maximized card stays visible.
+  .screen-height:not(:has(.shidashi-maximized)) {
+    visibility: hidden;
+    pointer-events: none;
+  }
 }
 
 // Collapsed card: soft-hide body & footer so Shiny outputs keep their width
@@ -2276,8 +2297,7 @@ body.in-iframe section.module_main_ui .screen-height {
 }
 
 // Card expanded — output wrapper z-index
-.card-expanded .output-wrapper,
-body.shidashi-card-maximized .output-wrapper {
+.card-expanded .output-wrapper {
   position: relative;
   z-index: 1040;
 }
