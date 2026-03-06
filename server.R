@@ -41,29 +41,8 @@ server <- function(input, output, session){
 
   # tools <- ravedash::register_rave_session(session = session)
 
-  # ---- Drawer open/close observer ----
-  # When the drawer toggle fires an @rave_action@ with type "open_drawer",
-  # gather the active module info and initialize the drawer content.
-  # TODO: replace the placeholder below with actual drawer initialisation
-  # (e.g. AI chat context, module-specific tooling, etc.)
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      rave_action <- input[["@rave_action@"]]
-      if (!is.list(rave_action) || !identical(rave_action$type, "open_drawer")) {
-        return()
-      }
-      # Collect information about the currently active module
-      module_info <- ravedash::get_active_module_info()
-
-      # --- placeholder: just log the module context for now ---
-      print(module_info)
-      # TODO: initialize drawer content with module_info
-
-    }),
-    input[["@rave_action@"]],
-    ignoreNULL = TRUE,
-    ignoreInit = TRUE
-  )
+  
+  
 
   # Fixed usage, call modules
   shiny::bindEvent(

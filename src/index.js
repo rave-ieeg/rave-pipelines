@@ -273,6 +273,27 @@ class ShidashiApp {
     }));
   }
 
+  // ---------- Active module reporting ----------
+
+  /**
+   * Report the currently active module to Shiny via @shidashi_active_module@ input.
+   * Called from IFrameManager.activateTab(), set_current_module handler, and
+   * standalone module initialization.
+   * @param {string} moduleId - The module identifier
+   */
+  _reportActiveModule(moduleId) {
+    if (!moduleId) return;
+    this._activeModuleId = moduleId;
+    this.ensureShiny(() => {
+      if (typeof this._shiny.onInputChange !== 'function') return;
+      this._shiny.onInputChange('@shidashi_active_module@', {
+        module_id: moduleId,
+        token: this._sessionToken || null,
+        timestamp: Date.now()
+      });
+    });
+  }
+
   // ---------- Event system ----------
 
   broadcastEvent(type, message = {}) {
@@ -985,6 +1006,106 @@ class ShidashiApp {
     return (str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // ---------- Visual content capture (for query_ui / MCP) ----------
+
+  /**
+   * Copy a canvas (2D or WebGL) onto a temporary 2D canvas.
+   * WebGL canvases need special handling because toDataURL may return a
+   * blank image if the draw buffer was already cleared.
+   * @param {HTMLCanvasElement} source
+   * @returns {HTMLCanvasElement} a 2D canvas with the source content
+   */
+  _canvasTo2D(source) {
+    const tmp = document.createElement('canvas');
+    tmp.width = source.width;
+    tmp.height = source.height;
+    const ctx = tmp.getContext('2d');
+    ctx.drawImage(source, 0, 0);
+    return tmp;
+  }
+
+  /**
+   * Capture the visual content (canvas / img) inside an element as a
+   * base-64 PNG.  Returns `{ image_data, image_type }` on success or
+   * `null` when no visual content could be extracted.
+   *
+   * Strategy:
+   *  1. Collect every <canvas> and every <img> with a data-URI src.
+   *  2. Compute the "display" size of each (width × height).
+   *  3. Pick the largest size bucket.
+   *  4. If a single element wins, export it directly.
+   *  5. If several canvases share the largest size, overlay them
+   *     (in DOM order) onto one composited canvas.
+   *  6. If the element *is* a <canvas>, treat it as the sole source.
+   *
+   * @param {HTMLElement} el  The root element to inspect.
+   * @returns {{ image_data: string, image_type: string } | null}
+   */
+  _captureVisualContent(el) {
+    // --- gather candidates ---------------------------------------------------
+    const candidates = []; // { type: 'canvas'|'img', el, area, w, h }
+
+    const addCanvas = (c) => {
+      const w = c.width || c.offsetWidth || 0;
+      const h = c.height || c.offsetHeight || 0;
+      if (w > 0 && h > 0) {
+        candidates.push({ type: 'canvas', el: c, area: w * h, w, h });
+      }
+    };
+
+    const addImg = (img) => {
+      const src = img.getAttribute('src') || '';
+      if (!src.startsWith('data:')) return;
+      const w = img.naturalWidth || img.width || 0;
+      const h = img.naturalHeight || img.height || 0;
+      if (w > 0 && h > 0) {
+        candidates.push({ type: 'img', el: img, area: w * h, w, h, src });
+      }
+    };
+
+    // If the element itself is a canvas, it is the only candidate
+    if (el.tagName === 'CANVAS') {
+      addCanvas(el);
+    } else {
+      el.querySelectorAll('canvas').forEach(addCanvas);
+      el.querySelectorAll('img[src^="data:"]').forEach(addImg);
+    }
+
+    if (candidates.length === 0) return null;
+
+    // --- composite all candidates onto one canvas -----------------------------
+    const w = Math.max(...candidates.map(c => c.w));
+    const h = Math.max(...candidates.map(c => c.h));
+    const composite = document.createElement('canvas');
+    composite.width = w;
+    composite.height = h;
+    const ctx = composite.getContext('2d');
+    for (const item of candidates) {
+      try {
+        if (item.type === 'canvas') {
+          ctx.drawImage(this._canvasTo2D(item.el), 0, 0);
+        } else {
+          ctx.drawImage(item.el, 0, 0);
+        }
+      } catch (e) {
+        // tainted / cross-origin — skip this layer
+      }
+    }
+    const resultCanvas = composite;
+
+    // --- export to base-64 PNG ------------------------------------------------
+    try {
+      const dataUrl = resultCanvas.toDataURL('image/png');
+      const parts = dataUrl.split(',');
+      const mime = (parts[0] || '').replace(/^data:/, '').replace(/;base64$/, '') || 'image/png';
+      const data = parts[1] || '';
+      if (data) return { image_data: data, image_type: mime };
+    } catch (e) {
+      // tainted canvas — cannot export
+    }
+    return null;
+  }
+
   // ---------- Card tool click delegation ----------
 
   _bindCardTools() {
@@ -1045,23 +1166,11 @@ class ShidashiApp {
         return;
       }
 
-      // Drawer toggle / open / close
-      const drawerToggle = evt.target.closest('[data-shidashi-action="toggle-drawer"]');
-      if (drawerToggle) {
+      // Drawer toggle button
+      const toggleBtn = evt.target.closest('[data-shidashi-action="drawer-toggle"]') || evt.target.closest('[data-shidashi-action="toggle-drawer"]');
+      if (toggleBtn) {
         evt.preventDefault();
-        this.toggleDrawer();
-        return;
-      }
-      const drawerOpen = evt.target.closest('[data-shidashi-action="open-drawer"]');
-      if (drawerOpen) {
-        evt.preventDefault();
-        this.openDrawer();
-        return;
-      }
-      const drawerClose = evt.target.closest('[data-shidashi-action="close-drawer"]');
-      if (drawerClose) {
-        evt.preventDefault();
-        this.closeDrawer();
+        this.drawerToggle();
         return;
       }
     });
@@ -1127,8 +1236,31 @@ class ShidashiApp {
     // Initialize custom resize handles for .resize-vertical elements
     this._initResizeHandles();
 
-    // Bind drawer close button (the .shidashi-drawer-close inside the drawer)
-    this._initDrawer();
+    // Drawer overlay click → close drawer (use delegation for dynamic content)
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('shidashi-drawer-overlay')) {
+        this.drawerClose();
+      }
+    });
+
+    // Drawer close-tab click → close drawer (no-overlay mode)
+    document.addEventListener('click', (e) => {
+      const closeTab = e.target.closest('.shidashi-drawer-close-tab');
+      if (closeTab) {
+        e.stopPropagation();
+        this.drawerClose();
+      }
+    });
+
+    // Standalone module: when there is no iframe manager and the page
+    // is not itself inside an iframe, report the current module from URL
+    if (!this.iframeManager && window.self === window.top) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const moduleId = urlParams.get('module');
+      if (moduleId) {
+        this._reportActiveModule(moduleId);
+      }
+    }
 
     // ------ RAVE-specific click handlers ------
 
@@ -1169,6 +1301,23 @@ class ShidashiApp {
             }
           } catch (e) {}
         }
+        return;
+      }
+
+      // Generic shidashi-button click (data-shidashi-action) → broadcast event to Shiny
+      const shidashiDataBtn = evt.target.closest('[data-shidashi-action="shidashi-button"]');
+      if (shidashiDataBtn) {
+        evt.preventDefault();
+        const eventData = {};
+        // Collect data-shidashi-* attributes as event payload
+        for (const attr of shidashiDataBtn.attributes) {
+          if (attr.name.startsWith('data-shidashi-') && attr.name !== 'data-shidashi-action') {
+            const key = attr.name.replace('data-shidashi-', '');
+            eventData[key] = attr.value;
+          }
+        }
+        eventData.id = shidashiDataBtn.id || '';
+        this.broadcastEvent('button.click', eventData);
         return;
       }
 
@@ -1304,6 +1453,10 @@ class ShidashiApp {
       this.ensureShiny((shiny) => {
         shiny.setInputValue(tablist.id, tabname);
       });
+      this.broadcastEvent('tabset.activated', {
+        tablistId: tablist.id,
+        title: tabname
+      });
     });
 
     // Report initial active tabs when Shiny becomes available
@@ -1433,66 +1586,84 @@ class ShidashiApp {
         document.addEventListener('mouseup', onMouseUp);
       });
     });
-  }
 
-  // ---------- Slide-out Drawer ----------
+    // Horizontal resize handles: inject a drag handle into .resize-horizontal dividers
+    document.querySelectorAll('.resize-horizontal').forEach((divider) => {
+      // Skip if already initialised
+      if (divider.querySelector('.shidashi-resize-handle-h')) return;
 
-  /**
-   * Initialize the drawer: bind close button.
-   */
-  _initDrawer() {
-    const drawer = document.getElementById('shidashi-drawer');
-    if (!drawer) return;
-    const closeBtn = drawer.querySelector('.shidashi-drawer-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', (e) => {
+      const handle = document.createElement('div');
+      handle.className = 'shidashi-resize-handle-h';
+      divider.appendChild(handle);
+
+      let startX = 0;
+      let startWidthLeft = 0;
+      let startWidthRight = 0;
+      let leftEl = null;
+      let rightEl = null;
+
+      const onMouseMove = (e) => {
+        const dx = e.clientX - startX;
+        const totalWidth = startWidthLeft + startWidthRight;
+        const newLeftWidth = Math.max(50, Math.min(totalWidth - 50, startWidthLeft + dx));
+        const newRightWidth = totalWidth - newLeftWidth;
+        leftEl.style.width = newLeftWidth + 'px';
+        leftEl.style.flex = 'none';
+        rightEl.style.width = newRightWidth + 'px';
+        rightEl.style.flex = 'none';
+      };
+
+      const onMouseUp = () => {
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        this.triggerResize(50);
+      };
+
+      divider.addEventListener('mousedown', (e) => {
         e.preventDefault();
-        this.closeDrawer();
+        leftEl = divider.previousElementSibling;
+        rightEl = divider.nextElementSibling;
+        if (!leftEl || !rightEl) return;
+        startX = e.clientX;
+        startWidthLeft = leftEl.getBoundingClientRect().width;
+        startWidthRight = rightEl.getBoundingClientRect().width;
+        handle.classList.add('active');
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
       });
-    }
+    });
   }
 
-  /**
-   * Open the slide-out drawer.
-   * Fires an @rave_action@ event (type: 'open_drawer') so the Shiny
-   * server (and all module iframes) can react to the drawer opening.
-   */
-  openDrawer() {
-    const drawer = document.getElementById('shidashi-drawer');
-    if (!drawer) return;
-    if (drawer.classList.contains('open')) return; // already open
-    drawer.classList.add('open');
-    this.shinySetInput('@rave_action@', { type: 'open_drawer' }, true, true);
+  // ---------- Drawer ----------
+
+  drawerOpen() {
+    // Drawer is always local to the current frame (module iframe)
+    const drawer = document.querySelector('.shidashi-drawer');
+    const overlay = document.querySelector('.shidashi-drawer-overlay');
+    if (drawer) drawer.classList.add('open');
+    if (overlay) overlay.classList.add('open');
+    this.broadcastEvent('drawer.open', {});
   }
 
-  /**
-   * Close the slide-out drawer.
-   * Fires an @rave_action@ event (type: 'close_drawer') so the Shiny
-   * server (and all module iframes) can react to the drawer closing.
-   */
-  closeDrawer() {
-    const drawer = document.getElementById('shidashi-drawer');
-    if (!drawer) return;
-    if (!drawer.classList.contains('open')) return; // already closed
-    drawer.classList.remove('open');
-    this.shinySetInput('@rave_action@', { type: 'close_drawer' }, true, true);
+  drawerClose() {
+    const drawer = document.querySelector('.shidashi-drawer');
+    const overlay = document.querySelector('.shidashi-drawer-overlay');
+    if (drawer) drawer.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
+    this.broadcastEvent('drawer.close', {});
   }
 
-  /**
-   * Toggle the slide-out drawer.
-   * Delegates to openDrawer() / closeDrawer() so the rave action is
-   * always fired exactly once per state change.
-   * @param {boolean|undefined} open - Force open (true) or close (false).
-   *   If undefined, toggles the current state.
-   */
-  toggleDrawer(open) {
-    const drawer = document.getElementById('shidashi-drawer');
-    if (!drawer) return;
-    const shouldOpen = typeof open === 'boolean' ? open : !drawer.classList.contains('open');
-    if (shouldOpen) {
-      this.openDrawer();
+  drawerToggle() {
+    const drawer = document.querySelector('.shidashi-drawer');
+    if (drawer && drawer.classList.contains('open')) {
+      this.drawerClose();
     } else {
-      this.closeDrawer();
+      this.drawerOpen();
     }
   }
 
@@ -1581,15 +1752,79 @@ class ShidashiApp {
       this.toggleCard2(params.selector);
     });
 
-    this.shinyHandler('toggle_drawer', (params) => {
-      // params.open: true → open, false → close, undefined → toggle
-      if (params.open === true) {
-        this.openDrawer();
-      } else if (params.open === false) {
-        this.closeDrawer();
-      } else {
-        this.toggleDrawer();
+    this.shinyHandler('drawer_open', (params) => {
+      this.drawerOpen();
+    });
+
+    this.shinyHandler('drawer_close', (params) => {
+      this.drawerClose();
+    });
+
+    this.shinyHandler('drawer_toggle', (params) => {
+      this.drawerToggle();
+    });
+
+    // --- Activate a specific drawer tab (for chatbot) ---
+
+    this.shinyHandler('activate_drawer_tab', (params) => {
+      if (params.target) {
+        const tabBtn = document.querySelector(
+          `.shidashi-drawer-tabs [data-bs-target="${params.target}"]`
+        );
+        if (tabBtn && window.bootstrap && window.bootstrap.Tab) {
+          const tab = new window.bootstrap.Tab(tabBtn);
+          tab.show();
+        }
       }
+    });
+
+    // --- Module token registration (for chatbot) ---
+
+    this.shinyHandler('register_module_token', (params) => {
+      if (params.token) {
+        this._sessionToken = params.token;
+        // Re-report active module so R gets the updated token
+        if (this._activeModuleId) {
+          this._reportActiveModule(this._activeModuleId);
+        }
+      }
+    });
+
+    // --- Query UI handler (MCP) ---
+
+    this.shinyHandler('query_ui', (params) => {
+      // params: { selector, request_id, input_id }
+      const selector = params.selector;
+      const requestId = params.request_id;
+      const inputId = params.input_id;
+      if (!selector || !requestId || !inputId) return;
+
+      const el = document.querySelector(selector);
+      const empty = { request_id: requestId, html: '', image_data: '', image_type: '' };
+      if (!el) {
+        Shiny.setInputValue(inputId, empty, { priority: 'event' });
+        return;
+      }
+
+      // Try to extract canvas / image content
+      const visual = this._captureVisualContent(el);
+      if (visual) {
+        Shiny.setInputValue(inputId, {
+          request_id: requestId,
+          html: '',
+          image_data: visual.image_data,
+          image_type: visual.image_type
+        }, { priority: 'event' });
+        return;
+      }
+
+      // Default: return innerHTML
+      Shiny.setInputValue(inputId, {
+        request_id: requestId,
+        html: el.innerHTML,
+        image_data: '',
+        image_type: ''
+      }, { priority: 'event' });
     });
 
     this.shinyHandler('show_notification', (params) => {
@@ -1658,6 +1893,10 @@ class ShidashiApp {
       }
       if (this.iframeManager && params.module_id) {
         this.iframeManager.openTabByModule(params.module_id, params.title);
+      }
+      // Report active module even when there is no iframe manager
+      if (params.module_id) {
+        this._reportActiveModule(params.module_id);
       }
     });
 

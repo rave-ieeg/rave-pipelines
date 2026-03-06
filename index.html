@@ -64,7 +64,7 @@
 
       <!-- Drawer toggle -->
       <li class="nav-item d-sm-flex justify-content-center">
-        <a class="nav-link btn" href="#" data-shidashi-action="toggle-drawer" title="Toggle drawer">
+        <a href="#" class="nav-link btn rave-button" rave-action='{"type": "toggle_drawer"}'>
           <i class="fas fa-columns"></i>
         </a>
       </li>
@@ -147,17 +147,10 @@
   </div>
   <!-- /.content-wrapper -->
 
+  <!-- Drawer lives inside each module iframe (see back_top_button()) -->
+
 </div>
 <!-- ./wrapper -->
-
-<!-- Slide-out Drawer -->
-<div class="shidashi-drawer" id="shidashi-drawer">
-  <button class="shidashi-drawer-close" aria-label="Close drawer">
-    <i class="fas fa-angle-right"></i>
-  </button>
-  <div class="shidashi-drawer-body">
-  </div>
-</div>
 
 {{ shidashi::include_view("footer.html") }}
 </body>

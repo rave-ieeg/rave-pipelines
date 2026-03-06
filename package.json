@@ -15,7 +15,8 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch",
-    "test": "Rscript -e 'ravedash::debug_modules(\".\")'"
+    "test": "Rscript -e 'ravedash::debug_modules(\".\")'",
+    "postinstall": "echo 'Run npm run build to compile assets'"
   },
   "repository": {
     "type": "git",

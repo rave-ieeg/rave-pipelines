@@ -213,6 +213,9 @@ body.has-active-module .preloader,
 .container-sm {
   --bs-gutter-x: 0.5rem;
   --bs-gutter-y: 0.5rem;
+}
+
+.container {
   max-width: 1440px;
 }
 
@@ -350,6 +353,13 @@ body {
     text-align: center;
     font-size: 1rem;
     flex-shrink: 0;
+  }
+
+  // Make the <span> stretch to fill remaining width (it wraps text + arrow)
+  > span {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
   }
 
   // Arrow icon in dropdown groups — anchored to right edge
@@ -556,6 +566,12 @@ body.sidebar-collapsed .shidashi-content {
     display: block;
   }
 
+  // Shift the header right so the hamburger icon is not hidden
+  // behind the open sidebar
+  body.sidebar-open.has-sidebar .shidashi-header {
+    margin-left: $sidebar-width;
+  }
+
   .shidashi-content {
     margin-left: 0;
     width: 100%;
@@ -615,8 +631,19 @@ body.in-iframe .shidashi-header {
   margin-left: auto;
 }
 
+// Ensure all navbar nav-links are vertically centered within the header
 .shidashi-header .navbar-nav {
+  align-items: center;
+  height: 100%;
   justify-content: center;
+}
+
+.shidashi-header .nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0.5rem;
 }
 
 // ==========================================================================
@@ -1025,6 +1052,48 @@ input:checked + .slider::before { transform: translateX(26px); }
   opacity: 1;
 }
 
+// JS-injected drag handle for .resize-horizontal dividers
+.shidashi-resize-handle-h {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  &::before {
+    content: "";
+    width: 4px;
+    height: 48px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 2px;
+    transition: background-color 0.15s ease;
+  }
+
+  &:hover::before,
+  &.active::before {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .dark-mode &::before {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+  .dark-mode &:hover::before,
+  .dark-mode &.active::before {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+.resize-horizontal:hover > .shidashi-resize-handle-h,
+.shidashi-resize-handle-h.active {
+  opacity: 1;
+}
+
 // ==========================================================================
 // Colors
 // ==========================================================================
@@ -1344,6 +1413,75 @@ body.shidashi-card-maximized {
 // Back-to-top
 // ==========================================================================
 
+// Generic shidashi back-to-top (vertical stack of round buttons)
+.shidashi-back-to-top {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 1039;
+
+  // Break the btn-group into a vertical stack of separate round buttons
+  [role="group"] {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    opacity: 0.6;
+    transition: opacity 200ms;
+
+    &.show, &:hover { opacity: 1; }
+  }
+
+  // Shared round-button base
+  .btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background-color: var(--bs-body-bg, #{$white});
+    color: var(--bs-body-color, #{$dark});
+    font-size: 1rem;
+    line-height: 1;
+
+    &:hover, &:focus {
+      background-color: var(--bs-tertiary-bg, #{$light});
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  // Go-top button (chevron-up)
+  .btn-go-top {
+    order: 1; // appears on top in column-reverse
+  }
+
+  // Dropdown toggle (anchor jump menu)
+  .dropdown-toggle {
+    order: 0; // appears below the go-top button
+    font-size: 0.7rem;
+
+    &::after {
+      margin: 0; // centre the caret
+    }
+  }
+
+  // Hide the split-button visual separator artifacts
+  .border-right-1,
+  .border-left-1 {
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  // Dropdown menu positioning
+  .dropdown-menu {
+    margin-bottom: 0.25rem;
+  }
+}
+
+// RAVE-specific back-to-top (horizontal button group)
 .ravedash-back-to-top.ravedash-footer {
   position: fixed;
   bottom: 1.25rem;
@@ -2365,6 +2503,13 @@ button, [type="button"], [type="reset"], [type="submit"] {
   }
 }
 
+.shidashi-header.navbar .nav-item .nav-link {
+  & i.fa,
+  & i.fas {
+    margin-right: 0.35rem;
+  }
+}
+
 // body.navbar-hidden — hide header but keep pushmenu accessible
 body.navbar-hidden:not(.iframe-mode-fullscreen) .shidashi-header {
   visibility: collapse !important;
@@ -2403,25 +2548,31 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
 }
 
 // ==========================================================================
-// Slide-out Drawer (parent frame only)
+// Drawer (off-canvas right panel)
 // ==========================================================================
 
 .shidashi-drawer {
   position: fixed;
   top: $navbar-height;
   right: 0;
-  width: 400px;
+  width: 480px;
   max-width: 90vw;
   height: calc(100vh - #{$navbar-height});
-  z-index: 1045; // above back-to-top (1039), sidebar-overlay (1039), below maximized cards (1050)
-  background-color: $white;
-  border-left: 1px solid $border-color;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
-  transform: translateX(100%);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  z-index: 1045;
+  background-color: var(--bs-body-bg, #{$white});
+  color: var(--bs-body-color, #{$dark});
+  box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+  transform: translateX(calc(100% + 20px));
+  transition: transform 0.3s ease;
+  overflow-y: hidden;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+
+  body.in-iframe & {
+    top: 0;
+    height: 100vh;
+  }
 
   &.open {
     transform: translateX(0);
@@ -2432,62 +2583,153 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
     top: 0;
     height: 100vh;
   }
+
+  // Close tab — sits on the drawer's left edge, hidden by default.
+  // Shown only when body has .shidashi-drawer-no-overlay.
+  .shidashi-drawer-close-tab {
+    display: none;
+    flex-shrink: 0;
+  }
+
+  // Drawer tab navigation
+  .shidashi-drawer-tabs {
+    flex-shrink: 0;
+    padding: 0.5rem 0.5rem 0;
+  }
+
+  // Drawer tab content — fills remaining height, scrollable per pane
+  .shidashi-drawer-tab-content {
+    flex: 1 1 auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    > .tab-pane {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 1rem;
+
+      // Chat pane: flex column, input pinned at bottom
+      &#shidashi-drawer-chat {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+
+        &.active {
+          display: flex;
+        }
+      }
+    }
+  }
+
+  .dark-mode & {
+    background-color: $dark;
+    color: var(--bs-body-color, #{$dark-mode-text});
+    box-shadow: -4px 12px 12px rgba(0,0,0,0.4);
+  }
 }
 
-// Close button — floating on top-left of drawer
-.shidashi-drawer-close {
-  position: absolute;
-  top: 0.5rem;
-  left: 0.5rem;
-  z-index: 2;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.06);
-  color: $gray-dark;
-  cursor: pointer;
+// Chatbot header bar inside the drawer
+.shidashi-chatbot-header {
+  flex-shrink: 0;
+
+  & .shiny-input-container,
+  & .shidashi-chatbot-new-conv {
+    margin-bottom: 0.75rem !important;
+  }
+
+}
+
+// Drawer content — fills remaining height, allows children to flex
+.shidashi-drawer-content {
+  flex: 1 1 auto;
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  flex-direction: column;
+  min-height: 0;
+  font-size: small;
 
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.12);
-    color: $dark;
+  // The shiny uiOutput wrapper must also flex-fill
+  > .shiny-html-output {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  &:focus {
-    outline: 2px solid $primary;
-    outline-offset: 2px;
+  // shinychat container inside the drawer should fill remaining space
+  shiny-chat-container {
+    flex: 1 1 auto;
+    min-height: 0;
   }
 }
 
-// Drawer body — scrollable area for module content
-.shidashi-drawer-body {
-  flex: 1;
-  @include overflow(auto);
-  padding: 1rem;
-  padding-top: 2.5rem; // leave room for close button
-}
 
-// Dark mode overrides
-.dark-mode {
-  .shidashi-drawer {
-    background-color: $dark-mode-bg;
-    border-left-color: color.adjust($dark-mode-bg, $lightness: 10%);
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.3);
+// No-overlay mode — class on <body>
+body.shidashi-drawer-no-overlay {
+  // Hide the overlay entirely
+  .shidashi-drawer-overlay {
+    display: none !important;
   }
 
-  .shidashi-drawer-close {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: $dark-mode-text;
+  // Show the close button at top-right of the drawer
+  .shidashi-drawer .shidashi-drawer-close-tab {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 1;
+    color: var(--bs-body-color, #{$dark});
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: opacity 0.2s, background-color 0.2s;
 
     &:hover {
-      background-color: rgba(255, 255, 255, 0.2);
-      color: $white;
+      opacity: 1;
+      background-color: rgba(0,0,0,0.08);
     }
+  }
+
+  // Hide close tab when drawer is closed
+  .shidashi-drawer:not(.open) .shidashi-drawer-close-tab {
+    display: none;
+  }
+
+  // Dark-mode adjustments for the close tab
+  &.dark-mode .shidashi-drawer .shidashi-drawer-close-tab {
+    color: var(--bs-body-color, #{$dark-mode-text});
+
+    &:hover {
+      background-color: rgba(255,255,255,0.1);
+    }
+  }
+}
+
+.shidashi-drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 1044;
+  top: $navbar-height;
+
+  body.in-iframe & {
+    top: 0;
+    inset: 0;
+    height: 100vh;
+  }
+
+  &.open {
+    display: block;
   }
 }
 
