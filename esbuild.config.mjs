@@ -44,6 +44,7 @@ const buildOptions = {
     '.eot': 'file',
     '.svg': 'file',
   },
+  external: ['*.png'],
 };
 
 if (isWatch) {
