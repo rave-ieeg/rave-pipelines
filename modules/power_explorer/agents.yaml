@@ -1,8 +1,10 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Read-only exploration
+- name: Execute
+  description: Can modify inputs and run pipelines
 tools:
-- name: hello_world
-  category:
-  - exploratory
-  enabled: yes
 - name: shiny_input_info
   category:
   - exploratory
@@ -19,17 +21,16 @@ tools:
   category:
   - executing
   - destructive
-  enabled: yes
-- name: trigger_refresh
-  category:
-  - executing
-  enabled: yes
+  enabled:
+  - Execute
 skills:
 - name: greet
   category:
   - executing
-  enabled: yes
+  enabled:
+  - Execute
 parameters:
+  default_mode: Ask
   system_prompt: |
     You are an R shiny expert. You have access to the RAVE module
     designed to explore human intracranial electroencephalography (iEEG) 

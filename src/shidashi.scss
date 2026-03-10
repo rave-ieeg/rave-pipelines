@@ -46,9 +46,7 @@ $border-color: #dee2e6;
 $dark-mode-bg: #454d55;
 $dark-mode-text: #e9ecef;
 
-// Theme switch
-$slider-bg: #ccc;
-$slider-checked: #66bb6a;
+
 
 // Notification panel
 $notification-close: #adb5bd;
@@ -833,45 +831,7 @@ body.in-iframe .card.shidashi-maximized {
   height: 100vh;
 }
 
-// ==========================================================================
-// Theme switch
-// ==========================================================================
 
-.theme-switch {
-  display: inline-block;
-  height: 24px;
-  position: relative;
-  width: 50px;
-}
-
-.theme-switch input { display: none; }
-
-.slider {
-  background-color: $slider-bg;
-  bottom: 0;
-  cursor: pointer;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-  transition: 400ms;
-}
-
-.slider::before {
-  background-color: $white;
-  bottom: 4px;
-  content: "";
-  height: 16px;
-  left: 4px;
-  position: absolute;
-  transition: 400ms;
-  width: 16px;
-}
-
-input:checked + .slider { background-color: $slider-checked; }
-input:checked + .slider::before { transform: translateX(26px); }
-.slider.round { border-radius: 34px; }
-.slider.round::before { border-radius: 50%; }
 
 // ==========================================================================
 // Display / Visibility helpers
@@ -2610,7 +2570,7 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
   box-shadow: -4px 0 12px rgba(0,0,0,0.15);
   transform: translateX(calc(100% + 20px));
   transition: transform 0.3s ease;
-  overflow-y: hidden;
+  overflow: hidden;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -2744,6 +2704,25 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
   shiny-chat-container {
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
+  }
+
+  // Prevent chat message content from overflowing the drawer
+  shiny-chat-message {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+
+    pre {
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    table {
+      display: block;
+      overflow-x: auto;
+      max-width: 100%;
+    }
   }
 }
 

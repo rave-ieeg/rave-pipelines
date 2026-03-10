@@ -363,25 +363,27 @@ class ShidashiApp {
     const lightFallbackBg = '#ffffff';
     const darkFallbackFg = '#e9ecef';
     const lightFallbackFg = '#343a40';
-    const fallbackBg = mode === 'dark' ? darkFallbackBg : lightFallbackBg;
-    const fallbackFg = mode === 'dark' ? darkFallbackFg : lightFallbackFg;
+    const background = mode === 'dark' ? darkFallbackBg : lightFallbackBg;
+    const foreground = mode === 'dark' ? darkFallbackFg : lightFallbackFg;
 
-    // Defer to next frame so computed styles reflect the class change
-    requestAnimationFrame(() => {
-      const body = document.body;
-      const cardEl = document.querySelector('.card, .info-box');
-      let bgcolor;
-      if (cardEl) {
-        bgcolor = this._col2Hex(getComputedStyle(cardEl).backgroundColor, fallbackBg);
-      } else {
-        bgcolor = this._col2Hex(getComputedStyle(body).backgroundColor, fallbackBg);
-      }
-      this.broadcastEvent('theme.changed', {
-        mode: mode,
-        background: bgcolor,
-        foreground: this._col2Hex(getComputedStyle(body).color, fallbackFg)
-      });
+    this.broadcastEvent('theme.changed', {
+      theme: mode,
+      mode: mode,
+      background: background,
+      foreground: foreground
     });
+  }
+
+  _updateThemeIcon(mode) {
+    const icon = document.querySelector('[data-shidashi-action="theme-toggle"] i');
+    if (!icon) return;
+    if (mode === 'dark') {
+      icon.classList.remove('fa-moon');
+      icon.classList.add('fa-sun');
+    } else {
+      icon.classList.remove('fa-sun');
+      icon.classList.add('fa-moon');
+    }
   }
 
   isDarkMode() {
@@ -402,6 +404,7 @@ class ShidashiApp {
     if (header) {
       header.setAttribute('data-bs-theme', 'light');
     }
+    this._updateThemeIcon('light');
     this._sessionStorage.setItem(this._keyTheme, 'light');
     // Propagate to iframes
     if (this.iframeManager) {
@@ -422,6 +425,7 @@ class ShidashiApp {
     if (header) {
       header.setAttribute('data-bs-theme', 'dark');
     }
+    this._updateThemeIcon('dark');
     this._sessionStorage.setItem(this._keyTheme, 'dark');
     if (this.iframeManager) {
       this.iframeManager.propagateThemeToAll();
@@ -1222,6 +1226,7 @@ class ShidashiApp {
       // Body starts with dark-mode class from R but no stored preference
       const header = document.querySelector('.shidashi-header');
       if (header) { header.setAttribute('data-bs-theme', 'dark'); }
+      this._updateThemeIcon('dark');
     }
 
     // Dismiss preloader (was handled by AdminLTE in the original)
@@ -1393,10 +1398,11 @@ class ShidashiApp {
       this.bindAll(card);
     });
 
-    // Theme switch checkbox
-    const themeCheckbox = document.querySelector('.theme-switch-wrapper .theme-switch input[type="checkbox"]');
-    if (themeCheckbox) {
-      themeCheckbox.addEventListener('change', () => {
+    // Theme toggle icon (sun/moon)
+    const themeToggle = document.querySelector('[data-shidashi-action="theme-toggle"]');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', (e) => {
+        e.preventDefault();
         if (this.isDarkMode()) {
           this.asLightMode();
         } else {
@@ -1996,6 +2002,102 @@ class ShidashiApp {
     this.shinyHandler('remove_class', (params) => {
       if (params.selector && params.class) {
         this.removeClass(params.selector, params.class);
+      }
+    });
+
+    // --- Ask-user handler (MCP built-in tool) ---
+
+    this.shinyHandler('ask_user', (params) => {
+      // params: { request_id, input_id, message, choices, allow_freeform }
+      const requestId = params.request_id;
+      const inputId = params.input_id;
+      if (!requestId || !inputId) return;
+
+      const message = params.message || 'The agent needs your input:';
+      const choices = params.choices || [];
+      const allowFreeform = params.allow_freeform !== false;
+
+      // Build a Bootstrap 5 modal
+      const modalId = 'shidashi-ask-user-modal-' + requestId;
+      const existing = document.getElementById(modalId);
+      if (existing) existing.remove();
+
+      let bodyHTML = `<p class="mb-3">${this._escapeHtml(message)}</p>`;
+
+      // Choice buttons
+      if (choices.length > 0) {
+        bodyHTML += '<div class="d-flex flex-wrap gap-2 mb-3">';
+        choices.forEach((choice, i) => {
+          bodyHTML += `<button type="button" class="btn btn-outline-primary shidashi-ask-user-choice" data-choice-index="${i}">${this._escapeHtml(choice)}</button>`;
+        });
+        bodyHTML += '</div>';
+      }
+
+      // Free-form input
+      if (allowFreeform) {
+        bodyHTML += `<div class="mb-2"><textarea class="form-control shidashi-ask-user-freeform" rows="3" placeholder="Type your response..."></textarea></div>`;
+      }
+
+      const modalHTML = `
+        <div class="modal fade" id="${modalId}" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Agent Request</h5>
+              </div>
+              <div class="modal-body">${bodyHTML}</div>
+              <div class="modal-footer">
+                ${allowFreeform ? '<button type="button" class="btn btn-primary shidashi-ask-user-submit" disabled>Submit</button>' : ''}
+                <button type="button" class="btn btn-secondary shidashi-ask-user-cancel">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      const modalEl = document.getElementById(modalId);
+      const bsModal = new bootstrap.Modal(modalEl);
+
+      const respond = (value, cancelled) => {
+        Shiny.setInputValue(inputId, {
+          request_id: requestId,
+          value: value,
+          cancelled: !!cancelled
+        }, { priority: 'event' });
+        bsModal.hide();
+        modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+      };
+
+      // Choice button clicks
+      modalEl.querySelectorAll('.shidashi-ask-user-choice').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.choiceIndex, 10);
+          respond(choices[idx], false);
+        });
+      });
+
+      // Free-form submit
+      const submitBtn = modalEl.querySelector('.shidashi-ask-user-submit');
+      const textarea = modalEl.querySelector('.shidashi-ask-user-freeform');
+      if (submitBtn && textarea) {
+        textarea.addEventListener('input', () => {
+          submitBtn.disabled = !textarea.value.trim();
+        });
+        submitBtn.addEventListener('click', () => {
+          respond(textarea.value.trim(), false);
+        });
+      }
+
+      // Cancel
+      modalEl.querySelector('.shidashi-ask-user-cancel').addEventListener('click', () => {
+        respond(null, true);
+      });
+
+      bsModal.show();
+
+      // Focus textarea if present
+      if (textarea) {
+        modalEl.addEventListener('shown.bs.modal', () => textarea.focus(), { once: true });
       }
     });
 

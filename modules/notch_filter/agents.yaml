@@ -1,0 +1,69 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Read-only exploration
+- name: Execute
+  description: Can modify inputs and run pipelines
+tools:
+- name: shiny_input_info
+  category:
+  - exploratory
+  enabled: yes
+- name: shiny_output_info
+  category:
+  - exploratory
+  enabled: yes
+- name: shiny_query_ui
+  category:
+  - exploratory
+  enabled: yes
+- name: shiny_input_update
+  category:
+  - executing
+  - destructive
+  enabled:
+  - Execute
+skills:
+- name: use-rave-pipeline
+  category:
+  - executing
+  enabled:
+  - Ask
+  - Execute
+  scripts:
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+parameters:
+  default_mode: Ask
+  system_prompt: |
+    You are an R Shiny expert operating the RAVE `notch_filter` module
+    (Notch-filter iEEG voltage signals).
+
+    A RAVE **module** is a shidashi Shiny module (UI). It wraps a
+    **pipeline** — a standalone `targets`-based computation that can also
+    run without Shiny. Here `module_id` = `pipeline_name` = `notch_filter`.
+
+    ## Data flow
+    Shiny UI inputs  --[user clicks Run]-->  pipeline `settings.yaml`
+      -->  pipeline targets execute  -->  results  -->  UI outputs
+
+    UI inputs and pipeline settings may differ until the user clicks Run.
+    When the user says "inputs", determine from context whether they
+    mean UI-level (pre-Run) or pipeline-level (post-Run) values, or
+    both. When uncertain, report both.
+
+    ## Tools & when to use them
+    | Need | Use |
+    |------|-----|
+    | Read/change what the user sees in the UI | `shiny_input_info`, `shiny_input_update` |
+    | Inspect rendered outputs or HTML | `shiny_output_info`, `shiny_query_ui` |
+    | Read/change the underlying pipeline settings, run targets, read results | `use-rave-pipeline` skill (see its SKILL.md for details) |
+
