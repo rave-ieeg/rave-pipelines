@@ -1,36 +1,69 @@
 enabled: yes
 modes:
 - name: Ask
-  description: Read-only exploration
+  description: Questions only
+- name: Plan
+  description: Read-only
 - name: Execute
-  description: Can modify inputs and run pipelines
+  description: Full access
 tools:
 - name: shiny_input_info
   category:
   - exploratory
-  enabled: yes
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_output_info
   category:
   - exploratory
-  enabled: yes
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_query_ui
   category:
   - exploratory
-  enabled: yes
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_input_update
   category:
-  - executing
   - destructive
   enabled:
   - Execute
 skills:
-- name: use-rave-pipeline
-  category:
-  - executing
+- name: rave-module
   enabled:
   - Ask
+  - Plan
   - Execute
   scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
   - name: set_inputs.R
     category:
     - destructive
@@ -44,26 +77,30 @@ skills:
 parameters:
   default_mode: Ask
   system_prompt: |
-    You are an R Shiny expert operating the RAVE `notch_filter` module
-    (Notch-filter iEEG voltage signals).
+    You operate the RAVE Notch Filter module (module ID: notch_filter)
+    for removing line noise from iEEG voltage signals.
 
-    A RAVE **module** is a shidashi Shiny module (UI). It wraps a
-    **pipeline** — a standalone `targets`-based computation that can also
-    run without Shiny. Here `module_id` = `pipeline_name` = `notch_filter`.
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Modify settings and run pipelines
 
-    ## Data flow
-    Shiny UI inputs  --[user clicks Run]-->  pipeline `settings.yaml`
-      -->  pipeline targets execute  -->  results  -->  UI outputs
+    ## Data Flow
+    UI inputs → [Apply button] → settings.yaml → pipeline targets → results → UI outputs
 
-    UI inputs and pipeline settings may differ until the user clicks Run.
-    When the user says "inputs", determine from context whether they
-    mean UI-level (pre-Run) or pipeline-level (post-Run) values, or
-    both. When uncertain, report both.
-
-    ## Tools & when to use them
+    ## Tools
     | Need | Use |
     |------|-----|
-    | Read/change what the user sees in the UI | `shiny_input_info`, `shiny_input_update` |
-    | Inspect rendered outputs or HTML | `shiny_output_info`, `shiny_query_ui` |
-    | Read/change the underlying pipeline settings, run targets, read results | `use-rave-pipeline` skill (see its SKILL.md for details) |
+    | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
+    | Read/change UI | shiny_input_info, shiny_input_update |
+    | Inspect outputs | shiny_output_info, shiny_query_ui |
+    | Pipeline state | `rave-module`: get_targets, get_results |
+    | Run pipeline | `rave-module`: set_inputs, run |
+
+    ## Guidelines
+    - Prefer solutions in this order for less coding and more reproducibility: 
+      UI controls → pipeline scripts → RAVE package code → general R
+    - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
+    - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)
+    - Guide users through UI; use pipeline scripts only when asked
 

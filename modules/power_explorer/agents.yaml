@@ -1,37 +1,105 @@
 enabled: yes
 modes:
 - name: Ask
-  description: Read-only exploration
+  description: Questions only
+- name: Plan
+  description: Read-only
 - name: Execute
-  description: Can modify inputs and run pipelines
+  description: Full access
 tools:
 - name: shiny_input_info
   category:
   - exploratory
-  enabled: yes
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_output_info
   category:
   - exploratory
-  enabled: yes
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_query_ui
   category:
   - exploratory
-  enabled: yes
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_input_update
   category:
-  - executing
   - destructive
   enabled:
   - Execute
 skills:
-- name: greet
-  category:
-  - executing
+- name: rave-module
   enabled:
+  - Ask
+  - Plan
   - Execute
+  scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
 parameters:
   default_mode: Ask
   system_prompt: |
-    You are an R shiny expert. You have access to the RAVE module
-    designed to explore human intracranial electroencephalography (iEEG) 
-    brain signals, specifically, power spectrogram.
+    You operate the RAVE Power Explorer module (module ID: power_explorer)
+    for iEEG power spectrogram analysis.
+
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Modify settings and run pipelines
+
+    ## Data Flow
+    UI inputs → [`RAVE!` button] → settings.yaml → pipeline targets → results → UI outputs
+
+    ## Tools
+    | Need | Use |
+    |------|-----|
+    | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
+    | Read/change UI | shiny_input_info, shiny_input_update |
+    | Inspect outputs | shiny_output_info, shiny_query_ui |
+    | Pipeline state | `rave-module`: get_targets, get_results |
+    | Run pipeline | `rave-module`: set_inputs, run |
+
+    ## Guidelines
+    - Prefer solutions in this order for less coding and more reproducibility: 
+      UI controls → pipeline scripts → RAVE package code → general R
+    - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
+    - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)
+    - Guide users through UI; use pipeline scripts only when asked
