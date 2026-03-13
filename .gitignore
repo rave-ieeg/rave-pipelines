@@ -18,3 +18,5 @@ adhoc
 data
 /app.R
 unused
+.vscode
+.claude
