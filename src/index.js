@@ -7,91 +7,12 @@
  */
 
 import $ from 'jquery';
+import ClipboardJS from 'clipboard';
 import { IFrameManager } from './iframe-manager.js';
 import { Sidebar } from './sidebar.js';
-import ClipboardJS from 'clipboard';
-
-// ============================================================================
-// Output Bindings (registered once Shiny is available)
-// ============================================================================
-
-function registerOutputBindings() {
-  if (!window.Shiny) return;
-  const Shiny = window.Shiny;
-
-  // --- Progress Output Binding ---
-  const progressOutputBinding = new Shiny.OutputBinding();
-  progressOutputBinding.name = 'shidashi.progressOutputBinding';
-
-  $.extend(progressOutputBinding, {
-    find: function(scope) {
-      return $(scope).find('.shidashi-progress-output');
-    },
-    renderValue: function(el, value) {
-      let v = parseInt(value.value);
-      if (isNaN(v)) return;
-      if (v < 0) v = 0;
-      if (v > 100) v = 100;
-      $(el).find('.progress-bar').css('width', v + '%');
-      if (typeof value.description === 'string') {
-        $(el).find('.progress-description.progress-message').text(value.description);
-      }
-    },
-    renderError: function(el, err) {
-      if (err.message === 'argument is of length zero') {
-        $(el).removeClass('shidashi-progress-error');
-        $(el).find('.progress-bar').css('width', '0%');
-      } else {
-        $(el).addClass('shidashi-progress-error')
-          .find('.progress-description.progress-error')
-          .text(err.message);
-      }
-    },
-    clearError: function(el) {
-      $(el).removeClass('shidashi-progress-error');
-    }
-  });
-
-  Shiny.outputBindings.register(progressOutputBinding, 'shidashi.progressOutputBinding');
-
-  // --- Clipboard Output Binding ---
-  const clipboardOutputBinding = new Shiny.OutputBinding();
-  clipboardOutputBinding.name = 'shidashi.clipboardOutputBinding';
-
-  $.extend(clipboardOutputBinding, {
-    find: function(scope) {
-      return $(scope).find('.shidashi-clipboard-output');
-    },
-    renderValue: function(el, value) {
-      let el_ = $(el);
-      if (!el_.hasClass('clipboard-btn')) {
-        el_ = $(el).find('.clipboard-btn');
-      }
-      el_.attr('data-clipboard-text', value);
-    },
-    renderError: function(el, err) {
-      let el_ = $(el);
-      if (!el_.hasClass('clipboard-btn')) {
-        el_ = $(el).find('.clipboard-btn');
-      }
-      el_.attr('data-clipboard-text', 'Error: ' + err.message);
-    }
-  });
-
-  Shiny.outputBindings.register(clipboardOutputBinding, 'shidashi.clipboardOutputBinding');
-
-  // Clipboard click handler (delegation)
-  new ClipboardJS('.clipboard-btn').on('success', (e) => {
-    window.shidashi.createNotification({
-      title: 'Copied to clipboard',
-      delay: 1000,
-      autohide: true,
-      icon: 'fa fas fa-copy',
-      class: 'bg-success'
-    });
-    e.clearSelection();
-  });
-}
+import { registerOutputBindings } from './output-bindings.js';
+import { getConversationMarkdown, injectCodeCopyButtons, showToast } from './chat-helpers.js';
+import { captureVisualContent } from './canvas-capture.js';
 
 // ============================================================================
 // Shidashi Main Class
@@ -1010,105 +931,7 @@ class ShidashiApp {
     return (str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // ---------- Visual content capture (for query_ui / MCP) ----------
 
-  /**
-   * Copy a canvas (2D or WebGL) onto a temporary 2D canvas.
-   * WebGL canvases need special handling because toDataURL may return a
-   * blank image if the draw buffer was already cleared.
-   * @param {HTMLCanvasElement} source
-   * @returns {HTMLCanvasElement} a 2D canvas with the source content
-   */
-  _canvasTo2D(source) {
-    const tmp = document.createElement('canvas');
-    tmp.width = source.width;
-    tmp.height = source.height;
-    const ctx = tmp.getContext('2d');
-    ctx.drawImage(source, 0, 0);
-    return tmp;
-  }
-
-  /**
-   * Capture the visual content (canvas / img) inside an element as a
-   * base-64 PNG.  Returns `{ image_data, image_type }` on success or
-   * `null` when no visual content could be extracted.
-   *
-   * Strategy:
-   *  1. Collect every <canvas> and every <img> with a data-URI src.
-   *  2. Compute the "display" size of each (width × height).
-   *  3. Pick the largest size bucket.
-   *  4. If a single element wins, export it directly.
-   *  5. If several canvases share the largest size, overlay them
-   *     (in DOM order) onto one composited canvas.
-   *  6. If the element *is* a <canvas>, treat it as the sole source.
-   *
-   * @param {HTMLElement} el  The root element to inspect.
-   * @returns {{ image_data: string, image_type: string } | null}
-   */
-  _captureVisualContent(el) {
-    // --- gather candidates ---------------------------------------------------
-    const candidates = []; // { type: 'canvas'|'img', el, area, w, h }
-
-    const addCanvas = (c) => {
-      const w = c.width || c.offsetWidth || 0;
-      const h = c.height || c.offsetHeight || 0;
-      if (w > 0 && h > 0) {
-        candidates.push({ type: 'canvas', el: c, area: w * h, w, h });
-      }
-    };
-
-    const addImg = (img) => {
-      const src = img.getAttribute('src') || '';
-      if (!src.startsWith('data:')) return;
-      const w = img.naturalWidth || img.width || 0;
-      const h = img.naturalHeight || img.height || 0;
-      if (w > 0 && h > 0) {
-        candidates.push({ type: 'img', el: img, area: w * h, w, h, src });
-      }
-    };
-
-    // If the element itself is a canvas, it is the only candidate
-    if (el.tagName === 'CANVAS') {
-      addCanvas(el);
-    } else {
-      el.querySelectorAll('canvas').forEach(addCanvas);
-      el.querySelectorAll('img[src^="data:"]').forEach(addImg);
-    }
-
-    if (candidates.length === 0) return null;
-
-    // --- composite all candidates onto one canvas -----------------------------
-    const w = Math.max(...candidates.map(c => c.w));
-    const h = Math.max(...candidates.map(c => c.h));
-    const composite = document.createElement('canvas');
-    composite.width = w;
-    composite.height = h;
-    const ctx = composite.getContext('2d');
-    for (const item of candidates) {
-      try {
-        if (item.type === 'canvas') {
-          ctx.drawImage(this._canvasTo2D(item.el), 0, 0);
-        } else {
-          ctx.drawImage(item.el, 0, 0);
-        }
-      } catch (e) {
-        // tainted / cross-origin — skip this layer
-      }
-    }
-    const resultCanvas = composite;
-
-    // --- export to base-64 PNG ------------------------------------------------
-    try {
-      const dataUrl = resultCanvas.toDataURL('image/png');
-      const parts = dataUrl.split(',');
-      const mime = (parts[0] || '').replace(/^data:/, '').replace(/;base64$/, '') || 'image/png';
-      const data = parts[1] || '';
-      if (data) return { image_data: data, image_type: mime };
-    } catch (e) {
-      // tainted canvas — cannot export
-    }
-    return null;
-  }
 
   // ---------- Card tool click delegation ----------
 
@@ -1758,6 +1581,24 @@ class ShidashiApp {
       this.toggleCard2(params.selector);
     });
 
+    this.shinyHandler('add_attribute', (params) => {
+      // params: { selector, attribute, value }
+      if (params.selector && params.attribute) {
+        document.querySelectorAll(params.selector).forEach(el => {
+          el.setAttribute(params.attribute, params.value ?? '');
+        });
+      }
+    });
+
+    this.shinyHandler('remove_attribute', (params) => {
+      // params: { selector, attribute }
+      if (params.selector && params.attribute) {
+        document.querySelectorAll(params.selector).forEach(el => {
+          el.removeAttribute(params.attribute);
+        });
+      }
+    });
+
     this.shinyHandler('drawer_open', (params) => {
       this.drawerOpen();
     });
@@ -1820,6 +1661,53 @@ class ShidashiApp {
       );
     });
 
+    // --- Chatbot stop button initialization ---
+
+    this.shinyHandler('init_chat_stop_button', (params) => {
+      // params: { chat_id, stop_id }
+      const chatContainer = document.getElementById(params.chat_id);
+      if (!chatContainer) return;
+
+      const chatInput = chatContainer.querySelector('shiny-chat-input');
+      if (!chatInput) return;
+
+      // Don't create if already exists
+      if (document.getElementById(params.stop_id)) return;
+
+      // Create stop button - styles defined in shidashi.scss
+      const stopBtn = document.createElement('button');
+      stopBtn.type = 'button';
+      stopBtn.id = params.stop_id;
+      stopBtn.className = 'shidashi-chatbot-stop';
+      stopBtn.title = 'Stop generation';
+      stopBtn.setAttribute('aria-label', 'Stop generation');
+      stopBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0M6.5 5A1.5 1.5 0 0 0 5 6.5v3A1.5 1.5 0 0 0 6.5 11h3A1.5 1.5 0 0 0 11 9.5v-3A1.5 1.5 0 0 0 9.5 5z"/>
+      </svg>`;
+
+      // Insert into the chat input container
+      chatInput.style.position = 'relative';
+      chatInput.appendChild(stopBtn);
+
+      // Bind Shiny input - increment counter on click
+      stopBtn.addEventListener('click', () => {
+        if (window.Shiny) {
+          const currentVal = Shiny.shinyapp.$inputValues[params.stop_id] || 0;
+          Shiny.setInputValue(params.stop_id, currentVal + 1, { priority: 'event' });
+        }
+      });
+    });
+
+    // --- Chatbot stop button toggle ---
+
+    this.shinyHandler('toggle_stop_button', (params) => {
+      // params: { id, visible }
+      const el = document.getElementById(params.id);
+      if (!el) return;
+      // Toggle visibility via CSS class
+      el.classList.toggle('shidashi-chatbot-stop-visible', params.visible);
+    });
+
     // --- Query UI handler (MCP) ---
 
     this.shinyHandler('query_ui', (params) => {
@@ -1836,25 +1724,26 @@ class ShidashiApp {
         return;
       }
 
-      // Try to extract canvas / image content
-      const visual = this._captureVisualContent(el);
-      if (visual) {
+      // Try to extract canvas / image content (async for WebGL capture)
+      captureVisualContent(el).then((visual) => {
+        if (visual) {
+          Shiny.setInputValue(inputId, {
+            request_id: requestId,
+            html: '',
+            image_data: visual.image_data,
+            image_type: visual.image_type
+          }, { priority: 'event' });
+          return;
+        }
+
+        // Default: return innerHTML
         Shiny.setInputValue(inputId, {
           request_id: requestId,
-          html: '',
-          image_data: visual.image_data,
-          image_type: visual.image_type
+          html: el.innerHTML,
+          image_data: '',
+          image_type: ''
         }, { priority: 'event' });
-        return;
-      }
-
-      // Default: return innerHTML
-      Shiny.setInputValue(inputId, {
-        request_id: requestId,
-        html: el.innerHTML,
-        image_data: '',
-        image_type: ''
-      }, { priority: 'event' });
+      });
     });
 
     this.shinyHandler('show_notification', (params) => {
@@ -2022,7 +1911,18 @@ class ShidashiApp {
       const existing = document.getElementById(modalId);
       if (existing) existing.remove();
 
-      let bodyHTML = `<p class="mb-3">${this._escapeHtml(message)}</p>`;
+      let bodyHTML;
+      if (params.tool_name) {
+        bodyHTML = `<p class="mb-3">The agent wants to call tool <code>${this._escapeHtml(params.tool_name)}</code>.${
+          params.intent ? ' Reason:' : ''
+        }</p>`;
+        if (params.intent) {
+          bodyHTML += `<p class="mb-3"><em>${this._escapeHtml(params.intent)}</em></p>`;
+        }
+        bodyHTML += `<p class="mb-3">${this._escapeHtml(message)}</p>`;
+      } else {
+        bodyHTML = `<p class="mb-3">${this._escapeHtml(message)}</p>`;
+      }
 
       // Choice buttons
       if (choices.length > 0) {
@@ -2099,6 +1999,49 @@ class ShidashiApp {
       if (textarea) {
         modalEl.addEventListener('shown.bs.modal', () => textarea.focus(), { once: true });
       }
+    });
+
+    // --- Initialize code copy buttons for a chat container ---
+
+    this.shinyHandler('init_chat_code_copy', (params) => {
+      // params: { chat_id }
+      const chatContainer = document.getElementById(params.chat_id);
+      if (!chatContainer) return;
+
+      // Don't re-initialize
+      if (chatContainer._shidashiCodeCopyInit) return;
+      chatContainer._shidashiCodeCopyInit = true;
+
+      // Initialize ClipboardJS on copy-conversation button
+      const copyConvBtn = document.querySelector(
+        `[data-shidashi-action="copy-conversation"][data-shidashi-chat-id="${params.chat_id}"]`
+      );
+      if (copyConvBtn && !copyConvBtn._clipboardInit) {
+        copyConvBtn._clipboardInit = true;
+        const chatId = params.chat_id; // Capture in closure
+        const clipboard = new ClipboardJS(copyConvBtn, {
+          text: () => getConversationMarkdown(chatId)
+        });
+        clipboard.on('success', (e) => {
+          e.clearSelection();
+          showToast('Conversation copied to clipboard');
+        });
+      }
+
+      // Inject copy buttons into existing code blocks
+      injectCodeCopyButtons(chatContainer);
+
+      // Watch for new code blocks (chat responses are added dynamically)
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach(mutation => {
+          mutation.addedNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+              injectCodeCopyButtons(node);
+            }
+          });
+        });
+      });
+      observer.observe(chatContainer, { childList: true, subtree: true });
     });
 
     // Hide toasts with .hide-on-shiny-idle class when Shiny goes idle

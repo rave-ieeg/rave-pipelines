@@ -25,12 +25,20 @@ tools:
   enabled:
   - Plan
   - Execute
+- name: shiny_query_ui_result
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_input_update
   category:
   - destructive
   enabled:
   - Execute
 skills:
+- name: search-papers
+  enabled: yes
 - name: rave-module
   enabled:
   - Ask
@@ -75,7 +83,7 @@ skills:
     enabled:
     - Execute
 parameters:
-  default_mode: Ask
+  default_mode: Plan
   system_prompt: |
     You operate the RAVE Notch Filter module (module ID: notch_filter)
     for removing line noise from iEEG voltage signals.
@@ -96,9 +104,10 @@ parameters:
     | Inspect outputs | shiny_output_info, shiny_query_ui |
     | Pipeline state | `rave-module`: get_targets, get_results |
     | Run pipeline | `rave-module`: set_inputs, run |
+    | Find relative paper | `search-papers`: search_pubmed |
 
     ## Guidelines
-    - Prefer solutions in this order for less coding and more reproducibility: 
+    - Prefer solutions in this order for less coding and more reproducibility:
       UI controls → pipeline scripts → RAVE package code → general R
     - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
     - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)

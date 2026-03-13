@@ -851,6 +851,9 @@ body.in-iframe .card.shidashi-maximized {
   min-height: 0 !important;
   max-height: 0 !important;
   overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 // Visibility helpers
@@ -1137,8 +1140,8 @@ code {
 }
 
 pre > code {
-  display: inline-block;
-  padding: 0;
+  display: block;
+  padding: 0.5em;
   font-size: inherit;
   background-color: transparent;
   border-radius: 0;
@@ -2590,6 +2593,10 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
     height: 100vh;
   }
 
+  shiny-chat-input textarea {
+    --bs-border-radius: 5px;
+  }
+
   // Close tab — sits on the drawer's left edge, hidden by default.
   // Shown only when body has .shidashi-drawer-no-overlay.
   .shidashi-drawer-close-tab {
@@ -2635,13 +2642,82 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
   }
 }
 
-// Chatbot header bar inside the drawer
-.shidashi-chatbot-header {
-  flex-shrink: 0;
+// Chatbot stop button — positioned inside shiny-chat-input next to send button
+.shidashi-chatbot-stop {
+  display: none;
+  position: absolute;
+  bottom: calc(6px + var(--_input-padding-bottom, 0px));
+  right: 8px;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-danger, #{$danger});
+  transition: color 0.25s ease-in-out;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 16px;
+  border-radius: 50%;
+  z-index: 10;
 
-  & .shiny-input-container,
-  & .shidashi-chatbot-new-conv {
-    margin-bottom: 0.75rem !important;
+  &:hover {
+    color: color.scale($danger, $lightness: -15%);
+  }
+
+  &.shidashi-chatbot-stop-visible {
+    display: block;
+  }
+}
+
+// Chatbot controls bar (conversation, mode, policy selectors)
+.shidashi-chatbot-controls {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  // Allow select dropdowns to overflow upward
+  overflow: visible;
+  line-height: 1;
+
+  // Conversation selector takes remaining space
+  .shidashi-chatbot-conv-select {
+    min-width: 0; // Allow text truncation
+  }
+
+  // Operations button (new conversation, copy, etc.)
+  .shidashi-chatbot-ops-btn {
+    flex-shrink: 0;
+    margin: 0;
+    margin-bottom: 3px;
+    font-size: 0.65rem;
+    line-height: 1.5;
+    border-color: transparent;
+  }
+
+  // Compact form controls
+  .form-group {
+    margin-bottom: 0;
+  }
+
+  .form-control,
+  .form-select {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    height: auto;
+    line-height: 1;
+  }
+
+  .selectize-dropdown {
+    transform: translateY(calc(-100% - 1.75rem));
+    min-width: 200px !important;
+  }
+
+  .selectize-input {
+    min-height: 26px;
+    height: 26px;
+    overflow: clip;
+    padding: 2px 12px;
+    border-color: transparent;
+
+    &:hover {
+      border-color: var(--bs-border-color);
+    }
   }
 
 }
@@ -2679,6 +2755,49 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
 // Strikethrough for unknown cost
 .shidashi-chatbot-status-unknown {
   text-decoration: line-through;
+}
+
+// Code block copy button (inside chat messages)
+.shidashi-code-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 2;
+
+  pre:hover > & {
+    opacity: 1;
+  }
+}
+
+// Toast notifications
+.shidashi-toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1090;
+  pointer-events: none;
+}
+
+.shidashi-toast {
+  background: var(--bs-dark, #333);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: auto;
+
+  &.show {
+    opacity: 1;
+  }
 }
 
 // Drawer content — fills remaining height, allows children to flex
