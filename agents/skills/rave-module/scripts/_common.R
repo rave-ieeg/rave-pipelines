@@ -203,11 +203,22 @@ read_file_lines <- function(module_path, rel_path, start = 1L, nlines = 200L) {
   )
 }
 
+# -- Truncate a single line if it exceeds max_chars --
+truncate_long_line <- function(line, max_chars = 200L) {
+  nc <- nchar(line)
+  if (nc > max_chars) {
+    paste0(substring(line, 1L, max_chars), "... (truncated ", nc - max_chars, " chars)")
+  } else {
+    line
+  }
+}
+
 # -- Format lines with line numbers --
 format_numbered_lines <- function(lines, start) {
   if (length(lines) == 0L) return(character(0L))
   line_nums <- seq(start, start + length(lines) - 1L)
   width <- nchar(as.character(max(line_nums)))
+  lines <- sapply(lines, truncate_long_line, USE.NAMES = FALSE)
   sprintf("%*d: %s", width, line_nums, lines)
 }
 

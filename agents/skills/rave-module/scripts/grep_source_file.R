@@ -58,7 +58,7 @@ if (length(result$matches) == 0L) {
     
     for (j in seq_along(region$lines)) {
       ln <- line_nums[j]
-      line <- region$lines[j]
+      line <- truncate_long_line(region$lines[j])
       marker <- if (ln == region$match_line) ">" else " "
       cat(sprintf("%s%*d: %s\n", marker, width, ln, line))
     }
