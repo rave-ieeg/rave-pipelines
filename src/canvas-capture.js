@@ -66,26 +66,9 @@ export function canvasTo2D(source) {
   return tmp;
 }
 
-/**
- * Capture the visual content (canvas / img) inside an element as a
- * base-64 PNG.  Returns `{ image_data, image_type }` on success or
- * `null` when no visual content could be extracted.
- *
- * Strategy:
- *  1. Collect every <canvas> and every <img> with a data-URI src.
- *  2. Compute the largest canvas dimensions.
- *  3. Overlay all candidates (in DOM order) onto one composited canvas.
- *
- * @param {HTMLElement} el  The root element to inspect.
- * @returns {Promise<{ image_data: string, image_type: string } | null>}
- */
 export function captureVisualContent(el) {
   return new Promise((resolve) => {
-    // Use requestAnimationFrame so WebGL buffers are read during
-    // the active render frame (before the browser clears them).
-    requestAnimationFrame(() => {
-      resolve(_captureVisualContentSync(el));
-    });
+    resolve(_captureVisualContentSync(el));
   });
 }
 

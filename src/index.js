@@ -1718,31 +1718,54 @@ class ShidashiApp {
       if (!selector || !requestId || !inputId) return;
 
       const el = document.querySelector(selector);
-      const empty = { request_id: requestId, html: '', image_data: '', image_type: '' };
+      const ret = {
+        request_id: requestId,
+        type: 'not_found',
+        html: '',
+        image_data: '',
+        image_type: '',
+        note: "No element matched selector: '" + selector + "'"
+      };
+
       if (!el) {
-        Shiny.setInputValue(inputId, empty, { priority: 'event' });
+        Shiny.setInputValue(inputId, ret, { priority: 'event' });
         return;
       }
 
       // Try to extract canvas / image content (async for WebGL capture)
       captureVisualContent(el).then((visual) => {
-        if (visual) {
-          Shiny.setInputValue(inputId, {
-            request_id: requestId,
-            html: '',
-            image_data: visual.image_data,
-            image_type: visual.image_type
-          }, { priority: 'event' });
-          return;
+        let outerHTML = el.outerHTML;
+        if ( outerHTML.length > 300 ) {
+          outerHTML = `${ outerHTML.slice(0, 300) }...| (${ outerHTML.length - 300 } chars truncated)`;
         }
 
-        // Default: return innerHTML
-        Shiny.setInputValue(inputId, {
-          request_id: requestId,
-          html: el.innerHTML,
-          image_data: '',
-          image_type: ''
-        }, { priority: 'event' });
+        if (visual) {
+          ret.type = 'image';
+          ret.note = outerHTML;
+          ret.image_type = visual.image_type;
+
+          console.log(ret);
+          ret.image_data = visual.image_data;
+        } else {
+          // Default: return outerHTML with computed style note
+          const cs = getComputedStyle(el);
+          const styleNote = 'HTML element. Computed styles: display=' + cs.display +
+            ', width=' + cs.width + ', height=' + cs.height +
+            ', visibility=' + cs.visibility + ', overflow=' + cs.overflow +
+            ', position=' + cs.position;
+          
+          ret.type = 'html';
+          ret.html = outerHTML;
+          ret.note = styleNote;
+          console.log(ret);
+        }
+        Shiny.setInputValue(inputId, ret, { priority: 'event' });
+
+        // immediately reset the input
+        setTimeout(() => {
+          Shiny.setInputValue(inputId, null, { priority: 'event' });
+        }, 50);
+
       });
     });
 
