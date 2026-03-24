@@ -1,13 +1,13 @@
-<div id="{{ itemId }}-accordion-header" class="{{ shidashi:::combine_class('card', 'card-accordion-item', class) }}">
-  <div class="card-header card-accordion-header" style="{{ ifelse(length(style_header), paste(style_header, collapse=';'), '') }}">
-    <h4 class="{{ shidashi:::combine_class('card-title', 'w-100', 'cursor-pointer', 'card-accordion-title', if(collapsed){'collapsed'}else{''} ) }}" data-toggle="collapse" href="#{{ itemId }}" aria-expanded="{{ as.logical(collapsed) }}" data-title="{{ data_title }}">
-      <a class="d-block w-100 cursor-pointer">
+<div id="{{ itemId }}-accordion-header" class="{{ shidashi:::combine_class('card-accordion-item', class) }}">
+  <div class="card-accordion-header" style="{{ ifelse(length(style_header), paste(style_header, collapse=';'), '') }}">
+    <h5 class="{{ shidashi:::combine_class('card-accordion-title', if(collapsed){'collapsed'}else{''} ) }}" data-bs-toggle="collapse" href="#{{ itemId }}" aria-expanded="{{ ifelse(collapsed, 'false', 'true') }}" data-title="{{ data_title }}">
+      <a>
         {{ title }}
       </a>
-    </h4>
+    </h5>
   </div>
-  <div id="{{ itemId }}" class="{{ shidashi:::combine_class('collapse', if(collapsed){''}else{'show'} ) }}" data-parent="#{{ parentId }}">
-    <div class="card-body" style="{{ ifelse(length(style_body), paste(style_header, collapse=';'), '') }}">
+  <div id="{{ itemId }}" class="{{ shidashi:::combine_class('collapse', if(collapsed){''}else{'show'} ) }}" data-bs-parent="#{{ parentId }}">
+    <div class="card-body" style="{{ ifelse(length(style_body), paste(style_body, collapse=';'), '') }}">
       {{ body }}
     </div>
     {{ footer }}

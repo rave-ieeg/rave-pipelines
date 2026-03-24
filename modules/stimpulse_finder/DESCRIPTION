@@ -11,5 +11,5 @@ Authors@R: c(
 Description: 
     Find epochs (onset and offset) of stimulation pulses based on the signals;
     output as a 'RAVE' epoch table (comma-separated value, 'CSV') file.
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://rave.wiki, https://github.com/rave-ieeg/rave-pipelines

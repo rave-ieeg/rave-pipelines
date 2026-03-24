@@ -1,0 +1,95 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Questions only
+- name: Plan
+  description: Read-only
+- name: Execute
+  description: Full access
+tools:
+- name: shiny_input_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_query_ui
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_query_ui_result
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Execute
+skills:
+- name: search-papers
+  enabled: yes
+- name: rave-module
+  enabled: yes
+  scripts:
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+parameters:
+  default_mode: Plan
+  system_prompt: |
+    You operate the RAVE Custom 3D Viewer module (module ID: custom_3d_viewer)
+    for interactive iEEG brain visualization with electrode data overlays.
+
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Modify settings and run pipelines
+
+    ## Viewer Controller Reference
+    Controllers are set via `brain$plot(controllers = list(...))` or
+    `brain_proxy$set_controllers(list(...))` at runtime. Key controllers:
+    - `Display Data` — selects electrode color variable
+    - `Surface Color` — `"sync from electrodes"` to project values onto surface
+    - `Camera Position` — preset angles: right/left/anterior/posterior/superior/inferior
+    - `Visibility` — electrode visibility filter
+
+    ## Guidelines
+    - Do NOT make up things. Check references.
+    - Do read `rave-module`, especially `references/custom_3d_viewer.md` for detailed guidelines & Q&As. 
+    - Guide users through UI; use pipeline scripts only when user explicitly asked
+    - If you have to code, prefer RAVE packages (ravecore, ravepipeline, ravedash, threeBrain)
+    - NEVER suggest generic R packages (ggplot2, dplyr, etc.)
+    - Electrode data CSV must contain an `Electrode` column; add `Time` for animation
+    - Present table in both code style (wrapped by ```) and markdown table style

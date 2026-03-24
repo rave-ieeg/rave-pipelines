@@ -17,5 +17,5 @@ Description:
     'import_lfp_native' module afterwards. This module is part of 
     'RAVE preprocessing pipeline' and can run offline as a pipeline instance;
     see 'ravepipeline::pipeline("import_bids")'.
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://rave.wiki
