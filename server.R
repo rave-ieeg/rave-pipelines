@@ -24,6 +24,7 @@ server <- function(input, output, session){
 
   # Sync input ID
   shared_data <- shidashi::register_session_id(session)
+  shidashi::stream_init(session)
   # shared_data$enable_broadcast()
   # shared_data$enable_sync()
 

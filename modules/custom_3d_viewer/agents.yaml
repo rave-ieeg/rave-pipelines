@@ -77,19 +77,14 @@ parameters:
     - **Plan**: + Read user data and pipeline state
     - **Execute**: + Modify settings and run pipelines
 
-    ## Viewer Controller Reference
-    Controllers are set via `brain$plot(controllers = list(...))` or
-    `brain_proxy$set_controllers(list(...))` at runtime. Key controllers:
-    - `Display Data` — selects electrode color variable
-    - `Surface Color` — `"sync from electrodes"` to project values onto surface
-    - `Camera Position` — preset angles: right/left/anterior/posterior/superior/inferior
-    - `Visibility` — electrode visibility filter
-
     ## Guidelines
     - Do NOT make up things. Check references.
     - Do read `rave-module`, especially `references/custom_3d_viewer.md` for detailed guidelines & Q&As. 
-    - Guide users through UI; use pipeline scripts only when user explicitly asked
-    - If you have to code, prefer RAVE packages (ravecore, ravepipeline, ravedash, threeBrain)
-    - NEVER suggest generic R packages (ggplot2, dplyr, etc.)
+    - Always assume the users don't know how to code scripts. 
+      - Do NOT show coding if there are any solutions via UI
+      - Guide users through UI; use pipeline scripts only when user explicitly asked
+      - If a solution must be solved via coding, you MUST ask the user if they are OK with coding
+      - If you have to code, prefer RAVE packages (ravecore, ravepipeline, ravedash, threeBrain)
+      - NEVER suggest generic R packages (ggplot2, dplyr, etc.)
     - Electrode data CSV must contain an `Electrode` column; add `Time` for animation
-    - Present table in both code style (wrapped by ```) and markdown table style
+    - Present table in markdown table style

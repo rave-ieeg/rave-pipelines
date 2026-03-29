@@ -1,158 +1,72 @@
-# Migration Plan: AdminLTE3 → bslib/Bootstrap 5
+# Plan: Adapt rave-pipelines to shidashi PR #5
 
-Reference template: `unused/bslib-bare/` (copied from `shidashi` bslib-migration branch)
-
-## Overview
-
-Migrate rave-pipelines from AdminLTE3 + Bootstrap 4 (webpack) to bslib + Bootstrap 5 (esbuild).
-RAVE-specific customizations (extra navbar buttons, `frontpage()`, Jupyter handlers,
-shutdown button, `RAVEPipeline` global name) must be preserved.
+Align rave-pipelines with shidashi PR #5 which moves `register_output` and `standalone_viewer` into shidashi (removing them from ravedash), adds `stream_viz` D3 htmlwidget with binary streaming, and adds SVG-to-PNG capture for MCP. The old ravedash functions will no longer exist — this is not deprecation, it's removal. Comment old code instead of deleting.
 
 ---
 
-## Tasks
+## Phase 1: JavaScript — src/index.js (4 additions, 1 update)
 
-### 1. HTML Views (`views/`)
+- [x] Step 1.1: Add `fetchStreamData(id)` method after `_escapeAttr()` (~L936)
+- [x] Step 1.2: Update MCP `query_ui` handler to use SVG capture (~L1713-L1775)
+- [x] Step 1.3: Add `shidashi.set_shiny_input` handler in `_register_shiny()`
+- [x] Step 1.4: Add `shidashi.register_output_widgets` handler in `_register_shiny()`
+- [x] Step 1.5: Update `launchStandaloneViewer()` URL scheme to include `token`
 
-- [x] **header.html** — `suppressDependencies("bootstrap")` → `shidashi::bslib_dependency()`;
-  replace versioned `shidashi.js` script tag with `shidashi/css/shidashi.css` +
-  `shidashi/js/index.js`; add Font Awesome 5 CDN link
-- [x] **footer.html** — `$(document).on(...)` → `document.addEventListener(...)`;
-  `RAVEPipeline.registerShidashi` → `Shidashi.registerShidashi`
-- [x] **404.html** — `sidebar-mini` removed; `wrapper`/`content-wrapper` → `shidashi-wrapper`/`shidashi-content`;
-  BS4 classes → BS5 (`float-sm-right` → `float-sm-end`, `error-page` → `d-flex`)
-- [x] **500.html** — Same pattern as 404
-- [x] **card.html** — `collapsed-card` → `shidashi-collapsed`; `<h3>` → `<h5>`
-- [x] **card2.html** — `collapsed-card` → `shidashi-collapsed`; `<h3>` → `<h5>`;
-  `data-widget="chat-pane-toggle"` → `data-shidashi-action="chat-toggle"`
-- [x] **card-tabset.html** — `pt-1` → `pt-0`; `<h4>` → `<h5>`;
-  `data-toggle` → `data-bs-toggle`; remove lorem ipsum example tabs
-- [x] **accordion-item.html** — Remove extra `'card'` class; simplify header classes;
-  `data-toggle` → `data-bs-toggle`; `data-parent` → `data-bs-parent`;
-  fix `aria-expanded` logic; fix `style_body` bug (was reading `style_header`)
-- [x] **menu-item.html** — `nav-item` → `shidashi-nav-item`; `nav-link nav-leaf` → `shidashi-nav-link`;
-  `<p>` → `<span>`
-- [x] **menu-item-dropdown.html** — `nav-item` → `shidashi-nav-item shidashi-nav-group`;
-  all nav classes → `shidashi-nav-*`; `<p>` → `<span>`; arrow icon class update
-- [x] **preview.html** — `layout-top-nav` removed; AdminLTE wrappers → `shidashi-*`;
-  `col-xs-12` → `col-12`
-- [x] **info-box.html** — No functional change needed (already matches target)
+## Phase 2: SCSS — src/shidashi.scss
 
-### 2. Main Layout (`index.html`)
+- [x] Step 2.1: Add `.shidashi-output-widget-*` styles
+- [x] Step 2.2: Comment out old `.ravedash-output-widget-*` styles (~L2410-2460)
 
-- [x] Replace AdminLTE layout with bslib structure:
-  - `wrapper` → `shidashi-wrapper`
-  - Sidebar: `<aside class="main-sidebar ...">` → `<nav class="shidashi-sidebar ...">`
-  - Content: `<div class="content-wrapper iframe-mode" data-widget="iframe">` →
-    `<div class="shidashi-content" data-shidashi-widget="iframe-manager">`
-  - Tab bar: AdminLTE iframe plugin → `shidashi-tab-bar` structure
-  - All `data-widget` → `data-shidashi-*` attributes
-  - `ml-auto` → `ms-auto` (BS5)
-  - **Preserve** RAVE buttons: toggle_loader, citation_information, shutdown
-  - **Preserve** `{{ frontpage() }}` in the empty tab content
-  - Remove hidden footer and control-sidebar
+## Phase 3: SVG Capture — src/canvas-capture.js
 
-### 3. R Files
+- [x] Step 3.1: Add `captureSVG(svgEl)` export
 
-- [x] **R/common.R** — Update `nav_class()` to `shidashi-header` classes;
-  update `body_class()` to remove AdminLTE-specific classes;
-  add `sidebar_class()` function; keep RAVE-specific `frontpage()`
-- [x] **ui.R** — Keep `shidashi::adminlte_ui()` (same function used by bslib template)
-- [x] **server.R** — No changes needed (module routing is framework-agnostic)
+## Phase 4: Standalone Viewer Simplification
 
-### 4. JavaScript Source (`src/`)
+- [x] Step 4.1: Update `modules/standalone_viewer/R/loader.R`
+- [x] Step 4.2: Update `modules/standalone_viewer/server.R`
+- [x] Step 4.3: Update `modules/standalone_viewer/module-ui.html`
 
-- [x] Replace `src/index.js` with bslib-bare version (new `ShidashiApp` class with
-  BS5 Toast notifications, `data-shidashi-*` delegation, `Sidebar`/`IFrameManager` imports)
-- [x] Add `src/sidebar.js` — custom sidebar toggle/treeview/search/active-state
-- [x] Add `src/iframe-manager.js` — custom iframe tab management
-- [x] Replace `src/scss/shidashi.scss` → `src/shidashi.scss` (top-level, bslib theme)
-- [x] Remove old files: `src/js/AdminLTE/` (16 files), `src/js/class-shidashi.js`,
-  `src/js/common.js`, `src/js/scrollbars.min.js`, `src/js/shiny-clipboard.js`,
-  `src/js/shiny-progress.js`, `src/scss/AdminLTE/` (entire directory)
-- [x] Remove `src/build.R` (was webpack + version stamping; no longer needed)
+## Phase 5: register_output Migration (11 modules, 34 server + 27 UI calls)
 
-### 5. Build Tooling
+**API change:**
+- **Old (ravedash, being removed):**
+  - UI: `ravedash::output_gadget_container(plotOutput(ns("id")))`
+  - Server: `ravedash::register_output(outputId="id", render_function=renderPlot({...}), output_type="type")`
+- **New (shidashi):**
+  - UI: bare `plotOutput(ns("id"))` (no wrapper)
+  - Server: `shidashi::register_output(renderPlot({...}), outputId="id", description="...", download_type="image")`
 
-- [x] Replace `webpack.config.js` with `esbuild.config.mjs`
-- [x] Update `package.json`:
-  - Remove: `admin-lte`, `bootstrap@^4`, `highlight.js`, `overlayscrollbars`,
-    webpack devDeps (`css-loader`, `exports-loader`, `imports-loader`, `sass-loader`,
-    `scss`, `style-loader`, `webpack`, `webpack-cli`)
-  - Add: `bootstrap@^5.3.3`, keep `clipboard`
-  - Add devDeps: `esbuild`, `esbuild-sass-plugin`, `sass`
-  - Update scripts: `build` → `node esbuild.config.mjs`
-- [x] Delete `webpack.config.js`
+**output_type → download_type mapping:** csv→data, no-download→no-download, threeBrain→threeBrain, plots→image
 
-### 6. Static Assets (`www/`)
+- [x] Step 5.1: notch_filter (1 UI + 1 server)
+- [x] Step 5.2: reference_module (3 UI + 3 server)
+- [x] Step 5.3: custom_3d_viewer (2 UI + 2 server)
+- [x] Step 5.4: electrode_localization (1 UI + 1 server)
+- [x] Step 5.5: power_explorer (10 UI + 16 server)
+- [x] Step 5.6: group_3d_viewer (1 UI + 1 server)
+- [x] Step 5.7: epoch_generator (2 UI + 2 server)
+- [x] Step 5.8: wavelet_module (2 UI + 2 server)
+- [x] Step 5.9: generate_surface_atlas (1 UI + 1 server)
+- [x] Step 5.10: connectivity_viewer (3 UI + 2 server)
 
-- [x] Remove `www/bootstrap/` (BS4 bundle — now provided by bslib R package)
-- [ ] Consider removing `www/highlightjs/` if no longer needed
-- [x] Keep `www/shidashi/img/`
-- [x] Rebuild `www/shidashi/js/` and `www/shidashi/css/` via `npm run build`
+## Phase 6: server.R Template Update
 
-### 7. Verification
+- [x] Step 6.1: Add `shidashi::stream_init(session)` after `shidashi::register_session_id(session)`
 
-- [x] `npm install && npm run build` succeeds
-- [ ] `Rscript -e 'shidashi::render(".")'` succeeds
-- [ ] Launch app, verify: sidebar, iframe tabs, theme toggle, card operations, RAVE buttons
+## Phase 7: Build & Verify
+
+- [x] `npm run build`
+- [ ] Launch app and test overlay icons
+- [ ] Test standalone viewer popout
+- [ ] Test MCP query_ui SVG capture
+- [ ] Test stream_viz widget
 
 ---
 
-## Key Decisions
-
-| Decision | Choice | Rationale |
-|---|---|---|
-| Global JS lib name | `Shidashi` → change from `RAVEPipeline` | Align with upstream template; footer.html updated to match |
-| highlight.js | Keep `www/highlightjs/` for now | May be used by modules; remove later if confirmed unused |
-| `src/build.R` | Remove | Version stamping no longer needed; esbuild handles build |
-| `shidashi::adminlte_ui()` | Keep as-is | bslib template also uses this function name |
-
----
-
-## Slide-out Drawer (Per-Module)
-
-### Overview
-
-A right-side slide-out drawer panel (~400px) within each module iframe for AI agents,
-settings, or other secondary content. Module developers populate drawer content via R/Shiny.
-The drawer can be toggled from the module navbar, the parent shell navbar, or from R code.
-
-### Requirements
-
-- **Per-module**: Lives inside each module iframe (not the parent shell)
-- **Right side**: Fixed position, slides in from the right
-- **~400px wide**: Configurable via CSS variable
-- **No backdrop**: Does not dim/overlay the page content
-- **z-index > 1039**: Higher than back-to-top buttons and sidebar overlay
-- **Height**: `100vh` when in iframe (`body.in-iframe`); subtract navbar height when standalone
-- **Close button**: Floating angle-right icon on drawer top-left
-- **Toggle via**:
-  - `data-shidashi-action="toggle-drawer"` (also `open-drawer`, `close-drawer`)
-  - R/Shiny: `shidashi.toggle_drawer` custom message handler
-  - Parent shell propagates to active iframe via `iframeManager`
-- **Theme-aware**: Dark mode support via `.dark-mode` class
-
-### Implementation Plan
-
-1. **SCSS** (`src/shidashi.scss`): Add `.shidashi-drawer` section with:
-   - `position: fixed; right: 0; width: 400px; transform: translateX(100%); transition`
-   - `body:not(.in-iframe)` → `top: $navbar-height; height: calc(100vh - $navbar-height)`
-   - `body.in-iframe` → `top: 0; height: 100vh`
-   - `.shidashi-drawer.open { transform: translateX(0) }`
-   - `.shidashi-drawer-close` floating button styling
-   - Dark mode overrides
-
-2. **JS** (`src/index.js`): Add:
-   - `openDrawer()`, `closeDrawer()`, `toggleDrawer(open?)` methods
-   - Action handlers for `toggle-drawer`, `open-drawer`, `close-drawer` in `_bindCardTools()`
-   - Parent-to-iframe propagation via `iframeManager` active tab
-   - Shiny handler `shidashi.toggle_drawer`
-
-3. **HTML** (`modules/*/module-ui.html`): Add:
-   - `<div class="shidashi-drawer" id="shidashi-drawer"><button class="shidashi-drawer-close">…</button></div>`
-   - Toggle button `<li>` in module navbar with angle-right icon
-
-4. **HTML** (`index.html`): Add toggle button to parent navbar right side
-
-5. **Build**: `npm run build`
+## Decisions
+- Comment old ravedash code, don't delete (for debugging)
+- `ravedash::register_output` and `output_gadget_container` are being removed from ravedash
+- `ravedash::plotOutput2` is kept as-is — normal output function
+- SVG capture goes in `canvas-capture.js` where capture logic lives
+- No `stream_viz` demo module in rave-pipelines

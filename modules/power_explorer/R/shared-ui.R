@@ -22,12 +22,13 @@ make_by_frequency_tabset <- function() {
         make_heatmap_control_panel(prefix = 'bfot', config='by_frequency_tabset_config'),
 
         # Plot
-        ravedash::output_gadget_container(
+        # MIGRATED: removed ravedash::output_gadget_container() wrapper
+        # ravedash::output_gadget_container(
           ravedash::plotOutput2(
             outputId = ns("by_frequency_over_time"),
             width = '100%', height='100%'
           )
-        )
+        # )
       ),
 
     `Correlation` = shiny::div(
@@ -39,12 +40,13 @@ make_by_frequency_tabset <- function() {
 
       # Plot
 
-      ravedash::output_gadget_container(
+      # MIGRATED: removed ravedash::output_gadget_container() wrapper
+      # ravedash::output_gadget_container(
         ravedash::plotOutput2(
           outputId = ns("by_frequency_correlation"),
           width = '100%', height='100%'
         )
-      )
+      # )
     )
   )
 }

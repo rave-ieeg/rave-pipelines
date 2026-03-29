@@ -7,5 +7,5 @@ electrode_group:
     name: B
     electrodes: 18-20
 project_name: test@bids:ds005953
-reference_name: _unsaved
+reference_name: '[Blank profile]'
 subject_code: '01'

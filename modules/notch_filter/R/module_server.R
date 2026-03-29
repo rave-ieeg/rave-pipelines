@@ -477,7 +477,8 @@ module_server <- function(input, output, session, ...){
   )
 
   # Register outputs
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  shidashi::register_output(
     shiny::renderPlot({
       electrode <- get_electrode()
       local_reactives$update_plots
@@ -508,7 +509,8 @@ module_server <- function(input, output, session, ...){
 
 
     }),
-    outputId = "signal_plot"
+    outputId = "signal_plot",
+    download_type = "image"
   )
 
   output$download_as_pdf <- shiny::downloadHandler(

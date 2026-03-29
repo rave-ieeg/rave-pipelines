@@ -473,8 +473,10 @@ module_server <- function(input, output, session, ...){
   )
 
 
-  ravedash::register_output(
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(render_function = ..., outputId = ..., output_opts = ...)
+  shidashi::register_output(
+    shiny::renderPlot({
       plot_signal <- local_reactives$plot_signal
       plot_range <- input$plot_range
       sample_rate <- input$sample_rate
@@ -492,40 +494,57 @@ module_server <- function(input, output, session, ...){
 
       q <- ceiling(length(plot_signal) / 20000)
 
-      if(q > 1) {
+      if (q > 1) {
         plot_signal <- ravetools::decimate(plot_signal, q)
         time <- seq(0, length.out = length(plot_signal), by = q / sample_rate)
       } else {
         time <- seq_along(plot_signal)
       }
 
-      if(length(plot_range) != 1 || is.na(plot_range) || plot_range <= 0) {
+      if (length(plot_range) != 1 || is.na(plot_range) || plot_range <= 0) {
         ylim <- range(plot_signal)
       } else {
         ylim <- c(-plot_range, plot_range)
       }
-      if(isTRUE(input$plot_absolute)) {
+      if (isTRUE(input$plot_absolute)) {
         ylim[[1]] <- 0
       }
 
       opt <- graphics::par(c("mai", "mar", "cex.axis"))
-      on.exit({ do.call(graphics::par, opt) }, add = TRUE, after = FALSE)
+      on.exit(
+        {
+          do.call(graphics::par, opt)
+        },
+        add = TRUE,
+        after = FALSE
+      )
       graphics::par(
         mai = c(0.52, 0.4, 0.1, 0.1),
         cex.axis = 0.8
       )
-      plot(time, plot_signal, type = 'l', ylim = ylim, main = "",
-           ylab = "", xlab = "Time (s)")
+      plot(
+        time,
+        plot_signal,
+        type = 'l',
+        ylim = ylim,
+        main = "",
+        ylab = "",
+        xlab = "Time (s)"
+      )
       addlines()
     }),
     outputId = "plot_overall",
     output_opts = list(
       click = NULL,
-      dblclick = shiny::dblclickOpts(ns("plot_overall__dblclick"),
-                                     clip = TRUE),
-      brush = shiny::brushOpts(ns("plot_overall__brush"), resetOnNew = TRUE,
-                               clip = TRUE, direction = "x")
-    )
+      dblclick = shiny::dblclickOpts(ns("plot_overall__dblclick"), clip = TRUE),
+      brush = shiny::brushOpts(
+        ns("plot_overall__brush"),
+        resetOnNew = TRUE,
+        clip = TRUE,
+        direction = "x"
+      )
+    ),
+    download_type = "image"
   )
 
   # output$plot_overall <- shiny::renderPlot({
@@ -642,7 +661,9 @@ module_server <- function(input, output, session, ...){
   }
 
   # brush output
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  shidashi::register_output(
     shiny::renderPlot({
       content <- brush_content()
       shiny::validate(
@@ -663,7 +684,8 @@ module_server <- function(input, output, session, ...){
       addlines()
 
     }),
-    outputId = "plot_subset"
+    outputId = "plot_subset",
+    download_type = "image"
   )
 
   # threshold signals

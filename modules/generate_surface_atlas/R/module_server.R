@@ -412,9 +412,9 @@ module_server <- function(input, output, session, ...){
 
 
   # Register outputs
-  ravedash::register_output(
-    outputId = "viewer3d",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  shidashi::register_output(
+    threeBrain::renderBrain({
       shiny::validate(
         shiny::need(
           length(local_reactives$update_outputs) &&
@@ -456,7 +456,8 @@ module_server <- function(input, output, session, ...){
 
 
     }),
-    output_type = "threeBrain"
+    outputId = "viewer3d",
+    download_type = "threeBrain"
   )
 
 }

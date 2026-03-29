@@ -19,8 +19,11 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
   comp$no_save <- TRUE
   gadgets <- gadgets[gadgets %in% c("standalone", "download2")]
   comp$ui_func <- function(id, value, depends) {
-    ravedash::output_gadget_container(threeBrain::threejsBrainOutput(outputId = id,
-      height = height, reportSize = FALSE), gadgets = gadgets)
+    # MIGRATED: removed ravedash::output_gadget_container() wrapper
+    # ravedash::output_gadget_container(threeBrain::threejsBrainOutput(outputId = id,
+    #   height = height, reportSize = FALSE), gadgets = gadgets)
+    threeBrain::threejsBrainOutput(outputId = id,
+      height = height, reportSize = FALSE)
   }
   comp$server_func <- function(input, output, session) {
     tools <- ravedash::register_rave_session(session)
@@ -82,7 +85,9 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
       electrode_table()
     )
 
-    ravedash::register_output(
+    # MIGRATED from ravedash::register_output
+    # ravedash::register_output(
+    shidashi::register_output(
       threeBrain::renderBrain({
         # if (!loader_subject$sv$is_valid()) {
         #   return()
@@ -117,8 +122,9 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
         )
       }),
       outputId = "loader_3d_viewer",
-      export_type = "3dviewer",
-      session = session
+      # export_type = "3dviewer",
+      download_type = "threeBrain"
+      # session = session
     )
   }
   comp

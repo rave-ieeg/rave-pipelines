@@ -2278,10 +2278,13 @@ module_server <- function(input, output, session, ...){
 
 
   #### 3d brain viewer
-  ravedash::register_output(
-    outputId = "brain_viewer",
-    output_type = "threeBrain",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  # ravedash::register_output(
+  shidashi::register_output(
+    # outputId = "brain_viewer",
+    # output_type = "threeBrain",
+    # render_function =
+    threeBrain::renderBrain({
 
       cond <- basic_checks(local_reactives$update_3dviewer, check_uni = FALSE)
 
@@ -2355,13 +2358,18 @@ module_server <- function(input, output, session, ...){
                        timestamp=FALSE)
         }
       }
-    })
+    }),
+    outputId = "brain_viewer",
+    download_type = "threeBrain"
   )
 
-  ravedash::register_output(
-    outputId = "brain_viewer_movies",
-    output_type = "threeBrain",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  # ravedash::register_output(
+  shidashi::register_output(
+    # outputId = "brain_viewer_movies",
+    # output_type = "threeBrain",
+    # render_function =
+    threeBrain::renderBrain({
       cond <- basic_checks(local_reactives$update_3dviewer)
 
       brain <- ravecore::rave_brain(component_container$data$repository$subject)
@@ -2383,7 +2391,9 @@ module_server <- function(input, output, session, ...){
           title = 'Click "Play/Pause" to start animation'
         )
       }
-    })
+    }),
+    outputId = "brain_viewer_movies",
+    download_type = "threeBrain"
   )
 
   ### export button download handler
@@ -3051,9 +3061,12 @@ module_server <- function(input, output, session, ...){
     )
   })
 
-  ravedash::register_output(
-    outputId = 'by_electrode_custom_plot',
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  shidashi::register_output(
+    # outputId = 'by_electrode_custom_plot',
+    # render_function =
+    shiny::renderPlot({
       # basic_checks(local_reactives$update_outputs)
       basic_checks(local_reactives$update_pes_plot, check_uni = FALSE)
       force(local_reactives$update_outputs)
@@ -3065,7 +3078,9 @@ module_server <- function(input, output, session, ...){
       po$by_electrode_custom_plot_data = local_data$results$by_electrode_custom_plot_data
 
       do.call(plot_by_electrode_custom_plot, po)
-    })
+    }),
+    outputId = "by_electrode_custom_plot",
+    download_type = "image"
   )
 
 
@@ -3175,39 +3190,46 @@ module_server <- function(input, output, session, ...){
     return (dt)
   }, server = FALSE)
 
-  # ravedash::register_output(
-  # outputId = "by_condition_by_trial",
-  # render_function = shiny::renderPlot({
-  output$by_condition_by_trial <- shiny::renderPlot({
-    basic_checks(local_reactives$update_outputs)
+  shidashi::register_output(
+    shiny::renderPlot({
+      basic_checks(local_reactives$update_outputs)
 
-    force(local_reactives$update_by_condition_plot)
-    force(local_reactives$update_click_info)
-    force(local_reactives$update_line_plots)
+      force(local_reactives$update_by_condition_plot)
+      force(local_reactives$update_click_info)
+      force(local_reactives$update_line_plots)
 
-    dd <- if(isTRUE(input$bcbt_show_outliers)) {
-      local_data$results$by_condition_by_trial_data_with_outliers
-    } else {
-      local_data$results$by_condition_by_trial_data
-    }
+      dd <- if (isTRUE(input$bcbt_show_outliers)) {
+        local_data$results$by_condition_by_trial_data_with_outliers
+      } else {
+        local_data$results$by_condition_by_trial_data
+      }
 
+      final_data_locations <- plot_by_condition_by_trial(
+        by_condition_by_trial_data = dd,
+        grouped_plot_options = pe_graphics_settings_cache$get(
+          'grouped_plot_options'
+        ),
+        ylab = local_data$results$baseline_settings$unit_of_analysis,
+        highlight_trials = local_data$bcbt_click_log
+      )
 
-    final_data_locations <- plot_by_condition_by_trial(
-      by_condition_by_trial_data = dd,
-      grouped_plot_options = pe_graphics_settings_cache$get('grouped_plot_options'),
-      ylab = local_data$results$baseline_settings$unit_of_analysis,
-      highlight_trials = local_data$bcbt_click_log
+      local_data$by_condition_by_trial_data_locations <- final_data_locations
+
+      # we have new data locations, so update the click table
+      local_reactives$update_click_table <- Sys.time()
+    }),
+    outputId = "by_condition_by_trial",
+    download_type = "image",
+    output_opts = list(
+      click = shiny::clickOpts(ns('btbc_click'), clip = TRUE),
+      dblclick = ns('btbc_dblclick')
     )
+  )
 
-    local_data$by_condition_by_trial_data_locations <- final_data_locations
-
-    # we have new data locations, so update the click table
-    local_reactives$update_click_table <- Sys.time()
-  })
-  # )
-
-  ravedash::register_output(outputId='by_condition_statistics',
-                            render_function = shiny::renderUI({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(outputId='by_condition_statistics',
+  #                           render_function = shiny::renderUI({...}))
+  shidashi::register_output(shiny::renderUI({
                               basic_checks(local_reactives$update_outputs)
 
                               aes <- local_data$results$across_electrode_statistics$model
@@ -3221,10 +3243,14 @@ module_server <- function(input, output, session, ...){
                                 htmltable_coefmat(summ),
                               )
 
-                            }))
+                            }),
+                            outputId = "by_condition_statistics",
+                            download_type = "no-download")
 
-  ravedash::register_output(outputId='by_condition_statistics_emmeans',
-                            render_function = shiny::renderUI({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(outputId='by_condition_statistics_emmeans',
+  #                           render_function = shiny::renderUI({...}))
+  shidashi::register_output(shiny::renderUI({
                               basic_checks(local_reactives$update_outputs)
                               ee <- summary(local_data$results$across_electrode_statistics$em)
                               ee <- ee[,colnames(ee)!='emmean']
@@ -3245,12 +3271,17 @@ module_server <- function(input, output, session, ...){
                                 shiny::h5("Within condition comparison against 0 (i.e., vs. baseline)"),
                                 as_html.emmGrid(em),
                               )
-                            }))
+                            }),
+                            outputId = "by_condition_statistics_emmeans",
+                            download_type = "no-download")
 
 
-  ravedash::register_output(
-    outputId='by_condition_statistics_contrasts',
-    render_function = shiny::renderUI({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId='by_condition_statistics_contrasts',
+  #   render_function = shiny::renderUI({...}))
+  shidashi::register_output(
+    shiny::renderUI({
       basic_checks(local_reactives$update_outputs)
       force(local_reactives$update_pairwise_contrasts)
 
@@ -3280,13 +3311,19 @@ module_server <- function(input, output, session, ...){
         as_html(contrasts),
       )
 
-    }))
+    }),
+    outputId = "by_condition_statistics_contrasts",
+    download_type = "no-download"
+  )
 
 
 
-  ravedash::register_output(
-    outputId = 'otbe_cluster_clipboard',
-    render_function = shidashi::renderClipboard(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = 'otbe_cluster_clipboard',
+  #   render_function = shidashi::renderClipboard(...))
+  shidashi::register_output(
+    shidashi::renderClipboard(
       {
         basic_checks(local_reactives$update_cluster_table, check_uni=FALSE)
         force(local_reactives$update_pes_plot)
@@ -3305,14 +3342,19 @@ module_server <- function(input, output, session, ...){
           )
         }
       }
-    )
+    ),
+    outputId = "otbe_cluster_clipboard",
+    download_type = "no-download"
   )
 
 
 
 
-  ravedash::register_output(
-    outputId = "over_time_by_electrode",
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "over_time_by_electrode",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
     shiny::renderPlot({
       # basic_checks(local_reactives$update_outputs, check_uni = F)
 
@@ -3486,13 +3528,17 @@ module_server <- function(input, output, session, ...){
           cluster_ids = cids
         )
       }
-    })
+    }),
+    outputId = "over_time_by_electrode",
+    download_type = "image"
   )
 
-  ravedash::register_output(
-    outputId = "by_frequency_over_time",
-
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "by_frequency_over_time",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
       # req(FALSE)
 
       basic_checks(local_reactives$update_outputs)
@@ -3525,12 +3571,17 @@ module_server <- function(input, output, session, ...){
         by_frequency_over_time_data,
         plot_args = pe_graphics_settings_cache$get('by_frequency_over_time_plot_options')
       )
-    })
+    }),
+    outputId = "by_frequency_over_time",
+    download_type = "image"
   )
 
-  ravedash::register_output(
-    outputId = "by_frequency_correlation",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "by_frequency_correlation",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
       force(local_reactives$update_heatmap_plots)
       force(local_reactives$update_by_frequency_correlation_plot)
@@ -3539,7 +3590,9 @@ module_server <- function(input, output, session, ...){
         local_data$results$by_frequency_correlation_data,
         plot_options = pe_graphics_settings_cache$get('by_frequency_correlation_plot_options')
       )
-    })
+    }),
+    outputId = "by_frequency_correlation",
+    download_type = "image"
   )
 
   get_threshold <- function(ptype) {
@@ -3556,9 +3609,12 @@ module_server <- function(input, output, session, ...){
     return(th)
   }
 
-  ravedash::register_output(
-    outputId = "per_electrode_statistics_mean",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "per_electrode_statistics_mean",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
       basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
 
       force(local_reactives$update_outputs)
@@ -3582,12 +3638,17 @@ module_server <- function(input, output, session, ...){
       plot_per_electrode_statistics(stats, requested_stat, which_plots = 'm',
                                     draw_threshold=get_threshold('m'),
                                     label_electrodes=lbl_elecs, label_type = input$pes_label_type)
-    })
+    }),
+    outputId = "per_electrode_statistics_mean",
+    download_type = "image"
   )
 
-  ravedash::register_output(
-    outputId = "per_electrode_statistics_tstat",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "per_electrode_statistics_tstat",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
       basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
       force(local_reactives$update_outputs)
       # force(local_reactives$update_pes_plot)
@@ -3608,12 +3669,17 @@ module_server <- function(input, output, session, ...){
       plot_per_electrode_statistics(stats, requested_stat, which_plots = 't',
                                     draw_threshold=get_threshold('t'),
                                     label_electrodes = lbl_elecs, label_type = input$pes_label_type)
-    })
+    }),
+    outputId = "per_electrode_statistics_tstat",
+    download_type = "image"
   )
 
-  ravedash::register_output(
-    outputId = "per_electrode_statistics_fdrp",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "per_electrode_statistics_fdrp",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
       # basic_checks(local_reactives$update_outputs)
       # force(local_reactives$update_pes_plot)
       basic_checks(local_reactives$update_pes_plot, check_uni=FALSE)
@@ -3633,7 +3699,9 @@ module_server <- function(input, output, session, ...){
       plot_per_electrode_statistics(stats, requested_stat, which_plots = 'p',
                                     draw_threshold = get_threshold('p'),
                                     label_electrodes = lbl_elecs, label_type = input$pes_label_type)
-    })
+    }),
+    outputId = "per_electrode_statistics_fdrp",
+    download_type = "image"
   )
 
   # special function used by the downloader to get all 3 plots in one
@@ -3663,9 +3731,12 @@ module_server <- function(input, output, session, ...){
 
 
   ### by trial over time plot
-  ravedash::register_output(
-    outputId = "over_time_by_trial",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "over_time_by_trial",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
 
       basic_checks(local_reactives$update_outputs)
 
@@ -3678,12 +3749,17 @@ module_server <- function(input, output, session, ...){
         over_time_by_trial_data = local_data$results$over_time_by_trial_data,
         plot_options = pe_graphics_settings_cache$get('over_time_by_trial_plot_options')
       )
-    })
+    }),
+    outputId = "over_time_by_trial",
+    download_type = "image"
   )
 
-  ravedash::register_output(
-    outputId = 'by_condition_tabset_clipboard',
-    render_function = shidashi::renderClipboard(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = 'by_condition_tabset_clipboard',
+  #   render_function = shidashi::renderClipboard(...))
+  shidashi::register_output(
+    shidashi::renderClipboard(
       {
         basic_checks(local_reactives$update_outputs)
 
@@ -3693,12 +3769,17 @@ module_server <- function(input, output, session, ...){
                       file = "", sep = '\t', row.names =FALSE)
         )
       }
-    )
+    ),
+    outputId = "by_condition_tabset_clipboard",
+    download_type = "no-download"
   )
 
-  ravedash::register_output(
-      outputId = "over_time_by_condition",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "over_time_by_condition",
+  #   render_function = shiny::renderPlot({...}))
+  shidashi::register_output(
+    shiny::renderPlot({
       basic_checks(local_reactives$update_outputs)
 
       force(local_reactives$update_line_plots)
@@ -3710,6 +3791,8 @@ module_server <- function(input, output, session, ...){
         local_data$results$over_time_by_condition_data,
         plot_options = pe_graphics_settings_cache$get('over_time_by_condition_plot_options')
       )
-    })
+    }),
+    outputId = "over_time_by_condition",
+    download_type = "image"
   )
 }

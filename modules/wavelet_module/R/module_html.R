@@ -133,18 +133,20 @@ module_html <- function(){
                   class = "fill height-700 min-height-450 resize-vertical",
                   shiny::div(
                     class = 'position-relative fill',
-                    ravedash::output_gadget_container(
+                    # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                    # ravedash::output_gadget_container(
                       shiny::plotOutput(ns("kernel_plot"),
                                         width = '100%', height = "100%")
-                    )
+                    # )
                   )
                 ),
                 back = shiny::div(
                   class = "padding-7 bg-white",
                   title = "Double-click again to view the kernel figure",
-                  ravedash::output_gadget_container(
+                  # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                  # ravedash::output_gadget_container(
                     DT::dataTableOutput(ns("kernel_table"), width = "100%")
-                  )
+                  # )
                 )
               ),
 

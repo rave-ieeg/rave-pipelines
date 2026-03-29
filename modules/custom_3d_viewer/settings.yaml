@@ -1,13 +1,14 @@
 annot_types: ~
 controllers: []
+coordinate_sys: ''
 data_source: Uploads
 data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
 data_source_pipeline_target: omnibus_results
 data_source_project: demo
 main_camera: []
-overlay_types: aparc+aseg
+overlay_types: ~
 override_radius: .na
-project_name: '[Auto]'
+project_name: demo
 shiny_outputId: custom_3d_viewer-viewer_ready
 subject_code: DemoSubject
 surface_types:
@@ -15,6 +16,6 @@ surface_types:
 - inflated
 - white
 - pial-outer-smooth
-uploaded_source: electrode_value(3).fst
+uploaded_source: electrode_value-14.fst
 use_spheres: no
 use_template: no

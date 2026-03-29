@@ -562,10 +562,9 @@ module_server <- function(input, output, session, ...){
   })
 
   # output$localization_viewer <-
-  ravedash::register_output(
-    outputId = "localization_viewer",
-    output_type = "threeBrain",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  shidashi::register_output(
+    threeBrain::renderBrain({
       local_reactives$refresh
 
       subject <- component_container$data$subject
@@ -627,7 +626,9 @@ module_server <- function(input, output, session, ...){
       )
 
       viewer
-    })
+    }),
+    outputId = "localization_viewer",
+    download_type = "threeBrain"
   )
 
   brain_proxy <- threeBrain::brain_proxy("localization_viewer")
