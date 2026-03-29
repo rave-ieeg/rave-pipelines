@@ -134,8 +134,8 @@ loader_server <- function(input, output, session, ...){
           }
 
           # Let the module know the data has been changed
-          ravedash::fire_rave_event('data_changed', Sys.time())
-          ravedash::logger("Data has been loaded loaded")
+          ravepipeline::fire_rave_event('data_changed', Sys.time())
+          ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
           dipsaus::close_alert2()

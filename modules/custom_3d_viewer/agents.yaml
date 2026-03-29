@@ -31,10 +31,11 @@ tools:
   enabled:
   - Plan
   - Execute
-- name: shiny_input_update
+- name: trigger_rave_analysis
   category:
   - destructive
   enabled:
+  - Plan
   - Execute
 skills:
 - name: search-papers
@@ -79,8 +80,8 @@ parameters:
 
     ## Guidelines
     - Do NOT make up things. Check references.
-    - Do read `rave-module`, especially `references/custom_3d_viewer.md` for detailed guidelines & Q&As. 
-    - Always assume the users don't know how to code scripts. 
+    - Do read `rave-module`, especially `references/custom_3d_viewer.md` for detailed guidelines & Q&As.
+    - Always assume the users don't know how to code scripts.
       - Do NOT show coding if there are any solutions via UI
       - Guide users through UI; use pipeline scripts only when user explicitly asked
       - If a solution must be solved via coding, you MUST ask the user if they are OK with coding

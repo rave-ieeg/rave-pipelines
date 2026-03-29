@@ -42,8 +42,8 @@ server <- function(input, output, session){
 
   # tools <- ravedash::register_rave_session(session = session)
 
-  
-  
+
+
 
   # Fixed usage, call modules
   shiny::bindEvent(
@@ -53,7 +53,7 @@ server <- function(input, output, session){
         query_string <- "/"
       }
 
-      ravedash::logger(
+      ravepipeline::logger(
         "GET request: /{query_string}",
         level = "trace",
         use_glue = TRUE
@@ -76,7 +76,7 @@ server <- function(input, output, session){
             group_name <- "<no group>"
           }
           if (system.file(package = "logger") != "") {
-            ravedash::logger(
+            ravepipeline::logger(
               level = "info",
               "Loading - { module_table$label[1] } ({group_name}/{ module_table$id })",
               use_glue = TRUE
@@ -88,7 +88,7 @@ server <- function(input, output, session){
             label = module_table$label[1]
           )
           # ravedash::fire_rave_event(key = rave_action$type, value = rave_action)
-          # ravedash::logger("[{rave_action$type}] (rave-action).", level = "trace", use_glue = TRUE)
+          # ravepipeline::logger("[{rave_action$type}] (rave-action).", level = "trace", use_glue = TRUE)
           shiny::moduleServer(
             resource$module$id,
             function(input, output, session, ...) {
@@ -351,7 +351,7 @@ server <- function(input, output, session){
           )
 
           if (is_single_session) {
-            ravedash::logger(
+            ravepipeline::logger(
               "Single-session mode is ON: closing the website tab will shutdown the RAVE application.",
               level = "info"
             )
@@ -359,7 +359,7 @@ server <- function(input, output, session){
               shiny::stopApp()
             })
           } else {
-            ravedash::logger(
+            ravepipeline::logger(
               "Single-session mode is OFF: closing the website tab will NOT shutdown the RAVE application. Please use the builtin shutdown button.",
               level = "info"
             )

@@ -31,10 +31,11 @@ tools:
   enabled:
   - Plan
   - Execute
-- name: shiny_input_update
+- name: trigger_rave_analysis
   category:
   - destructive
   enabled:
+  - Plan
   - Execute
 skills:
 - name: search-papers
@@ -100,10 +101,10 @@ parameters:
     | Need | Use |
     |------|-----|
     | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
-    | Read/change UI | shiny_input_info, shiny_input_update |
+    | Read/change UI | shiny_input_info |
     | Inspect outputs | shiny_output_info, shiny_query_ui |
     | Pipeline state | `rave-module`: get_targets, get_results |
-    | Run pipeline | `rave-module`: set_inputs, run |
+    | Run pipeline | trigger_rave_analysis |
     | Find relative paper | `search-papers`: search_pubmed |
 
     ## Guidelines
