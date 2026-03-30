@@ -19,6 +19,12 @@ tools:
   enabled:
   - Plan
   - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_query_ui
   category:
   - exploratory

@@ -205,11 +205,18 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
         choices = ""),
       shiny::selectInput(inputId = comp$get_sub_element_id(category_choices_str,
         with_namespace = TRUE), label = "Category levels (multi-select)", choices = "",
-        multiple = TRUE)
-      ,
-      shiny::textInput(inputId = id, label = "Select electrode by number",
-        value = "", placeholder = "E.g. 1-30,55-60,88")
-      ,
+        multiple = TRUE),
+      shidashi::register_input(
+        shiny::textInput(inputId = id, label = "Select electrode by number",
+                         value = "", placeholder = "E.g. 1-30,55-60,88"),
+        update = "shiny::updateTextInput",
+        inputId = comp$get_sub_element_id(with_namespace = FALSE),
+        description = paste(
+          "Electrode selector text input: electrode channels that are to be",
+          "analyzed, e.g. `14` for single channel, `1-30,55-60,88` for channel",
+          "1 to 30, 55 to 60, and 88."
+        )
+      ),
       shiny::div(class = "form-group", shiny::actionLink(inputId = comp$get_sub_element_id(reset_str,
         with_namespace = TRUE), label = "Reset electrode selectors")),
       shiny::div(class = "form-group", shiny::downloadLink(outputId = comp$get_sub_element_id(download_str,

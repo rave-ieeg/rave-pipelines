@@ -13,6 +13,12 @@ tools:
   enabled:
   - Plan
   - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
 - name: shiny_output_info
   category:
   - exploratory

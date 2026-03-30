@@ -218,7 +218,20 @@ body.has-active-module .preloader,
 }
 
 .btn {
-  --bs-btn-padding-y: 0.4em;
+  --bs-btn-padding-y: .375rem;
+  --bs-btn-padding-x: .875rem;
+  --bs-btn-font-size: 0.925rem;
+
+  & .action-label:empty {
+    display: none;
+  }
+}
+
+.btn-xs {
+  --bs-btn-padding-y: 0.1rem;
+  --bs-btn-padding-x: 0.25rem;
+  --bs-btn-font-size: 0.75rem;
+  --bs-btn-border-radius: 0.2rem;
 }
 
 body {
@@ -1122,12 +1135,8 @@ pre {
   }
 }
 
-tt, code { font-family: $code-font-family; }
-
-pre code {
-  @include display(block);
-  @include padding($size: 0.5, $unit: 1em);
-  &[class] { font-size: 92% !important; }
+tt, code {
+  font-family: $code-font-family;
 }
 
 // Inline code (not inside <pre>)
@@ -1139,13 +1148,18 @@ code {
   border-radius: 0.25rem;
 }
 
-pre > code {
-  display: block;
-  padding: 0.5em;
-  font-size: inherit;
-  background-color: transparent;
-  border-radius: 0;
+pre {
+  white-space: pre-line;
 }
+
+pre code {
+  @include display(inline-block);
+  padding: .125rem .25rem;
+  &[class] { font-size: 92% !important; }
+  background-color: transparent;
+  border-radius: unset;
+}
+
 
 // Action buttons — add vertical gap for wrapping rows
 // .btn.action-button,
@@ -2524,6 +2538,10 @@ fieldset,
 
 .form-group {
   margin-bottom: 0.8rem;
+}
+
+.form-label, .shiny-input-container .control-label {
+  margin-bottom: unset;
 }
 
 // Checkbox & radio label styling
