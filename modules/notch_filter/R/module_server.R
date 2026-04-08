@@ -8,7 +8,6 @@ module_server <- function(input, output, session, ...){
     update_outputs = NULL
   )
 
-  server_registry <- ravedash::register_rave_session()
   server_tools <- ravedash::get_default_handlers()
 
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)

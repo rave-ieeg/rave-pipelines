@@ -11,7 +11,6 @@ module_server <- function(input, output, session, ...){
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweek
-  server_registry <- ravedash::register_rave_session()
   server_tools <- get_default_handlers(session = session)
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 

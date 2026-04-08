@@ -44,7 +44,6 @@ module_server <- function(input, output, session, ...){
   gray_colors <- gray.colors(256, 0, 1)
 
   # get server tools to tweek
-  server_registry <- ravedash::register_rave_session()
   server_tools <- ravedash::get_default_handlers()
 
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)

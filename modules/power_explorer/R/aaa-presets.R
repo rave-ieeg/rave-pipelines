@@ -26,7 +26,6 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
       height = height, reportSize = FALSE)
   }
   comp$server_func <- function(input, output, session) {
-    tools <- ravedash::register_rave_session(session)
     loader_project <- comp$get_dependent_component(loader_project_id)
     loader_subject <- comp$get_dependent_component(loader_subject_id)
     loader_electrodes <- comp$get_dependent_component(loader_electrodes_id)
@@ -104,7 +103,7 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
         if (is.data.frame(tbl) && nrow(tbl)) {
           brain$set_electrode_values(tbl)
         }
-        theme <- shidashi::get_theme(tools$theme_event)
+        theme <- shidashi::get_theme()
         ravepipeline::logger("Re-generate loader's viewer", level = "trace")
         brain$plot(
           # outputId = "loader_3d_viewer",

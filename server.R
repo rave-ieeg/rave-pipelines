@@ -38,11 +38,6 @@ server <- function(input, output, session){
   # # Register bindings for compound input
   # dipsaus::registerInputBinding('textOutput', 'shiny', 'shiny.textOutput', update_function = NULL)
 
-  # tools <- ravedash::register_rave_session(session = session)
-
-
-
-
   # Fixed usage, call modules
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -88,9 +83,8 @@ server <- function(input, output, session){
           shiny::moduleServer(
             resource$module$id,
             function(input, output, session, ...) {
-              # ravedash::register_rave_session(session = session)
 
-              # Register a common screen
+              # Register a common handlers
               ravedash::module_server_common(
                 resource$module$id,
                 check_data_loaded = parse_env$check_data_loaded,
