@@ -1157,6 +1157,7 @@ class ShidashiApp {
     document.addEventListener('click', (evt) => {
       const raveBtn = evt.target.closest('.rave-button[rave-action]');
       if (raveBtn) {
+        if (raveBtn.classList.contains('disabled')) { return; }
         evt.preventDefault();
         let action = raveBtn.getAttribute('rave-action');
         if (typeof action === 'string') {
@@ -1181,6 +1182,7 @@ class ShidashiApp {
       // .shidashi-button click → parse shidashi-action JSON
       const shidashiBtn = evt.target.closest('.shidashi-button[shidashi-action]');
       if (shidashiBtn) {
+        if (shidashiBtn.classList.contains('disabled')) { return; }
         let action = shidashiBtn.getAttribute('shidashi-action');
         if (typeof action === 'string') {
           try {
@@ -1197,6 +1199,7 @@ class ShidashiApp {
       const shidashiDataBtn = evt.target.closest('[data-shidashi-action="shidashi-button"]');
       if (shidashiDataBtn) {
         evt.preventDefault();
+        if (shidashiDataBtn.classList.contains('disabled')) { return; }
         const eventData = {};
         // Collect data-shidashi-* attributes as event payload
         for (const attr of shidashiDataBtn.attributes) {
@@ -1206,7 +1209,11 @@ class ShidashiApp {
           }
         }
         eventData.id = shidashiDataBtn.id || '';
-        this.broadcastEvent('button.click', eventData);
+        eventData.type = eventData.type || 'button.click';
+        if (eventData.dynamic === "true") {
+          eventData.message = Date.now();
+        }
+        this.broadcastEvent(eventData.type, eventData);
         return;
       }
 

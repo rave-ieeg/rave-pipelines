@@ -2543,6 +2543,7 @@ fieldset,
 
 .form-label, .shiny-input-container .control-label {
   margin-bottom: unset;
+  font-weight: 600;
 }
 
 // Checkbox & radio label styling
@@ -2776,11 +2777,15 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
     min-height: 26px;
     height: 26px;
     overflow: clip;
-    padding: 2px 12px;
+    padding: 2px 19px 2px 2px;
     border-color: transparent;
 
     &:hover {
       border-color: var(--bs-border-color);
+    }
+
+    &:not(.no-arrow):after{
+      right: 5px;
     }
   }
 

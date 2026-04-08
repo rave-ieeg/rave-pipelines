@@ -32,10 +32,10 @@ module_server <- function(input, output, session, ...){
     shiny::reactive({
       if(!ravedash::watch_data_loaded()) { return(FALSE) }
       if(ravedash::watch_loader_opened()) { return(FALSE) }
-      res <- server_registry$rave_event$message_button_clicked
+      res <- ravedash::get_rave_event("message_button_clicked")
       structure(!is.null(res), timestamp = res)
     }),
-    server_registry$rave_event$message_button_clicked,
+    ravedash::get_rave_event("message_button_clicked"),
     ignoreNULL = TRUE,
     ignoreInit = FALSE
   )

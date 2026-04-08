@@ -54,11 +54,11 @@ module_server <- function(input, output, session, ...){
     shiny::reactive({
       if(!ravedash::watch_data_loaded()) { return() }
       if(ravedash::watch_loader_opened()) { return() }
-      res <- server_registry$rave_event$message_button_clicked
+      res <- ravedash::get_rave_event("message_button_clicked")
       if(is.null(res)) { return(NULL) }
       structure(TRUE, timestamp = res)
     }),
-    server_registry$rave_event$message_button_clicked,
+    ravedash::get_rave_event("message_button_clicked"),
     ignoreNULL = FALSE,
     ignoreInit = TRUE
   )

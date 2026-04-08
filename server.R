@@ -1,32 +1,30 @@
 library(shiny)
 
 # Debug
-if(FALSE){
+if (FALSE) {
   template_settings$set(
     'root_path' = "inst/template/"
   )
 }
 
 
-if(system.file(package = 'raveio') != ""){
-  if(dir.exists("./_pipelines")) {
+if (system.file(package = 'raveio') != "") {
+  if (dir.exists("./_pipelines")) {
     ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
   } else {
     ravepipeline::pipeline_root(c(".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
   }
 }
 
-if(file.exists("prelaunch.R")) {
+if (file.exists("prelaunch.R")) {
   source("prelaunch.R")
 }
 
 server <- function(input, output, session){
 
   # Sync input ID
-  shared_data <- shidashi::register_session_id(session)
+  shidashi::register_session(session = session)
   shidashi::stream_init(session)
-  # shared_data$enable_broadcast()
-  # shared_data$enable_sync()
 
   # Set max upload file size to be 300MB by default
   if (!isTRUE(getOption("shiny.maxRequestSize", 0) > 0)) {
@@ -75,13 +73,11 @@ server <- function(input, output, session){
           if (is.na(group_name)) {
             group_name <- "<no group>"
           }
-          if (system.file(package = "logger") != "") {
-            ravepipeline::logger(
-              level = "info",
-              "Loading - { module_table$label[1] } ({group_name}/{ module_table$id })",
-              use_glue = TRUE
-            )
-          }
+          ravepipeline::logger(
+            level = "info",
+            "Loading - { module_table$label[1] } ({group_name}/{ module_table$id })",
+            use_glue = TRUE
+          )
           rave_action <- list(
             type = "active_module",
             id = module_table$id,
