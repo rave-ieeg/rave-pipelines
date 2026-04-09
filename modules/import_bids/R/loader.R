@@ -440,9 +440,8 @@ loader_server <- function(input, output, session, ...){
       )
 
       ravedash::clear_notifications(class = ns("notif-next-step"))
-      ravedash::switch_module(
-        module_id = "import_lfp_native",
-        title = "Native Structure (from BIDS)"
+      shidashi::switch_module(
+        module_id = "import_lfp_native"
       )
 
     }),

@@ -99,6 +99,7 @@ server <- function(input, output, session){
           )
         }
       } else {
+        # This is running in parent frame
         # No module, render rave_options
         if (
           !isTRUE(ravepipeline::raveio_getopt(
@@ -106,6 +107,7 @@ server <- function(input, output, session){
             default = FALSE
           ))
         ) {
+
           source("./R/rave-options.R", local = parse_env)
           shiny::moduleServer("._raveoptions_.", parse_env$rave_option_server)
 
