@@ -6,6 +6,6 @@ electrode_group:
   '2':
     name: B
     electrodes: 18-20
-project_name: test@bids:ds005953
+project_name: demo
 reference_name: '[Blank profile]'
-subject_code: '01'
+subject_code: DemoSubject

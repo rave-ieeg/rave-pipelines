@@ -6,7 +6,7 @@ data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
 data_source_pipeline_target: omnibus_results
 data_source_project: demo
 main_camera: []
-overlay_types: ~
+overlay_types: aparc.a2009s+aseg
 override_radius: .na
 project_name: demo
 shiny_outputId: custom_3d_viewer-viewer_ready

@@ -1,8 +1,8 @@
 epoch_events: Trial Onset
-epoch_name: ~
-loaded_electrodes: 22-26,47-48,56-58,67-69,76-78,91-93
+epoch_name: auditory_onset
+loaded_electrodes: 13-16,24
 pre_downsample: .na.integer
-project_name: test
-reference_name: noref
+project_name: demo
+reference_name: default
 repository_datatype: voltage
-subject_code: HUP111
+subject_code: DemoSubject

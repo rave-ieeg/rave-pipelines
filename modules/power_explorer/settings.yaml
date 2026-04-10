@@ -1,4 +1,4 @@
-analysis_electrodes: '14'
+analysis_electrodes: '14 '
 analysis_settings:
   '1':
     label: VisStart
