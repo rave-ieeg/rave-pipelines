@@ -41,7 +41,6 @@ class ShidashiApp {
 
     // RAVE-specific state
     this._moduleId = undefined;
-    this._raveId = undefined;
     this._active_module = undefined;
     this._bodyClasses = [];
     this.variableBodyClasses = ['scroller-not-top', 'navbar-hidden'];
@@ -1242,20 +1241,6 @@ class ShidashiApp {
         return;
       }
 
-      // .ravedash-output-widget[data-type="standalone"] click
-      const standaloneBtn = evt.target.closest('.ravedash-output-widget[data-type="standalone"]');
-      if (standaloneBtn) {
-        if (standaloneBtn.getAttribute('href') === '#') {
-          let outputId = standaloneBtn.getAttribute('data-target');
-          if (outputId && this._moduleId && outputId.startsWith(this._moduleId + '-')) {
-            outputId = outputId.replace(this._moduleId + '-', '');
-          }
-          if (outputId) {
-            this.launchStandaloneViewer(outputId);
-          }
-        }
-        return;
-      }
     });
 
     // Ctrl/Cmd + Enter → run_analysis
@@ -1265,29 +1250,6 @@ class ShidashiApp {
         this.shinySetInput('@rave_action@', {
           type: 'run_analysis'
         }, true, true);
-      }
-    });
-
-    // Internal event for set_current_module → update standalone viewer links
-    this._dummy2.addEventListener('shidashi-internal-event', (evt) => {
-      if (!evt.detail || typeof evt.detail !== 'object' || !evt.detail.type) return;
-      if (evt.detail.type === 'set_current_module') {
-        const outputWidgets = document.querySelectorAll('.ravedash-output-widget[data-type="standalone"]');
-        for (let ii = 0; ii < outputWidgets.length; ii++) {
-          const el = outputWidgets[ii];
-          let outputId = el.getAttribute('data-target');
-          if (typeof outputId === 'string') {
-            if (this._moduleId && outputId.startsWith(this._moduleId + '-')) {
-              outputId = outputId.replace(this._moduleId + '-', '');
-            }
-            if (outputId.length > 0) {
-              const token = this._sessionToken || '';
-              const url = `?module=standalone_viewer&outputId=${encodeURIComponent(outputId)}&token=${encodeURIComponent(token)}`;
-              el.setAttribute('href', url);
-              el.setAttribute('target', '_blank');
-            }
-          }
-        }
       }
     });
 
@@ -1971,15 +1933,8 @@ class ShidashiApp {
 
     this.shinyHandler('set_current_module', (params) => {
       this._moduleId = params.module_id;
-      this._raveId = params.rave_id;
       this._active_module = params.module_id;
       this._sessionToken = params.shiny_token || "";
-      // Dispatch internal event for standalone viewer link updates
-      this._dummy2.dispatchEvent(new CustomEvent('shidashi-internal-event', {
-        detail: {
-          type: 'set_current_module'
-        }
-      }));
       if (this.sidebar && params.module_id) {
         this.sidebar.setActiveByModule(params.module_id);
       }
