@@ -41,7 +41,6 @@ class ShidashiApp {
 
     // RAVE-specific state
     this._moduleId = undefined;
-    this._raveId = undefined;
     this._active_module = undefined;
     this._bodyClasses = [];
     this.variableBodyClasses = ['scroller-not-top', 'navbar-hidden'];
@@ -823,7 +822,8 @@ class ShidashiApp {
   }
 
   launchStandaloneViewer(outputId) {
-    const url = `?output_id=${outputId}&rave_id=${this._raveId}&module=standalone_viewer`;
+    const token = this._sessionToken || '';
+    const url = `?module=standalone_viewer&outputId=${encodeURIComponent(outputId)}&token=${encodeURIComponent(token)}`;
     this.openURL(url);
   }
 
@@ -931,7 +931,67 @@ class ShidashiApp {
     return (str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // ---------- Stream fetch ----------
 
+  /**
+   * Fetch a binary stream file written by R's stream_to_js() with no cache.
+   *
+   * Wire format: [ endianFlag: 1 byte ] [ headerLen: 4 bytes uint32 ] [ header: JSON ] [ body ]
+   * endianFlag: 0x01 = little-endian
+   * header JSON contains at minimum: { data_type: "raw"|"json"|"int32"|"float32"|"float64" }
+   *
+   * @param {string} id - Stream identifier (matches the id used in R's stream_path())
+   * @returns {Promise<{type: string, header: object, data: ArrayBuffer|object|Int32Array|Float32Array|Float64Array}>}
+   */
+  async fetchStreamData(id) {
+    const url = 'stream/' + encodeURIComponent(id) + '.bin?_t=' + Date.now();
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error('fetchStreamData: HTTP ' + response.status + ' for stream id "' + id + '"');
+    }
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength < 5) {
+      throw new Error('fetchStreamData: response too short (' + buffer.byteLength + ' bytes) for stream id "' + id + '"');
+    }
+    const view = new DataView(buffer);
+    const littleEndian = view.getUint8(0) === 0x01;
+    const headerLen = view.getUint32(1, littleEndian);
+    if (buffer.byteLength < 5 + headerLen) {
+      throw new Error('fetchStreamData: truncated header for stream id "' + id + '"');
+    }
+    const headerBytes = new Uint8Array(buffer, 5, headerLen);
+    const header = JSON.parse(new TextDecoder().decode(headerBytes));
+    const dataType = header.data_type;
+    // body must be copied out of the shared buffer so typed array constructors work on aligned memory
+    const bodyBuffer = buffer.slice(5 + headerLen);
+    let data;
+    switch (dataType) {
+      case 'raw':
+        data = bodyBuffer;
+        break;
+      case 'json':
+        data = JSON.parse(new TextDecoder().decode(bodyBuffer));
+        break;
+      case 'uint8':
+        data = new Uint8Array(bodyBuffer);
+        break;
+      case 'int16':
+        data = new Int16Array(bodyBuffer);
+        break;
+      case 'int32':
+        data = new Int32Array(bodyBuffer);
+        break;
+      case 'float32':
+        data = new Float32Array(bodyBuffer);
+        break;
+      case 'float64':
+        data = new Float64Array(bodyBuffer);
+        break;
+      default:
+        throw new Error('fetchStreamData: unknown data_type "' + dataType + '" for stream id "' + id + '"');
+    }
+    return { type: dataType, header, data };
+  }
 
   // ---------- Card tool click delegation ----------
 
@@ -1033,6 +1093,19 @@ class ShidashiApp {
       document.body.classList.add('in-iframe');
     }
 
+    // Listen for postMessage from child iframes (e.g. switch_module)
+    if (window.self === window.top) {
+      window.addEventListener('message', (evt) => {
+        if (evt.origin !== window.location.origin) return;
+        const data = evt.data;
+        if (data?.type === 'shidashi.switch_module' && data?.module_id) {
+          if (this.sidebar) this.sidebar.setActiveByModule(data.module_id);
+          if (this.iframeManager) this.iframeManager.openTabByModule(data.module_id);
+          this._reportActiveModule(data.module_id);
+        }
+      });
+    }
+
     // Initialize iframe manager
     const iframeContainer = document.querySelector('.shidashi-content');
     if (iframeContainer) {
@@ -1096,6 +1169,7 @@ class ShidashiApp {
     document.addEventListener('click', (evt) => {
       const raveBtn = evt.target.closest('.rave-button[rave-action]');
       if (raveBtn) {
+        if (raveBtn.classList.contains('disabled')) { return; }
         evt.preventDefault();
         let action = raveBtn.getAttribute('rave-action');
         if (typeof action === 'string') {
@@ -1120,6 +1194,7 @@ class ShidashiApp {
       // .shidashi-button click → parse shidashi-action JSON
       const shidashiBtn = evt.target.closest('.shidashi-button[shidashi-action]');
       if (shidashiBtn) {
+        if (shidashiBtn.classList.contains('disabled')) { return; }
         let action = shidashiBtn.getAttribute('shidashi-action');
         if (typeof action === 'string') {
           try {
@@ -1136,6 +1211,7 @@ class ShidashiApp {
       const shidashiDataBtn = evt.target.closest('[data-shidashi-action="shidashi-button"]');
       if (shidashiDataBtn) {
         evt.preventDefault();
+        if (shidashiDataBtn.classList.contains('disabled')) { return; }
         const eventData = {};
         // Collect data-shidashi-* attributes as event payload
         for (const attr of shidashiDataBtn.attributes) {
@@ -1145,7 +1221,11 @@ class ShidashiApp {
           }
         }
         eventData.id = shidashiDataBtn.id || '';
-        this.broadcastEvent('button.click', eventData);
+        eventData.type = eventData.type || 'button.click';
+        if (eventData.dynamic === "true") {
+          eventData.message = Date.now();
+        }
+        this.broadcastEvent(eventData.type, eventData);
         return;
       }
 
@@ -1161,20 +1241,6 @@ class ShidashiApp {
         return;
       }
 
-      // .ravedash-output-widget[data-type="standalone"] click
-      const standaloneBtn = evt.target.closest('.ravedash-output-widget[data-type="standalone"]');
-      if (standaloneBtn) {
-        if (standaloneBtn.getAttribute('href') === '#') {
-          let outputId = standaloneBtn.getAttribute('data-target');
-          if (outputId && this._moduleId && outputId.startsWith(this._moduleId + '-')) {
-            outputId = outputId.replace(this._moduleId + '-', '');
-          }
-          if (outputId) {
-            this.launchStandaloneViewer(outputId);
-          }
-        }
-        return;
-      }
     });
 
     // Ctrl/Cmd + Enter → run_analysis
@@ -1184,28 +1250,6 @@ class ShidashiApp {
         this.shinySetInput('@rave_action@', {
           type: 'run_analysis'
         }, true, true);
-      }
-    });
-
-    // Internal event for set_current_module → update standalone viewer links
-    this._dummy2.addEventListener('shidashi-internal-event', (evt) => {
-      if (!evt.detail || typeof evt.detail !== 'object' || !evt.detail.type) return;
-      if (evt.detail.type === 'set this._raveId') {
-        const outputWidgets = document.querySelectorAll('.ravedash-output-widget[data-type="standalone"]');
-        for (let ii = 0; ii < outputWidgets.length; ii++) {
-          const el = outputWidgets[ii];
-          let outputId = el.getAttribute('data-target');
-          if (typeof outputId === 'string') {
-            if (this._moduleId && outputId.startsWith(this._moduleId + '-')) {
-              outputId = outputId.replace(this._moduleId + '-', '');
-            }
-            if (outputId.length > 0) {
-              const url = `?output_id=${outputId}&rave_id=${this._raveId}&module=standalone_viewer`;
-              el.setAttribute('href', url);
-              el.setAttribute('target', '_blank');
-            }
-          }
-        }
       }
     });
 
@@ -1637,6 +1681,74 @@ class ShidashiApp {
       }
     });
 
+    // --- Set Shiny input value from R (cross-session forwarding) ---
+
+    this.shinyHandler('set_shiny_input', (params) => {
+      // params: { inputId, value, priority }
+      if (!params.inputId) return;
+      const opts = params.priority === 'event' ? { priority: 'event' } : {};
+      Shiny.setInputValue(params.inputId, params.value, opts);
+    });
+
+    // --- Output widget overlay (download/popout icons) ---
+
+    this.shinyHandler('register_output_widgets', (params) => {
+      // params: { outputId, widgets: ["download","popout"], download_type, token }
+      const outputId = params.outputId;
+      if (!outputId) return;
+
+      const outputEl = document.getElementById(outputId);
+      if (!outputEl) return;
+
+      const parent = outputEl.parentElement;
+      if (!parent) return;
+
+      let container;
+
+      if (parent.classList.contains('shidashi-output-widget-wrapper')) {
+        container = parent.querySelector('.shidashi-output-widget-container');
+      }
+
+      if (!container) {
+        parent.classList.add('shidashi-output-widget-wrapper');
+
+        container = document.createElement('div');
+        container.className = 'shidashi-output-widget-container';
+        parent.insertBefore(container, outputEl);
+      }
+
+      const widgets = params.widgets || [];
+
+      if (widgets.includes('download') && !container.querySelector('.shidashi-output-widget-icon[title="Download"]')) {
+        const downloadBtn = document.createElement('a');
+        downloadBtn.className = 'shidashi-output-widget-icon';
+        downloadBtn.title = 'Download';
+        downloadBtn.href = '#';
+        downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg>';
+        downloadBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (window.Shiny) {
+            Shiny.setInputValue(outputId + '__download_trigger', Date.now(), { priority: 'event' });
+          }
+        });
+        container.appendChild(downloadBtn);
+      }
+
+      if (widgets.includes('popout') && !container.querySelector('.shidashi-output-widget-icon[title="Open in new window"]')) {
+        const popoutBtn = document.createElement('a');
+        popoutBtn.className = 'shidashi-output-widget-icon';
+        popoutBtn.title = 'Open in new window';
+        popoutBtn.href = '#';
+        popoutBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5"/><path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0z"/></svg>';
+        popoutBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const token = this._sessionToken || '';
+          window.open('?module=standalone_viewer&outputId=' + encodeURIComponent(outputId) + '&token=' + encodeURIComponent(token));
+        });
+        container.appendChild(popoutBtn);
+      }
+    });
+
     // --- Chatbot status bar handler ---
 
     this.shinyHandler('update_chat_status', (params) => {
@@ -1732,7 +1844,7 @@ class ShidashiApp {
         return;
       }
 
-      // Try to extract canvas / image content (async for WebGL capture)
+      // Try to extract canvas / image / SVG content (async)
       captureVisualContent(el).then((visual) => {
         let outerHTML = el.outerHTML;
         if ( outerHTML.length > 300 ) {
@@ -1753,7 +1865,7 @@ class ShidashiApp {
             ', width=' + cs.width + ', height=' + cs.height +
             ', visibility=' + cs.visibility + ', overflow=' + cs.overflow +
             ', position=' + cs.position;
-          
+
           ret.type = 'html';
           ret.html = outerHTML;
           ret.note = styleNote;
@@ -1821,15 +1933,8 @@ class ShidashiApp {
 
     this.shinyHandler('set_current_module', (params) => {
       this._moduleId = params.module_id;
-      this._raveId = params.rave_id;
       this._active_module = params.module_id;
-      // Dispatch internal event for standalone viewer link updates
-      this._dummy2.dispatchEvent(new CustomEvent('shidashi-internal-event', {
-        detail: {
-          type: 'set this._raveId',
-          value: params.rave_id
-        }
-      }));
+      this._sessionToken = params.shiny_token || "";
       if (this.sidebar && params.module_id) {
         this.sidebar.setActiveByModule(params.module_id);
       }
@@ -1840,6 +1945,24 @@ class ShidashiApp {
       if (params.module_id) {
         this._reportActiveModule(params.module_id);
       }
+    });
+
+    this.shinyHandler('switch_module', (params) => {
+      if (!params.module_id) return;
+      // If inside an iframe, forward to parent via postMessage
+      if (window.self !== window.top) {
+        try {
+          window.parent.postMessage({
+            type: 'shidashi.switch_module',
+            module_id: params.module_id
+          }, window.location.origin);
+          return;
+        } catch (e) { /* cross-origin safety */ }
+      }
+      // Top-level: handle directly
+      if (this.sidebar) this.sidebar.setActiveByModule(params.module_id);
+      if (this.iframeManager) this.iframeManager.openTabByModule(params.module_id);
+      this._reportActiveModule(params.module_id);
     });
 
     this.shinyHandler('hide_header', (params) => {

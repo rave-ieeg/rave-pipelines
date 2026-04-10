@@ -520,19 +520,21 @@ module_html <- function(){
             ),
             append_tools = FALSE,
             `Results Viewer` =shiny::div(class='position-relative fill',
-                                         ravedash::output_gadget_container(
+                                         # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                                         # ravedash::output_gadget_container(
                                            threeBrain::threejsBrainOutput(
                                              outputId = ns("brain_viewer"), height = "100%"
                                            )
-                                         )
+                                         # )
             )
             ,
             `Movie Maker` =
-              ravedash::output_gadget_container(
+              # MIGRATED: removed ravedash::output_gadget_container() wrapper
+              # ravedash::output_gadget_container(
                 threeBrain::threejsBrainOutput(
                   outputId = ns("brain_viewer_movies"), height = "100%"
                 )
-              )
+              # )
           ),
 
 
@@ -655,12 +657,13 @@ module_html <- function(){
               ),
               shiny::div(
                 class = "fill-width no-padding min-height-400 resize-vertical",
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   ravedash::plotOutput2(
                     outputId = ns('over_time_by_electrode'),
                     min_height = 400
                   )
-                )
+                # )
               )
             ),
 
@@ -1046,22 +1049,24 @@ module_html <- function(){
               ),
               shiny::div(
                 class = "fill-width no-padding min-height-400 height-400 resize-vertical",
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   ravedash::plotOutput2(
                     outputId = ns('over_time_by_condition'),
                     min_height = 400)
-                )
+                # )
               )
             ),
             `By Trial` = shiny::tagList(
               shiny::div(
                 class = "fill-width no-padding min-height-400 resize-vertical",
                 make_heatmap_control_panel(prefix = 'otbt', config = 'over_time_tabset_config'),
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   ravedash::plotOutput2(
                     outputId = ns('over_time_by_trial'),
                     min_height = 400)
-                )
+                # )
               )
             )
           ),

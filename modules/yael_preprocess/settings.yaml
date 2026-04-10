@@ -1,36 +1,37 @@
 acpc_infile: MRI_RAW.nii.gz
 afni_path: ''
-dcm2niix_path: /opt/homebrew/Cellar/dcm2niix/1.0.20241211/bin/dcm2niix
+dcm2niix_path: /opt/homebrew/Cellar/dcm2niix/1.0.20250506/bin/dcm2niix
 freesurfer_path: /Applications/freesurfer/8.0.0
 fsl_path: ''
 params:
-  nii_t1: MRI_acpc.nii.gz
-  nii_ct: CT_RAW.nii.gz
+  nii_t1: ''
+  nii_ct: ''
   template_brain: ~
   dcm2niix:
     merge: Auto
     float: 'Yes'
     crop: 'No'
   segmentation:
-    program: YAEL+recon-all
+    program: recon-all
+    flag: -all
     fresh_start: no
   niftyreg:
-    reference: MRI_acpc.nii.gz
+    reference: MRI_reference.nii.gz
     reg_type: rigid
     interp: trilinear
   ants:
-    reference: MRI_acpc.nii.gz
+    reference: MRI_reference.nii.gz
     reg_type: Rigid
     aff_metric: mattes
     syn_metric: mattes
   flirt:
-    reference: MRI_acpc.nii.gz
+    reference: MRI_reference.nii.gz
     dof: 6
     cost: mutualinfo
     search: 90
     searchcost: mutualinfo
   nipy:
-    reference: MRI_acpc.nii.gz
+    reference: MRI_reference.nii.gz
     clean_source: yes
     inverse_target: yes
     precenter_source: yes
@@ -39,10 +40,10 @@ params:
     interp: pv
     optimizer: powell
   afni:
-    reference: MRI_acpc.nii.gz
-path_ct: rave-uploads/CT/CT_RAW.nii.gz
-path_mri: rave-uploads/MRI/MRI_reference.nii.gz
-project_name: test@bids:ds005953
+    reference: MRI_reference.nii.gz
+path_ct: ' '
+path_mri: ' '
+project_name: YAEL
 skip_coregistration: no
 skip_recon: no
-subject_code: '01'
+subject_code: yael_demo_001

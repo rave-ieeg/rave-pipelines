@@ -128,12 +128,11 @@ module_html <- function(){
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
                 class = 'position-relative fill',
-                ravedash::output_gadget_container(
-                  threeBrain::threejsBrainOutput(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                threeBrain::threejsBrainOutput(
                     outputId = ns("viewer3d"),
                     height = "100%"
                   )
-                )
               )
             )
           )

@@ -1,31 +1,30 @@
 library(shiny)
 
 # Debug
-if(FALSE){
+if (FALSE) {
   template_settings$set(
     'root_path' = "inst/template/"
   )
 }
 
 
-if(system.file(package = 'raveio') != ""){
-  if(dir.exists("./_pipelines")) {
+if (system.file(package = 'raveio') != "") {
+  if (dir.exists("./_pipelines")) {
     ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
   } else {
     ravepipeline::pipeline_root(c(".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
   }
 }
 
-if(file.exists("prelaunch.R")) {
+if (file.exists("prelaunch.R")) {
   source("prelaunch.R")
 }
 
 server <- function(input, output, session){
 
   # Sync input ID
-  shared_data <- shidashi::register_session_id(session)
-  # shared_data$enable_broadcast()
-  # shared_data$enable_sync()
+  shidashi::register_session(session = session)
+  shidashi::stream_init(session)
 
   # Set max upload file size to be 300MB by default
   if (!isTRUE(getOption("shiny.maxRequestSize", 0) > 0)) {
@@ -39,11 +38,6 @@ server <- function(input, output, session){
   # # Register bindings for compound input
   # dipsaus::registerInputBinding('textOutput', 'shiny', 'shiny.textOutput', update_function = NULL)
 
-  # tools <- ravedash::register_rave_session(session = session)
-
-  
-  
-
   # Fixed usage, call modules
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -52,7 +46,7 @@ server <- function(input, output, session){
         query_string <- "/"
       }
 
-      ravedash::logger(
+      ravepipeline::logger(
         "GET request: /{query_string}",
         level = "trace",
         use_glue = TRUE
@@ -74,26 +68,23 @@ server <- function(input, output, session){
           if (is.na(group_name)) {
             group_name <- "<no group>"
           }
-          if (system.file(package = "logger") != "") {
-            ravedash::logger(
-              level = "info",
-              "Loading - { module_table$label[1] } ({group_name}/{ module_table$id })",
-              use_glue = TRUE
-            )
-          }
+          ravepipeline::logger(
+            level = "info",
+            "Loading - { module_table$label[1] } ({group_name}/{ module_table$id })",
+            use_glue = TRUE
+          )
           rave_action <- list(
             type = "active_module",
             id = module_table$id,
             label = module_table$label[1]
           )
           # ravedash::fire_rave_event(key = rave_action$type, value = rave_action)
-          # ravedash::logger("[{rave_action$type}] (rave-action).", level = "trace", use_glue = TRUE)
+          # ravepipeline::logger("[{rave_action$type}] (rave-action).", level = "trace", use_glue = TRUE)
           shiny::moduleServer(
             resource$module$id,
             function(input, output, session, ...) {
-              # ravedash::register_rave_session(session = session)
 
-              # Register a common screen
+              # Register a common handlers
               ravedash::module_server_common(
                 resource$module$id,
                 check_data_loaded = parse_env$check_data_loaded,
@@ -108,6 +99,7 @@ server <- function(input, output, session){
           )
         }
       } else {
+        # This is running in parent frame
         # No module, render rave_options
         if (
           !isTRUE(ravepipeline::raveio_getopt(
@@ -115,6 +107,7 @@ server <- function(input, output, session){
             default = FALSE
           ))
         ) {
+
           source("./R/rave-options.R", local = parse_env)
           shiny::moduleServer("._raveoptions_.", parse_env$rave_option_server)
 
@@ -350,7 +343,7 @@ server <- function(input, output, session){
           )
 
           if (is_single_session) {
-            ravedash::logger(
+            ravepipeline::logger(
               "Single-session mode is ON: closing the website tab will shutdown the RAVE application.",
               level = "info"
             )
@@ -358,7 +351,7 @@ server <- function(input, output, session){
               shiny::stopApp()
             })
           } else {
-            ravedash::logger(
+            ravepipeline::logger(
               "Single-session mode is OFF: closing the website tab will NOT shutdown the RAVE application. Please use the builtin shutdown button.",
               level = "info"
             )

@@ -66,7 +66,62 @@ export function canvasTo2D(source) {
   return tmp;
 }
 
+/**
+ * Capture an <svg> element as a PNG data URL (async).
+ * Serialises the SVG, draws it onto an offscreen 2x canvas via Image,
+ * and resolves with { image_data, image_type } or null if capture fails.
+ * @param {SVGElement} svgEl
+ * @returns {Promise<{image_data: string, image_type: string}|null>}
+ */
+export function captureSVG(svgEl, scale = 1) {
+  return new Promise((resolve) => {
+    try {
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+      const w = svgEl.clientWidth || parseInt(svgEl.getAttribute('width')) || 400;
+      const h = svgEl.clientHeight || parseInt(svgEl.getAttribute('height')) || 300;
+      clone.setAttribute('width', w);
+      clone.setAttribute('height', h);
+
+      const svgString = new XMLSerializer().serializeToString(clone);
+      const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = w * scale;
+          canvas.height = h * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.scale(scale, scale);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          const pngUrl = canvas.toDataURL('image/png');
+          const parts = pngUrl.split(',');
+          const mime = (parts[0] || '').replace(/^data:/, '').replace(/;base64$/, '') || 'image/png';
+          resolve({ image_data: parts[1] || '', image_type: mime });
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
 export function captureVisualContent(el) {
+  // Check for SVG first (el itself or contained SVGs)
+  const svgEl = (el.tagName === 'svg' || el.tagName === 'SVG') ? el : el.querySelector('svg');
+  if (svgEl) {
+    return captureSVG(svgEl);
+  }
+
+  // Synchronous path for canvas / data-URI img
   return new Promise((resolve) => {
     resolve(_captureVisualContentSync(el));
   });

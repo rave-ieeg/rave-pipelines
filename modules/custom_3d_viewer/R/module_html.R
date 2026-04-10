@@ -110,7 +110,7 @@ module_html <- function(){
 
             ravedash::input_card(
               title = "Viewer status",
-              class_body = "no-padding min-height-250 height-300 resize-vertical",
+              class_body = "no-padding min-height-250 height-300 resize-vertical overflow-hidden",
               tools = list(
                 shidashi::card_tool(widget = "flip")
               ),
@@ -131,7 +131,8 @@ module_html <- function(){
                   class = "flip-box-inner fill",
                   shiny::div(
                     class = "flip-box-back fill",
-                    ravedash::output_gadget_container(
+                    # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                    # ravedash::output_gadget_container(
                       shiny::plotOutput(
                         outputId = ns("viewer_selected_data"),
                         height = "100%",
@@ -140,7 +141,7 @@ module_html <- function(){
                           clip = TRUE
                         )
                       )
-                    )
+                    # )
                   ),
                   shiny::div(
                     class = "flip-box-front fill-width",
@@ -170,12 +171,13 @@ module_html <- function(){
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
                 class = 'position-relative fill',
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   threeBrain::threejsBrainOutput(
                     outputId = ns("viewer"),
                     height = "100%"
                   )
-                )
+                # )
               )
             )
           )

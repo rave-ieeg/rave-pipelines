@@ -140,7 +140,8 @@ module_html <- function(){
                 shidashi::flex_item(
                   size = 1, class = "overflow-hidden",
                   title = "Press down, hold, and draw a time-range to see details",
-                  ravedash::output_gadget_container(
+                  # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                  # ravedash::output_gadget_container(
                     shiny::plotOutput(
                       outputId = ns("plot_overall"),
                       width = "100%", height = "200px",
@@ -150,18 +151,19 @@ module_html <- function(){
                       brush = shiny::brushOpts(ns("plot_overall__brush"), resetOnNew = TRUE,
                                                clip = TRUE, direction = "x")
                     )
-                  )
+                  # )
 
                 ),
                 shidashi::flex_item(
                   size = 1, class = "overflow-hidden",
 
-                  ravedash::output_gadget_container(
+                  # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                  # ravedash::output_gadget_container(
                     shiny::plotOutput(
                       outputId = ns("plot_subset"),
                       width = "100%", height = "200px"
                     )
-                  )
+                  # )
 
                 ),
                 shidashi::flex_break()

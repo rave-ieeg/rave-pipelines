@@ -106,12 +106,13 @@ module_html <- function(){
               class_body = "no-padding min-height-400 height-400 resize-vertical",
               shiny::div(
                 class = 'position-relative fill',
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   threeBrain::threejsBrainOutput(
                     outputId = ns("viewer"),
                     height = "100%"
                   )
-                )
+                # )
               )
             ),
             ravedash::output_cardset(
@@ -160,22 +161,24 @@ module_html <- function(){
                 ),
                 shiny::div(
                   class = "fill-width no-padding min-height-400 height-400 resize-vertical",
-                  ravedash::output_gadget_container(
+                  # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                  # ravedash::output_gadget_container(
                     ravedash::plotOutput2(
                       outputId = ns('by_electrode'),
                       min_height = 400)
-                  )
+                  # )
                 )
               ),
               `Aggregated data` = shiny::tagList(
                 shiny::div(
                   class = "fill-width no-padding min-height-400 resize-vertical",
-                  ravedash::output_gadget_container(
+                  # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                  # ravedash::output_gadget_container(
                     ravedash::plotOutput2(
                       outputId = ns('aggregate_over_electrode'),
                       min_height = 400
                     )
-                  )
+                  # )
                 )
               )#,
               # `By Trial` = shiny::tagList(

@@ -20,6 +20,14 @@ two categories of operations:
   Shiny, offering coding portability.
 - When a module contains a pipeline, `module_id` and `pipeline_name` are
   identical, and the UI delegates computation to the pipeline.
+  
+### When to use module or pipeline
+
+- Use UI modules when user asks to change inputs, interpret results
+- Use UI first when user asks for quantitative results. If the UI contains no such information, you may then use pipelines
+- Use pipelines when user asks for low-level implementations
+
+- Do NOT use pipelines when user asks to set UI inputs
 
 ### Data-flow (when a module wraps a pipeline)
 
@@ -28,9 +36,22 @@ two categories of operations:
 3. **Pipeline targets** — reads `settings.yaml`, runs computation, produces results
 4. **UI outputs** — reads pipeline results and renders visualizations
 
+
 ---
 
-## Pipeline Scripts
+## Module tools (recommended)
+
+| Script | Purpose |
+|--------|---------|
+| shiny_input_info | obtain input information |
+| shiny_input_update | Update input from module UI |
+| shiny_output_info | get output information |
+| shiny_query_ui | get HTML elements (mostly output) by css selector |
+| trigger_rave_analysis | trigger module to "run-analysis" |
+
+## Pipeline Scripts 
+
+> Not recommended unless the task requires no UI interaction (e.g. check current status, get pipeline input formats)
 
 | Script | Purpose |
 |--------|---------|

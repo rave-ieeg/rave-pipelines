@@ -218,7 +218,20 @@ body.has-active-module .preloader,
 }
 
 .btn {
-  --bs-btn-padding-y: 0.4em;
+  --bs-btn-padding-y: .375rem;
+  --bs-btn-padding-x: .875rem;
+  --bs-btn-font-size: 0.925rem;
+
+  & .action-label:empty {
+    display: none;
+  }
+}
+
+.btn-xs {
+  --bs-btn-padding-y: 0.1rem;
+  --bs-btn-padding-x: 0.25rem;
+  --bs-btn-font-size: 0.75rem;
+  --bs-btn-border-radius: 0.2rem;
 }
 
 body {
@@ -1122,12 +1135,8 @@ pre {
   }
 }
 
-tt, code { font-family: $code-font-family; }
-
-pre code {
-  @include display(block);
-  @include padding($size: 0.5, $unit: 1em);
-  &[class] { font-size: 92% !important; }
+tt, code {
+  font-family: $code-font-family;
 }
 
 // Inline code (not inside <pre>)
@@ -1139,13 +1148,19 @@ code {
   border-radius: 0.25rem;
 }
 
-pre > code {
-  display: block;
-  padding: 0.5em;
-  font-size: inherit;
-  background-color: transparent;
-  border-radius: 0;
+pre {
+  white-space: pre-line;
 }
+
+pre code {
+  @include display(inline-block);
+  padding: .125rem .25rem;
+  &[class] { font-size: 92% !important; }
+  background-color: transparent;
+  border-radius: unset;
+  white-space: pre;
+}
+
 
 // Action buttons — add vertical gap for wrapping rows
 // .btn.action-button,
@@ -2406,53 +2421,98 @@ body.in-iframe section.module_main_ui .screen-height {
   padding-left: 7.5px;
 }
 
-// RAVE dashboard output widgets (hover-reveal icons)
-.ravedash-output-widget-container {
-  float: right;
-  padding: 0;
-  position: relative;
-  z-index: 1;
-  background-color: rgba($gray, 0.1);
+// ==========================================================================
+// Output widget overlay (download/popout icons) — injected by JS
+// ==========================================================================
+
+// .shidashi-output-widget-wrapper uses Bootstrap's position-relative class
+// applied via JS — no additional position rule needed here.
+
+.shidashi-output-widget-container {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  gap: 0.15rem;
+  transform: translate(0.15rem, 0.15rem);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
 }
 
-.ravedash-output-widget {
-  padding: 0.35rem;
-  opacity: 0.2;
-  color: #6c757d;
+.shidashi-output-widget-wrapper:hover .shidashi-output-widget-container {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shidashi-output-widget-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  display: inline-block;
-  text-align: center;
-  transition: 100ms;
-  font-size: 0.8rem;
-  line-height: 0.8rem;
-}
+  border-radius: 0.25rem;
+  background-color: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  line-height: 1;
 
-.ravedash-output-widget:hover {
-  opacity: 1;
-  background-color: rgba(0,0,0,0.1);
-}
-
-.ravedash-output-widget-wrapper {
-  width: 100%;
-  height: auto;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  position: relative;
-
-  & .ravedash-output-widget-container {
-    opacity: 0;
-    position: absolute;
-    display: flex;
-    top: 0;
-    left: 0;
-  }
-
-  &:hover .ravedash-output-widget-container {
-    opacity: 1;
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    text-decoration: none;
   }
 }
+
+// DEPRECATED: replaced by .shidashi-output-widget-* system above
+// RAVE dashboard output widgets (hover-reveal icons)
+// .ravedash-output-widget-container {
+//   float: right;
+//   padding: 0;
+//   position: relative;
+//   z-index: 1;
+//   background-color: rgba($gray, 0.1);
+// }
+//
+// .ravedash-output-widget {
+//   padding: 0.35rem;
+//   opacity: 0.2;
+//   color: #6c757d;
+//   width: 1.5rem;
+//   height: 1.5rem;
+//   display: inline-block;
+//   text-align: center;
+//   transition: 100ms;
+//   font-size: 0.8rem;
+//   line-height: 0.8rem;
+// }
+//
+// .ravedash-output-widget:hover {
+//   opacity: 1;
+//   background-color: rgba(0,0,0,0.1);
+// }
+//
+// .ravedash-output-widget-wrapper {
+//   width: 100%;
+//   height: auto;
+//   height: 100%;
+//   padding: 0;
+//   margin: 0;
+//   position: relative;
+//
+//   & .ravedash-output-widget-container {
+//     opacity: 0;
+//     position: absolute;
+//     display: flex;
+//     top: 0;
+//     left: 0;
+//   }
+//
+//   &:hover .ravedash-output-widget-container {
+//     opacity: 1;
+//   }
+// }
 
 // RAVE auto-recalculate button
 .rave-button-autorecalculate {
@@ -2479,6 +2539,11 @@ fieldset,
 
 .form-group {
   margin-bottom: 0.8rem;
+}
+
+.form-label, .shiny-input-container .control-label {
+  margin-bottom: unset;
+  font-weight: 600;
 }
 
 // Checkbox & radio label styling
@@ -2712,11 +2777,15 @@ body.iframe-mode-fullscreen .shidashi-tab-bar {
     min-height: 26px;
     height: 26px;
     overflow: clip;
-    padding: 2px 12px;
+    padding: 2px 19px 2px 2px;
     border-color: transparent;
 
     &:hover {
       border-color: var(--bs-border-color);
+    }
+
+    &:not(.no-arrow):after{
+      right: 5px;
     }
   }
 

@@ -31,6 +31,7 @@ electrodes_to_export_roi_name: none
 enable_custom_ROI: no
 enable_second_condition_groupings: no
 epoch_choice: auditory_onset
+epoch_choice__load_single_trial: no
 epoch_choice__trial_ends: 2
 epoch_choice__trial_ends_rel_to_event: Trial Onset
 epoch_choice__trial_starts: -1
@@ -59,7 +60,7 @@ first_condition_groupings:
     - meant_v
 frequencies_to_export: Collapsed, Analysis window(s) only
 loaded_electrodes: 13-16,24
-omnibus_includes_all_electrodes: yes
+omnibus_includes_all_electrodes: no
 project_name: demo
 reference_name: default
 second_condition_groupings:

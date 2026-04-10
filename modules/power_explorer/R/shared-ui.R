@@ -22,12 +22,13 @@ make_by_frequency_tabset <- function() {
         make_heatmap_control_panel(prefix = 'bfot', config='by_frequency_tabset_config'),
 
         # Plot
-        ravedash::output_gadget_container(
+        # MIGRATED: removed ravedash::output_gadget_container() wrapper
+        # ravedash::output_gadget_container(
           ravedash::plotOutput2(
             outputId = ns("by_frequency_over_time"),
             width = '100%', height='100%'
           )
-        )
+        # )
       ),
 
     `Correlation` = shiny::div(
@@ -39,12 +40,13 @@ make_by_frequency_tabset <- function() {
 
       # Plot
 
-      ravedash::output_gadget_container(
+      # MIGRATED: removed ravedash::output_gadget_container() wrapper
+      # ravedash::output_gadget_container(
         ravedash::plotOutput2(
           outputId = ns("by_frequency_correlation"),
           width = '100%', height='100%'
         )
-      )
+      # )
     )
   )
 }
@@ -56,9 +58,16 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
     shiny::div(
       class = "container-fluid",
       shiny::fluidRow(
-        shiny::column(width = 2L,
-                      shiny::numericInput(ns(prefix %&% '_range'), label = 'Plot Max',
-                                          value = max[1], min = max[2], max = max[3], step = max[4])),
+        shiny::column(
+          width = 2L,
+          shidashi::register_input(
+            shiny::numericInput(ns(prefix %&% '_range'), label = 'Plot Max',
+                                value = max[1], min = max[2], max = max[3], step = max[4]),
+            inputId = prefix %&% '_range',
+            update = "shiny::updateNumericInput",
+            description = "Set plot max range for output `" %&% prefix %&% "`. For values under 100, this range is the max quantile percent to plot (divide by 100)"
+          )
+        ),
         shiny::column(width = 1L, style='text-align: left; margin-top:37px; margin-left:0px',
                       shiny::checkboxInput(ns(prefix %&% '_range_is_percentile'),
                                            label = 'Max is %', value = percentile)),

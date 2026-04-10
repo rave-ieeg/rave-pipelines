@@ -17,5 +17,5 @@ notch_filter_upperbound:
 - 61.0
 - 122.0
 - 182.0
-project_name: test
+project_name: demo
 subject_code: DemoSubject

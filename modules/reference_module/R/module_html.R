@@ -123,24 +123,27 @@ module_html <- function(){
               # First tab
               `Group inspection` = shiny::div(
                 class = "fill height-600 resize-vertical",
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   shiny::plotOutput(ns("reference_plot_signals"),
                                     width = "100%", height = '100%')
-                )
+                # )
               ),
               `Electrode details` = shiny::div(
                 class = "fill height-600 resize-vertical",
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   shiny::plotOutput(ns("reference_plot_electrode"),
                                     width = "100%", height = '100%')
-                )
+                # )
               ),
               `Reference signal` = shiny::div(
                 class = "fill height-600 resize-vertical",
-                ravedash::output_gadget_container(
+                # MIGRATED: removed ravedash::output_gadget_container() wrapper
+                # ravedash::output_gadget_container(
                   shiny::plotOutput(ns("reference_plot_heatmap"),
                                     width = "100%", height = '100%')
-                )
+                # )
               ),
               `Preview & Export` = shiny::div(
                 class = "fill height-600 resize-vertical padding-5",
