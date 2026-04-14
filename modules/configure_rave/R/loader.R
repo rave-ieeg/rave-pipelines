@@ -594,62 +594,101 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       url <- input$rave_install_subject_url
-      project_name <- trimws(input$rave_install_subject_project)
-      subject_code <- trimws(input$rave_install_subject_code)
 
-      if(length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
-        project_name <- NA
-      } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = project_name, ignore.case = TRUE)) {
-        stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
-      }
+      # OpenNeuro support
+      # url = "https://openneuro.org/datasets/ds005953/versions/1.0.0"
 
-      if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
-        subject_code <- NA
-      } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = subject_code, ignore.case = TRUE)) {
-        stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
-      }
+      url_parsed <- strsplit(url, "/")[[1]]
+      url_parsed <- url_parsed[!tolower(url_parsed) %in% c("", "http:", "https:")]
 
-      if(!is.na(project_name) && !is.na(subject_code)) {
-        subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
-        if(file.exists(subject$path)) {
-          stop("Subject [", subject_code, "] already exists. Please consider changing to another subject code.")
+      url_domain <- tolower(url_parsed[[1]])
+
+      if (identical(url_domain, "openneuro.org")) {
+        # This is OpenNeuro
+        if (length(url_parsed) < 3) {
+          stop("Unable to get OpenNeuro Accession Number. Expecting URL schema - openneuro.org/datasets/dsxxxx <- accession number")
         }
+        # Make sure the snippet is downloaded
+        ravepipeline::load_snippet("download-openneuro")
+
+        accession <- url_parsed[[3]]
+
+        promise <- ravedash::with_log_modal(
+          title = "Installing BIDS data from OpenNeuro",
+          expr = bquote({
+
+            # Disable python progress bar, which will hang the process
+            Sys.setenv("TQDM_DISABLE" = "1")
+
+            options("cli.num_colors" = 0)
+
+            url <- .(url)
+            accession <- .(accession)
+
+            openneuro <- ravepipeline::load_snippet("download-openneuro")
+
+            openneuro(dataset = accession)
+          }),
+          quoted = TRUE
+        )
+      } else {
+        project_name <- trimws(input$rave_install_subject_project)
+        subject_code <- trimws(input$rave_install_subject_code)
+
+        if(length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
+          project_name <- NA
+        } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = project_name, ignore.case = TRUE)) {
+          stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
+        }
+
+        if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
+          subject_code <- NA
+        } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = subject_code, ignore.case = TRUE)) {
+          stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
+        }
+
+        if(!is.na(project_name) && !is.na(subject_code)) {
+          subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
+          if(file.exists(subject$path)) {
+            stop("Subject [", subject_code, "] already exists. Please consider changing to another subject code.")
+          }
+        }
+
+
+        promise <- ravedash::with_log_modal(
+          title = "Installing RAVE subjects",
+          expr = bquote({
+
+            options("cli.num_colors" = 0)
+
+            url <- .(url)
+            project_name <- .(project_name)
+            subject_code <- .(subject_code)
+
+            cat("Downloading from\n  ", url, "\n", sep = "")
+            if(!is.na(project_name)) {
+              cat("Setting project: ", project_name, "\n", sep = "")
+            }
+            if(!is.na(subject_code)) {
+              cat("Setting subject: ", subject_code, "\n", sep = "")
+            }
+
+            # 60 min?
+            options(timeout = 3600)
+            ravecore::install_subject(
+              path = url,
+              ask = FALSE,
+              overwrite = FALSE,
+              use_cache = FALSE,
+              dry_run = FALSE,
+              force_project = project_name,
+              force_subject = subject_code
+            )
+
+          }),
+          quoted = TRUE
+        )
       }
-
-
-      promise <- ravedash::with_log_modal(
-        title = "Installing RAVE subjects",
-        expr = bquote({
-
-          options("cli.num_colors" = 0)
-
-          url <- .(url)
-          project_name <- .(project_name)
-          subject_code <- .(subject_code)
-
-          cat("Downloading from\n  ", url, "\n", sep = "")
-          if(!is.na(project_name)) {
-            cat("Setting project: ", project_name, "\n", sep = "")
-          }
-          if(!is.na(subject_code)) {
-            cat("Setting subject: ", subject_code, "\n", sep = "")
-          }
-
-          # 60 min?
-          options(timeout = 3600)
-          ravecore::install_subject(
-            path = url,
-            ask = FALSE,
-            overwrite = FALSE,
-            use_cache = FALSE,
-            dry_run = FALSE,
-            force_project = project_name,
-            force_subject = subject_code
-          )
-
-        }),
-        quoted = TRUE
-      )
 
       promise$then(
         function(...) {
