@@ -142,11 +142,12 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                 "Also RAVE will not overwrite existing subjects, thus the program will fail if there is any existing subject with the same subject code."
               ),
               shidashi::flex_container(
+                align_content = "flex-end",
                 shidashi::flex_item(
                   size = 6L,
                   shiny::textInput(
                     inputId = ns("rave_install_subject_url"),
-                    label = "Subject to download",
+                    label = "Dataset/Subject to download",
                     placeholder = "e.g. https://github.com/beauchamplab/rave/releases/download/v0.1.8-beta/demo_YAB.zip",
                     width = "100%"
                   )
@@ -206,6 +207,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             shiny::column(
               width = 12L,
               shidashi::flex_container(
+                align_content = "flex-end",
                 shidashi::flex_item(
                   size = 6L,
                   shiny::textInput(
@@ -304,6 +306,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             shiny::column(
               width = 12L,
               shidashi::flex_container(
+                align_content = "flex-end",
                 shidashi::flex_item(
                   size = 6L,
                   shiny::textInput(
