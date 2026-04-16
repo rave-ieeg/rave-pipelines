@@ -540,7 +540,7 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$update_outputs <- Sys.time()
       # pes plots have a separate update cycle
-      local_reactives$update_pes_plots <- Sys.time()
+      local_reactives$update_pes_plot <- Sys.time()
     }
 
     if(trigger_3dviewer) {
