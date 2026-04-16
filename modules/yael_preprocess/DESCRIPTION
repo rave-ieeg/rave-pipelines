@@ -15,6 +15,4 @@ Description: Use 'dcm2niix' to import 'DICOM' files to 'NIFTI' format.
     integrate their own pipelines. Please see 'CITATION' file for
     references.
 URL: https://yael.wiki
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
-Imports:
-  distill
+BugReports: https://github.com/orgs/rave-ieeg/discussions

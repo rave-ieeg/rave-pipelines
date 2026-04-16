@@ -12,7 +12,7 @@ Description:
     Allow to change data storage path, set and download template brain for group
     analyses, change number of 'CPU' cores for performance. User can 
     install new packages in 'R' and 'Python'. 
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions
 Imports:
     shinyWidgets,
     DT,

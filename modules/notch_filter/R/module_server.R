@@ -8,7 +8,6 @@ module_server <- function(input, output, session, ...){
     update_outputs = NULL
   )
 
-  server_registry <- ravedash::register_rave_session()
   server_tools <- ravedash::get_default_handlers()
 
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
@@ -23,10 +22,10 @@ module_server <- function(input, output, session, ...){
     shiny::reactive({
       if(!ravedash::watch_data_loaded()) { return(FALSE) }
       if(ravedash::watch_loader_opened()) { return(FALSE) }
-      res <- server_registry$rave_event$message_button_clicked
+      res <- ravedash::get_rave_event("message_button_clicked")
       structure(!is.null(res), timestamp = res)
     }),
-    server_registry$rave_event$message_button_clicked,
+    ravedash::get_rave_event("message_button_clicked"),
     ignoreNULL = TRUE,
     ignoreInit = FALSE
   )
@@ -477,7 +476,8 @@ module_server <- function(input, output, session, ...){
   )
 
   # Register outputs
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  shidashi::register_output(
     shiny::renderPlot({
       electrode <- get_electrode()
       local_reactives$update_plots
@@ -508,7 +508,8 @@ module_server <- function(input, output, session, ...){
 
 
     }),
-    outputId = "signal_plot"
+    outputId = "signal_plot",
+    download_type = "image"
   )
 
   output$download_as_pdf <- shiny::downloadHandler(

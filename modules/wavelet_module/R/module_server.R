@@ -11,7 +11,6 @@ module_server <- function(input, output, session, ...){
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweek
-  server_registry <- ravedash::register_rave_session()
   server_tools <- get_default_handlers(session = session)
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
@@ -32,10 +31,10 @@ module_server <- function(input, output, session, ...){
     shiny::reactive({
       if(!ravedash::watch_data_loaded()) { return(FALSE) }
       if(ravedash::watch_loader_opened()) { return(FALSE) }
-      res <- server_registry$rave_event$message_button_clicked
+      res <- ravedash::get_rave_event("message_button_clicked")
       structure(!is.null(res), timestamp = res)
     }),
-    server_registry$rave_event$message_button_clicked,
+    ravedash::get_rave_event("message_button_clicked"),
     ignoreNULL = TRUE,
     ignoreInit = FALSE
   )
@@ -535,7 +534,9 @@ module_server <- function(input, output, session, ...){
 
 
   # shiny::outputOptions(output, "kernel_table", suspendWhenHidden = FALSE)
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output (output_type="data")
+  # ravedash::register_output(
+  shidashi::register_output(
     DT::renderDataTable({
       tbl <- kernel_params()
       shiny::validate(
@@ -547,7 +548,8 @@ module_server <- function(input, output, session, ...){
       DT::datatable(tbl)
     }),
     outputId = "kernel_table",
-    output_type = "data",
+    download_type = "data",
+    # output_type = "data",
     extensions = list("CSV" = "csv"),
     download_function = function(con, params, ...) {
       tbl <- kernel_params()
@@ -568,7 +570,9 @@ module_server <- function(input, output, session, ...){
   )
 
 
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  shidashi::register_output(
     shiny::renderPlot({
 
       local_reactives$refresh
@@ -613,7 +617,8 @@ module_server <- function(input, output, session, ...){
       )
       plot(kernel, cex = 1.4, mai = c(1.02,0.82,0.82,0.42))
     }),
-    outputId = "kernel_plot"
+    outputId = "kernel_plot",
+    download_type = "image"
   )
 
 }

@@ -1,0 +1,2990 @@
+@use "sass:meta";
+@use "sass:map";
+@use "sass:list";
+@use "sass:string";
+@use "sass:color";
+
+// ==========================================================================
+// Variables — using BS5 palette names where possible
+// ==========================================================================
+
+$primary: #3f6791;
+$secondary: #6c757d;
+$success: #00bc8c;
+$info: #3498db;
+$warning: #f39c12;
+$danger: #e74c3c;
+$light: #f8f9fa;
+$dark: #343a40;
+$light-dark: #454d55;
+
+$white: #fff;
+$gray: #6c757d;
+$gray-dark: #343a40;
+
+$code-background: #e5e5e5;
+$code-color-operator: rgb(104, 118, 135);
+$code-color-parenthesis: rgb(104, 118, 135);
+$code-color-literal: #990073;
+$code-color-number: #099;
+$code-color-comment: #098;
+$code-color-keyword: #900;
+$code-color-identifier: rgb(0, 0, 0);
+$code-color-string: #d14;
+$code-font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+$color-error: #dc3545;
+
+$navbar-height: 54px;
+$sidebar-width: 250px;
+$sidebar-collapsed-width: 0px;
+$sidebar-transition: 0.3s ease;
+
+// Borders
+$border-color: #dee2e6;
+
+// Dark-mode palette
+$dark-mode-bg: #454d55;
+$dark-mode-text: #e9ecef;
+
+
+
+// Notification panel
+$notification-close: #adb5bd;
+$progress-bg: #eee;
+
+// Misc
+$hr-color: #e8e8e8;
+
+$sizes-margin-padding: 0,1,2,3,4,5,6,7,8,9,10,11,12,15,20,25,30,40,50,60,70,80,90,100;
+
+// ==========================================================================
+// Sass helpers (carried over from original)
+// ==========================================================================
+
+@function add_force($force: false) {
+  $important: "";
+  @if $force { $important: "!important"; }
+  @return string.unquote($important);
+}
+
+@function as_pixel_size($sizes...) {
+  $args: meta.keywords($sizes);
+  $size: map.get($args, "size");
+  @if not $size or $size == 0 { @return 0; }
+  $unit: map.get($args, "unit");
+  @if not $unit { $unit: 1px; }
+  @return $size * $unit;
+}
+
+@mixin display($type, $force: false) { display: $type add_force($force); }
+@mixin visibility($type, $force: false) { visibility: $type add_force($force); }
+@mixin position($type, $force: false) { position: $type add_force($force); }
+@mixin set-size($type, $direction: all, $force: false, $sizes...) {
+  $style: as_pixel_size($sizes...) add_force($force);
+  @if $direction == all {
+    #{$type}: $style;
+  } @else {
+    @each $d in $direction {
+      @if $d == vertical { #{$type}-top: $style; #{$type}-bottom: $style; }
+      @else if $d == horizontal { #{$type}-left: $style; #{$type}-right: $style; }
+      @else { #{$type}-#{$d}: $style; }
+    }
+  }
+}
+@mixin margin($direction: all, $force: false, $sizes...) {
+  @include set-size($type: margin, $direction: $direction, $force: $force, $sizes...);
+}
+@mixin padding($direction: all, $force: false, $sizes...) {
+  @include set-size($type: padding, $direction: $direction, $force: $force, $sizes...);
+}
+@mixin min-height($size) { min-height: as_pixel_size($size: $size); }
+@mixin max-height($size) { max-height: as_pixel_size($size: $size); }
+@mixin height($size) { height: as_pixel_size($size: $size); }
+@mixin fill-width { width: 100%; }
+@mixin fill-height { height: 100%; }
+@mixin fill-max-width { max-width: 100%; }
+@mixin fill-max-height { max-height: 100%; }
+@mixin overflow($type, $direction: all, $force: false) {
+  @if $direction == all { overflow: $type add_force($force); }
+  @else { overflow-#{$direction}: $type add_force($force); }
+}
+
+// Thin scrollbar mixins (AdminLTE-style)
+@mixin scrollbar-width-thin() {
+  scrollbar-width: thin;
+  &::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+}
+@mixin scrollbar-width-none() {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+@mixin scrollbar-color-dark() {
+  scrollbar-color: rgba($white, 0.3) transparent;
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba($white, 0.3);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+}
+@mixin scrollbar-color-light() {
+  scrollbar-color: rgba(0,0,0,0.2) transparent;
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+}
+@mixin code-font-family { font-family: $code-font-family; }
+@mixin border-radius($size, $unit: 1px) {
+  border-radius: as_pixel_size($size: $size, $unit: $unit);
+}
+@mixin border-color($color, $direction: all) {
+  @if $direction == all { border-color: $color; }
+  @else { @each $d in $direction { border-#{$d}-color: $color; } }
+}
+
+// ==========================================================================
+// Preloader overlay (AdminLTE compat)
+// ==========================================================================
+
+.preloader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: $white;
+  z-index: 9999;
+  transition: opacity 0.3s, visibility 0.3s;
+
+  .dark-mode & {
+    background-color: $dark;
+  }
+}
+
+// Hide preloader once an iframe (module) is active
+body.has-active-module .preloader,
+.preloader.preloader-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+// ==========================================================================
+// Layout: sidebar + content
+// ==========================================================================
+
+:root,
+.modal-dialog {
+  --bs-gutter-x: 0.5rem;
+  --bs-gutter-y: 0.5rem;
+  --bs-modal-margin: 1.5rem;
+}
+
+// Override Bootstrap's element-level gutter declarations
+// (Bootstrap 5 sets --bs-gutter-x: 1.5rem and --bs-gutter-y: 0 directly on
+//  .row, .container, etc., which overrides the inherited :root values)
+.row {
+  --bs-gutter-x: 0.5rem;
+  --bs-gutter-y: 0.5rem;
+}
+
+.container,
+.container-fluid,
+.container-xxl,
+.container-xl,
+.container-lg,
+.container-md,
+.container-sm {
+  --bs-gutter-x: 0.5rem;
+  --bs-gutter-y: 0.5rem;
+}
+
+.container {
+  max-width: 1440px;
+}
+
+.btn {
+  --bs-btn-padding-y: .375rem;
+  --bs-btn-padding-x: .875rem;
+  --bs-btn-font-size: 0.925rem;
+
+  & .action-label:empty {
+    display: none;
+  }
+}
+
+.btn-xs {
+  --bs-btn-padding-y: 0.1rem;
+  --bs-btn-padding-x: 0.25rem;
+  --bs-btn-font-size: 0.75rem;
+  --bs-btn-border-radius: 0.2rem;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: $white;
+  color: $dark;
+  font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+.shidashi-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.shidashi-sidebar {
+  width: $sidebar-width;
+  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1040;
+  background-color: $dark;
+  color: rgba($white, 0.8);
+  transition: width $sidebar-transition, transform $sidebar-transition;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  @include scrollbar-color-dark();
+  @include scrollbar-width-thin();
+
+  .shidashi-brand-link {
+    display: flex;
+    align-items: center;
+    min-height: $navbar-height;
+    padding: 0 1rem;
+    padding-top: calc(0.5 * #{$navbar-height} - 24px);
+    padding-bottom: calc(0.5 * #{$navbar-height} - 24px);
+    font-size: 1.15rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    color: rgba($white, 0.9);
+    border-bottom: 1px solid color.adjust($dark, $lightness: 10%);
+    flex-shrink: 0;
+
+    &:hover, &:focus {
+      color: $white;
+      text-decoration: none;
+    }
+  }
+
+  .shidashi-brand-text {
+    color: inherit;
+  }
+
+  .shidashi-brand-image {
+    max-height: 33px;
+    margin: -0.25rem 0.5rem -0.25rem 0;
+  }
+
+  &.sidebar-light {
+    background-color: $white;
+    color: $dark;
+    @include scrollbar-color-light();
+
+    .shidashi-brand-link {
+      color: $dark;
+      border-bottom-color: var(--bs-border-color, #{$border-color});
+
+      &:hover, &:focus {
+        color: $dark;
+      }
+    }
+  }
+}
+
+// Nav items
+.shidashi-sidebar-nav {
+  list-style: none;
+  padding: 0.5rem 0;
+  margin: 0;
+  flex: 1;
+}
+
+.shidashi-nav {
+  padding-left: 0;
+  max-height: calc(100vh - 102px);
+  overflow-y: auto;
+  @include scrollbar-color-dark();
+  @include scrollbar-width-thin();
+
+  .sidebar-light & {
+    @include scrollbar-color-light();
+  }
+}
+
+.shidashi-nav-item,
+.shidashi-nav-group {
+  list-style: none;
+}
+
+.shidashi-nav-link {
+  display: flex;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+  cursor: pointer;
+
+  &:hover {
+    background-color: rgba($white, 0.1);
+  }
+
+  .sidebar-light & {
+    color: $dark;
+    &:hover { background-color: rgba(0,0,0,0.05); }
+  }
+
+  .nav-icon {
+    margin-right: 0.5rem;
+    width: 1.6rem;
+    text-align: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  // Make the <span> stretch to fill remaining width (it wraps text + arrow)
+  > span {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+  }
+
+  // Arrow icon in dropdown groups — anchored to right edge
+  .shidashi-nav-arrow {
+    margin-left: auto;
+    transition: transform 0.3s;
+    font-size: 0.85rem;
+  }
+
+  // Legacy .right class support
+  .right {
+    margin-left: auto;
+    transition: transform 0.3s;
+  }
+}
+
+// Active leaf item — primary background
+.shidashi-nav-item.active > .shidashi-nav-link {
+  background-color: $primary;
+  color: $white;
+
+  .sidebar-light & {
+    background-color: $primary;
+    color: $white;
+  }
+}
+
+// Parent group with active child — subtle highlight
+.shidashi-nav-group.menu-open > .shidashi-nav-link {
+  background-color: rgba($white, 0.08);
+
+  .sidebar-light & {
+    background-color: rgba(0,0,0,0.04);
+  }
+}
+
+// Treeview / dropdown groups
+.shidashi-nav-treeview {
+  list-style: none;
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+
+  .shidashi-nav-link {
+    padding-left: 2rem;
+    font-size: 0.9rem;
+  }
+}
+
+.shidashi-nav-group.menu-open > .shidashi-nav-treeview {
+  max-height: 500px; // fallback, JS sets actual scrollHeight
+}
+
+// Arrow rotation: points right by default (fa-angle-left renders as <),
+// rotates -90deg (pointing down) when group is open
+.shidashi-nav-group > .shidashi-nav-link .shidashi-nav-arrow {
+  transition: transform 0.3s;
+}
+.shidashi-nav-group.menu-open > .shidashi-nav-link .shidashi-nav-arrow {
+  transform: rotate(-90deg);
+}
+
+// Legacy .right arrow support
+.shidashi-nav-group > .shidashi-nav-link .right {
+  transition: transform 0.3s;
+}
+.shidashi-nav-group.menu-open > .shidashi-nav-link .right {
+  transform: rotate(-90deg);
+}
+
+// Nav-header / divider separator (rave-pipelines style)
+// Renders centered text with horizontal lines on both sides
+.nav-header.nav-divider {
+  display: flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  align-items: center;
+  color: rgba($white, 0.5);
+  font-size: 0.9rem;
+  padding: 0.75rem 0.75rem 0.25rem;
+  list-style: none;
+  text-transform: uppercase;
+
+  &::before,
+  &::after {
+    content: "";
+    border-top: 1px solid rgba($white, 0.25);
+    flex: 1 1 1em;
+    display: block;
+    transform: translateY(0);
+  }
+
+  & > span {
+    flex: 0 1 auto;
+    padding: 0 12px;
+    text-align: center;
+  }
+
+  .sidebar-light & {
+    color: rgba(0,0,0,0.4);
+
+    &::before,
+    &::after {
+      border-top-color: rgba(0,0,0,0.15);
+    }
+  }
+}
+
+// Sidebar search — dark variant (follows sidebar theme, not body theme)
+.shidashi-sidebar-search {
+  .form-control {
+    background-color: color.adjust($dark, $lightness: 8%);
+    border-color: color.adjust($dark, $lightness: 15%);
+    color: rgba($white, 0.9);
+
+    &::placeholder {
+      color: rgba($white, 0.5);
+    }
+
+    &:focus {
+      background-color: color.adjust($dark, $lightness: 12%);
+      border-color: $primary;
+      color: $white;
+    }
+  }
+
+  .btn-outline-secondary {
+    border-color: color.adjust($dark, $lightness: 15%);
+    color: rgba($white, 0.6);
+
+    &:hover {
+      background-color: color.adjust($dark, $lightness: 12%);
+      color: $white;
+    }
+  }
+
+  .sidebar-light & {
+    .form-control {
+      background-color: $white;
+      border-color: $border-color;
+      color: $dark;
+
+      &::placeholder {
+        color: $gray;
+      }
+
+      &:focus {
+        border-color: $primary;
+        color: $dark;
+      }
+    }
+
+    .btn-outline-secondary {
+      border-color: $border-color;
+      color: $gray;
+    }
+  }
+}
+
+// Sidebar collapsed
+body.sidebar-collapsed .shidashi-sidebar {
+  width: $sidebar-collapsed-width;
+  transform: translateX(-$sidebar-width);
+}
+
+.shidashi-content {
+  margin-left: $sidebar-width;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - #{$navbar-height});
+  transition: margin-left $sidebar-transition;
+  width: calc(100% - #{$sidebar-width});
+}
+
+body.sidebar-collapsed .shidashi-content {
+  margin-left: 0;
+  width: 100%;
+}
+
+// Overlay for mobile
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1039;
+}
+
+@media (max-width: 991.98px) {
+  .shidashi-sidebar {
+    transform: translateX(-$sidebar-width);
+  }
+
+  body.sidebar-open .shidashi-sidebar {
+    transform: translateX(0);
+  }
+
+  body.sidebar-open .sidebar-overlay {
+    display: block;
+  }
+
+  // Shift the header right so the hamburger icon is not hidden
+  // behind the open sidebar
+  body.sidebar-open.has-sidebar .shidashi-header {
+    margin-left: $sidebar-width;
+  }
+
+  .shidashi-content {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+// ==========================================================================
+// Header
+// ==========================================================================
+
+.shidashi-header {
+  display: flex;
+  align-items: center;
+  height: $navbar-height;
+  padding: 0 1rem;
+  background-color: $white;
+  background-size: contain;
+  border-bottom: 1px solid var(--bs-border-color, #{$border-color});
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url(../img/header-bg.png);
+    background-size: contain;
+    background-position: left;
+    z-index: -1; /* Places the background behind the content */
+    filter: blur(0.3px);
+  }
+
+  &.navbar .nav-item {
+    backdrop-filter: blur(7px);
+  }
+
+  .dark-mode & {
+    background-color: $dark;
+    border-bottom-color: $light-dark;
+
+    // customized for RAVE
+    &::before {
+      background-image: linear-gradient(0.325turn,rgb(255 165 0 / 0.3), rgb(24 116 205 / 0.3), rgb(0 100 0 / 0.3), rgb(255 69 0 / 0.3), rgb(165 42 42 / 0.3), rgb(125 38 205 / 0.3)),url(../img/header-bg.png);
+      filter: invert(80%) blur(0.3px); /* Inverts the colors of the background image */
+    }
+  }
+
+}
+
+// Margin-left only when the sidebar is present (main index page)
+body.has-sidebar .shidashi-header {
+  margin-left: $sidebar-width;
+  transition: margin-left $sidebar-transition;
+}
+
+body.has-sidebar.sidebar-collapsed .shidashi-header {
+  margin-left: 0;
+}
+
+@media (max-width: 991.98px) {
+  body.has-sidebar .shidashi-header {
+    margin-left: 0;
+  }
+}
+
+// Hide module header when running inside an iframe
+body.in-iframe .shidashi-header {
+  display: none;
+}
+
+.shidashi-header-left,
+.shidashi-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shidashi-header-right {
+  margin-left: auto;
+}
+
+// Ensure all navbar nav-links are vertically centered within the header
+.shidashi-header .navbar-nav {
+  align-items: center;
+  height: 100%;
+  justify-content: center;
+}
+
+.shidashi-header .nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0.5rem;
+}
+
+// ==========================================================================
+// Tab bar (iframe tabs)
+// ==========================================================================
+
+.shidashi-tab-bar {
+  display: none;
+  align-items: center;
+  background-color: $light;
+  border-bottom: 1px solid var(--bs-border-color, #{$border-color});
+  height: $navbar-height;
+
+  .dark-mode & {
+    background-color: color.adjust($dark, $lightness: 5%);
+    border-bottom-color: $light-dark;
+  }
+}
+
+.shidashi-tab-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 0 0.5rem;
+  color: $gray;
+  text-decoration: none;
+
+  &:hover { color: $dark; .dark-mode & { color: $white; } }
+}
+
+.shidashi-tab-actions {
+  display: flex;
+  align-items: center;
+  padding: 0 0.25rem;
+
+  .btn {
+    padding: 0.15rem 0.4rem;
+    font-size: 0.8rem;
+  }
+}
+
+.shidashi-tab-list {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    height: 3px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $gray;
+    border-radius: 3px;
+  }
+}
+
+.shidashi-tab-item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border-right: 1px solid var(--bs-border-color, #{$border-color});
+
+  .dark-mode & {
+    border-right-color: $light-dark;
+  }
+
+  &.active .shidashi-tab-link {
+    background-color: $white;
+    border-bottom: 2px solid $primary;
+    color: $primary;
+
+    .dark-mode & {
+      background-color: $dark;
+      color: $info;
+      border-bottom-color: $info;
+    }
+  }
+}
+
+.shidashi-tab-link {
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  text-decoration: none;
+  color: $gray;
+  font-size: 0.85rem;
+  height: 100%;
+  gap: 0.4rem;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background-color: rgba(0,0,0,0.04);
+    .dark-mode & { background-color: rgba($white, 0.05); }
+  }
+}
+
+.shidashi-tab-close {
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 0.7rem;
+
+  &:hover { opacity: 1; }
+}
+
+// ==========================================================================
+// Iframe container
+// ==========================================================================
+
+.shidashi-iframe-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.shidashi-iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.shidashi-tab-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 1.2rem;
+  color: $gray;
+  padding: 2rem;
+}
+
+// Fullscreen mode
+body.iframe-mode-fullscreen .shidashi-sidebar,
+body.iframe-mode-fullscreen .shidashi-header {
+  display: none;
+}
+
+body.iframe-mode-fullscreen .shidashi-content {
+  margin-left: 0;
+  width: 100%;
+}
+
+body.iframe-mode-fullscreen .shidashi-tab-bar {
+  display: flex;
+}
+
+body.iframe-mode-fullscreen .card.shidashi-maximized {
+  top: 0;
+  height: 100vh;
+}
+
+// Inside an iframe the header is hidden, so maximized cards fill the full viewport
+body.in-iframe .card.shidashi-maximized {
+  top: 0;
+  height: 100vh;
+}
+
+
+
+// ==========================================================================
+// Display / Visibility helpers
+// ==========================================================================
+
+.hidden {
+  @include display(none, true);
+  @include visibility(hidden, true);
+}
+
+// Soft-hidden: element stays in DOM with defined width so Shiny can still
+// measure outputs. Body/footer are visually collapsed to zero height but
+// remain accessible. height !important beats any .height-X class;
+// min-height !important beats any .min-height-X class.
+.soft-hidden {
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+// Visibility helpers
+.visibility-visible { @include visibility(visible, true); }
+.visibility-none { @include visibility(hidden, true); }
+
+// Display helpers — full complement from original
+@each $type in block, inline, inline-block, flex, inline-flex, none {
+  .display-#{$type} { @include display($type, false); }
+  .display-#{$type}-force { @include display($type, true); }
+}
+
+.display-block-force,
+.display-block {
+  @include display(block, true);
+}
+
+.inline-all {
+  @include display(inline, true);
+
+  & * { @include display(inline, true); }
+  & pre, & code { padding: 0.125rem; margin: 0; }
+}
+
+.flex-container {
+  display: flex;
+  @include fill-width;
+  & > * { flex: 1; }
+}
+.flex-break { flex-basis: 100%; }
+
+// Pointer events
+@each $type in none, all, visible, auto, fill, painted, stroke {
+  .pointer-events-#{$type} { pointer-events: $type; }
+}
+
+// Text align
+@each $type in left, right, center, start, end, revert, justify, unset {
+  .text-align-#{$type} { text-align: $type; }
+}
+
+// Text helpers
+.text-small { font-size: 80%; }
+.text-nowrap {
+  @include overflow(hidden, x);
+  white-space: nowrap;
+}
+
+@each $type in hidden, auto, visible, scroll {
+  .overflow-#{$type} { @include overflow($type); }
+  @each $d in x, y {
+    .overflow-#{$d}-#{$type} { @include overflow($type, $d); }
+  }
+}
+
+.overflow-visible-on-hover {
+  @include overflow(hidden);
+
+  &:hover {
+    @include overflow(visible);
+    @include position(absolute);
+    min-height: 100%;
+    min-width: 100%;
+    z-index: 10000;
+  }
+}
+
+// ==========================================================================
+// Dimensions
+// ==========================================================================
+
+@for $factor from 1 through 12 {
+  .row .col-sm-#{$factor} > .shiny-bound-input { @include fill-width(); }
+}
+
+.fill { @include fill-width(); @include fill-height(); }
+.fill-width { @include fill-width(); }
+.fill-height { @include fill-height(); }
+.fill-min { min-width: 100%; min-height: 100%; }
+.fill-min-height { min-height: 100%; }
+.fill-min-width { min-width: 100%; }
+
+@for $factor from 0 through 20 {
+  $size: $factor * 50;
+  .min-height-#{$size} { @include min-height($size: $size); }
+  .max-height-#{$size} { @include max-height($size: $size); }
+  .height-#{$size} { @include height($size: $size); }
+
+  // Viewport-unit based dimensions
+  .min-height-vh#{$factor * 5} { min-height: #{$factor * 5}vh; }
+  .max-height-vh#{$factor * 5} { max-height: #{$factor * 5}vh; }
+  .height-vh#{$factor * 5} { height: #{$factor * 5}vh; }
+
+  .min-width-vw#{$factor * 5} { min-width: #{$factor * 5}vw; }
+  .max-width-vw#{$factor * 5} { max-width: #{$factor * 5}vw; }
+  .width-vw#{$factor * 5} { width: #{$factor * 5}vw; }
+
+  .min-width-perc#{$factor * 5} { min-width: #{$factor * 5}%; }
+  .max-width-perc#{$factor * 5} { max-width: #{$factor * 5}%; }
+  .width-perc#{$factor * 5} { width: #{$factor * 5}%; }
+}
+
+// ==========================================================================
+// Margin & Padding helpers
+// ==========================================================================
+
+@each $size in $sizes-margin-padding {
+  @each $type in padding, margin {
+    .#{$type}-#{$size} { #{$type}: as_pixel_size($size: $size); }
+    .#{$type}-top-#{$size} { #{$type}-top: as_pixel_size($size: $size); }
+    .#{$type}-bottom-#{$size} { #{$type}-bottom: as_pixel_size($size: $size); }
+    .#{$type}-vertical-#{$size} { #{$type}-top: as_pixel_size($size: $size); #{$type}-bottom: as_pixel_size($size: $size); }
+    .#{$type}-left-#{$size} { #{$type}-left: as_pixel_size($size: $size); }
+    .#{$type}-right-#{$size} { #{$type}-right: as_pixel_size($size: $size); }
+    .#{$type}-horizontal-#{$size} { #{$type}-right: as_pixel_size($size: $size); #{$type}-left: as_pixel_size($size: $size); }
+
+    // Negative variants
+    .#{$type}-m#{$size} { #{$type}: as_pixel_size($size: $size, $unit: -1px); }
+    .#{$type}-top-m#{$size} { #{$type}-top: as_pixel_size($size: $size, $unit: -1px); }
+    .#{$type}-bottom-m#{$size} { #{$type}-bottom: as_pixel_size($size: $size, $unit: -1px); }
+    .#{$type}-vertical-m#{$size} { #{$type}-top: as_pixel_size($size: $size, $unit: -1px); #{$type}-bottom: as_pixel_size($size: $size, $unit: -1px); }
+    .#{$type}-left-m#{$size} { #{$type}-left: as_pixel_size($size: $size, $unit: -1px); }
+    .#{$type}-right-m#{$size} { #{$type}-right: as_pixel_size($size: $size, $unit: -1px); }
+    .#{$type}-horizontal-m#{$size} { #{$type}-right: as_pixel_size($size: $size, $unit: -1px); #{$type}-left: as_pixel_size($size: $size, $unit: -1px); }
+  }
+}
+
+.no-padding { padding: 0 !important; }
+.no-margin { margin: 0 !important; }
+
+.space-vertical-5 {
+  width: 100%;
+  &::before { content: " "; display: block; height: 5px; }
+}
+
+.resize-vertical {
+  @include overflow(hidden);
+  position: relative;
+
+  &:hover {
+    @include overflow(auto);
+  }
+}
+
+// Custom drag-to-resize handle at bottom center
+.shidashi-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  cursor: ns-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  &::before {
+    content: "";
+    width: 48px;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 2px;
+    transition: background-color 0.15s ease;
+  }
+
+  &:hover::before,
+  &.active::before {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .dark-mode &::before {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+  .dark-mode &:hover::before,
+  .dark-mode &.active::before {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+.resize-vertical:hover > .shidashi-resize-handle,
+.shidashi-resize-handle.active {
+  opacity: 1;
+}
+
+// JS-injected drag handle for .resize-horizontal dividers
+.shidashi-resize-handle-h {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+
+  &::before {
+    content: "";
+    width: 4px;
+    height: 48px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border-radius: 2px;
+    transition: background-color 0.15s ease;
+  }
+
+  &:hover::before,
+  &.active::before {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .dark-mode &::before {
+    background-color: rgba(255, 255, 255, 0.25);
+  }
+  .dark-mode &:hover::before,
+  .dark-mode &.active::before {
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+.resize-horizontal:hover > .shidashi-resize-handle-h,
+.shidashi-resize-handle-h.active {
+  opacity: 1;
+}
+
+// ==========================================================================
+// Colors
+// ==========================================================================
+
+@for $factor from 0 through 9 {
+  $g: color.adjust(#000000, $lightness: $factor * 10%);
+  .bg-gray-#{$factor}0 { background-color: $g; }
+  @each $d in bottom, top, left, right {
+    .border-#{$d}-gray#{$factor}0 { border-#{$d}: 1px solid $g; }
+  }
+  .opacity-0#{$factor} { opacity: $factor * 0.1; }
+}
+.opacity-10 { opacity: 1; }
+
+// ==========================================================================
+// Code / Syntax
+// ==========================================================================
+
+pre {
+  font-family: $code-font-family;
+  @include overflow(auto, x);
+  @include fill-max-width;
+  background-color: $code-background;
+
+  & .operator { color: $code-color-operator; }
+  & .paren { color: $code-color-parenthesis; }
+  & .literal { color: $code-color-literal; }
+  & .number { color: $code-color-number; }
+  & .comment { color: $code-color-comment; font-style: italic; }
+  & .keyword { color: $code-color-keyword; font-weight: bold; }
+  & .identifier { color: $code-color-identifier; }
+  & .string { color: $code-color-string; }
+
+  &.overflow-visible-on-hover:hover {
+    max-width: unset;
+    box-shadow: 0 0 50px rgba(0,0,0,0.125), 0 1px 50px rgba(0,0,0,0.2);
+  }
+}
+
+tt, code {
+  font-family: $code-font-family;
+}
+
+// Inline code (not inside <pre>)
+code {
+  display: inline;
+  padding: 0.2em 0.4em;
+  font-size: 87.5%;
+  background-color: $code-background;
+  border-radius: 0.25rem;
+}
+
+pre {
+  white-space: pre-line;
+}
+
+pre code {
+  @include display(inline-block);
+  padding: .125rem .25rem;
+  &[class] { font-size: 92% !important; }
+  background-color: transparent;
+  border-radius: unset;
+  white-space: pre;
+}
+
+
+// Action buttons — add vertical gap for wrapping rows
+// .btn.action-button,
+// .btn.shiny-download-link {
+//   margin-bottom: 0.35rem;
+// }
+
+// ==========================================================================
+// Shidashi Card
+// ==========================================================================
+
+// Card theme color map (AdminLTE3 compat)
+$_card-themes: (
+  "primary":   ($primary,   $white),
+  "secondary": ($secondary, $white),
+  "success":   ($success,   $white),
+  "info":      ($info,      $white),
+  "warning":   ($warning,   $white),
+  "danger":    ($danger,    $white),
+  "dark":      ($dark,      $white),
+  "light":     ($light,     $dark),
+);
+
+@each $name, $pair in $_card-themes {
+  $bg:   list.nth($pair, 1);
+  $fg:   list.nth($pair, 2);
+
+  // Colored card header
+  .card-#{$name} > .card-header {
+    background-color: $bg;
+    color: $fg;
+    border-color: $bg;
+  }
+
+  // Outline variant: colored 3px top border, transparent header
+  .card-outline.card-#{$name} {
+    border-top: 3px solid $bg;
+    > .card-header {
+      background-color: transparent;
+      border-color: transparent;
+      color: inherit;
+    }
+  }
+
+  // BS4 → BS5 badge color compat: .badge.badge-{name}
+  .badge.badge-#{$name} {
+    background-color: $bg !important;
+    color: $fg !important;
+  }
+}
+
+.card {
+
+  // Animate card-body and card-footer for collapse/expand
+  > .card-body,
+  > .card-footer {
+    transition: height 0.3s ease, opacity 0.2s ease;
+    overflow-x: clip;
+    overflow-y: scroll;
+  }
+
+}
+.ravedash-input-card {
+  &.card {
+    > .card-body,
+    > .card-footer {
+      overflow-y: visible;
+    }
+  }
+}
+
+.card {
+  margin-bottom: var(--bs-gutter-y, 0.5rem);
+  transition: all 0.15s;
+
+  &.shidashi-maximized {
+    position: fixed !important;
+    top: $navbar-height;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - #{$navbar-height});
+    z-index: 1050;
+    border-radius: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    // Smooth maximize/restore transition
+    transition: top 0.25s ease, left 0.25s ease,
+                width 0.25s ease, height 0.25s ease,
+                border-radius 0.25s ease, margin 0.25s ease;
+
+    > .card-header {
+      flex-shrink: 0;
+    }
+
+    > .card-body {
+      flex: 1;
+      overflow-y: auto;
+      max-height: none;
+    }
+
+    > .card-footer {
+      flex-shrink: 0;
+    }
+  }
+
+}
+
+// Maximize backdrop — no ::before overlay (blocks pointer events on the card).
+// Instead dim non-maximized content via the card's own box-shadow.
+body.shidashi-card-maximized {
+  overflow: hidden;
+
+  // Hide sibling columns (e.g. input sidebar) so they don't overlap the
+  // maximized card.  Only the .screen-height that actually *contains* the
+  // maximized card stays visible.
+  .screen-height:not(:has(.shidashi-maximized)) {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+// Collapsed card: soft-hide body & footer so Shiny outputs keep their width
+// and can still receive updates — use max-height for smooth animation.
+.card.shidashi-collapsed,
+.card.start-collapsed {
+  > .card-body {
+    max-height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+
+  // If card has a collapse tool, also collapse the footer
+  &:has([data-card-widget="collapse"]) > .card-footer {
+    max-height: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    opacity: 0;
+    pointer-events: none !important;
+  }
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+
+  .card-title {
+    flex: 1;
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .card-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+    flex-shrink: 0;
+    margin-left: auto;
+
+    .btn.action-button,
+    .btn.shiny-download-link {
+      margin-bottom: 0;
+    }
+  }
+}
+
+// Tool buttons — matches AdminLTE3 .btn-tool convention
+.btn-tool {
+  background: transparent;
+  border: none;
+  color: rgba(0,0,0,0.5);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: 0.2rem;
+  transition: color 0.15s;
+  text-decoration: none;
+
+  &:hover, &:focus {
+    color: $dark;
+    text-decoration: none;
+    outline: none;
+  }
+
+  .dark-mode & {
+    color: rgba($white, 0.6);
+    &:hover, &:focus { color: $white; }
+  }
+}
+
+// In colored card headers, tools should be white
+@each $name, $pair in $_card-themes {
+  $bg: list.nth($pair, 1);
+  @if $name != 'light' {
+    .card-#{$name}:not(.card-outline) .card-header .btn-tool {
+      color: rgba($white, 0.8);
+      &:hover, &:focus { color: $white; }
+    }
+    // Colored full card (bg-primary etc.)
+    .bg-#{$name} .btn-tool {
+      color: rgba($white, 0.8);
+      &:hover, &:focus { color: $white; }
+    }
+  }
+}
+
+// Modal padding
+.modal .modal-header,
+.modal .modal-body,
+.modal .modal-footer {
+  padding: 0.7rem;
+}
+
+// Card-tabs: tools li should be vertically centered, no nav-tab border effects
+.card.card-tabs .card-header {
+  border-bottom: none; // nav-tabs provides the border instead
+
+  // The <ul class="nav nav-tabs"> wraps title + tabs + tools
+  .nav-tabs {
+    flex: 1;          // fill full header width so ms-auto pushes tools to right edge
+    min-width: 0;
+    align-items: stretch;
+    flex-wrap: nowrap;
+
+    // Title li
+    > li:first-child {
+      align-self: center;
+    }
+
+    // Tools li (always has ms-auto)
+    > li.ms-auto {
+      align-self: center;
+      border-bottom: none !important;
+
+      > .card-tools {
+        padding: 0 0.5rem;
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+// Card-tabs: make tab-content & tab-pane fill the card-body height.
+// Without this, a card-body with an explicit height class (e.g. height-400)
+// will not propagate that height through .tab-content → .tab-pane → children.
+// The card-body becomes a flex column; .tab-content grows to fill the
+// remaining space; the active .tab-pane fills the .tab-content.
+.card.card-tabs > .card-body {
+  display: flex;
+  flex-direction: column;
+
+  > .tab-content {
+    flex: 1 1 auto;
+    min-height: 0; // allow flex item to shrink below its content size
+
+    > .tab-pane.active {
+      height: 100%;
+    }
+  }
+}
+
+// ==========================================================================
+// Back-to-top
+// ==========================================================================
+
+// Generic shidashi back-to-top (vertical stack of round buttons)
+.shidashi-back-to-top {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 1039;
+
+  // Break the btn-group into a vertical stack of separate round buttons
+  [role="group"] {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+    opacity: 0.6;
+    transition: opacity 200ms;
+
+    &.show, &:hover { opacity: 1; }
+  }
+
+  // Shared round-button base
+  .btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background-color: var(--bs-body-bg, #{$white});
+    color: var(--bs-body-color, #{$dark});
+    font-size: 1rem;
+    line-height: 1;
+
+    &:hover, &:focus {
+      background-color: var(--bs-tertiary-bg, #{$light});
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  // Go-top button (chevron-up)
+  .btn-go-top {
+    order: 1; // appears on top in column-reverse
+  }
+
+  // Dropdown toggle (anchor jump menu)
+  .dropdown-toggle {
+    order: 0; // appears below the go-top button
+    font-size: 0.7rem;
+
+    &::after {
+      margin: 0; // centre the caret
+    }
+  }
+
+  // Hide the split-button visual separator artifacts
+  .border-right-1,
+  .border-left-1 {
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  // Dropdown menu positioning
+  .dropdown-menu {
+    margin-bottom: 0.25rem;
+  }
+}
+
+// RAVE-specific back-to-top (horizontal button group)
+.ravedash-back-to-top.ravedash-footer {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  z-index: 1039;
+  box-shadow: 0 0 10px 1px rgba($gray, 0.5);
+  border-radius: 1.25rem;
+  opacity: 0.6;
+  transition: opacity 200ms;
+
+  &.show, &:hover { opacity: 1; }
+  &:focus { box-shadow: none; }
+
+  // The .btn-group.dropup already provides horizontal flex layout.
+  // Just ensure rounded ends and proper height.
+  .btn-group {
+    border-radius: 1.25rem;
+    overflow: visible;
+  }
+
+  // Shared button base — full height, no fixed width, show full text
+  .btn {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    box-shadow: none;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background-color: var(--bs-body-bg, #{$white});
+    color: var(--bs-body-color, #{$dark});
+    font-size: 0.85rem;
+    line-height: 1;
+    border-radius: 0 !important;
+
+    &:hover, &:focus {
+      background-color: var(--bs-tertiary-bg, #{$light});
+    }
+
+    // First button — round left side
+    &:first-child {
+      border-top-left-radius: 1.25rem !important;
+      border-bottom-left-radius: 1.25rem !important;
+    }
+
+    // Last button before .dropdown-menu — round right side
+    &.dropdown-toggle-split,
+    &:last-of-type {
+      border-top-right-radius: 1.25rem !important;
+      border-bottom-right-radius: 1.25rem !important;
+    }
+  }
+
+  // Dropdown toggle caret button
+  .dropdown-toggle-split {
+    padding: 0 0.6rem;
+
+    &::after {
+      margin-left: 0;
+    }
+  }
+
+  // Hide the split-button visual separator artifacts
+  .border-right-1,
+  .border-left-1 {
+    border-left: none !important;
+    border-right: none !important;
+  }
+
+  // Dropdown menu: BS5 uses .dropdown-menu-end instead of .dropdown-menu-right
+  .dropdown-menu,
+  .dropdown-menu-right {
+    margin-bottom: 0.25rem;
+    // Make .dropdown-menu-right work like .dropdown-menu-end in BS5
+    right: 0;
+    left: auto;
+  }
+
+  &.left {
+    right: auto;
+    left: 1.25rem;
+
+    .rave-button-autorecalculate {
+      background-color: $warning;
+    }
+  }
+}
+
+// ==========================================================================
+// Code display / info-box
+// ==========================================================================
+
+.info-box {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: var(--bs-gutter-y, 0.5rem);
+  min-height: 80px;
+  padding: 0.5rem;
+  width: 100%;
+  background-color: var(--bs-card-bg, #{$white});
+  border-radius: var(--bs-card-border-radius, 0.375rem);
+  box-shadow: var(--bs-card-box-shadow, 0 0 1px rgba(0, 0, 0, 0.125), 0 1px 3px rgba(0, 0, 0, 0.2));
+  color: var(--bs-card-color, inherit);
+  position: relative;
+
+  & .code-display {
+    @include padding($size: 0);
+    @include margin($size: -0.5, $unit: 1em);
+  }
+
+  .info-box-icon {
+    border-radius: var(--bs-card-inner-border-radius, 0.325rem);
+    align-items: center;
+    display: flex;
+    font-size: 1.875rem;
+    justify-content: center;
+    text-align: center;
+    width: 70px;
+
+    > img {
+      max-width: 100%;
+    }
+  }
+
+  .info-box-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    line-height: 1.8;
+    flex: 1;
+    padding: 0 10px;
+    width: 100%;
+  }
+
+  .info-box-number {
+    display: block;
+    margin-top: 0.25rem;
+    font-weight: 700;
+  }
+
+  .progress-description,
+  .info-box-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .progress {
+    background-color: rgba(0, 0, 0, 0.125);
+    height: 2px;
+    margin: 5px 0;
+  }
+
+  .progress .progress-bar {
+    background-color: $white;
+  }
+}
+
+.code-display pre { @include padding($size: 0); }
+
+.card-footer.code-display .info-box { @include border-radius(0); }
+
+// ==========================================================================
+// Card accordion
+// ==========================================================================
+
+.card-accordion {
+  &.card-tools {
+    @include position(absolute);
+    right: 0;
+    margin: 7px 5px;
+  }
+  &.card-header {
+    @include padding($size: 0);
+    @include position(relative);
+
+    & .card-accordion-title { @include padding($size: 10); }
+    & [data-bs-toggle="collapse"] { cursor: pointer; }
+  }
+}
+
+// Accordion — styled to match bslib::accordion (BS5)
+.card-accordion-item {
+  border: var(--bs-accordion-border-width, 1px) solid var(--bs-accordion-border-color, var(--bs-border-color));
+  border-radius: var(--bs-accordion-border-radius, var(--bs-border-radius));
+  margin-bottom: -1px; // overlap borders like BS5 accordion
+  background-color: var(--bs-accordion-bg, var(--bs-body-bg));
+  overflow: hidden;
+
+  &:first-child {
+    border-top-left-radius: var(--bs-accordion-border-radius, var(--bs-border-radius));
+    border-top-right-radius: var(--bs-accordion-border-radius, var(--bs-border-radius));
+  }
+  &:last-child {
+    border-bottom-left-radius: var(--bs-accordion-border-radius, var(--bs-border-radius));
+    border-bottom-right-radius: var(--bs-accordion-border-radius, var(--bs-border-radius));
+    margin-bottom: 0;
+  }
+
+  .card-accordion-header {
+    padding: 0;
+    border-bottom: none;
+    background-color: var(--bs-accordion-btn-bg, transparent);
+  }
+
+  .card-accordion-title {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: var(--bs-accordion-btn-padding-y, 0.75rem) var(--bs-accordion-btn-padding-x, 1.25rem);
+    font-size: 1.12rem; // 0.8× card-title (1.4rem)
+    font-weight: 500;
+    color: var(--bs-accordion-btn-color, var(--bs-body-color));
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+
+    &::after {
+      content: "";
+      flex-shrink: 0;
+      width: var(--bs-accordion-btn-icon-width, 1.25rem);
+      height: var(--bs-accordion-btn-icon-width, 1.25rem);
+      margin-left: auto;
+      background-image: var(--bs-accordion-btn-icon, url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27%23212529%27%3e%3cpath fill-rule=%27evenodd%27 d=%27M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z%27/%3e%3c/svg%3e'));
+      background-repeat: no-repeat;
+      background-size: var(--bs-accordion-btn-icon-width, 1.25rem);
+      transition: transform 0.2s ease-in-out;
+    }
+
+    &.collapsed::after {
+      transform: rotate(-90deg);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+  }
+
+  .card-body {
+    padding: var(--bs-accordion-body-padding-y, 1rem) var(--bs-accordion-body-padding-x, 1.25rem);
+  }
+
+  .card-footer {
+    border-top: 1px solid var(--bs-accordion-border-color, var(--bs-border-color));
+    padding: 0.5rem var(--bs-accordion-body-padding-x, 1.25rem);
+  }
+}
+
+// ==========================================================================
+// Card2 (direct chat / side panel)
+// ==========================================================================
+
+.card2-body {
+  position: relative;
+  overflow: hidden;
+
+  display: flex;
+
+  .direct-chat-messages {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
+  }
+
+  .direct-chat-contacts {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    border-left: 1px solid var(--bs-border-color, #{$border-color});
+    background-color: rgba($light, 0.95);
+    z-index: 2;
+
+    .dark-mode & {
+      border-left-color: $light-dark;
+      background-color: rgba($dark, 0.95);
+    }
+
+    hr { border-color: var(--bs-border-color, #{$hr-color}); }
+  }
+
+  &.direct-chat-contacts-open {
+    .direct-chat-messages {
+      transform: translateX(-30%);
+      pointer-events: none;
+    }
+    .direct-chat-contacts {
+      transform: translateX(0);
+    }
+  }
+}
+
+// The open class is toggled on the parent .card.direct-chat element
+.card.direct-chat.direct-chat-contacts-open .card2-body {
+  .direct-chat-messages {
+    transform: translateX(-30%);
+    pointer-events: none;
+  }
+  .direct-chat-contacts {
+    transform: translateX(0);
+  }
+}
+
+// ==========================================================================
+// Progress
+// ==========================================================================
+
+.progress-error { @include display(none, true); }
+.progress-message { @include display(block); }
+.shidashi-progress-error {
+  & .progress-error {
+    @include display(block, true);
+    color: $color-error !important;
+  }
+  & .progress-message { @include display(none); }
+  & .progress-bar { background-color: $color-error !important; }
+}
+
+// ==========================================================================
+// Flip box
+// ==========================================================================
+
+.flip-box {
+  background-color: transparent;
+  border: none;
+  perspective: 1000px;
+  padding: 0 !important;
+  position: relative;
+
+  &[data-toggle="click"] .flip-box-front,
+  &[data-toggle="click-front"] .flip-box-front,
+  &[data-bs-toggle="click"] .flip-box-front,
+  &[data-bs-toggle="click-front"] .flip-box-front {
+    cursor: pointer;
+  }
+
+  & .flip-box-inner {
+    position: relative;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    transition: transform 0.5s;
+    transition-timing-function: cubic-bezier(1, 0, 1, 1);
+    transform-style: preserve-3d;
+
+    & .flip-box-front,
+    & .flip-box-back {
+      width: 100%;
+      margin: 0 !important;
+      padding: 0 !important;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    & .flip-box-front {
+      position: relative;
+    }
+    & .flip-box-back {
+      position: absolute;
+      top: 0;
+      z-index: 9999;
+      transform: rotateY(180deg);
+      pointer-events: none;
+    }
+  }
+
+  &.fill .flip-box-inner,
+  &.fill .flip-box-front {
+    @include fill-height();
+    @include fill-width();
+  }
+
+  &.active { z-index: 1; }
+  &.active .flip-box-inner { transform: rotateY(180deg); }
+  &.active .flip-box-inner .flip-box-back { pointer-events: auto; }
+  &.active .flip-box-inner .flip-box-front { pointer-events: none; }
+}
+
+.card-body .flip-box {
+  & .flip-box-inner .flip-box-back {
+    max-height: 100%;
+    max-width: 100%;
+    &, & * { overflow: hidden; }
+  }
+  &.active .flip-box-inner .flip-box-back { overflow-y: auto; }
+}
+
+// ==========================================================================
+// Shiny notification panel
+// ==========================================================================
+
+#shiny-notification-panel {
+  width: 350px;
+  background-clip: padding-box;
+  bottom: 70px;
+  @include border-radius(0.25, 1rem);
+
+  & .shiny-notification-close {
+    @include visibility(hidden);
+    color: $notification-close;
+    font-size: 24px;
+  }
+
+  & .shiny-notification {
+    background-color: $dark;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+    color: $white;
+    opacity: 0.9;
+
+    & .progress {
+      height: 3px;
+      background: var(--bs-secondary-bg, #{$progress-bg});
+      margin-top: 24px;
+      margin-bottom: -30px;
+
+      & .progress-bar { background: $primary; }
+    }
+
+    & .progress-text .progress-message {
+      display: block;
+      margin-bottom: 10px;
+      width: 100%;
+      height: 20px;
+      overflow: clip;
+      text-overflow: clip;
+    }
+  }
+}
+
+body.dark-mode #shiny-notification-panel .shidashi-notification {
+  background-color: $white;
+  color: var(--bs-body-color, #{$dark-mode-bg});
+}
+
+// ==========================================================================
+// Dark-mode tweaks
+// ==========================================================================
+
+body.dark-mode {
+  // Override BS5 custom properties so child components inherit dark values
+  --bs-body-bg: #{$dark-mode-bg};
+  --bs-body-color: #{$dark-mode-text};
+  --bs-border-color: #{$light-dark};
+
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+
+  .card {
+    background-color: $dark;
+    color: var(--bs-body-color);
+  }
+
+  .card-header {
+    border-bottom-color: $light-dark;
+  }
+
+  .card-footer {
+    background-color: color.adjust($dark, $lightness: 3%);
+    border-top-color: $light-dark;
+    color: var(--bs-body-color);
+  }
+
+  .shidashi-header {
+    background-color: $dark;
+    border-bottom-color: $light-dark;
+    color: var(--bs-body-color);
+  }
+
+  // Navbar elements within header
+  .navbar {
+    color: var(--bs-body-color);
+
+    .navbar-brand,
+    .nav-link {
+      color: var(--bs-body-color);
+
+      &:hover, &:focus {
+        color: $white;
+      }
+    }
+
+    .navbar-toggler {
+      border-color: rgba($white, 0.1);
+    }
+
+    .navbar-toggler-icon {
+      filter: invert(1) grayscale(100%) brightness(200%);
+    }
+  }
+
+  pre,
+  code {
+    background-color: color.adjust($dark, $lightness: 8%);
+    color: var(--bs-body-color);
+  }
+
+  pre > code {
+    background-color: transparent;
+  }
+
+  .info-box {
+    background-color: $dark;
+    color: var(--bs-body-color);
+    box-shadow: 0 0 1px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  // Accordion dark mode
+  .card-accordion-item {
+    background-color: $dark;
+    border-color: $light-dark;
+    color: var(--bs-body-color);
+
+    .card-accordion-header {
+      background-color: color.adjust($dark, $lightness: 3%);
+    }
+
+    .card-accordion-title {
+      color: var(--bs-body-color);
+
+      &::after {
+        // chevron icon in light color for dark mode
+        background-image: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27 fill=%27%23e9ecef%27%3e%3cpath fill-rule=%27evenodd%27 d=%27M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z%27/%3e%3c/svg%3e');
+      }
+    }
+  }
+
+  // Buttons — ensure visibility in dark mode
+  .btn-default,
+  .btn-light {
+    background-color: $light-dark;
+    border-color: $gray;
+    color: var(--bs-body-color);
+
+    &:hover, &:focus {
+      background-color: $gray;
+      border-color: $gray;
+      color: $white;
+    }
+  }
+
+  .btn-outline-secondary {
+    color: var(--bs-body-color);
+    border-color: $gray;
+
+    &:hover, &:focus {
+      background-color: $gray;
+      color: $white;
+    }
+  }
+
+  // Shiny modal dialog
+  .modal-content {
+    background-color: $dark;
+    color: var(--bs-body-color);
+    border-color: $light-dark;
+  }
+
+  .modal-header {
+    border-bottom-color: $light-dark;
+
+    .btn-close {
+      filter: invert(1) grayscale(100%) brightness(200%);
+    }
+  }
+
+  .modal-footer {
+    border-top-color: $light-dark;
+  }
+
+  // Nav tabs / pills in card headers
+  .card.card-tabs .card-header .nav-tabs {
+    border-bottom-color: $light-dark;
+
+    .nav-link {
+      color: var(--bs-body-color);
+
+      &:hover, &:focus {
+        color: $white;
+        background-color: rgba($white, 0.08);
+        border-color: transparent;
+      }
+
+      &.active {
+        background-color: $dark;
+        color: $white;
+        border-color: $light-dark $light-dark $dark;
+      }
+    }
+  }
+
+  // Form controls (text inputs, selects, textareas)
+  .form-control,
+  .form-select,
+  .shiny-input-container input[type="text"],
+  .shiny-input-container input[type="number"],
+  .shiny-input-container input[type="search"],
+  .shiny-input-container textarea,
+  .shiny-input-container select {
+    background-color: color.adjust($dark, $lightness: 5%);
+    color: var(--bs-body-color);
+    border-color: $light-dark;
+
+    &::placeholder {
+      color: $gray;
+      opacity: 0.8;
+    }
+
+    &:focus {
+      background-color: color.adjust($dark, $lightness: 8%);
+      color: var(--bs-body-color);
+      border-color: $info;
+    }
+  }
+
+  // Tables
+  .table,
+  table {
+    --bs-table-bg: transparent;
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-border-color: #{$light-dark};
+    --bs-table-striped-bg: #{color.adjust($dark, $lightness: 3%)};
+    --bs-table-hover-bg: #{color.adjust($dark, $lightness: 6%)};
+
+    color: var(--bs-body-color);
+
+    > thead {
+      background-color: color.adjust($dark, $lightness: 5%);
+      border-bottom-color: $light-dark;
+    }
+
+    > tbody > tr {
+      border-bottom-color: $light-dark;
+    }
+
+    th, td {
+      border-color: $light-dark;
+    }
+  }
+
+  // DataTables integration
+  .dataTables_wrapper {
+    color: var(--bs-body-color);
+
+    .dataTables_filter input,
+    .dataTables_length select {
+      background-color: color.adjust($dark, $lightness: 5%);
+      color: var(--bs-body-color);
+      border-color: $light-dark;
+    }
+  }
+
+  // Selectize dark mode
+  .selectize-control {
+    .selectize-input,
+    .selectize-dropdown {
+      background-color: $dark !important;
+      color: $white !important;
+    }
+    .selectize-input {
+      border-color: $gray !important;
+      &::after {
+        border-color: $gray transparent transparent transparent !important;
+      }
+      &.dropdown-active::after {
+        border-color: transparent transparent $gray transparent !important;
+      }
+    }
+    &.multi .selectize-input > div {
+      background-color: $gray;
+      color: $white;
+    }
+  }
+
+  // IRS slider dark mode
+  .irs.irs--shiny .irs-grid-pol {
+    background-color: $white;
+  }
+
+  // Shiny notification panel dark variant
+  #shiny-notification-panel .shiny-notification {
+    background-color: rgba(255,255,255,0.95);
+    color: $dark;
+  }
+
+  // Code blocks
+  pre {
+    color: $white;
+    background-color: color.adjust($dark, $lightness: -5%);
+
+    & .operator { color: rgb(204, 218, 235); }
+    & .paren { color: rgb(142, 138, 121); }
+    & .literal,
+    & .hljs-literal { color: #ffc58f; }
+    & .number,
+    & .hljs-number { color: #ffc58f; }
+    & .comment,
+    & .hljs-comment { color: #7285b7; font-style: italic; }
+    & .keyword,
+    & .hljs-keyword { color: #bbdaff; font-weight: bold; }
+    & .identifier { color: #99ffff; }
+    & .string,
+    & .hljs-string { color: #d1f1a9; }
+  }
+
+  // Group input box dark mode
+  .group-input-box {
+    border: 1px dashed $light-dark;
+    &::before {
+      color: rgba($white, 0.6);
+      background-color: $dark-mode-bg;
+    }
+  }
+}
+
+// ==========================================================================
+// RAVE-specific components (from original shidashi.scss)
+// ==========================================================================
+
+// Screen-height module sections
+.stretch-inner-height {
+  max-height: calc(-57px + 100vh);
+  height: 100%;
+}
+
+section.module_main_ui .screen-height {
+  max-height: calc(100vh - 57px);
+  overflow-y: hidden;
+
+  @each $type in auto, visible, scroll {
+    &.overflow-#{$type} { @include overflow($type); }
+    @each $d in x, y {
+      &.overflow-#{$d}-#{$type} { @include overflow($type, $d); }
+    }
+  }
+
+  &.row.output-wrapper {
+    & > .col-sm-12:last-child {
+      padding-bottom: 70px;
+    }
+  }
+}
+
+body.in-iframe section.module_main_ui .screen-height {
+  max-height: calc(100vh - 16px);
+}
+
+// Content header
+.content-header {
+  padding: 0.5rem;
+}
+
+// Shiny output error validation
+.shiny-output-error-validation {
+  width: 100%;
+  text-align: center;
+}
+
+.no-padding > .shiny-output-error {
+  padding: 0.75rem 1.25rem;
+}
+
+// Shiny busy spinner on bound outputs
+.shiny-busy .shiny-bound-output {
+  &::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 15px;
+    height: 15px;
+    border: 2px solid $info;
+    border-top: none;
+    border-radius: 8px;
+    transform: translate(-50%, -50%) rotate(0deg);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    transition: transform 20s linear;
+  }
+
+  &.recalculating::before {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-36000deg);
+  }
+}
+
+// Card expanded — output wrapper z-index
+.card-expanded .output-wrapper {
+  position: relative;
+  z-index: 1040;
+}
+
+// Group input box
+.group-input-box {
+  border: 1px dashed rgba(0,0,0,0.25);
+  padding-top: 0.6rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+
+  &::before {
+    content: attr(title);
+    position: absolute;
+    margin-top: -1.5rem;
+    left: 0.4rem;
+    color: $gray;
+    background-color: var(--bs-body-bg, #{$white});
+    padding: 0.1rem 0.4rem;
+  }
+}
+
+// Toggle advance options link
+.toggle-advance-options {
+  color: $gray;
+  cursor: pointer;
+
+  &:hover {
+    color: #0056b3;
+  }
+}
+
+// Selectize input min-height
+.selectize-input {
+  min-height: calc(2.25rem + 2px);
+}
+
+// Dipsaus compound input fix
+.dipsaus-compound-input {
+  & .bootstrap-select .dropdown-toggle[role="combobox"] {
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+}
+
+// Neutralize ALL bslib IRS overrides.
+// bslib injects .irs.irs--shiny rules into bootstrap.min.css with specificity
+// (0,3,0) that override ion.rangeSlider's .irs--shiny rules (0,2,0).
+// We match the specificity (.irs.irs--shiny) and restore the original
+// ion.rangeSlider "shiny" skin values.  Since our CSS loads after bslib's,
+// same-specificity rules here win by source order.
+.irs.irs--shiny {
+  margin-top: 0; // bslib: 3px
+
+  .irs-min,
+  .irs-max {
+    top: 0;             // bslib: -3px, original: 0
+    padding: 1px 3px;   // bslib: 3px 6px, original: 1px 3px
+  }
+
+  .irs-from,
+  .irs-to,
+  .irs-single {
+    top: 0;                        // bslib: -3px
+    color: inherit;
+    padding: 0 3px;
+    background-color: transparent;
+    border: transparent;
+  }
+
+  .irs-handle {
+    top: 17px; // bslib: 23px, original: 17px
+  }
+
+  .irs-bar {
+    top: 25px;                        // bslib: 31px, original: 25px
+    height: 8px;                      // bslib: 3px,  original: 8px
+    border-top: 1px solid #428bca;    // bslib: none
+    border-bottom: 1px solid #428bca; // bslib: none
+  }
+
+  .irs-line {
+    border-radius: 8px; // bslib: 8px, original: 8px (same, but keep for clarity)
+  }
+
+  .irs-grid-pol {
+    height: 8px; // bslib: 6px, original: 8px (bg-color from ion.rangeSlider)
+  }
+
+  .irs-grid-text {
+    bottom: 5px; // bslib: 8px, original: 5px
+  }
+
+  // Remove bslib's focus-visible / active overrides
+  // (ion.rangeSlider doesn't define these; let the handle use its own hover)
+  .irs-handle:focus-visible,
+  .irs-handle:active {
+    color: inherit;
+    background-color: #fff; // same as ion.rangeSlider .irs-handle:hover
+    border-color: #ababab;
+    outline: 0;
+    box-shadow: 1px 1px 3px rgba(255, 255, 255, 0.3);
+  }
+}
+
+// col-xs-12 (BS3 compat)
+.col-xs-12 {
+  -webkit-flex: 0 0 100%;
+  -ms-flex: 0 0 100%;
+  flex: 0 0 100%;
+  max-width: 100%;
+  position: relative;
+  width: 100%;
+  padding-right: 7.5px;
+  padding-left: 7.5px;
+}
+
+// ==========================================================================
+// Output widget overlay (download/popout icons) — injected by JS
+// ==========================================================================
+
+// .shidashi-output-widget-wrapper uses Bootstrap's position-relative class
+// applied via JS — no additional position rule needed here.
+
+.shidashi-output-widget-container {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  gap: 0.15rem;
+  transform: translate(0.15rem, 0.15rem);
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.shidashi-output-widget-wrapper:hover .shidashi-output-widget-container {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shidashi-output-widget-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  background-color: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  line-height: 1;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    text-decoration: none;
+  }
+}
+
+// DEPRECATED: replaced by .shidashi-output-widget-* system above
+// RAVE dashboard output widgets (hover-reveal icons)
+// .ravedash-output-widget-container {
+//   float: right;
+//   padding: 0;
+//   position: relative;
+//   z-index: 1;
+//   background-color: rgba($gray, 0.1);
+// }
+//
+// .ravedash-output-widget {
+//   padding: 0.35rem;
+//   opacity: 0.2;
+//   color: #6c757d;
+//   width: 1.5rem;
+//   height: 1.5rem;
+//   display: inline-block;
+//   text-align: center;
+//   transition: 100ms;
+//   font-size: 0.8rem;
+//   line-height: 0.8rem;
+// }
+//
+// .ravedash-output-widget:hover {
+//   opacity: 1;
+//   background-color: rgba(0,0,0,0.1);
+// }
+//
+// .ravedash-output-widget-wrapper {
+//   width: 100%;
+//   height: auto;
+//   height: 100%;
+//   padding: 0;
+//   margin: 0;
+//   position: relative;
+//
+//   & .ravedash-output-widget-container {
+//     opacity: 0;
+//     position: absolute;
+//     display: flex;
+//     top: 0;
+//     left: 0;
+//   }
+//
+//   &:hover .ravedash-output-widget-container {
+//     opacity: 1;
+//   }
+// }
+
+// RAVE auto-recalculate button
+.rave-button-autorecalculate {
+  background-color: $warning;
+}
+
+// SweetAlert text fix
+.swal-text {
+  white-space: break-spaces;
+}
+
+// Toast container z-index (must be above modals)
+.toasts-top-right {
+  z-index: 1060;
+}
+
+// Shiny form elements width
+fieldset,
+.form-control,
+.form-group,
+.shiny-input-container:not(.shiny-input-container-inline) {
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: 0.8rem;
+}
+
+.form-label, .shiny-input-container .control-label {
+  margin-bottom: unset;
+  font-weight: 600;
+}
+
+// Checkbox & radio label styling
+.checkbox,
+.radio,
+.shiny-input-radiogroup .shiny-options-group {
+  & label {
+    margin-bottom: 0;
+    &, & span { font-weight: 300; }
+  }
+}
+
+// Webkit button appearance fix
+button, [type="button"], [type="reset"], [type="submit"] {
+  -webkit-appearance: none;
+}
+
+// nav-sidebar items (in module pages)
+.nav-sidebar .nav-item {
+  white-space: nowrap;
+  word-break: keep-all;
+  width: 100%;
+  overflow: clip;
+  text-overflow: ellipsis;
+
+  & .nav-link,
+  & .nav-leaf {
+    overflow: clip;
+    text-overflow: ellipsis;
+    & p { white-space: nowrap; }
+  }
+}
+
+.shidashi-header.navbar .nav-item .nav-link {
+  & i.fa,
+  & i.fas {
+    margin-right: 0.35rem;
+  }
+}
+
+// body.navbar-hidden — hide header but keep pushmenu accessible
+body.navbar-hidden:not(.iframe-mode-fullscreen) .shidashi-header {
+  visibility: collapse !important;
+  pointer-events: none;
+  height: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+// body.navbar-iframe-hidden — hide iframe tab bar
+body.navbar-iframe-hidden .shidashi-tab-bar {
+  display: none;
+}
+
+// iframe-mode-fullscreen shows the tab bar
+body.iframe-mode-fullscreen .shidashi-tab-bar {
+  display: flex;
+}
+
+// (ravedash-back-to-top rules merged into main block above)
+
+// Card header — form group inside card title
+.card-header > .card-title {
+  & > .form-group {
+    display: inline-block;
+    margin: 0;
+    & label,
+    & label > span {
+      font-size: 1.1rem;
+      font-weight: 400 !important;
+    }
+  }
+}
+
+// ==========================================================================
+// Drawer (off-canvas right panel)
+// ==========================================================================
+
+.shidashi-drawer {
+  position: fixed;
+  top: $navbar-height;
+  right: 0;
+  width: 480px;
+  max-width: 90vw;
+  height: calc(100vh - #{$navbar-height});
+  z-index: 1045;
+  background-color: var(--bs-body-bg, #{$white});
+  color: var(--bs-body-color, #{$dark});
+  box-shadow: -4px 0 12px rgba(0,0,0,0.15);
+  transform: translateX(calc(100% + 20px));
+  transition: transform 0.3s ease;
+  overflow: hidden;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+
+  body.in-iframe & {
+    top: 0;
+    height: 100vh;
+  }
+
+  &.open {
+    transform: translateX(0);
+  }
+
+  // When navbar is hidden, revert to full viewport height
+  body.navbar-hidden & {
+    top: 0;
+    height: 100vh;
+  }
+
+  shiny-chat-input textarea {
+    --bs-border-radius: 5px;
+  }
+
+  // Close tab — sits on the drawer's left edge, hidden by default.
+  // Shown only when body has .shidashi-drawer-no-overlay.
+  .shidashi-drawer-close-tab {
+    display: none;
+    flex-shrink: 0;
+  }
+
+  // Drawer tab navigation
+  .shidashi-drawer-tabs {
+    flex-shrink: 0;
+    padding: 0.5rem 0.5rem 0;
+  }
+
+  // Drawer tab content — fills remaining height, scrollable per pane
+  .shidashi-drawer-tab-content {
+    flex: 1 1 auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    > .tab-pane {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 1rem;
+
+      // Chat pane: flex column, input pinned at bottom
+      &#shidashi-drawer-chat {
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+
+        &.active {
+          display: flex;
+        }
+      }
+    }
+  }
+
+  .dark-mode & {
+    background-color: $dark;
+    color: var(--bs-body-color, #{$dark-mode-text});
+    box-shadow: -4px 12px 12px rgba(0,0,0,0.4);
+  }
+}
+
+// Chatbot stop button — positioned inside shiny-chat-input next to send button
+.shidashi-chatbot-stop {
+  display: none;
+  position: absolute;
+  bottom: calc(6px + var(--_input-padding-bottom, 0px));
+  right: 8px;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-danger, #{$danger});
+  transition: color 0.25s ease-in-out;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  line-height: 16px;
+  border-radius: 50%;
+  z-index: 10;
+
+  &:hover {
+    color: color.scale($danger, $lightness: -15%);
+  }
+
+  &.shidashi-chatbot-stop-visible {
+    display: block;
+  }
+}
+
+// Chatbot controls bar (conversation, mode, policy selectors)
+.shidashi-chatbot-controls {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  // Allow select dropdowns to overflow upward
+  overflow: visible;
+  line-height: 1;
+
+  // Conversation selector takes remaining space
+  .shidashi-chatbot-conv-select {
+    min-width: 0; // Allow text truncation
+  }
+
+  // Operations button (new conversation, copy, etc.)
+  .shidashi-chatbot-ops-btn {
+    flex-shrink: 0;
+    margin: 0;
+    margin-bottom: 3px;
+    font-size: 0.65rem;
+    line-height: 1.5;
+    border-color: transparent;
+  }
+
+  // Compact form controls
+  .form-group {
+    margin-bottom: 0;
+  }
+
+  .form-control,
+  .form-select {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+    height: auto;
+    line-height: 1;
+  }
+
+  .selectize-dropdown {
+    transform: translateY(calc(-100% - 1.75rem));
+    min-width: 200px !important;
+  }
+
+  .selectize-input {
+    min-height: 26px;
+    height: 26px;
+    overflow: clip;
+    padding: 2px 19px 2px 2px;
+    border-color: transparent;
+
+    &:hover {
+      border-color: var(--bs-border-color);
+    }
+
+    &:not(.no-arrow):after{
+      right: 5px;
+    }
+  }
+
+}
+
+// Chatbot status bar (model, tokens, cost)
+.shidashi-chatbot-status {
+  flex-shrink: 0;
+  border-top: 1px solid $border-color;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+
+  .shidashi-chatbot-status-model {
+    max-width: 40%;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .shidashi-chatbot-status-counter {
+    cursor: default;
+  }
+}
+
+// Blinking animation for recalculating status
+.shidashi-chatbot-status-recalculating {
+  animation: shidashi-status-blink 2s infinite;
+}
+
+@keyframes shidashi-status-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+// Strikethrough for unknown cost
+.shidashi-chatbot-status-unknown {
+  text-decoration: line-through;
+}
+
+// Code block copy button (inside chat messages)
+.shidashi-code-copy {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 2;
+
+  pre:hover > & {
+    opacity: 1;
+  }
+}
+
+// Toast notifications
+.shidashi-toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1090;
+  pointer-events: none;
+}
+
+.shidashi-toast {
+  background: var(--bs-dark, #333);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: auto;
+
+  &.show {
+    opacity: 1;
+  }
+}
+
+// Drawer content — fills remaining height, allows children to flex
+.shidashi-drawer-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  font-size: small;
+  padding: 0.5rem;
+
+  // The shiny uiOutput wrapper must also flex-fill
+  > .shiny-html-output {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  // shinychat container inside the drawer should fill remaining space
+  shiny-chat-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  // Prevent chat message content from overflowing the drawer
+  shiny-chat-message {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
+
+    pre {
+      overflow-x: auto;
+      max-width: 100%;
+    }
+
+    table {
+      display: block;
+      overflow-x: auto;
+      max-width: 100%;
+    }
+  }
+}
+
+
+// No-overlay mode — class on <body>
+body.shidashi-drawer-no-overlay {
+  // Hide the overlay entirely
+  .shidashi-drawer-overlay {
+    display: none !important;
+  }
+
+  // Show the close button at top-right of the drawer
+  .shidashi-drawer .shidashi-drawer-close-tab {
+    position: absolute;
+    top: 0.65rem;
+    right: 0.65rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 1;
+    color: var(--bs-body-color, #{$dark});
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: opacity 0.2s, background-color 0.2s;
+
+    &:hover {
+      opacity: 1;
+      background-color: rgba(0,0,0,0.08);
+    }
+  }
+
+  // Hide close tab when drawer is closed
+  .shidashi-drawer:not(.open) .shidashi-drawer-close-tab {
+    display: none;
+  }
+
+  // Dark-mode adjustments for the close tab
+  &.dark-mode .shidashi-drawer .shidashi-drawer-close-tab {
+    color: var(--bs-body-color, #{$dark-mode-text});
+
+    &:hover {
+      background-color: rgba(255,255,255,0.1);
+    }
+  }
+}
+
+.shidashi-drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 1044;
+  top: $navbar-height;
+
+  body.in-iframe & {
+    top: 0;
+    inset: 0;
+    height: 100vh;
+  }
+
+  &.open {
+    display: block;
+  }
+}
+
+// Highlight.js syntax classes
+.hljs-literal { color: #990073; }
+.hljs-number { color: #099; }
+.hljs-comment { color: #998; font-style: italic; }
+.hljs-keyword { color: #900; font-weight: bold; }
+.hljs-string { color: #d14; }

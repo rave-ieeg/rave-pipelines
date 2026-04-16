@@ -1,7 +1,8 @@
 epoch_events: Trial Onset
 epoch_name: auditory_onset
 loaded_electrodes: 13-16,24
-pre_downsample: 4
+pre_downsample: .na.integer
 project_name: demo
-reference_name: noref
+reference_name: default
+repository_datatype: voltage
 subject_code: DemoSubject

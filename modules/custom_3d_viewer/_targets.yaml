@@ -1,3 +1,5 @@
 custom_3d_viewer:
   script: make-main.R
   store: shared
+  reporter_make: terse
+  reporter_outdated: terse

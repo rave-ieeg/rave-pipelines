@@ -1,0 +1,15 @@
+Package: power_clust
+Type: rave-pipeline
+Title: Clustering Power Spectrogram by Electrode Channels
+Version: 0.0.1
+Language: en-US
+Encoding: UTF-8
+License: MIT
+Authors@R: c(
+    person("Xiang", "Zhang", email = "xiang.zhang@pennmedicine.upenn.edu", role = c("aut", "cre")),
+    person("Zhengjia", "Wang", email = "zhengjia.wang@pennmedicine.upenn.edu", role = c("aut"))
+    )
+Description: Clustering power spectrogram using non-negative matrix 
+    factorization to extract basis profile power
+BugReports: https://github.com/orgs/rave-ieeg/discussions
+URL: https://github.com/rave-ieeg/rave-pipelines

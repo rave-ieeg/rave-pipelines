@@ -19,11 +19,13 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
   comp$no_save <- TRUE
   gadgets <- gadgets[gadgets %in% c("standalone", "download2")]
   comp$ui_func <- function(id, value, depends) {
-    ravedash::output_gadget_container(threeBrain::threejsBrainOutput(outputId = id,
-      height = height, reportSize = FALSE), gadgets = gadgets)
+    # MIGRATED: removed ravedash::output_gadget_container() wrapper
+    # ravedash::output_gadget_container(threeBrain::threejsBrainOutput(outputId = id,
+    #   height = height, reportSize = FALSE), gadgets = gadgets)
+    threeBrain::threejsBrainOutput(outputId = id,
+      height = height, reportSize = FALSE)
   }
   comp$server_func <- function(input, output, session) {
-    tools <- ravedash::register_rave_session(session)
     loader_project <- comp$get_dependent_component(loader_project_id)
     loader_subject <- comp$get_dependent_component(loader_subject_id)
     loader_electrodes <- comp$get_dependent_component(loader_electrodes_id)
@@ -82,7 +84,9 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
       electrode_table()
     )
 
-    ravedash::register_output(
+    # MIGRATED from ravedash::register_output
+    # ravedash::register_output(
+    shidashi::register_output(
       threeBrain::renderBrain({
         # if (!loader_subject$sv$is_valid()) {
         #   return()
@@ -99,7 +103,7 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
         if (is.data.frame(tbl) && nrow(tbl)) {
           brain$set_electrode_values(tbl)
         }
-        theme <- shidashi::get_theme(tools$theme_event)
+        theme <- shidashi::get_theme()
         ravepipeline::logger("Re-generate loader's viewer", level = "trace")
         brain$plot(
           # outputId = "loader_3d_viewer",
@@ -117,8 +121,9 @@ get_loader_3dviewer <- function (id = "loader_3d_viewer", height = "100%", loade
         )
       }),
       outputId = "loader_3d_viewer",
-      export_type = "3dviewer",
-      session = session
+      # export_type = "3dviewer",
+      download_type = "threeBrain"
+      # session = session
     )
   }
   comp
@@ -199,11 +204,18 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
         choices = ""),
       shiny::selectInput(inputId = comp$get_sub_element_id(category_choices_str,
         with_namespace = TRUE), label = "Category levels (multi-select)", choices = "",
-        multiple = TRUE)
-      ,
-      shiny::textInput(inputId = id, label = "Select electrode by number",
-        value = "", placeholder = "E.g. 1-30,55-60,88")
-      ,
+        multiple = TRUE),
+      shidashi::register_input(
+        shiny::textInput(inputId = id, label = "Select electrode by number",
+                         value = "", placeholder = "E.g. 1-30,55-60,88"),
+        update = "shiny::updateTextInput",
+        inputId = comp$get_sub_element_id(with_namespace = FALSE),
+        description = paste(
+          "Electrode selector text input: electrode channels that are to be",
+          "analyzed, e.g. `14` for single channel, `1-30,55-60,88` for channel",
+          "1 to 30, 55 to 60, and 88."
+        )
+      ),
       shiny::div(class = "form-group", shiny::actionLink(inputId = comp$get_sub_element_id(reset_str,
         with_namespace = TRUE), label = "Reset electrode selectors")),
       shiny::div(class = "form-group", shiny::downloadLink(outputId = comp$get_sub_element_id(download_str,

@@ -12,7 +12,7 @@ groups:
   LFP Processing:
     order: 2
     open: no
-  Auxiliary Processing:
+  Epoch Processing:
     order: 3
     open: no
   Images & Electrodes:
@@ -20,6 +20,9 @@ groups:
     open: no
   Group Viewers:
     order: 13
+    open: no
+  Channel Clustering:
+    order: 15
     open: no
 modules:
   standalone_viewer:
@@ -56,8 +59,12 @@ modules:
     order: 2.3
   epoch_generator:
     label: Generate Epoch
-    group: Auxiliary Processing
+    group: Epoch Processing
     order: 3.1
+  stimpulse_finder:
+    label: Find Stimulation Pulses
+    group: Epoch Processing
+    order: 3.2
   yael_preprocess:
     label: MRI/CT Preprocessing
     group: Images & Electrodes
@@ -91,9 +98,17 @@ modules:
     label: Power Explorer
     order: 14
     badge: N=1|badge-primary
+  power_clust:
+    label: Power Clustering
+    order: 15.1
+    group: Channel Clustering
+  voltage_clust:
+    label: ERP Clustering
+    order: 15.2
+    group: Channel Clustering
   trace_viewer:
     label: Recording Block Inspector
-    order: 15
+    order: 16
   configure_rave:
     label: Configurations
     order: 10001

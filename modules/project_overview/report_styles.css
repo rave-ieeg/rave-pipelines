@@ -1,0 +1,78 @@
+html {
+  scroll-behavior: smooth;
+}
+
+d-article.d-article-with-toc {
+  contain: none;
+}
+
+.d-article-with-toc .d-contents-float {
+  position: relative;
+  z-index: 50;
+  height: 1px;
+  overflow-y: visible;
+  justify-self: right;
+  padding-right: 0;
+  padding-left: 0;
+  max-width: 20%;
+}
+
+#TOC {
+  position: fixed;
+  transform: translateX(-100%);
+  background: #ebebeb;
+  padding: 10px;
+  border-radius: 5px;
+  box-sizing: border-box;
+  top: 2em;
+  max-height: calc(100vh - 4em);
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* Hide the ToC when resized to mobile or tablet:  480px, 768px, 900px */
+@media screen and (max-width: 999px) {
+  .d-article-with-toc .d-contents-float {
+    position: relative;
+    height: unset;
+    max-height: 500px;
+    max-width: 100%;
+    top: unset;
+    width: 100%;
+    justify-self: left;
+  }
+  #TOC {
+    position: relative;
+    transform: none;
+    width: 100%;
+    top: unset;
+    max-height: 500px;
+  }
+}
+
+ul li {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.l-screen-insert-right {
+  grid-column-end: page-end;
+  grid-column-start: text;
+}
+
+.l-page,
+.l-screen,
+.l-screen-inset,
+.l-screen-insert-right {
+  z-index: 60;
+  position: relative;
+}
+
+.pt-0 {
+  padding-top: 0!important;
+}
+
+.pd-0 {
+  padding-bottom: 0!important;
+}

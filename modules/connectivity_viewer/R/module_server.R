@@ -306,10 +306,14 @@ module_server <- function(input, output, session, ...){
 
 
 
-  ravedash::register_output(
-    outputId = "viewer",
-    output_type = "threeBrain",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  # ravedash::register_output(
+  #   outputId = "viewer",
+  #   output_type = "threeBrain",
+  #   render_function = threeBrain::renderBrain({...})
+  # )
+  shidashi::register_output(
+    threeBrain::renderBrain({
 
       force(local_reactives$update_3dviewer)
 
@@ -368,7 +372,9 @@ module_server <- function(input, output, session, ...){
                    # palettes=res$palettes, value_ranges=res$val_ranges,
                    control_display = FALSE, side_display=FALSE,
                    timestamp=FALSE)
-    })
+    }),
+    outputId = "viewer",
+    download_type = "threeBrain"
   )
 
   # Brain proxy
@@ -395,9 +401,13 @@ module_server <- function(input, output, session, ...){
     )
   }), millis = 1000)
 
-  ravedash::register_output(
-    outputId = "by_electrode",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "by_electrode",
+  #   render_function = shiny::renderPlot({...})
+  # )
+  shidashi::register_output(
+    shiny::renderPlot({
 
       force(local_reactives$update_outputs)
 
@@ -435,7 +445,9 @@ module_server <- function(input, output, session, ...){
       points(.x, Y, type='h')
       rutabaga::ruta_axis(2, at=axTicks(2))
       rutabaga::ruta_axis(1, at=axTicks(1), labels = el[axTicks(1)])
-    })
+    }),
+    outputId = "by_electrode",
+    download_type = "image"
   )
 
 

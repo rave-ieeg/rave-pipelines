@@ -1,0 +1,3 @@
+stimpulse_finder:
+  script: make-main.R
+  store: shared

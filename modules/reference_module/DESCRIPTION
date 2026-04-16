@@ -14,4 +14,4 @@ Description: Provides flexible ways to group electrodes, and apply each group
     or posterior to wavelet. 
     This module is part of 'RAVE preprocessing pipelines' and is only available
     interactively.
-BugReports: https://github.com/rave-ieeg/rave-pipelines/issues
+BugReports: https://github.com/orgs/rave-ieeg/discussions

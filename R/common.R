@@ -23,32 +23,11 @@ page_loader <- function(){
 }
 body_class <- function(){
   unique(c(
-    #--- Fix the navigation banner ---
-    #"layout-navbar-fixed",
-
-    #--- Collapse the sidebar at the beginning ---
-    # "sidebar-collapse",
-
-    #--- Let control sidebar open at the beginning ---
-    # "control-sidebar-slide-open",
-
-    #--- Fix the sidebar position ---
-    "overflow-hidden",
-    "layout-fixed",
-    # "sidebar-collapse",
-
-    #--- Default behavior when collapsing sidebar
-    # "sidebar-mini", "sidebar-mini-md", "sidebar-mini-xs",
-
     #--- Start as dark-mode ---
     # "dark-mode",
 
     #--- Hide the navbar-nav-iframe
     "navbar-iframe-hidden",
-
-
-    #--- Make scrollbar thinner ---
-    # "fancy-scroll-y",
 
     get0("additional_body_class", ifnotfound = NULL)
 
@@ -56,15 +35,16 @@ body_class <- function(){
 }
 nav_class <- function(){
   c(
-    "main-header",
+    "shidashi-header",
     "navbar",
-    "navbar-expand-md",
-    # "bg-blend-darken",
-    # "navbar-dark",
-    # "navbar-light",
-    "navbar-primary",
-    "border-bottom-0"
-    # "no-padding"
+    "navbar-expand"
+  )
+}
+
+sidebar_class <- function(){
+  c(
+    #--- Start as dark-mode ---
+    # "dark-mode"
   )
 }
 

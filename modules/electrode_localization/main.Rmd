@@ -128,7 +128,7 @@ viewer <- brain$localize(
 
 Temporarily save (stage) the localization to avoid data loss.
 
-```{rave merge_localization_list, export = "localization_result_initial"}
+```{rave merge_localization_list, export = "localization_result_initial", cue = "always"}
 localization_result_initial <- stage_localization(
   subject = subject, brain = brain, 
   localization_list = localization_list
@@ -252,6 +252,12 @@ if(isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
       from = "tkrRAS", to = "scannerRAS"
     )
     valids <- rowSums(tkr_ras ^ 2) > 0  
+    
+    # Make sure "T1R", "T1A", "T1S" are set
+    t1_ras[!valids, ] <- 0
+    electrode_table$T1R <- t1_ras[, 1]
+    electrode_table$T1A <- t1_ras[, 2]
+    electrode_table$T1S <- t1_ras[, 3]
   } else {
     t1_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
     valids <- rowSums(t1_ras ^ 2) > 0  
@@ -332,6 +338,12 @@ if(isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
       from = "tkrRAS", to = "scannerRAS"
     )
     valids <- rowSums(tkr_ras ^ 2) > 0  
+    
+    # Make sure "T1R", "T1A", "T1S" are set
+    t1_ras[!valids, ] <- 0
+    electrode_table$T1R <- t1_ras[, 1]
+    electrode_table$T1A <- t1_ras[, 2]
+    electrode_table$T1S <- t1_ras[, 3]
   } else {
     t1_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
     valids <- rowSums(t1_ras ^ 2) > 0  

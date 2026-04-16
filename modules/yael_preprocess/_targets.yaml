@@ -1,3 +1,5 @@
 yael_preprocess:
   script: make-main.R
   store: shared
+  reporter_make: terse
+  reporter_outdated: terse

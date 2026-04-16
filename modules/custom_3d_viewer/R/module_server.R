@@ -688,9 +688,14 @@ module_server <- function(input, output, session, ...){
 
 
   # Register outputs
-  ravedash::register_output(
-    outputId = "viewer",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  # ravedash::register_output(
+  #   outputId = "viewer",
+  #   render_function = threeBrain::renderBrain({...}),
+  #   output_type = "threeBrain"
+  # )
+  shidashi::register_output(
+    threeBrain::renderBrain({
       shiny::validate(
         shiny::need(
           length(local_reactives$update_outputs) &&
@@ -701,7 +706,8 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$brain_widget
     }),
-    output_type = "threeBrain"
+    outputId = "viewer",
+    download_type = "threeBrain"
   )
 
 
@@ -909,9 +915,14 @@ module_server <- function(input, output, session, ...){
     ignoreInit = TRUE, ignoreNULL = TRUE
   )
 
-  ravedash::register_output(
-    outputId = "viewer_selected_data",
-    render_function = shiny::renderPlot({
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  #   outputId = "viewer_selected_data",
+  #   render_function = shiny::renderPlot({...}),
+  #   output_opts = list(...)
+  # )
+  shidashi::register_output(
+    shiny::renderPlot({
       viewer_selection <- local_reactives$viewer_selection
       shiny::validate(
         shiny::need(
@@ -1020,12 +1031,15 @@ module_server <- function(input, output, session, ...){
 
       graphics::abline(v = viewer_selection$data$current_time, col = "gray60")
     }),
-    output_opts = list(
-      click = shiny::clickOpts(
-        id = ns("viewer_selected_data_click"),
-        clip = TRUE
-      )
-    )
+    outputId = "viewer_selected_data",
+    download_type = "image"
+    # MIGRATED: removed output_opts (click opts handled in UI)
+    # output_opts = list(
+    #   click = shiny::clickOpts(
+    #     id = ns("viewer_selected_data_click"),
+    #     clip = TRUE
+    #   )
+    # )
   )
 
   shiny::bindEvent(

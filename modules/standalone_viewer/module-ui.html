@@ -3,32 +3,32 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ module_title() }}</title>
+  <title>RAVE - Standalone Viewer</title>
 
   {{ shidashi::include_view("header.html") }}
 
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    .shidashi-standalone-viewer {
+      width: 100vw;
+      height: 100vh;
+    }
+    .shidashi-standalone-viewer .shiny-plot-output {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
 </head>
-<body class="layout-top-nav {{ shidashi::guess_body_class(body_class()) }}">
-<div class="wrapper">
+<body>
 
-
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- /.content-header -->
-
-    <!-- Main content -->
-    <section class="module_loader_ui position-absolute soft-hidden fill-width">
-      {{ loader_html() }}
-    </section>
-    <section class="module_main_ui soft-hidden fill-width">
-      {{ module_html() }}
-    </section>
-    <!-- /.content -->
-  </div>
-  <!-- /.content-wrapper -->
-
+<div class="shidashi-standalone-viewer">
+  {{ loader_html() }}
 </div>
-<!-- ./wrapper -->
 
 {{ shidashi::include_view("footer.html") }}
 </body>

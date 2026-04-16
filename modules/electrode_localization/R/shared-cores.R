@@ -400,7 +400,11 @@ collect_localization_data <- function(subject, path_mri, path_ct, path_transform
 
   has_ct <- FALSE
   ct_path <- character(0L)
-  mri_path <- resolve_path(path_mri)
+  if(length(path_mri)) {
+    mri_path <- resolve_path(path_mri)
+  } else {
+    mri_path <- character(0L)
+  }
   mri_data <- NULL
   transform_matrix <- NULL
   if(length(path_ct)) {

@@ -1,0 +1,51 @@
+analysis_window:
+- - 0.0
+  - 0.5
+baseline__global_baseline_choice: Per trial and electrode
+baseline__unit_of_analysis: Demean
+baseline__windows:
+  '1':
+    window_interval:
+    - -0.5
+    - 0
+condition_groups:
+  '1':
+    group_name: ''
+    group_conditions:
+    - '1'
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+  '2':
+    group_name: ''
+    group_conditions:
+    - '2'
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+  '3':
+    group_name: ''
+    group_conditions:
+    - '3'
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+  '4':
+    group_name: ''
+    group_conditions:
+    - '4'
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+  '5':
+    group_name: ''
+    group_conditions:
+    - '5'
+    group_start_event: Trial Onset
+    group_finish_event: '[Analysis end]'
+epoch_choice: status_good
+epoch_choice__trial_ends: 2
+epoch_choice__trial_ends_rel_to_event: ~
+epoch_choice__trial_starts: -1
+epoch_choice__trial_starts_rel_to_event: ~
+loaded_electrodes: 1-118
+project_name: ds005953
+reference_name: default
+subject_code: ds005953_01
+zeta_threshold: 0.5

@@ -4,56 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>500 Error</title>
-
   {{ shidashi::include_view("header.html") }}
-
 </head>
-<body class="hold-transition sidebar-mini">
-<div class="wrapper">
-
-  <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
-    <!-- Content Header (Page header) -->
-    <section class="content-header">
-      <div class="container-fluid">
-        <div class="row mb-2">
-          <div class="col-sm-6">
-            <h1>500 Error Page</h1>
-          </div>
-          <div class="col-sm-6">
-            <ol class="breadcrumb float-sm-right">
-              <li class="breadcrumb-item active">Don't panic</li>
-            </ol>
-          </div>
-        </div>
-      </div><!-- /.container-fluid -->
-    </section>
-
-    <!-- Main content -->
-    <section class="content">
-      <div class="error-page">
-        <h2 class="headline text-danger">500</h2>
-
-        <div class="error-content">
-          <h3><i class="fas fa-exclamation-triangle text-danger"></i> Oops! Something went wrong.</h3>
-
-          <p>
-            The module you requested does not work properly. <br /> Here's the error message:
-          </p>
-          <p>
-            {{ error }}
-          </p>
-
+<body class="hold-transition">
+<div class="shidashi-wrapper">
+  <div class="shidashi-content" style="margin-left:0;">
+    <section class="container-fluid py-3">
+      <div class="row mb-2">
+        <div class="col-sm-6"><h1>500 Error Page</h1></div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-end">
+            <li class="breadcrumb-item active">Don't panic</li>
+          </ol>
         </div>
       </div>
-      <!-- /.error-page -->
-
     </section>
-    <!-- /.content -->
+    <section class="container-fluid">
+      <div class="d-flex align-items-center">
+        <h2 class="text-danger me-3">500</h2>
+        <div>
+          <h3><i class="fas fa-exclamation-triangle text-danger"></i> Oops! Something went wrong.</h3>
+          <p>The module you requested does not work properly.<br/>Here's the error message:</p>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
-<!-- ./wrapper -->
-
 {{ shidashi::include_view("footer.html") }}
 </body>
 </html>

@@ -1,0 +1,208 @@
+---
+title: "RAVE Pipeline Markdown Template"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include = FALSE}
+# This code block sets up the engine environment
+# Please do not remove me
+ravepipeline::pipeline_setup_rmd("voltage_clust")
+```
+
+```{rave load_subject, language = "R", export = "subject"}
+subject <- ravecore::new_rave_subject(
+  project_name = project_name, subject_code = subject_code)
+```
+
+```{rave get_LFP_electrodes, export = "loaded_LFP_electrodes"}
+loaded_LFP_electrodes <- ravecore:::parse_svec(loaded_electrodes)
+if(!length(loaded_LFP_electrodes)) {
+  loaded_LFP_electrodes <- subject$electrodes
+}
+loaded_LFP_electrodes <- loaded_LFP_electrodes[subject$electrode_types == "LFP"]
+```
+
+```{rave clean_baseline_window, export = "baseline_window_cleaned"}
+baseline_window_cleaned <- ravecore::validate_time_window(unlist(baseline__windows))
+```
+
+```{rave load_epoch, language = "R", export = "repository"}
+repository <- ravecore::prepare_subject_voltage_with_epochs(
+  subject = subject,
+  electrodes = loaded_LFP_electrodes,
+  reference_name = reference_name,
+  epoch_name = epoch_choice,
+  time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends),
+  stitch_events = c(
+    epoch_choice__trial_starts_rel_to_event,
+    epoch_choice__trial_ends_rel_to_event
+  )
+)
+```
+
+
+```{rave calculate_baseline, language = "R", export = "baseline_voltage"}
+# store baseline'd voltage under data/ folder
+baseline_voltage <- voltage_baseline(repository = repository, baseline_window_cleaned = baseline_window_cleaned)
+baseline_voltage <- ravepipeline::RAVEFileArray$new(baseline_voltage, temporary = FALSE)
+```
+
+
+```{rave prepare_clustering_input, language = "R", export = "group_data"}
+electrode_list <- repository$electrode_list
+sample_rate <- repository$sample_rates$LFP
+
+analysis_window_clean <- range(unlist(analysis_window))
+default_duration <- max(analysis_window_clean[[2]], 0)
+start_offset <- analysis_window_clean[[1]]
+
+if(default_duration < 2 / sample_rate) {
+  stop("Analysis time duration is too narrow. Please choose a larger time window")
+}
+
+default_zeta_threshold <- as.numeric(zeta_threshold)
+if(
+  length(default_zeta_threshold) != 1 ||
+  is.na(default_zeta_threshold) ||
+  default_zeta_threshold <= 0 || default_zeta_threshold >= 1
+) {
+  default_zeta_threshold <- 0.5
+}
+
+
+group_data <- unname(lapply(seq_along(condition_groups), function(group_ii) {
+  # group_ii <- 1
+  group <- condition_groups[[group_ii]]
+  label <- trimws(paste(group$group_name, collapse = ""))
+  if(is.na(label) || !nzchar(label)) {
+    label <- sprintf("group%02d", group_ii)
+  }
+  
+  conditions <- group$group_conditions
+  conditions <- conditions[conditions %in% repository$epoch_table$Condition]
+  if(!length(conditions)) { return(NULL) }
+  
+  initial_rank <- group$initial_rank
+  if(length(initial_rank) != 1 || is.na(initial_rank)) {
+    initial_rank <- min(length(conditions), length(electrode_list))
+  }
+  zeta_threshold <- group$zeta_threshold %||% default_zeta_threshold
+  
+  event_start <- group$group_start_event %||% ""
+  if(tolower(event_start) %in% c("trial onset", "trial_onset")) {
+    event_start <- ""
+  }
+  event_end <- group$group_finish_event
+  if(length(event_end) == 1 && startsWith(event_end, "[")) {
+    event_end <- NULL
+  }
+  duration <- group$duration
+  if(length(duration) == 0 || is.na(duration)) {
+    duration <- default_duration
+  }
+  group_fpca_data <- prepare_fpca_data(
+    repository = repository,
+    baseline_voltage = baseline_voltage,
+    frequency_range = frequency_range,
+    group_conditions = conditions,
+    event_start = event_start,
+    event_end = event_end,
+    duration = duration, 
+    start_offset = start_offset
+  )
+  
+  list(
+    group_index = group_ii,
+    label = label,
+    conditions = conditions,
+    similarity_matrix = group_fpca_data$similarity_matrix,
+    average_responses = group_fpca_data$average_responses,
+    event_start = event_start,
+    event_end = event_end,
+    start_offset = start_offset,
+    duration = duration,
+    initial_rank = initial_rank,
+    zeta_threshold = zeta_threshold,
+    
+    # redundant
+    electrode_channels = electrode_list,
+    sample_rate = sample_rate
+  )
+}))
+
+group_data <- group_data[!vapply(group_data, is.null, FALSE)]
+```
+
+
+```{rave prepare_fpca_per_condition, export = "combined_group_results"}
+initial_decomposition <- lapply(group_data, function(group) {
+  # group <- group_data[[1]]
+  res <- prepare_fpca_per_condition(group = group)
+  res$electrode_channels <- group$electrode_channels
+  res$sample_rate <- group$sample_rate
+  res$event_start <- group$event_start
+  res$start_offset <- group$start_offset
+  res
+})
+combined_group_results <- combine_condition_groups(.list = initial_decomposition)
+```
+
+
+```{rave final_clustering_tree, export = "clustering_tree"}
+clustering_tree <- calc_final_cluster_tree(combined_group_results,
+                                           distance_method = "euclidean",
+                                           cluster_method = "ward.D2")
+```
+
+```{rave calculate_clustering_index, export = "clustering_index", cue = "always"}
+max_n_clusters <- max(clustering_tree$cluster_range)
+clustering_index <- choose_n_clusters(clustering_tree,
+                                      cluster_range = c(2, max_n_clusters),
+                                      plot = FALSE)
+
+```
+
+Plots
+
+```{r}
+# Dendrogram
+plot(
+  clustering_tree$cluster_object,
+  labels = sprintf("ch%d", combined_group_results$electrode_channels)
+)
+
+# Silhouette score
+clustering_index <- choose_n_clusters(clustering_tree,
+                                      cluster_range = c(2, max(clustering_tree$cluster_range)),
+                                      plot = TRUE)
+
+# Clustering plot
+diagnose_cluster(cluster_result = clustering_tree,
+                 k = clustering_index$suggested$k,
+                 combined_group_results = combined_group_results)
+```
+
+
+## Build, Visualize, & Run
+
+Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-voltage_clust.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
+
+```{r build, echo=FALSE, results='hide'}
+build_pipeline(make_file = "make-voltage_clust.R")
+```
+
+
+Once the pipeline script `make-voltage_clust.R` is built, you can visualize and execute the pipeline without the need of re-knit this document. Notice we use `r` block instead of `rave`. (This is because the code blocks are not part of pipeline targets.)
+
+```{r visualize, echo=FALSE}
+# Fixed usage, show pipeline graph
+try({
+  asNamespace("ravepipeline")$pipeline_dependency_graph(
+    pipeline_path = ".", glimpse = TRUE)
+}, silent = TRUE)
+```
+
+
+

@@ -11,7 +11,6 @@ module_html <- function(){
   shiny::div(
     class = "container",
     shiny::fluidRow(
-
       shiny::column(
         width = 3L,
         shiny::div(
@@ -25,7 +24,6 @@ module_html <- function(){
               class_header = "",
               shiny::uiOutput(ns("basic_info"))
             )
-
           )
         )
       ),
@@ -53,16 +51,16 @@ module_html <- function(){
                 )
               ),
               shiny::div(
-                "If your original image files have DICOM format. The following script uses ", shiny::pre(class="pre-compact no-padding display-inline", "dcm2niix"), " external library to convert DICOM images to Nifti format for later purposes. ",
-                shiny::br(),
-                "* The script requires Unix ",
-                shiny::pre(class="pre-compact no-padding display-inline", "bash"),
-                " terminal. For Windows users, please use Window sub-Linux system (WSL2). If your data is in Nifti format, the file will be copied directly. No external scripts will be used.",
-
+                "If your original images have DICOM format, ",
+                "the following script will run ",
+                shiny::pre(
+                  class = "pre-compact no-padding display-inline",
+                  "dcm2niix"
+                ),
+                " to obtain the Nifti format. ",
                 shiny::hr(),
 
                 shiny::fluidRow(
-
                   shiny::column(
                     width = 5L,
                     shiny::div(
@@ -93,7 +91,6 @@ module_html <- function(){
                       selected = "No"
                     )
                   )
-
                 ),
 
                 shiny::hr(),
@@ -101,8 +98,14 @@ module_html <- function(){
                 shiny::div(
                   class = "float-right",
                   shiny::div(
-                    shiny::actionButton(ns("btn_dcm2niix_run_t1"), "Run from RAVE (T1 MRI)"),
-                    shiny::actionButton(ns("btn_dcm2niix_run_ct"), "Run from RAVE (CT)")
+                    shiny::actionButton(
+                      ns("btn_dcm2niix_run_t1"),
+                      "Run from RAVE (T1 MRI)"
+                    ),
+                    shiny::actionButton(
+                      ns("btn_dcm2niix_run_ct"),
+                      "Run from RAVE (CT)"
+                    )
                     # dipsaus::actionButtonStyled(ns("btn_dcm2niix_copy"), "Save & run by yourself")
                   )
                 )
@@ -164,18 +167,23 @@ module_html <- function(){
               # class_foot = "no-padding",
               footer = shiny::tags$details(
                 shiny::tags$summary("Terminal script - Imaging segmentation"),
-                shiny::uiOutput(ns("panel_image_segmentation"), container = shiny::p)
+                shiny::uiOutput(
+                  ns("panel_image_segmentation"),
+                  container = shiny::p
+                )
               ),
               shiny::div(
                 "* If you choose to use the FreeSurfer, then the script requires Unix ",
-                shiny::pre(class="pre-compact no-padding display-inline", "bash"),
+                shiny::pre(
+                  class = "pre-compact no-padding display-inline",
+                  "bash"
+                ),
                 " terminals. If you are using Windows, ",
                 "please use Window sub-system for Linux [WSL2].",
 
                 shiny::hr(),
 
                 shiny::fluidRow(
-
                   shiny::column(
                     width = 12L,
                     shiny::plotOutput(
@@ -207,7 +215,8 @@ module_html <- function(){
                           inputId = ns("param_fs_prog"),
                           label = "Command",
                           choices = c(
-                            "recon-all -all", "recon-all -autorecon1",
+                            "recon-all -all",
+                            "recon-all -autorecon1",
                             "recon-all-clinical.sh",
                             # "ants-preprocessing",
                             "YAEL+recon-all",
@@ -237,18 +246,24 @@ module_html <- function(){
                   class = "float-right",
                   shiny::div(
                     local({
-                      if(dry_run) {
+                      if (dry_run) {
                         NULL
                       } else {
                         shiny::conditionalPanel(
                           "!['recon-all-clinical.sh', 'recon-all -all', 'YAEL+recon-all', 'YAEL-only'].includes( input.param_fs_prog )",
-                          shiny::actionButton(ns("btn_recon_run"), "Run from RAVE"),
+                          shiny::actionButton(
+                            ns("btn_recon_run"),
+                            "Run from RAVE"
+                          ),
                           ns = ns,
                           style = "display: inline"
                         )
                       }
                     }),
-                    dipsaus::actionButtonStyled(ns("btn_recon_copy"), "Save & run by yourself")
+                    dipsaus::actionButtonStyled(
+                      ns("btn_recon_copy"),
+                      "Save & run by yourself"
+                    )
                   )
                 )
               )
@@ -266,29 +281,53 @@ module_html <- function(){
               shiny::p(
                 "This step aligns the CT to MR image. ",
                 "For MRI, ",
-                shiny::pre(class="pre-compact no-padding display-inline", "MRI_RAW.nii"),
+                shiny::pre(
+                  class = "pre-compact no-padding display-inline",
+                  "MRI_RAW.nii"
+                ),
                 " is the original image file, and ",
-                shiny::pre(class="pre-compact no-padding display-inline", "T1.nii"),
+                shiny::pre(
+                  class = "pre-compact no-padding display-inline",
+                  "T1.nii"
+                ),
                 " is the FreeSurfer/ANTs-normalized image.",
               ),
               shiny::div(
                 shiny::tags$ul(
                   shiny::tags$li(
-                    shiny::pre(class="pre-compact no-padding display-inline", "NiftyReg"),
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
+                      "NiftyReg"
+                    ),
                     " is always available. "
                   ),
                   shiny::tags$li(
-                    shiny::pre(class="pre-compact no-padding display-inline", "ANTs"),
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
+                      "ANTs"
+                    ),
                     " and ",
-                    shiny::pre(class="pre-compact no-padding display-inline", "img_pipe"),
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
+                      "img_pipe"
+                    ),
                     " require enabling RAVE-Python support"
                   ),
                   shiny::tags$li(
-                    shiny::pre(class="pre-compact no-padding display-inline", "FSL-FLIRT"),
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
+                      "FSL-FLIRT"
+                    ),
                     " and ",
-                    shiny::pre(class="pre-compact no-padding display-inline", "AFNI-ALICE"),
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
+                      "AFNI-ALICE"
+                    ),
                     " call external scripts that requires Unix ",
-                    shiny::pre(class="pre-compact no-padding display-inline", "bash"),
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
+                      "bash"
+                    ),
                     " terminals. If you are using these two on Windows, ",
                     "please use the Windows sub-system for Linux (WSL2)."
                   )
@@ -338,7 +377,13 @@ module_html <- function(){
                       shiny::selectInput(
                         inputId = ns("coreg_ct_program"),
                         label = "Program",
-                        choices = c("NiftyReg", "ANTs", "img_pipe", "AFNI", "FSL"),
+                        choices = c(
+                          "NiftyReg",
+                          "ANTs",
+                          "img_pipe",
+                          "AFNI",
+                          "FSL"
+                        ),
                         selected = "NiftyReg"
                       )
                     )
@@ -347,9 +392,11 @@ module_html <- function(){
 
                 # native: ANTs
                 shiny::conditionalPanel(
-                  condition = sprintf("input['%s']==='ANTs'", ns("coreg_ct_program")),
+                  condition = sprintf(
+                    "input['%s']==='ANTs'",
+                    ns("coreg_ct_program")
+                  ),
                   shiny::fluidRow(
-
                     shiny::column(
                       width = 12L,
                       "Coregistration parameters"
@@ -384,15 +431,16 @@ module_html <- function(){
                         selected = "mattes"
                       )
                     )
-
                   )
                 ),
 
                 # native: NiftyReg
                 shiny::conditionalPanel(
-                  condition = sprintf("input['%s']==='NiftyReg'", ns("coreg_ct_program")),
+                  condition = sprintf(
+                    "input['%s']==='NiftyReg'",
+                    ns("coreg_ct_program")
+                  ),
                   shiny::fluidRow(
-
                     shiny::column(
                       width = 12L,
                       "Coregistration parameters"
@@ -417,14 +465,15 @@ module_html <- function(){
                         selected = "trilinear"
                       )
                     )
-
                   )
                 ),
                 # img_pipe
                 shiny::conditionalPanel(
-                  condition = sprintf("input['%s']==='img_pipe'", ns("coreg_ct_program")),
+                  condition = sprintf(
+                    "input['%s']==='img_pipe'",
+                    ns("coreg_ct_program")
+                  ),
                   shiny::fluidRow(
-
                     shiny::column(
                       width = 12L,
                       "Coregistration parameters"
@@ -465,11 +514,16 @@ module_html <- function(){
                       shiny::selectInput(
                         inputId = ns("coreg_nipy_optimizer"),
                         label = "Optimizer",
-                        choices = c("powell", "steepest", "cg", "bfgs", "simplex"),
+                        choices = c(
+                          "powell",
+                          "steepest",
+                          "cg",
+                          "bfgs",
+                          "simplex"
+                        ),
                         selected = "powell"
                       )
                     ),
-
 
                     shiny::column(
                       width = 4L,
@@ -497,14 +551,15 @@ module_html <- function(){
                         value = TRUE
                       )
                     )
-
                   )
                 ),
                 # FSL params
                 shiny::conditionalPanel(
-                  condition = sprintf("input['%s']==='FSL'", ns("coreg_ct_program")),
+                  condition = sprintf(
+                    "input['%s']==='FSL'",
+                    ns("coreg_ct_program")
+                  ),
                   shiny::fluidRow(
-
                     shiny::column(
                       width = 12L,
                       "FSL parameters"
@@ -541,7 +596,8 @@ module_html <- function(){
                         inputId = ns("coreg_fsl_search"),
                         label = "Search range",
                         choices = c(
-                          "90", "180"
+                          "90",
+                          "180"
                         ),
                         selected = "90"
                       )
@@ -556,7 +612,6 @@ module_html <- function(){
                         selected = "mutualinfo"
                       )
                     )
-
                   )
                 ),
 
@@ -566,13 +621,19 @@ module_html <- function(){
                   class = "float-right",
                   shiny::div(
                     local({
-                      if(dry_run) {
+                      if (dry_run) {
                         NULL
                       } else {
-                        shiny::actionButton(ns("btn_coreg_run"), "Run from RAVE")
+                        shiny::actionButton(
+                          ns("btn_coreg_run"),
+                          "Run from RAVE"
+                        )
                       }
                     }),
-                    dipsaus::actionButtonStyled(ns("btn_coreg_copy"), "Save & run by yourself")
+                    dipsaus::actionButtonStyled(
+                      ns("btn_coreg_copy"),
+                      "Save & run by yourself"
+                    )
                   )
                 )
               )
@@ -614,7 +675,6 @@ module_html <- function(){
             #     )
             #   )
             # )
-
           )
         )
       )

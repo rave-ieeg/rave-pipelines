@@ -78,7 +78,12 @@ if(isTRUE(skip_validation)) {
         )
       },
       'native_matlab2' = {
-        stop("TBD")
+        ravecore:::validate_raw_h5_mat_per_block(
+          subject = subject,
+          blocks = blocks,
+          electrodes = channels,
+          check_content = TRUE
+        )
       },
       'native_edf' = {
         ravecore:::validate_raw_edf(
@@ -199,7 +204,7 @@ rave_import <- switch (
     ravecore:::import_from_h5_mat_per_channel
   },
   'native_matlab2' = {
-    stop("TBD")
+    ravecore::import_from_h5_mat_per_block
   },
   'native_edf' = {
     ravecore:::import_from_edf

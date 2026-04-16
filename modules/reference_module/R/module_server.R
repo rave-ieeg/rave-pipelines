@@ -617,7 +617,9 @@ module_server <- function(input, output, session, ...){
     floor(nrow(vdata$data) / vdata$sample_rate)
   })
 
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  shidashi::register_output(
     shiny::renderPlot({
 
       data_loaded <- ravedash::watch_data_loaded()
@@ -833,10 +835,13 @@ module_server <- function(input, output, session, ...){
       return()
 
     }),
-    outputId = "reference_plot_signals"
+    outputId = "reference_plot_signals",
+    download_type = "image"
   )
 
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  shidashi::register_output(
     shiny::renderPlot({
       data_loaded <- ravedash::watch_data_loaded()
       vdata <- voltage_data()
@@ -923,11 +928,14 @@ module_server <- function(input, output, session, ...){
       )
 
     }),
-    outputId = "reference_plot_electrode"
+    outputId = "reference_plot_electrode",
+    download_type = "image"
   )
 
 
-  ravedash::register_output(
+  # MIGRATED from ravedash::register_output
+  # ravedash::register_output(
+  shidashi::register_output(
     shiny::renderPlot({
 
       refinsp_epoch <- input$refinsp_epoch
@@ -1097,7 +1105,8 @@ module_server <- function(input, output, session, ...){
            labels = c(zlim_str, 0, sprintf("-%s", zlim_str)))
 
     }),
-    outputId = "reference_plot_heatmap"
+    outputId = "reference_plot_heatmap",
+    download_type = "image"
   )
 
 

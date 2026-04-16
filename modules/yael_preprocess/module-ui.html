@@ -29,12 +29,9 @@
 
       <!-- Theme switcher -->
       <li class="nav-item">
-        <div class="theme-switch-wrapper nav-link">
-          <label class="theme-switch" for="__checkbox__">
-            <input type="checkbox" id="__checkbox__">
-            <span class="slider round"></span>
-          </label>
-        </div>
+        <a class="nav-link" href="#" data-shidashi-action="theme-toggle" role="button" title="Toggle theme">
+          <i class="fas fa-moon"></i>
+        </a>
       </li>
     </ul>
   </nav>
@@ -67,6 +64,7 @@
 <!-- shidashi::back_top_button("rocket") -->
 {{ ravedash::ravedash_footer(ns(NULL), label = "Generate Reports")}}
 
+{{ shidashi::module_drawer() }}
 {{ shidashi::include_view("footer.html") }}
 </body>
 </html>

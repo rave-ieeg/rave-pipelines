@@ -1,9 +1,9 @@
-<li class="nav-item">
-  <a href="{{ href }}" class="nav-link nav-leaf{{ if(active){' active'}else{''} }}" target="{{ target }}" shiny-module="{{ module }}" title="{{ text }}">
+<li class="shidashi-nav-item">
+  <a href="{{ href }}" class="shidashi-nav-link{{ if(active){' active'}else{''} }}" target="{{ target }}" shiny-module="{{ module }}" title="{{ text }}">
     {{ icon }}
-    <p>
+    <span>
       {{ text }}
       {{ badge }}
-    </p>
+    </span>
   </a>
 </li>

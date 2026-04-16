@@ -13,7 +13,6 @@ module_server <- function(input, output, session, ...){
   # get server tools to tweek
   # ravedash::module_server_common(module_id = module_id, check_data_loaded = check_data_loaded, )
   server_tools <- ravedash::get_default_handlers(session = session)
-  server_registry <- ravedash::register_rave_session()
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
 
@@ -562,10 +561,9 @@ module_server <- function(input, output, session, ...){
   })
 
   # output$localization_viewer <-
-  ravedash::register_output(
-    outputId = "localization_viewer",
-    output_type = "threeBrain",
-    render_function = threeBrain::renderBrain({
+  # MIGRATED from ravedash::register_output (output_type="threeBrain")
+  shidashi::register_output(
+    threeBrain::renderBrain({
       local_reactives$refresh
 
       subject <- component_container$data$subject
@@ -627,7 +625,9 @@ module_server <- function(input, output, session, ...){
       )
 
       viewer
-    })
+    }),
+    outputId = "localization_viewer",
+    download_type = "threeBrain"
   )
 
   brain_proxy <- threeBrain::brain_proxy("localization_viewer")

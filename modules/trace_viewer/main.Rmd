@@ -24,15 +24,31 @@ With `export="subject"`, the subject variable will be registered for the followi
 #### Step 2: Load epoch and reference information
 
 ```{rave load_repository, language = "R", export = "repository"}
-repository <- ravecore::prepare_subject_voltage_with_blocks(
-  subject = subject,
-  electrodes = loaded_electrodes,
-  blocks = subject$blocks,
-  reference_name = reference_name,
-  strict = TRUE, 
-  downsample = pre_downsample,
-  # Load data and generate cache
-  lazy_load = FALSE
+repository <- switch (
+  repository_datatype,
+  "voltage" = {
+    ravecore::prepare_subject_voltage_with_blocks(
+      subject = subject,
+      electrodes = loaded_electrodes,
+      blocks = subject$blocks,
+      reference_name = reference_name,
+      strict = TRUE, 
+      downsample = pre_downsample,
+      # Load data and generate cache
+      lazy_load = FALSE
+    )
+  },
+  {
+    ravecore::prepare_subject_raw_voltage_with_blocks(
+      subject = subject,
+      electrodes = loaded_electrodes,
+      blocks = subject$blocks,
+      strict = TRUE, 
+      downsample = pre_downsample,
+      # Load data and generate cache
+      lazy_load = FALSE
+    )
+  }
 )
 ```
 
