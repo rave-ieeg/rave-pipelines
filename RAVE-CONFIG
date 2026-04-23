@@ -85,4 +85,5 @@ InteractiveModules:
     modules/trace_viewer,
     modules/power_clust,
     modules/voltage_clust,
-    modules/stimpulse_finder
+    modules/stimpulse_finder,
+    modules/project_overview
