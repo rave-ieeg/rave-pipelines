@@ -2,6 +2,10 @@ html {
   scroll-behavior: smooth;
 }
 
+body {
+  visibility: visible;
+}
+
 d-article.d-article-with-toc {
   contain: none;
 }

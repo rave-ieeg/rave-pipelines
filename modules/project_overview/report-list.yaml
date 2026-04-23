@@ -1,0 +1,4 @@
+- name: projectSnapshot
+  label: Project Overview Report
+  entry: report-export.Rmd
+  fork_policy: report

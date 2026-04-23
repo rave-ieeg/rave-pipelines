@@ -1,5 +1,4 @@
-project_names:
-- demo
-- YAEL
-template_subject: fsaverage_inCIT168
-use_cache: yes
+module_filter: ~
+project_name: demo
+subject_codes: ~
+template_subject: cvs_avg35_inMNI152

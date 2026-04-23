@@ -1,72 +1,48 @@
 # UI components for loader
 loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
-  all_projects <- raveio::get_projects(refresh = FALSE)
-  available_template_subjects <- names(threeBrain::available_templates())
+  all_projects <- ravecore::get_projects(refresh = FALSE)
+  saved_project <- pipeline$get_settings("project_name", default = "")
 
-  shiny::div(
-    class = "container",
-    shiny::fixedRow(
-      shiny::column(
-        width = 6L, offset = 3L,
-        ravedash::input_card(
-          title = "Data Selection",
-          class_header = "",
+  ravedash::simple_layout(
+    input_width = 4L,
+    container_fixed = TRUE,
+    container_style = "max-width:1444px;",
+    input_ui = {
+      ravedash::input_card(
+        title = "Data Selection",
+        class_header = "",
 
-          ravedash::flex_group_box(
-            title = "Projects",
+        ravedash::flex_group_box(
+          title = "Project",
 
-            shidashi::flex_item(
-              shiny::selectInput(
-                inputId = ns("loader_project_names"),
-                label = "Project names",
-                choices = all_projects,
-                selected = pipeline$get_settings("project_names"),
-                multiple = TRUE
-              ),
-              shiny::p(
-                shiny::tags$small("Leave it blank to select all projects.")
-              )
-            ),
-
-            shidashi::flex_break(),
-
-            shidashi::flex_item(
-              shiny::checkboxInput(
-                inputId = ns("loader_clear_cache"),
-                label = "Clear cached files",
-                value = FALSE, width = "100%"
-              )
-            ),
-
-            shidashi::flex_break(),
-
-            shidashi::flex_item(
-              shiny::selectInput(
-                inputId = ns("loader_template_subject"),
-                label = "Template name",
-                choices = available_template_subjects,
-                selected = pipeline$get_settings(
-                  "template_subject",
-                  default = ravepipeline::raveio_getopt("threeBrain_template_subject", default = "cvs_avg35_inMNI152"),
-                  constraint = available_template_subjects
-                )
-              )
-            )
-          ),
-
-          footer = shiny::tagList(
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Generate reports",
-              type = "primary",
-              width = "100%"
+          shidashi::flex_item(
+            shiny::selectInput(
+              inputId = ns("loader_project_name"),
+              label = "Project name",
+              choices = all_projects,
+              selected = saved_project %OF% all_projects
             )
           )
+        ),
 
+        footer = shiny::tagList(
+          dipsaus::actionButtonStyled(
+            inputId = ns("loader_ready_btn"),
+            label = "Load project",
+            type = "primary",
+            width = "100%"
+          )
         )
       )
-    )
+    },
+    output_ui = {
+      ravedash::output_card(
+        title = "Project Info",
+        class_body = "padding-10",
+        shiny::uiOutput(ns("loader_project_info"))
+      )
+    }
   )
 
 }
@@ -75,57 +51,66 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 # Server functions for loader
 loader_server <- function(input, output, session, ...){
 
-  # Triggers the event when `input$loader_ready_btn` is changed
-  # i.e. loader button is pressed
+  # Show basic project info in the output panel
+  output$loader_project_info <- shiny::renderUI({
+    project_name <- input$loader_project_name
+    if (!length(project_name) || !nzchar(project_name)) {
+      return(shiny::p("Select a project to load.", class = "text-muted"))
+    }
+
+    project <- tryCatch(
+      ravecore::as_rave_project(project_name, strict = FALSE),
+      error = function(e) NULL
+    )
+    if (is.null(project)) {
+      return(shiny::p("Invalid project.", class = "text-danger"))
+    }
+
+    subjects <- project$subjects()
+    shiny::tagList(
+      shiny::tags$dl(
+        shiny::tags$dt("Project"),
+        shiny::tags$dd(project_name),
+        shiny::tags$dt("Subjects"),
+        shiny::tags$dd(sprintf("%d subjects: %s", length(subjects),
+                               paste(subjects, collapse = ", ")))
+      )
+    )
+  })
+
+  # Load project button
   shiny::bindEvent(
     ravedash::safe_observe({
-      # gather information from preset UIs
-      settings <- list(
-        project_names = input$loader_project_names,
-        template_subject = input$loader_template_subject,
-        use_cache = !isTRUE(input$loader_clear_cache)
+
+      project_name <- input$loader_project_name
+      if (!length(project_name) || !nzchar(project_name)) {
+        ravedash::shiny_alert2(
+          title = "Error",
+          text = "Please select a project.",
+          icon = "error",
+          session = session
+        )
+        return()
+      }
+
+      # Save project_name into pipeline settings
+      pipeline$set_settings(project_name = project_name)
+
+      # Run pipeline through subject_summary (validates project + collects info)
+      res <- pipeline$run(
+        as_promise = TRUE,
+        names = "subject_summary",
+        return_values = FALSE
       )
 
-      # Save the variables into pipeline settings file
-      pipeline$set_settings(.list = settings)
-
-      ravedash::shiny_alert2(
-        title = "Generating reports",
-        text = "Please be patient...",
-        icon = "info",
-        auto_close = FALSE,
-        buttons = FALSE
-      )
-
-      tryCatch(
-        {
-          pipeline$run(
-            as_promise = FALSE,
-            names = c("snapshot_results", "project_overview"),
-            scheduler = "none",
-            type = "vanilla"
-          )
-          Sys.sleep(0.5)
-          ravedash::close_alert2(session = session)
-
+      res$promise$then(
+        onFulfilled = function(e) {
+          dipsaus::close_alert2()
           ravedash::fire_rave_event('data_changed', Sys.time())
+          ravepipeline::logger("Project data has been loaded")
+          ravedash::session_setopt(project_name = project_name)
         },
-        error = function(e) {
-
-          Sys.sleep(0.5)
-          ravedash::close_alert2(session = session)
-
-          ravedash::shiny_alert2(
-            title = "Errors",
-            text = paste(
-              "Found an error while generating the report:\n\n",
-              paste(e$message, collapse = "\n")
-            ),
-            icon = "error",
-            danger_mode = TRUE,
-            auto_close = FALSE
-          )
-        }
+        onRejected = ravedash::error_alert
       )
 
     }),

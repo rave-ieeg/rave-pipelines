@@ -1,210 +1,156 @@
-cache_root <- "build/cache"
-
-dir_exists <- function(path) {
-  length(path) == 1 && !is.na(path) && dir.exists(path)
-}
-
-# pipeline <- raveio::pipeline("project_overview", paths = file.path(rstudioapi::getActiveProject(), "modules"))
-# pipeline$run("snapshot_results")
-# cache_root <- file.path(rstudioapi::getActiveProject(), "modules", "project_overview", "build/cache")
-
-read_subject_snapshot <- function(subject) {
-  snapshot_path <- file.path(cache_root, subject$project_name, subject$subject_code, "snapshot.rds")
+read_subject_snapshot <- function(subject_code, cache_dir) {
+  if (is.character(subject_code)) {
+    code <- subject_code
+  } else {
+    # Accept subject object for backward compatibility with column builders
+    code <- subject_code$subject_code
+  }
+  snapshot_path <- file.path(cache_dir, "subjects", code, "snapshot.rds")
+  if (!file.exists(snapshot_path)) {
+    stop("Snapshot not found for subject: ", code,
+         " (expected at: ", snapshot_path, ")")
+  }
   readRDS(snapshot_path)
 }
 
-subjects_columns <- list(
-  subject = function(subject) {
-    subject$subject_code
-  },
-  reference = function(subject) {
-    snapshot <- read_subject_snapshot(subject)
+read_group_snapshot <- function(cache_dir) {
+  snapshot_path <- file.path(cache_dir, "group", "snapshot.rds")
+  if (!file.exists(snapshot_path)) {
+    return(NULL)
+  }
+  readRDS(snapshot_path)
+}
 
-    ref_names <- snapshot$reference_names
-    filtered_ref_names <- ref_names[ref_names != "_unsaved"]
-    reference_lines <- lapply(
-      filtered_ref_names,
-      function(name) {
-        ref <- snapshot$reference_tables[[name]]
-        if(!nrow(ref)) { return(NULL) }
-        # bip_count <- sum(ref$Type == "Bipolar Reference", na.rm = TRUE)
-        # car_count <- sum(ref$Type %in% c("Common Average Reference", "White-Matter Reference"), na.rm = TRUE)
-        noref_count <- sum(ref$Type %in% c("No Reference"), na.rm = TRUE)
-        bad_channels <- sum(ref$Type %in% c(""), na.rm = TRUE)
-        other_count <- nrow(ref) - noref_count - bad_channels
+make_subjects_columns <- function(cache_dir) {
 
-        glue::glue(
-          "<span class=\"nowrap\">{name}: [Noref={noref_count}, Excluded={bad_channels}]</span>"
-        )
-      }
-    )
-    paste(unlist(reference_lines), collapse = "<br />")
-  },
-  electrodes = function(subject) {
-    snapshot <- read_subject_snapshot(subject)
+  read_snapshot <- function(subject) {
+    read_subject_snapshot(subject, cache_dir = cache_dir)
+  }
 
-    # electrodes_meta_file <- file.path(
-    #   subject$meta_path,
-    #   "electrodes.csv"
-    # )
-    #
-    # if (file.exists(electrodes_meta_file)) {
-    #   electrodes_meta_data <- tryCatch(
-    #     {
-    #       read.csv(
-    #         electrodes_meta_file,
-    #         stringsAsFactors = FALSE
-    #       )
-    #     },
-    #     error = function(e) {
-    #       print_error(paste0("Error reading electrodes meta file: ", e$message))
-    #       data.frame()
-    #     }
-    #   )
-    #   electrodes_meta_count <- nrow(electrodes_meta_data)
-    # } else {
-    #   electrodes_meta_count <- 0
-    # }
+  list(
+    subject = function(subject) {
+      subject$subject_code
+    },
+    reference = function(subject) {
+      snapshot <- read_snapshot(subject)
 
-    length(snapshot$electrodes)
-    # paste(
-    #   length(snapshot$electrodes),
-    #   "electrodes with data<br/>",
-    #   electrodes_meta_count,
-    #   "electrodes in meta file"
-    # )
-  },
-  "recording blocks" = function(subject) {
-    snapshot <- read_subject_snapshot(subject)
-    epoch_names <- snapshot$epoch_names
+      ref_names <- snapshot$reference_names
+      filtered_ref_names <- ref_names[ref_names != "_unsaved"]
+      reference_lines <- lapply(
+        filtered_ref_names,
+        function(name) {
+          ref <- snapshot$reference_tables[[name]]
+          if(!nrow(ref)) { return(NULL) }
+          noref_count <- sum(ref$Type %in% c("No Reference"), na.rm = TRUE)
+          bad_channels <- sum(ref$Type %in% c(""), na.rm = TRUE)
 
-    blocks <- list()
-    for (epoch_name in epoch_names) {
-      tryCatch(
-        {
-          epoch_data <- snapshot$epoch_tables[epoch_name]
-          blocks <- unique(c(blocks, epoch_data$Block))
-        },
-        error = function(e) {
-          print_error(
-            glue::glue("Error processing epoch '{epoch_name}': {e$message}")
+          glue::glue(
+            "<span class=\"nowrap\">{name}: [Noref={noref_count}, Excluded={bad_channels}]</span>"
           )
         }
       )
-    }
-    if (length(blocks) == 0) {
-      return("-")
-    }
+      paste(unlist(reference_lines), collapse = "<br />")
+    },
+    electrodes = function(subject) {
+      snapshot <- read_snapshot(subject)
+      length(snapshot$electrodes)
+    },
+    "recording blocks" = function(subject) {
+      snapshot <- read_snapshot(subject)
+      epoch_names <- snapshot$epoch_names
 
-    blocks_str <- paste(blocks, collapse = ", ")
-    paste(
-      length(blocks),
-      "blocks:<br />",
-      blocks_str
-    )
-  },
-  epoch = function(subject) {
-    snapshot <- read_subject_snapshot(subject)
-    epoch_names <- snapshot$epoch_names
-
-    if (length(epoch_names) == 0) {
-      return("No epochs found")
-    }
-
-    paste(
-      lapply(
-        epoch_names,
-        function(epoch_name) {
-          epoch_table <- snapshot$epoch_tables[[epoch_name]]
-          if (is.null(epoch_table)) {
-            return(glue::glue("<strong>{epoch_name}</strong>: No data"))
+      blocks <- list()
+      for (epoch_name in epoch_names) {
+        tryCatch(
+          {
+            epoch_data <- snapshot$epoch_tables[epoch_name]
+            blocks <- unique(c(blocks, epoch_data$Block))
+          },
+          error = function(e) {
+            # silently skip
           }
-          trials_count <- nrow(epoch_table)
+        )
+      }
+      if (length(blocks) == 0) {
+        return("-")
+      }
 
-          cache_file <- get_subject_cache_file(
-            paste0("epoch_", epoch_name, ".html"),
-            subject
-          )
+      blocks_str <- paste(blocks, collapse = ", ")
+      paste(length(blocks), "blocks:<br />", blocks_str)
+    },
+    epoch = function(subject) {
+      snapshot <- read_snapshot(subject)
+      epoch_names <- snapshot$epoch_names
 
-          table_html <- knitr::kable(epoch_table, format = "html")
+      if (length(epoch_names) == 0) {
+        return("No epochs found")
+      }
 
-          html <- glue::glue(
-            "<!DOCTYPE html>
-              <html>
-              <head>
-                <meta charset=\"UTF-8\">
-                <meta name=\"rave-subject\" content=\"{subject$subject_code}\">
-                <meta name=\"rave-data-type\" content=\"epoch\">
-                <title>Table View</title>
-                <style>
-                  table {{ border-collapse: collapse; width: 100%; }}
-                  th, td {{ border: 1px solid #ddd; padding: 8px; }}
-                  th {{ background-color: #f2f2f2; }}
-                </style>
-              </head>
-              <body>
-                {table_html}
-              </body>
-            </html>"
-          )
-          writeLines(html, cache_file$write_path)
-
-          cache_file$link_tag(
-            glue::glue(
-              "<strong>{epoch_name}</strong>: {trials_count} trials"
-            )
-          )
-        }
-      ),
-      collapse = "<br />"
-    )
-  },
-  "3D Viewer" = function(subject) {
-    snapshot <- read_subject_snapshot(subject)
-
-    if (!is.null(snapshot$viewer_path)) {
-      cache_file <- get_subject_cache_file("viewer.html", subject)
-      return(cache_file$link_tag("viewer"))
+      paste(
+        lapply(
+          epoch_names,
+          function(epoch_name) {
+            epoch_table <- snapshot$epoch_tables[[epoch_name]]
+            if (is.null(epoch_table)) {
+              return(glue::glue("<strong>{epoch_name}</strong>: No data"))
+            }
+            trials_count <- nrow(epoch_table)
+            glue::glue("<strong>{epoch_name}</strong>: {trials_count} trials")
+          }
+        ),
+        collapse = "<br />"
+      )
+    },
+    "3D Viewer" = function(subject) {
+      snapshot <- read_snapshot(subject)
+      if (!is.null(snapshot$viewer_path) && file.exists(snapshot$viewer_path)) {
+        return("Available")
+      }
+      "No viewer"
+    },
+    "Report Time" = function(subject) {
+      snapshot <- read_snapshot(subject)
+      snapshot_date <- snapshot$snapshot_date
+      if(!length(snapshot_date)) {
+        return(NA)
+      }
+      strftime(snapshot_date, usetz = TRUE)
     }
-
-    "No viewer"
-  },
-  "Report Time" = function(subject) {
-    snapshot <- read_subject_snapshot(subject)
-
-    snapshot_date <- snapshot$snapshot_date
-    if(!length(snapshot_date)) {
-      return(NA)
-    }
-    strftime(snapshot_date, usetz = TRUE)
-  }
-)
+  )
+}
 
 
-snapshot_subject <- function(subject_id, cache_folder = NULL, use_cache = TRUE)  {
+snapshot_subject <- function(subject_id, cache_dir = NULL, snapshot_dir = NULL, use_cache = TRUE) {
 
-  if(length(cache_folder) == 1) {
-    raveio::dir_create2(cache_folder)
-    snapshot_path <- file.path(cache_folder, "snapshot.rds")
-    viewer_path <- file.path(cache_folder, "viewer.html")
+  subject <- ravecore::as_rave_subject(subject_id, strict = FALSE)
+  subject_code <- subject$subject_code
+
+  if(length(cache_dir) == 1) {
+    subject_cache <- file.path(cache_dir, "subjects", subject_code)
+    ravepipeline::dir_create2(subject_cache)
+    snapshot_path <- file.path(subject_cache, "snapshot.rds")
   } else {
+    subject_cache <- NULL
     snapshot_path <- NULL
+  }
+
+  # Viewer goes to snapshot_dir (project group_path) for standalone_report access
+  if(length(snapshot_dir) == 1) {
+    viewer_dir <- file.path(snapshot_dir, "subjects", subject_code)
+    ravepipeline::dir_create2(viewer_dir)
+    viewer_path <- file.path(viewer_dir, "viewer.html")
+  } else {
     viewer_path <- NULL
   }
 
-  subject <- raveio::as_rave_subject(subject_id, strict = FALSE)
-
-
   if(length(viewer_path) && (!use_cache || !file.exists(viewer_path))) {
-    brain <- raveio::rave_brain(subject = subject, surfaces = c("pial", "inflated", "white"))
+    brain <- ravecore::rave_brain(subject = subject, surfaces = c("pial", "inflated", "white"))
     threeBrain::save_brain(brain$plot(), path = viewer_path, title = subject$subject_id)
   }
 
   if(use_cache && length(snapshot_path) && file.exists(snapshot_path)) {
     return(readRDS(snapshot_path))
   }
-
-  subject <- raveio::as_rave_subject(subject_id, strict = FALSE)
 
   # Gather information
   electrodes <- subject$electrodes
@@ -234,16 +180,13 @@ snapshot_subject <- function(subject_id, cache_folder = NULL, use_cache = TRUE) 
     })
   )
 
-  # subject validation, no parallel (parallel at subject level)
-  raveio::with_future_parallel(
-    max_workers = 1L,
-    {
-      validation <- raveio::validate_subject(subject = subject, method = "normal", verbose = FALSE)
-    }
-  )
+  # subject validation
+  validation <- ravecore::validate_subject(subject = subject, method = "normal", verbose = FALSE)
 
   re <- list(
     subject = subject$subject_id,
+    subject_code = subject_code,
+    project_name = subject$project_name,
     electrodes = electrodes,
     channel_info = channel_info,
     electrode_coordinates = electrode_coordinates,
@@ -263,48 +206,87 @@ snapshot_subject <- function(subject_id, cache_folder = NULL, use_cache = TRUE) 
 
 }
 
-list_subjects <- function(project_names) {
-  unlist(
-    lapply(project_names, function(project_name) {
-      project <- raveio::as_rave_project(project_name, strict = FALSE)
-      sprintf("%s/%s", project_name, project$subjects())
-    })
-  )
+list_subjects <- function(project_name) {
+  project <- ravecore::as_rave_project(project_name, strict = FALSE)
+  project$subjects()
 }
 
 
-snapshot_project <- function(project_name, template = "fsaverage", cache_root = NULL, use_cache = TRUE) {
-  subject_ids <- list_subjects(project_name)
-  force(cache_root)
+snapshot_project <- function(project_name, subject_codes = NULL, template = "fsaverage",
+                             cache_dir = NULL, snapshot_dir = NULL, use_cache = TRUE,
+                             sections = list()) {
+
+  if (is.null(subject_codes) || !length(subject_codes)) {
+    project <- ravecore::as_rave_project(project_name, strict = FALSE)
+    subject_codes <- project$subjects()
+  }
+  subject_ids <- sprintf("%s/%s", project_name, subject_codes)
+
+  force(cache_dir)
+  force(snapshot_dir)
   force(use_cache)
 
-  raveio::lapply_async(subject_ids, function(subject_id) {
-    if(length(cache_root) == 1) {
-      subject <- raveio::as_rave_subject(subject_id, strict = FALSE)
-      cache_folder_subject <- file.path(cache_root, subject$project_name, subject$subject_code)
-    } else {
-      cache_folder_subject <- NULL
-    }
-    snapshot_subject(subject_id, cache_folder = cache_folder_subject, use_cache = use_cache)
+  # Snapshot each subject
+  ravepipeline::lapply_jobs(subject_ids, function(subject_id) {
+    snapshot_subject(subject_id, cache_dir = cache_dir,
+                     snapshot_dir = snapshot_dir, use_cache = use_cache)
     return()
-  }, callback = function(subject_id) {
+  }, .globals = list(
+    cache_dir = cache_dir,
+    snapshot_dir = snapshot_dir,
+    snapshot_subject = snapshot_subject,
+    use_cache = use_cache
+  ), callback = function(subject_id) {
     sprintf('Creating snapshot|%s', subject_id)
   })
 
-  if(length(cache_root) == 1 && !is.na(cache_root)) {
-    group_viewer_path <- file.path(cache_root, project_name, sprintf("group_viewer-%s.html", template))
+  # Generate group-level viewer
+  group_viewer <- isTRUE(sections$group_viewer)
+  if (group_viewer && length(snapshot_dir) == 1 && !is.na(snapshot_dir)) {
+    group_viewer_path <- file.path(snapshot_dir, "group", "group_viewer.html")
+    ravepipeline::dir_create2(dirname(group_viewer_path))
 
-    if(!use_cache || !file.exists(group_viewer_path)) {
+    if (!use_cache || !file.exists(group_viewer_path)) {
       brain_instances <- lapply(subject_ids, function(subject_id) {
-        raveio::rave_brain(subject_id)
+        ravecore::rave_brain(subject_id)
       })
-      template_brain <- threeBrain::merge_brain(.list = brain_instances, template_surface_types = "inflated")
+      template_brain <- threeBrain::merge_brain(.list = brain_instances,
+                                                 template_surface_types = "inflated")
       template_viewer <- template_brain$plot()
       threeBrain::save_brain(template_viewer, path = group_viewer_path)
     }
   }
+
+  # Build group snapshot with electrode coverage data
+  if (length(cache_dir) == 1) {
+    group_cache <- file.path(cache_dir, "group")
+    ravepipeline::dir_create2(group_cache)
+
+    # Electrode coverage: collect electrode coordinates from all subjects
+    all_coords <- lapply(subject_ids, function(subject_id) {
+      subject <- ravecore::as_rave_subject(subject_id, strict = FALSE)
+      snapshot <- tryCatch(
+        read_subject_snapshot(subject$subject_code, cache_dir),
+        error = function(e) NULL
+      )
+      if (is.null(snapshot)) return(NULL)
+      coords <- snapshot$electrode_coordinates
+      if (is.null(coords) || !nrow(coords)) return(NULL)
+      coords$Subject <- subject$subject_code
+      coords
+    })
+    all_coords <- do.call(rbind, Filter(Negate(is.null), all_coords))
+
+    group_snapshot <- list(
+      project_name = project_name,
+      subject_codes = subject_codes,
+      electrode_coverage = all_coords,
+      snapshot_date = Sys.time()
+    )
+    saveRDS(group_snapshot, file.path(group_cache, "snapshot.rds"))
+  }
+
   subject_ids
 }
-
 
 
