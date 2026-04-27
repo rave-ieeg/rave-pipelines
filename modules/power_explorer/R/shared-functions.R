@@ -667,9 +667,12 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
   ll = list(
     '% Change Power' = 'percentage',
     '% Change Amplitude' = 'sqrt_percentage',
+    'Decibel' = 'decibel',
+    # Backward compatible
+    'decibel' = 'decibel',
     'z-score Power' = 'zscore',
     'z-score Amplitude' = 'sqrt_zscore',
-    'decibel' = 'decibel'
+    'z-score Decibel' = 'db_zscore'
   )
 
   if(missing(requested_unit)) {
@@ -691,7 +694,8 @@ get_unit_of_analysis_varname <- function(uoa){
     'sqrt_percentage' = 'Pct_AmpChange',
     'zscore' = 'Z_PowerChange',
     'sqrt_zscore' = 'Z_AmpChange',
-    'decibel' = 'Decibel_PowerChange'
+    'decibel' = 'Decibel_PowerChange',
+    'db_zscore' = 'Z_dBPowerChange'
   )
 
   if(missing(uoa)) return (ll)

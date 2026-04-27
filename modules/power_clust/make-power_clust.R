@@ -134,6 +134,7 @@ rm(._._env_._.)
                 method <- switch(baseline__unit_of_analysis, 
                   `% Change Power` = "percentage", `% Change Amplitude` = "sqrt_percentage", 
                   `z-score Power` = "zscore", `z-score Amplitude` = "sqrt_zscore", 
+                  `z-score Decibel` = "db_zscore", 
                   {
                     "decibel"
                   })
@@ -163,6 +164,7 @@ rm(._._env_._.)
                   method <- switch(baseline__unit_of_analysis, 
                     `% Change Power` = "percentage", `% Change Amplitude` = "sqrt_percentage", 
                     `z-score Power` = "zscore", `z-score Amplitude` = "sqrt_zscore", 
+                    `z-score Decibel` = "db_zscore", 
                     {
                       "decibel"
                     })
