@@ -668,8 +668,6 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     '% Change Power' = 'percentage',
     '% Change Amplitude' = 'sqrt_percentage',
     'Decibel' = 'decibel',
-    # Backward compatible
-    'decibel' = 'decibel',
     'z-score Power' = 'zscore',
     'z-score Amplitude' = 'sqrt_zscore',
     'z-score Decibel' = 'db_zscore'
@@ -681,12 +679,14 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     return (ll)
   }
 
-  if(!any(requested_unit == names(ll))) {
+  requested_unit <- tolower(requested_unit)
+  ll_nms <- tolower(names(ll))
+  if(!any(requested_unit == ll_nms)) {
     warning("requested unit of analysis not available: ", requested_unit, '. Returning % Change Power')
     return(ll[['% Change Power']])
   }
 
-  return(ll[[requested_unit]])
+  return(ll[[which(ll_nms == requested_unit)[[1]]]])
 }
 
 get_unit_of_analysis_varname <- function(uoa){
