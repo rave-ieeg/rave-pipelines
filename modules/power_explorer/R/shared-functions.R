@@ -701,7 +701,7 @@ get_unit_of_analysis_varname <- function(uoa){
   if(missing(uoa)) return (ll)
 
   gu = get_unit_of_analysis(names=TRUE)
-  if(uoa %in% gu) {
+  if(tolower(uoa) %in% tolower(gu)) {
     uoa %<>% get_unit_of_analysis
   }
 
