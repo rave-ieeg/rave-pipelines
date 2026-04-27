@@ -250,8 +250,8 @@ rm(._._env_._.)
                     return(as)
                   })
                 ua <- get_unit_of_analysis(names = TRUE)
-                if (!baseline_settings$unit_of_analysis %in% 
-                  ua) {
+                if (!tolower(baseline_settings$unit_of_analysis) %in% 
+                  tolower(ua)) {
                   stop(sprintf("Requested unit of analysis \"%s\" must be one of: %s", 
                     baseline_settings$unit_of_analysis, str_collapse(ua)))
                 }
@@ -374,8 +374,8 @@ rm(._._env_._.)
                       return(as)
                     })
                   ua <- get_unit_of_analysis(names = TRUE)
-                  if (!baseline_settings$unit_of_analysis %in% 
-                    ua) {
+                  if (!tolower(baseline_settings$unit_of_analysis) %in% 
+                    tolower(ua)) {
                     stop(sprintf("Requested unit of analysis \"%s\" must be one of: %s", 
                       baseline_settings$unit_of_analysis, str_collapse(ua)))
                   }

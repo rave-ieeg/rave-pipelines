@@ -52,8 +52,9 @@ method <- switch (
   '% Change Amplitude' = "sqrt_percentage",
   'z-score Power' = "zscore",
   'z-score Amplitude' = "sqrt_zscore",
+  'z-score Decibel' = "db_zscore",
   {
-    # c("percentage", "sqrt_percentage", "decibel", "zscore", "sqrt_zscore")
+    # c("percentage", "sqrt_percentage", "decibel", "zscore", "sqrt_zscore", "db_zscore")
     "decibel"
   }
 )

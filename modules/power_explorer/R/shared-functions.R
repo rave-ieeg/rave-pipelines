@@ -667,9 +667,10 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
   ll = list(
     '% Change Power' = 'percentage',
     '% Change Amplitude' = 'sqrt_percentage',
+    'Decibel' = 'decibel',
     'z-score Power' = 'zscore',
     'z-score Amplitude' = 'sqrt_zscore',
-    'decibel' = 'decibel'
+    'z-score Decibel' = 'db_zscore'
   )
 
   if(missing(requested_unit)) {
@@ -678,12 +679,14 @@ get_unit_of_analysis <- function(requested_unit, names=FALSE) {
     return (ll)
   }
 
-  if(!any(requested_unit == names(ll))) {
+  requested_unit <- tolower(requested_unit)
+  ll_nms <- tolower(names(ll))
+  if(!any(requested_unit == ll_nms)) {
     warning("requested unit of analysis not available: ", requested_unit, '. Returning % Change Power')
     return(ll[['% Change Power']])
   }
 
-  return(ll[[requested_unit]])
+  return(ll[[which(ll_nms == requested_unit)[[1]]]])
 }
 
 get_unit_of_analysis_varname <- function(uoa){
@@ -691,13 +694,14 @@ get_unit_of_analysis_varname <- function(uoa){
     'sqrt_percentage' = 'Pct_AmpChange',
     'zscore' = 'Z_PowerChange',
     'sqrt_zscore' = 'Z_AmpChange',
-    'decibel' = 'Decibel_PowerChange'
+    'decibel' = 'Decibel_PowerChange',
+    'db_zscore' = 'Z_dBPowerChange'
   )
 
   if(missing(uoa)) return (ll)
 
   gu = get_unit_of_analysis(names=TRUE)
-  if(uoa %in% gu) {
+  if(tolower(uoa) %in% tolower(gu)) {
     uoa %<>% get_unit_of_analysis
   }
 
