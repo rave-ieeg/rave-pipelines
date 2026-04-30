@@ -1,3 +1,8 @@
 [default]
 ^shared
 ^main\.html$
+
+[report]
+^build
+^shared/user
+^main\.html$

@@ -13,53 +13,383 @@ editor_options:
 ravepipeline::pipeline_setup_rmd("project_overview")
 ```
 
-```{rave obtain_project_names, language = "R", export = "project_names_cleaned"}
-all_projects <- raveio::get_projects(refresh = TRUE)
-if(length(project_names)) {
-  project_names_cleaned <- sort(unique(unlist(project_names)))
-  project_names_cleaned <- project_names_cleaned[project_names_cleaned %in% all_projects]
+
+## Phase 1 — Validation & Configuration
+
+```{rave validate_project, language = "R", export = "project", cue = "always"}
+all_projects <- ravecore::get_projects(refresh = TRUE)
+if (!length(project_name) || !nzchar(project_name) || !project_name %in% all_projects) {
+  stop("Invalid project_name: ", sQuote(project_name),
+       ". Available: ", paste(all_projects, collapse = ", "))
+}
+project <- ravecore::as_rave_project(project_name, strict = FALSE)
+```
+
+```{rave collect_subject_info, language = "R", export = "subject_summary", cue = "always"}
+available_subjects <- project$subjects()
+if (!length(available_subjects)) {
+  stop("Project ", sQuote(project$name), " has no subjects.")
+}
+
+subject_summary <- do.call("rbind", lapply(available_subjects, function(sc) {
+  subject <- ravecore::RAVESubject$new(
+    project_name = project$name,
+    subject_code = sc,
+    strict = FALSE
+  )
+  preproc <- subject$preprocess_settings
+
+  data_imported <- all(preproc$data_imported)
+  notch_filtered <- all(preproc$notch_filtered)
+  has_wavelet <- all(preproc$has_wavelet)
+
+  etable <- tryCatch(subject$meta_data("electrodes"), error = function(e) data.frame())
+  localized <- nrow(etable) > 0 &&
+    all(c("Electrode", "Coord_x", "Coord_y", "Coord_z", "Label") %in% names(etable)) &&
+    any(etable$Coord_x^2 + etable$Coord_y^2 + etable$Coord_z^2 > 0, na.rm = TRUE)
+
+  n_electrodes <- length(subject$electrodes)
+  blocks <- tryCatch(subject$blocks, error = function(e) character(0))
+  n_epochs <- length(subject$epoch_names)
+  n_references <- length(subject$reference_names)
+
+  data.frame(
+    Subject = sc,
+    Electrodes = n_electrodes,
+    Imported = data_imported,
+    Notch = notch_filtered,
+    Wavelet = has_wavelet,
+    Localized = localized,
+    Blocks = paste(blocks, collapse = ", "),
+    Epoch_tables = n_epochs,
+    Reference_tables = n_references,
+    stringsAsFactors = FALSE
+  )
+}))
+head(subject_summary)
+```
+
+```{rave ensure_template_brain, language = "R", export = "template_subject_ensured", cue = "always"}
+template_root <- threeBrain::default_template_directory()
+installed_templates <- list.dirs(template_root, full.names = FALSE, recursive = FALSE)
+installed_templates <- installed_templates[grepl("^[a-zA-Z]", installed_templates)]
+installed_templates <- installed_templates[
+  !installed_templates %in% c("templates", "prototypes")]
+
+if (!isTRUE(template_subject %in% installed_templates)) {
+  downloadable <- names(threeBrain::available_templates())
+  if (!isTRUE(template_subject %in% downloadable)) {
+    stop("Template brain not available. Choose from: ",
+         paste(unique(c(downloadable, installed_templates)), collapse = ", "))
+  }
+  threeBrain::download_template_subject(template_subject)
+}
+template_subject_ensured <- template_subject
+```
+
+```{rave resolve_subjects, language = "R", export = "resolved_subjects", cue = "always"}
+# subject_codes from settings.yaml — NULL or empty means all subjects
+if (is.null(subject_codes) || !length(subject_codes)) {
+  resolved_subjects <- subject_summary$Subject
 } else {
-  project_names_cleaned <- all_projects
+  resolved_subjects <- subject_codes[subject_codes %in% subject_summary$Subject]
+  if (!length(resolved_subjects)) {
+    stop("None of the requested subjects exist. Available: ",
+         paste(subject_summary$Subject, collapse = ", "))
+  }
 }
-if(!length(project_names_cleaned)) {
-  stop("No valid project found.")
-}
+
+resolved_subjects <- sort(resolved_subjects)
 ```
 
-```{rave ensure_template_brain, language = "R", export = "template_info", cue = "always"}
-template_info <- ensure_brain_template(template_subject = template_subject)
+
+## Phase 2 — Group-Level Targets
+
+```{rave generate_group_subject_summary, language = "R", export = "snapshot_group_subject_summary"}
+snapshot_group_subject_summary <- subject_summary[
+  subject_summary$Subject %in% resolved_subjects, , drop = FALSE
+]
 ```
 
-```{rave snapshot_projects, language = "R", export = "snapshot_results", cue = "always"}
-force(template_info)
-force(use_cache)
+```{rave generate_group_brain, language = "R", export = "snapshot_group_brain"}
+pname <- project$name
 
-if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
-  suppressWarnings({
-    snapshot_results <- lapply(project_names_cleaned, function(project_name) {
-      snapshot_project(
-        project_name,
-        template = template_subject,
-        cache_root = "build/cache",
-        use_cache = use_cache
+# Collect one brain per subject (skip subjects without surface data)
+brain_list <- lapply(resolved_subjects, function(sc) {
+  subject <- ravecore::new_rave_subject(
+    project_name = pname,
+    subject_code = sc,
+    strict = FALSE
+  )
+  tryCatch(
+    ravecore::rave_brain(subject),
+    error = function(e) {
+      NULL
+    }
+  )
+})
+
+snapshot_group_brain <- threeBrain::merge_brain(
+  .list = brain_list,
+  template_surface_types = c("inflated", "sphere.reg"),
+  template_subject = template_subject_ensured,
+  electrode_priority = "sphere"
+)
+
+# snapshot_group_brain$plot() to view the template brain with electrodes from all subjects
+```
+
+```{rave generate_group_electrode_coverage, language = "R", export = "snapshot_group_electrode_coverage"}
+pname <- project$name
+
+# Gather electrode atlas labels from every subject
+pieces <- lapply(resolved_subjects, function(sc) {
+  subject <- ravecore::new_rave_subject(
+    project_name = pname,
+    subject_code = sc,
+    strict = FALSE
+  )
+  etable <- tryCatch(
+    subject$meta_data("electrodes"),
+    error = function(e) NULL
+  )
+  if (!is.data.frame(etable) || !nrow(etable) || !length(etable$FSLabel)) {
+    return(data.frame(FSLabel = "Unknown", Subject = sc, stringsAsFactors = FALSE))
+  }
+  if (!length(etable$FSLabel)) { return(NULL) }
+
+  labels <- etable$FSLabel
+  labels[is.na(labels) | !nzchar(labels)] <- "Unknown"
+  data.frame(FSLabel = labels, Subject = sc, stringsAsFactors = FALSE)
+})
+pieces <- do.call("rbind", pieces)
+
+
+if (!length(pieces)) {
+  snapshot_group_electrode_coverage <- data.frame(
+    FSLabel = character(0), Total = integer(0),
+    stringsAsFactors = FALSE)
+} else {
+
+  # Pivot to wide: rows = FSLabel, columns = subject codes, values = count
+  wide <- reshape2::dcast(pieces, FSLabel ~ Subject,
+                          fun.aggregate = length,
+                          value.var = "FSLabel", fill = 0L)
+
+  wide <- wide[wide$FSLabel != "Unknown", , drop = FALSE]
+
+  # Add Total as second column
+  subject_cols <- setdiff(names(wide), "FSLabel")
+  wide$Total <- rowSums(wide[, subject_cols, drop = FALSE])
+  wide <- wide[, c("FSLabel", "Total", subject_cols), drop = FALSE]
+
+  snapshot_group_electrode_coverage <- wide
+
+  rownames(snapshot_group_electrode_coverage) <- NULL
+}
+head(snapshot_group_electrode_coverage)
+```
+
+
+## Phase 3 — Subject-Level Targets
+
+Each target returns a **named list** keyed by subject code.
+The UI indexes by the currently selected subject.
+Pipeline discovers ALL data; section toggles and `module_filter` are
+applied in the UI so the pipeline cache stays stable.
+
+```{rave generate_subject_module_reports, language = "R", export = "snapshot_subject_module_reports"}
+pname <- project$name
+
+# Report directories follow the pattern:
+#   report-{name}_datetime-{YYMMDDTHHMMSS}_{module}/report.html
+report_dir_pattern <- "^report-(.+)_datetime-([0-9]{6}T[0-9]{6})_(.+)$"
+
+results <- structure(
+  names = resolved_subjects,
+  lapply(resolved_subjects, function(sc) {
+    subject <- ravecore::new_rave_subject(
+      project_name = pname, subject_code = sc, strict = FALSE)
+    rpath <- subject$report_path
+
+    empty <- data.frame(
+      report_name = character(0), module = character(0),
+      timestamp = character(0), dir_name = character(0),
+      file_path = character(0),
+      stringsAsFactors = FALSE)
+
+    if (!length(rpath) || !dir.exists(rpath)) { return(empty) }
+
+    dirs <- list.dirs(rpath, recursive = FALSE, full.names = FALSE)
+    matched <- grepl(report_dir_pattern, dirs)
+    dirs <- dirs[matched]
+    if (!length(dirs)) { return(empty) }
+
+    parsed <- regmatches(dirs, regexec(report_dir_pattern, dirs))
+    rname <- vapply(parsed, `[[`, "", 2)
+    tstamp <- vapply(parsed, `[[`, "", 3)
+    module <- vapply(parsed, `[[`, "", 4)
+    fpath <- file.path(rpath, dirs, "report.html")
+    exists <- file.exists(fpath)
+
+    df <- data.frame(
+      report_name = rname, module = module,
+      timestamp = tstamp, dir_name = dirs,
+      file_path = fpath,
+      stringsAsFactors = FALSE)
+    df <- df[exists, , drop = FALSE]
+
+    # Apply module_filter from settings if specified
+    if (length(module_filter)) {
+      df <- df[df$module %in% module_filter, , drop = FALSE]
+    }
+
+    # Sort newest first
+    if (nrow(df)) {
+      df <- df[order(df$timestamp, decreasing = TRUE), , drop = FALSE]
+      rownames(df) <- NULL
+    }
+    df
+  })
+)
+
+snapshot_subject_module_reports <- results
+head(snapshot_subject_module_reports)
+```
+
+```{rave generate_subject_electrode_tables, language = "R", export = "snapshot_subject_electrode_tables"}
+pname <- project$name
+
+snapshot_subject_electrode_tables <- structure(
+  names = resolved_subjects,
+  lapply(resolved_subjects, function(sc) {
+    subject <- ravecore::new_rave_subject(
+      project_name = pname, subject_code = sc, strict = FALSE)
+    tryCatch(
+      subject$meta_data("electrodes"),
+      error = function(e) data.frame()
+    )
+  })
+)
+head(snapshot_subject_electrode_tables)
+```
+
+```{rave generate_subject_meta_summary, language = "R", export = "snapshot_subject_meta_summary"}
+pname <- project$name
+
+snapshot_subject_meta_summary <- structure(
+  names = resolved_subjects,
+  lapply(resolved_subjects, function(sc) {
+    subject <- ravecore::new_rave_subject(
+      project_name = pname, subject_code = sc, strict = FALSE)
+
+    # Epochs
+    epoch_rows <- lapply(subject$epoch_names, function(en) {
+      etable <- tryCatch(
+        subject$meta_data(meta_type = "epoch", meta_name = en),
+        error = function(e) NULL
+      )
+      n_trials <- if (is.data.frame(etable)) nrow(etable) else 0L
+      conditions <- if (is.data.frame(etable) &&
+        "Condition" %in% names(etable)) {
+        paste(unique(etable$Condition), collapse = ", ")
+      } else {
+        ""
+      }
+
+      data.frame(
+        Type = "Epoch", Name = en,
+        Trials = n_trials, Conditions = conditions,
+        stringsAsFactors = FALSE
       )
     })
+
+    # References
+    ref_rows <- lapply(subject$reference_names, function(rn) {
+      data.frame(
+        Type = "Reference", Name = rn,
+        Trials = NA_integer_, Conditions = "",
+        stringsAsFactors = FALSE
+      )
+    })
+
+    do.call(rbind, c(epoch_rows, ref_rows))
   })
-} else {
-  snapshot_results <- NULL
-}
+)
+head(snapshot_subject_meta_summary)
 ```
 
-```{rave generate_project_overview, language = "R", export = "project_overview", cue = "always"}
-force(snapshot_results)
-if( nzchar(Sys.getenv("RAVE_PIPELINE_ACTIVE", unset = "")) ) {
-  force(template_info)
-  # build_report_data(use_cache = TRUE/FALSE)
-  # build_reports -> generate qmd and build website
-  project_overview <- generate_website(project_names_cleaned)
-} else {
-  project_overview <- NULL
-}
+```{rave generate_subject_3d_viewers, language = "R", export = "snapshot_subject_3d_viewers"}
+pname <- project$name
+
+# Store viewer HTML files under project group_path so standalone_report
+# can serve them
+snapshot_root <- file.path(
+  project$group_path("project_overview"), "snapshot", "subjects")
+
+snapshot_subject_3d_viewers <- structure(
+  names = resolved_subjects,
+  lapply(resolved_subjects, function(sc) {
+    subject <- ravecore::new_rave_subject(
+      project_name = pname, subject_code = sc, strict = FALSE)
+    brain <- ravecore::rave_brain(subject)
+    brain
+  })
+)
+```
+
+```{rave generate_subject_validation, language = "R", export = "snapshot_subject_validation"}
+pname <- project$name
+
+snapshot_subject_validation <- lapply(resolved_subjects, function(sc) {
+  subject <- ravecore::new_rave_subject(
+    project_name = pname, subject_code = sc, strict = FALSE)
+  results <- tryCatch(
+    ravecore::validate_subject(
+      subject = subject, method = "normal", verbose = FALSE),
+    error = function(e) { NULL }
+  )
+  if (is.null(results)) {
+    return(data.frame(
+      Subject = sc,
+      Section = "Error", Check = "validate_subject",
+      Valid = FALSE, Message = "Validation failed to run",
+      stringsAsFactors = FALSE
+    ))
+  }
+  # results is a fastmap2 with sections: paths, preprocess, meta,
+  # voltage_data, power_phase_data, epoch_tables, reference_tables
+  # Each section is also a fastmap2 of validate_result items
+  section_names <- names(results)
+  rows <- lapply(section_names, function(sname) {
+    section <- results[[sname]]
+    if (!inherits(section, "fastmap2")) { return(NULL) }
+    item_names <- names(section)
+    do.call(rbind, lapply(item_names, function(iname) {
+      item <- section[[iname]]
+      if (!is.list(item) || is.null(item$valid)) { return(NULL) }
+      valid <- item$valid
+      msg <- if (isTRUE(valid)) {
+        "OK"
+      } else if (is.na(valid)) {
+        item$message %||% "Skipped"
+      } else {
+        item$message %||% "Failed"
+      }
+      data.frame(
+        Subject = sc,
+        Section = sname,
+        Check = item$name %||% iname,
+        Valid = isTRUE(valid),
+        Message = msg,
+        stringsAsFactors = FALSE
+      )
+    }))
+  })
+  do.call(rbind, rows)
+})
+names(snapshot_subject_validation) <- resolved_subjects
+head(snapshot_subject_validation)
 ```
 
 

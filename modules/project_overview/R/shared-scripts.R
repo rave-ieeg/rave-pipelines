@@ -4,87 +4,88 @@ targets::tar_option_set(
 )
 
 
-ensure_brain_template <- function(template_subject = raveio::raveio_getopt("threeBrain_template_subject")) {
+ensure_brain_template <- function(template_subject = ravepipeline::raveio_getopt("threeBrain_template_subject")) {
   template_subject <- template_subject[!is.na(template_subject)]
   if(!length(template_subject)) {
-    template_subject <- raveio::raveio_getopt("threeBrain_template_subject")
+    template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject")
   } else {
     template_subject <- template_subject[[1]]
   }
   template_root <- threeBrain::default_template_directory()
   template_path <- file.path(template_root, template_subject)
   if (!dir.exists(template_path)) {
-    # need to download the template brain files
     oldopt <- options(timeout = 3600)
-    on.exit({
-      options(oldopt)
-    })
+    on.exit({ options(oldopt) })
     threeBrain::download_template_subject(subject_code = template_subject)
   }
   return(invisible(template_path))
 }
 
-generate_website <- function(projects, build_target = "build") {
+get_cache_dir <- function(project_name) {
+  file.path(pipeline$pipeline_path, "cache", project_name)
+}
 
-  if (length(projects) == 0) {
-    stop("No projects found. Please create a project first.")
-  }
-  raveio::dir_create2(build_target)
+get_snapshot_dir <- function(project_name) {
+  project <- ravecore::as_rave_project(project_name, strict = FALSE)
+  file.path(project$group_path("project_overview"), "snapshot")
+}
 
-  # remove `build_target`/projects folder
-  project_target <- file.path(build_target, "projects")
-  if(file.exists(project_target)) {
-    unlink(project_target, recursive = TRUE, force = TRUE)
-  }
-  dir.create(project_target, recursive = TRUE)
-
-  file.copy("R/shared-column-builders.R", file.path(build_target, "columns.R"), overwrite = TRUE)
-
-  for (project_name in projects) {
-    template <- readLines("project_page_template.qmd")
-    template <- gsub("\\{\\{PROJECT_NAME\\}\\}", project_name, template)
-    template <- gsub("\\{\\{TEMPLATE_NAME\\}\\}", pipeline$get_settings("template_subject", "fsaverage"), template)
-    writeLines(
-      template,
-      file.path(project_target, sprintf("%s.qmd", project_name))
-    )
+discover_existing_reports <- function(subject, module_filter = NULL) {
+  report_path <- subject$report_path
+  if (!dir.exists(report_path)) {
+    return(data.frame(
+      report_name = character(0),
+      module = character(0),
+      timestamp = character(0),
+      file_path = character(0),
+      stringsAsFactors = FALSE
+    ))
   }
 
-  # create _quarto.yml with projects as sidebar contents
-  sidebar_contents <- lapply(projects, function(project_name) {
-    list(
-      text = project_name,
-      href = sprintf("projects/%s.html?t=%s", project_name, as.numeric(Sys.time()))
-    )
-  })
+  # Pattern: report-{name}_datetime-{YYMMDDTHHMMSS}_{module}
+  all_dirs <- list.dirs(report_path, recursive = FALSE, full.names = FALSE)
+  pattern <- "^report-(.+)_datetime-([0-9]{6}T[0-9]{6})_(.+)$"
+  matches <- grepl(pattern, all_dirs)
+  matched_dirs <- all_dirs[matches]
 
-  quarto_yml <- list(
-    project = list(
-      type = "website"
-    ),
-    website = list(
-      sidebar = list(
-        style = "docked",
-        contents = sidebar_contents
-      )
-    )
+  if (!length(matched_dirs)) {
+    return(data.frame(
+      report_name = character(0),
+      module = character(0),
+      timestamp = character(0),
+      file_path = character(0),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  parsed <- regmatches(matched_dirs, regexec(pattern, matched_dirs))
+  report_name <- vapply(parsed, `[[`, "", 2)
+  timestamp <- vapply(parsed, `[[`, "", 3)
+  module <- vapply(parsed, `[[`, "", 4)
+  file_path <- file.path(report_path, matched_dirs, "report.html")
+
+  df <- data.frame(
+    report_name = report_name,
+    module = module,
+    timestamp = timestamp,
+    dir_name = matched_dirs,
+    file_path = file_path,
+    exists = file.exists(file_path),
+    stringsAsFactors = FALSE
   )
 
-  yaml_text <- yaml::as.yaml(quarto_yml)
-  writeLines(yaml_text, file.path(build_target, "_quarto.yml"))
-  quarto::quarto_render(build_target, as_job = FALSE, execute_dir = build_target)
+  # Filter to existing reports
+  df <- df[df$exists, , drop = FALSE]
 
-  cache_src_dir <- file.path(build_target, "cache", fsep = "/")
-  cache_tgt_dir <- file.path(build_target, "_site", "cache", fsep = "/")
-  raveio::dir_create2(cache_tgt_dir)
-  for (project_name in projects) {
-    file.copy(
-      file.path(cache_src_dir, project_name),
-      cache_tgt_dir,
-      recursive = TRUE,
-      overwrite = TRUE
-    )
+  # Apply module filter
+  if (length(module_filter) && !all(is.na(module_filter))) {
+    df <- df[df$module %in% module_filter, , drop = FALSE]
   }
 
-  return(file.path(build_target, "_site"))
+  # Sort by timestamp descending (newest first)
+  if (nrow(df)) {
+    df <- df[order(df$timestamp, decreasing = TRUE), , drop = FALSE]
+  }
+
+  df
 }
