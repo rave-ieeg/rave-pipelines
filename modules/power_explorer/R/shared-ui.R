@@ -51,7 +51,8 @@ make_by_frequency_tabset <- function() {
   )
 }
 
-make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), percentile=TRUE, range_is_global=TRUE, do_xlim=TRUE) {
+make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), percentile=TRUE,
+                                       range_is_global=TRUE, do_xlim=TRUE, do_aw_only_scale=FALSE, range_is_aw_only = do_aw_only_scale) {
   shiny::conditionalPanel(
     condition = sprintf("input['%s'] %% 2 == 1", config),
     ns = ns,
@@ -59,7 +60,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
       class = "container-fluid",
       shiny::fluidRow(
         shiny::column(
-          width = 2L,
+          width = 1L,
           shidashi::register_input(
             shiny::numericInput(ns(prefix %&% '_range'), label = 'Plot Max',
                                 value = max[1], min = max[2], max = max[3], step = max[4]),
@@ -71,18 +72,25 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
         shiny::column(width = 1L, style='text-align: left; margin-top:37px; margin-left:0px',
                       shiny::checkboxInput(ns(prefix %&% '_range_is_percentile'),
                                            label = 'Max is %', value = percentile)),
+
         shiny::column(width = 1L, style='text-align: left; margin-top:37px; margin-left:0px',
                       shiny::checkboxInput(ns(prefix %&% '_scale_is_global'),
                                            label = 'Global scale', value = range_is_global)),
+        if(do_aw_only_scale) {
+          shiny::column(width = 1L, style='text-align: left; margin-top:37px; margin-left:0px',
+                        shiny::checkboxInput(ns(prefix %&% '_scale_based_on_aw'),
+                                             label = 'Range is AW', value = range_is_aw_only)
+          )
+        },
         if(do_xlim){
-          shiny::column(width = 3L,
+          shiny::column(width = 2L,
                         shiny::sliderInput(ns(prefix %&% '_xlim'),value = c(-1,2), step=c(0.01),
                                            label = 'X range', min = -10, max = 10))
         },
         shiny::column(width = 1L, offset = ifelse(do_xlim, 0, 1),
                       shiny::numericInput(ns(prefix %&% '_ncol'), label = '# Col',
                                           value = 3, min = 0, max = 1e7)),
-        shiny::column(width = 2L, style='text-align: left;
+        shiny::column(width = 1L, style='text-align: left;
                             margin-top:37px; margin-left:0px',
                       shiny::checkboxInput(ns(prefix %&% '_byrow'),
                                            label = 'Order by row', value = TRUE)),
@@ -90,7 +98,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
         shiny::column(width = 2L, style='text-align: left;
                             margin-top:37px; margin-left:0px',
                       shiny::checkboxInput(ns(prefix %&% '_show_window'),
-                                           label = 'Show Window', value = TRUE))
+                                           label = 'Show AW', value = TRUE))
       )
     )
   )
