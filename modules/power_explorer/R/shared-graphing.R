@@ -1103,6 +1103,163 @@ render_analysis_window <- function(settings, lty=2, do_label=TRUE, text.color=pa
   }
 }
 
+
+plot_waterfall_by_electrode <- function(waterfall_by_electrode_data, plot_options, ...) {
+  apply_current_theme()
+
+  do_plot_waterfall <- function(wbed, waterfall_num, xlim, max_zlim=0.99, percentile_range=TRUE, show_window=TRUE, scale_based_on_aw=TRUE,
+                                ...) {
+
+    data.ind <- if(missing(xlim)) {
+      seq_along(wbed$x)
+    } else {
+      which(wbed$x %within% xlim)
+    }
+
+    x.time = wbed$x[data.ind]
+    y.seq <- seq_along(wbed$y)
+    y.els <- wbed$y
+
+    rutabaga::plot_clean(x.time, c(0.75, y.seq, max(y.seq+1)))
+    box(col='gray30')
+
+    if(show_window) {
+      render_analysis_window(
+        settings =list(time = wbed$analysis_window),
+        do_label=FALSE,
+        stroke.color = pe_graphics_settings_cache$get('analysis_window.stroke.color')
+      )
+    }
+
+    yat <- pretty(y.seq)
+    # for long lists, pretty sets the first element to 0
+    yat[yat==0] = 1
+
+    rave_axis(2,
+              at=yat,
+              lwd=0,
+              labels = y.els[yat]
+    )
+
+    rave_axis(1, at=pretty(x.time),lwd=0,
+              labels =pretty(x.time)
+    )
+
+    rave_title(sprintf("Event: %s\nTrial Type: %s", wbed$analysis_event, wbed$label))
+
+    with(wbed, rave_axis_labels(xlab, ylab=NULL, xline=2.5))
+
+    abline(h=unique(c(0, max(y.seq)+1, pretty(y.seq))), col='gray')
+
+    m <- wbed$data
+
+    # scale the data so that the XY%-ile of the data gets a value of 1
+    w = if(isTRUE(percentile_range)) {
+
+      if(max_zlim > 1) {
+        max_zlim <- max_zlim/100
+      }
+
+      if(isTRUE(scale_based_on_aw)) {
+        aw.ind <- wbed$x %within% wbed$analysis_window
+
+        quantile(abs(m[aw.ind,]), max_zlim)
+      } else {
+        quantile(abs(m[data.ind,]), max_zlim)
+      }
+
+    } else {
+      max_zlim
+    }
+    for(ri in y.seq) {
+      lines(x = x.time, (m[data.ind,ri])/w + ri,
+            col = waterfall_num,
+            xpd=TRUE
+      )
+    }
+
+    rhs_at <- round(median(y.seq))
+
+    rave_axis(4, at=c(rhs_at, rhs_at+1), labels = NA, lwd=3
+    )
+    rave_axis(4, at=rhs_at + 0.5,
+              labels = round(w,1), lwd=0
+    )
+  }
+
+  plot_options[['byrow']] %?<-% TRUE
+
+  if(isTRUE(plot_options$global_scale)) {
+    if(isTRUE(plot_options$percentile_range)) {
+
+      dd <- unlist(lapply(waterfall_by_electrode_data, function(x) {
+        if(isTRUE(plot_options$scale_based_on_aw)) {
+          return(x$data[x$x %within% x$analysis_window, ])
+
+        } else if(!all(x$x %within% plot_options$xlim)) {
+
+          return(x$data[x$x %within% plot_options$xlim,])
+        }
+
+        x$data
+      }))
+
+      zQ <- plot_options[['max_zlim']]
+
+      # convert percentile to proportion for quantile function. if the value is larger than 100, then assume they want to scale the max
+      if (zQ > 100) {
+        plot_options[['max_zlim']] = (zQ/100) * max(dd)
+      } else {
+
+        # maybe they already gave us a proportion, leave it alone if so
+        if(zQ > 1) {
+          zQ = zQ / 100
+        }
+
+        plot_options[['max_zlim']] <- quantile(dd, zQ)
+
+      }
+
+      # now that we've set the zlim to an actual value, turn off the percentile flag
+      # so the plot function works correctly
+      plot_options$percentile_range <- FALSE
+
+    }
+  }
+
+  par(oma=c(0,1,2,4), mar=c(5, 4 ,4, 6))
+  layout_heat_maps(length(waterfall_by_electrode_data),
+                   max_col = plot_options$ncol,
+                   layout_color_bar = FALSE,
+                   byrow = plot_options$byrow)
+
+  mapply(do_plot_waterfall, waterfall_by_electrode_data,
+         waterfall_num = seq_along(waterfall_by_electrode_data),
+         MoreArgs = plot_options)
+
+  mtext(waterfall_by_electrode_data[[1]]$ylab, side=2, outer=TRUE, line = -1, at = 0.55,
+        cex = #get_cex_for_multifigure() *
+          pe_graphics_settings_cache$get('rave_cex.lab', 1))
+
+  mtext(waterfall_by_electrode_data[[1]]$zlab, side=4, outer=TRUE, line = 0, at = 0.55,
+        cex = #get_cex_for_multifigure() *
+          pe_graphics_settings_cache$get('rave_cex.lab', 1))
+
+}
+
+
+
+determine_layout <- function(n.panels,
+                             MAX_COL = pe_graphics_settings_cache$get('max_columns_in_figure', 3)) {
+
+  nr = ceiling(n.panels / MAX_COL)
+
+  nc = min(n.panels, MAX_COL)
+
+  c(nr,nc)
+}
+
+
 plot_over_time_by_condition <- function(over_time_by_condition_data,
                                         combine_conditions=FALSE,
                                         combine_events=FALSE,
@@ -1333,15 +1490,7 @@ plot_over_time_by_condition <- function(over_time_by_condition_data,
     # show a warning if the events have a different origin
   }
 
-  MAX_COL = pe_graphics_settings_cache$get('max_columns_in_figure', 3)
 
-  determine_layout <- function(n.panels) {
-    nr = ceiling(n.panels / MAX_COL)
-
-    nc = min(n.panels, MAX_COL)
-
-    c(nr,nc)
-  }
 
   if(isTRUE(combine_conditions) && isTRUE(combine_events)){
     # put everybody in a single plot
@@ -2920,9 +3069,10 @@ if(ravepipeline::pipeline_get_preferences("power_explorer.graphics.reset_on_load
     max_zlim = 99,
     percentile_range = TRUE,
     global_scale = TRUE,
+    scale_based_on_aw = FALSE,
     ncol = 3, byrow=TRUE,
     show_window = TRUE,
-    xlim = c(0,1)
+    xlim = c(-1,2)
   )
 
   alter_list <- function(ll, ...) {
@@ -2955,6 +3105,8 @@ if(ravepipeline::pipeline_get_preferences("power_explorer.graphics.reset_on_load
                                  )
   )
 
+  pe_graphics_settings_cache$set('waterfall_by_electrode_plot_options',
+                                 heatmap_default_settings)
 
   pe_graphics_settings_cache$set(
     'over_time_by_condition_plot_options',

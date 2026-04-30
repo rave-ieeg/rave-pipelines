@@ -6,6 +6,7 @@ module_server <- function(input, output, session, ...){
     update_line_plots = NULL,
     update_heatmap_plots = NULL,
     update_by_frequency_over_time_plot = NULL,
+    update_waterfall_by_electrode_plot = NULL,
     update_over_time_by_trial_plot = NULL,
     update_over_time_by_electrode_plot = NULL,
     update_cluster_table = NULL,
@@ -60,6 +61,12 @@ module_server <- function(input, output, session, ...){
   # data frame to store electrode clusters, can be merged
   # into 3dViewer when needed
   local_data$electrode_quick_cluster <- NULL
+
+
+  # store a vector of plot prefixes that can be updated using the common plot option UI
+  local_data$plots_with_heatmap_style_ui_controls <- c('bfot', 'otbt', 'otbe', 'bewot')
+
+
 
   # if we have ROI labels, then the names are more complicated than just C#, so we need to read them out of the quick cluster table
   cnames <- sort(unique(local_data$electrode_quick_cluster$PE_Cluster))
@@ -344,7 +351,8 @@ module_server <- function(input, output, session, ...){
       # )
 
     } else {
-      target_names <- unique(c(normal_names, extra_names, eval_names))
+      target_names <- unique(c(normal_names, #extra_names,
+                               eval_names))
 
       results <- pipeline$run(
         as_promise = FALSE,
@@ -507,7 +515,7 @@ module_server <- function(input, output, session, ...){
       )
 
       # update the timing range variable for heatmap plots
-      sapply(c('bfot', 'otbt', 'otbe'), function(nm) {
+      sapply(local_data$plots_with_heatmap_style_ui_controls, function(nm) {
         shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
                                  value = range(newly_available_time),
                                  min = min(newly_available_time),
@@ -902,6 +910,7 @@ module_server <- function(input, output, session, ...){
     # reset all outputs
     local_reactives$update_outputs <- NULL
     local_reactives$update_line_plots <- NULL
+    local_reactives$update_waterfall_by_electrode_plot <- NULL
     local_reactives$update_heatmap_plots <- NULL
     local_reactives$update_3dviewer <- NULL
     local_reactives$update_by_condition_plot <- NULL
@@ -1010,12 +1019,12 @@ module_server <- function(input, output, session, ...){
 
 
       # update the timing range variable for heatmap plots
-      pnames = c('bfot' = 'by_frequency_over_time_plot',
-                 'bfc' = 'by_frequency_correlation_plot',
-                 'otbt' = 'over_time_by_trial_plot',
-                 'otbe' = 'over_time_by_electrode')
+      # pnames = c('bfot' = 'by_frequency_over_time_plot',
+      #            'bfc' = 'by_frequency_correlation_plot',
+      #            'otbt' = 'over_time_by_trial_plot',
+      #            'otbe' = 'over_time_by_electrode')
 
-      sapply(c('bfot', 'otbt', 'otbe'), function(nm) {
+      sapply(local_data$plots_with_heatmap_style_ui_controls, function(nm) {
         shiny::updateSliderInput(session = session, inputId = paste0(nm, '_xlim'),
                                  value = range(new_repository$time_points),
                                  min = min(new_repository$time_points),
@@ -1104,6 +1113,7 @@ module_server <- function(input, output, session, ...){
       }
       local_reactives$update_outputs <- NULL
       local_reactives$update_line_plots <- NULL
+      local_reactives$update_waterfall_by_electrode_plot <- NULL
       local_reactives$update_heatmap_plots <- NULL
       local_reactives$update_3dviewer <- NULL
       local_reactives$update_by_condition_plot <- NULL
@@ -1572,6 +1582,7 @@ module_server <- function(input, output, session, ...){
     plot_option_list$global_scale =
       isTRUE(input[[prefix %&% '_scale_is_global']])
 
+    plot_option_list$scale_based_on_aw = isTRUE(input[[prefix %&% '_scale_based_on_aw']])
 
     plot_option_list$ncol = input[[prefix %&% '_ncol']]
     plot_option_list$byrow = input[[prefix %&% '_byrow']]
@@ -1579,24 +1590,29 @@ module_server <- function(input, output, session, ...){
 
     plot_option_list$xlim = input[[prefix %&% '_xlim']]
 
+
     pe_graphics_settings_cache$set(optname, plot_option_list)
 
     local_reactives[[upname]] = Sys.time()
   }
 
-  # controls for heatmaps
+  # controls for heatmap style plots (plots with x (almost always Time), y, and z axes)
   pnames = c('bfot' = 'by_frequency_over_time_plot',
              'bfc' = 'by_frequency_correlation_plot',
              'otbt' = 'over_time_by_trial_plot',
-             'otbe' = 'over_time_by_electrode_plot')
+             'otbe' = 'over_time_by_electrode_plot',
+             'bewot' = 'waterfall_by_electrode_plot')
 
   mapply(function(prf, po) {
     shiny::bindEvent(
       ravedash::safe_observe({
         update_heatmap_controls(prf, po_name = po)
-      }), input[[prf %&% '_range_is_percentile']], input[[prf %&% '_scale_is_global']], input[[prf %&% '_range']],
+
+      }), input[[prf %&% '_range_is_percentile']],
+      input[[prf %&% '_scale_is_global']], input[[prf %&% '_range']],
       input[[prf %&% '_ncol']], input[[prf %&% '_byrow']],
       input[[prf %&% '_show_window']], input[[prf %&% '_xlim']],
+      input[[prf %&% '_scale_based_on_aw']],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
   }, names(pnames), pnames, SIMPLIFY = FALSE)
@@ -3080,6 +3096,23 @@ module_server <- function(input, output, session, ...){
       do.call(plot_by_electrode_custom_plot, po)
     }),
     outputId = "by_electrode_custom_plot",
+    download_type = "image"
+  )
+
+  shidashi::register_output(
+    shiny::renderPlot({
+
+      basic_checks(local_reactives$update_outputs, check_uni = FALSE)
+      force(local_reactives$update_waterfall_by_electrode_plot)
+      force(local_reactives$update_line_plots)
+
+      args <- list(waterfall_by_electrode_data =
+                     local_data$results$over_time_by_electrode_data,
+                   plot_options = pe_graphics_settings_cache$get('waterfall_by_electrode_plot_options'))
+
+      do.call(plot_waterfall_by_electrode, args)
+    }),
+    outputId = "waterfall_by_electrode_plot",
     download_type = "image"
   )
 

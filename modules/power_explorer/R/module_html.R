@@ -556,6 +556,7 @@ module_html <- function(){
               )
             ),
 
+            # --- By Electrode - Over time tab, raster style plot per electrode, color is activity
             `Over Time` = shiny::tagList(
               shiny::div(
                 # opens a fluid container
@@ -667,6 +668,15 @@ module_html <- function(){
               )
             ),
 
+            # ---- Output tab: By Electrode > Graphical Results -----
+            `Waterfall over Time` = shiny::div(
+              class = "fill-width no-padding min-height-400 resize-vertical",
+              make_heatmap_control_panel(prefix = 'bewot', config = 'by_electrode_tabset_config', do_aw_only_scale=TRUE),
+              ravedash::plotOutput2(
+                outputId = ns('waterfall_by_electrode_plot'),
+                min_height = 400
+              )
+            ),
             # ---- Output tab: By Electrode > Graphical Results -----
             `By Condition` = shiny::div(
               shiny::conditionalPanel(
