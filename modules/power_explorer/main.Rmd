@@ -98,7 +98,7 @@ analysis_settings_clean <- lapply(analysis_settings, function(as) {
 
 # ensure baseline choices are valid
 ua <- get_unit_of_analysis(names=TRUE)
-if(!baseline_settings$unit_of_analysis %in% ua) {
+if(!tolower(baseline_settings$unit_of_analysis) %in% tolower(ua)) {
   stop(sprintf('Requested unit of analysis "%s" must be one of: %s', baseline_settings$unit_of_analysis, str_collapse(ua)))
 }
 
