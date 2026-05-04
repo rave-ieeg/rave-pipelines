@@ -1,4 +1,4 @@
-analysis_electrodes: '14 '
+analysis_electrodes: 65,74-76,84-85,92,112-113
 analysis_settings:
   '1':
     label: VisStart
@@ -8,14 +8,14 @@ analysis_settings:
     - 0.5
     frequency_dd: Select one
     frequency:
-    - 70
-    - 150
+    - 65
+    - 165
 baseline_settings:
   window:
-  - - -1.0
-    - -0.5
+  - - -0.15
+    - -0.06
   scope: Per frequency, trial, and electrode
-  unit_of_analysis: '% Change Power'
+  unit_of_analysis: decibel
 condition_variable: Condition
 custom_roi_groupings:
   '1':
@@ -30,38 +30,45 @@ electrodes_to_export_roi_categories: ~
 electrodes_to_export_roi_name: none
 enable_custom_ROI: no
 enable_second_condition_groupings: no
-epoch_choice: auditory_onset
+epoch_choice: default
 epoch_choice__load_single_trial: no
-epoch_choice__trial_ends: 2
+epoch_choice__trial_ends: 1
 epoch_choice__trial_ends_rel_to_event: Trial Onset
-epoch_choice__trial_starts: -1
+epoch_choice__trial_starts: -0.5
 epoch_choice__trial_starts_rel_to_event: Trial Onset
 first_condition_groupings:
   '1':
-    label: audio_visual
+    label: '1'
     conditions:
-    - known_av
-    - meant_av
-    - last_av
-    - drive_av
+    - '1'
   '2':
-    label: auditory_only
+    label: '2'
     conditions:
-    - last_a
-    - drive_a
-    - known_a
-    - meant_a
+    - '2'
   '3':
-    label: visual_only
+    label: '3'
     conditions:
-    - last_v
-    - drive_v
-    - known_v
-    - meant_v
+    - '3'
+  '4':
+    label: '4'
+    conditions:
+    - '4'
+  '5':
+    label: '5'
+    conditions:
+    - '5'
+  '6':
+    label: '6'
+    conditions:
+    - '6'
+  '7':
+    label: '7'
+    conditions:
+    - '7'
 frequencies_to_export: Collapsed, Analysis window(s) only
-loaded_electrodes: 13-16,24
+loaded_electrodes: 65,74-76,84-85,92,112-113
 omnibus_includes_all_electrodes: no
-project_name: demo
+project_name: demo@bids:ds005953
 reference_name: default
 second_condition_groupings:
   '1':
@@ -70,7 +77,7 @@ second_condition_groupings:
   '2':
     label: VL
     conditions: []
-subject_code: DemoSubject
+subject_code: '01'
 time_censor:
   enabled: no
   window:

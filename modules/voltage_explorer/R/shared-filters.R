@@ -52,7 +52,7 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
                                 null.ok = FALSE, .var.name = "sample_rate")
       checkmate::assert_numeric(args$start_time, any.missing = FALSE, len = 1L, finite = TRUE,
                                 null.ok = FALSE, .var.name = "sample_rate")
-      windows <- raveio::validate_time_window(args$windows)
+      windows <- ravecore::validate_time_window(args$windows)
 
       slen <- nrow(signals)
       time <- args$start_time + seq(0, by = 1 / args$sample_rate, length.out = slen)
@@ -164,7 +164,7 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
                                 null.ok = FALSE, .var.name = "sample_rate")
       checkmate::assert_numeric(config$start_time, any.missing = FALSE, len = 1L, finite = TRUE,
                                 null.ok = FALSE, .var.name = "sample_rate")
-      config$windows <- raveio::validate_time_window(config$windows)
+      config$windows <- ravecore::validate_time_window(config$windows)
       if(identical(config$physical_unit, "Amplitude")) {
         config$physical_unit <- "Amplitude % Change"
       }
@@ -227,6 +227,7 @@ apply_filters_to_signals <- function(signals, filter_configs) {
 
   signals <- signals[drop = TRUE]
   for(config in filter_configs) {
+    # config = filter_configs[[3]]
     call <- as.call(c(
       list(quote(apply_filter), signals = quote(signals)), #, sample_rate = sample_rate, start_time = start_time),
       config

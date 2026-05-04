@@ -13,7 +13,7 @@ ravepipeline::pipeline_setup_rmd("voltage_explorer")
 
 
 ```{rave load_subject, language = "R", export = "subject"}
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::new_rave_subject(
   project_name = project_name, 
   subject_code = subject_code
 )
@@ -28,7 +28,7 @@ subject$electrodes
 
 
 ```{rave prepare_data_repository, language = "R", export = "repository", cue = "always", format = "rave_prepare_subject_voltage_with_epoch"}
-repository <- raveio::prepare_subject_voltage_with_epoch(
+repository <- ravecore::prepare_subject_voltage_with_epochs(
   subject = subject,
   electrodes = loaded_electrodes,
   epoch_name = epoch_choice,
@@ -36,6 +36,13 @@ repository <- raveio::prepare_subject_voltage_with_epoch(
   reference_name = reference_name
 )
 ```
+
+`analysis_channels_clean` is the cleaned analysis channels. Compared to the input `analysis_channels`, the cleaned version
+
+* Not empty
+* Electrode channel data must be loaded
+* Sorted integer, from smallest to largest
+
 
 ```{rave clean_analysis_channels, language = "R", export = "analysis_channels_clean"}
 available_channels <- repository$electrode_list
@@ -45,184 +52,372 @@ if(!length(analysis_channels_clean)) {
   stop("No channels selected for analysis. Please specify the electrode channels from the following loaded: ",
        dipsaus::deparse_svec(available_channels))
 }
-analysis_channels_clean <- sort(analysis_channels_clean)
+analysis_channels_clean <- as.integer(sort(analysis_channels_clean))
 ```
 
-```{rave prepare_pre_analysis_filters, language = "R", export = "pre_analysis_filter_array", format = "filearray", cue = "always"}
-pre_analysis_filter_array <- prepare_filtered_data(
-  data_path = "data/pre_analysis_filtered_voltage",
+```{rave prepare_pre_analysis_filters, language = "R", export = "filtered_array"}
+filtered_array <- prepare_filtered_data(
+  data_path = "data/filtered_voltage",
   repository = repository,
   filter_configurations = filter_configurations
 )
+
+# Electrodes to be filtered
+# lapply(analysis_channels_clean, function(ch) {
+#   sel <- repository$electrode_list %in% ch
+#   source_array <- repository$voltage$data_list[[which(sel)]]
+#   signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
+#   
+#   # filtered signals
+#   filtered <- apply_filters_to_signals(
+#     signals = signals, 
+#     filter_configs = config
+#   )
+# })
+
+filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
+
+ravepipeline::with_rave_parallel({
+  ravepipeline::lapply_jobs(analysis_channels_clean, function(ch) {
+    sel <- repository$electrode_list %in% ch
+    source_array <- repository$voltage$data_list[[which(sel)]]
+    signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
+    
+    # Get filter inputs
+    filtered_array_impl <- filtered_array$`@impl`
+    filter_configs <- filtered_array_impl$get_header("filter_configurations")
+    
+    # filtered signals
+    filtered <- apply_filters_to_signals(signals = signals, 
+                                         filter_configs = filter_configs)
+    
+    # write to disk via filearray
+    filtered_array_impl$.mode <- "readwrite"
+    filtered_array_impl[, , sel] <- filtered
+    
+    return(ch)
+  }, .globals = list(
+    repository = repository,
+    filtered_array = filtered_array,
+    apply_filters_to_signals = apply_filters_to_signals,
+    apply_filter = apply_filter,
+    ALLOWED_FILTER_TYPES = ALLOWED_FILTER_TYPES,
+    `%?<-%` = `%?<-%`
+  ), callback = function(ch) {
+    sprintf("Filtering channel|%d", ch)
+  })
+})
+
+filtered_array$`@impl`
+```
+
+```{rave get_electrode_coordinate_table, export = "analysis_electrode_coordinates"}
+analysis_electrode_coordinates <- subject$get_electrode_table(
+  electrodes = analysis_channels_clean,
+  reference_name = repository$reference_name,
+  subset = TRUE
+)
+labels <- analysis_electrode_coordinates$Label
+if (!length(analysis_electrode_coordinates$LabelPrefix)) {
+  analysis_electrode_coordinates$LabelPrefix <- gsub("[0-9]+", "", labels)
+}
+label_prefix <- analysis_electrode_coordinates$LabelPrefix
+
+label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
+is_lead_channel <- label_prefix != label_prefix_lag1
+analysis_electrode_coordinates$ShortLabel <- ifelse(
+  !is_lead_channel,
+  gsub("^[a-zA-Z_-]+", "", labels), labels
+)
+analysis_electrode_coordinates$LeadChannel <- is_lead_channel
+```
+
+## Clean condition groups
+
+`condition_groupings_clean` is a list with two elements:
+
+* `n`: number of valid condition groups after cleaning;
+* `groups`: unnamed list of cleaned group items, each containing `label`
+  (auto-filled when missing), `group_index` (original position, used to
+  derive a stable color), and `conditions` (unique, in input order).
+
+Groups with empty labels are auto-named (`Group<index>`); groups whose
+conditions are empty or do not appear in the epoch are dropped.
+
+```{rave clean_condition_groupings, language = "R", export = "condition_groupings_clean"}
+condition_groupings_clean <- ravecore::validate_condition_groupings(
+  condition_groupings = condition_groupings,
+  epoch = repository$epoch
+)
+if (!isTRUE(condition_groupings_clean$n > 0)) {
+  stop("No valid condition group specified. Please check the condition groupings input.")
+}
 ```
 
 
-```{rave filter_data_for_analysis, language = "R", export = "filtered_array", format = "filearray", cue = "always"}
-filtered_channels <- pre_analysis_filter_array$get_header("filtered_channels")
-sel <- (
-  # User want channels to be analyzed
-  repository$electrode_list %in% analysis_channels_clean
-) & (
-  # Skip cached
-  !repository$electrode_list %in% filtered_channels
-)
+Combine `condition_groupings_clean` and `filtered_array` to prepare plot data
 
-if(any(sel)) {
-  # To save time, use filearray's builtin loader to avoid serializing the large arrays
-  array_path <- pre_analysis_filter_array$.filebase
-  file_info_list <- lapply(repository$voltage$data_list[sel], function(arr) {
-    channel <- as.integer(dimnames(arr)$Electrode)
-    list(
-      channel = channel,
-      path = arr$.filebase
-    )
-  })
-  
-  raveio::lapply_async(
-    x = file_info_list, 
-    FUN = function(file_info) {
-      # voltage data comes from here
-      source_array <- filearray::filearray_load(file_info$path, mode = "readonly")
-      
-      # save filtered signals to
-      target_array <- filearray::filearray_load(array_path, mode = "readwrite")
-      
-      # filters
-      configs <- target_array$get_header("filter_configurations")
-      
-      # where to save
-      channel <- file_info$channel
-      idx <- dimnames(target_array)$Electrode == channel
-      
-      # source dimension
-      slice_dim <- dim(source_array)[c(1, 2)]
-      
-      # source signals
-      signals <- source_array[reshape = slice_dim]
-      
-      # filtered signals
-      filtered <- apply_filters_to_signals(
-        signals = signals,
-        filter_configs = configs
-      )
-      
-      target_array[, , idx] <- filtered
-      return(NULL)
-    }, 
-    callback = function(file_info) {
-      sprintf("Applying filter|Channel %s", file_info$channel)
-    }
-  )
-  filtered_channels <- sort(unique(unlist(c(repository$electrode_list[sel], filtered_channels))))
-  pre_analysis_filter_array$.mode <- "readwrite"
-  pre_analysis_filter_array$set_header("filtered_channels", filtered_channels)
-  pre_analysis_filter_array$.mode <- "readonly"
+```{rave prepare_plot_data_placeholder, export = "data_placeholder"}
+data_placeholder <- condition_groupings_clean
+
+if (inherits(filtered_array, "RAVEFileArray")) {
+  # unwrap the filtered_array
+  filtered_array_impl <- filtered_array$`@impl`
+} else {
+  filtered_array_impl <- filtered_array
+}
+dnames <- dimnames(filtered_array_impl)
+
+# Sample rate
+data_placeholder$sample_rate <- filtered_array_impl$get_header("sample_rate")
+
+# electrode coordinate table
+data_placeholder$coord_table <- analysis_electrode_coordinates
+
+# time points
+data_placeholder$time_points <- dnames$Time
+```
+
+
+## Prepare data
+
+Variables: condition group (of trials), channel
+
+Visualizations
+
+- By-channel plot
+  - plot ERP for each condition group (time x channel x condition)
+  - plot ERP for each trial, grouped by condition group (time x channel x condition*trial) <- needs to think about collapsing... maybe inter-trial phase coherence
+- By-condition plot
+  - plot each channel (collapse trials) (time x channel x condition)
+  - collapse channel - each cond. group is a line
+  - plot each trial - collapse channels
+
+### `data_by_channel_condition`
+
+For each channel, condition group, collapse over trials
+
+```{rave prepare_voltage_over_channel_and_condition_by_collapsing_trials, language = "R", export = "data_by_channel_condition"}
+if (inherits(filtered_array, "RAVEFileArray")) {
+  # unwrap the filtered_array
+  filtered_array_impl <- filtered_array$`@impl`
+} else {
+  filtered_array_impl <- filtered_array
 }
 
-filtered_array <- pre_analysis_filter_array
+group_data <- lapply(data_placeholder$groups, function(group) {
+  # group <- data_placeholder$groups[[1]]
+  sub_array <- subset(
+    filtered_array_impl,
+    Electrode ~ Electrode %in% analysis_channels_clean,
+    Trial ~ Trial %in% group$trials_included,
+    drop = FALSE
+  )
+  # Drop dimnames to speed up
+  dimnames(sub_array) <- NULL
+  
+  # Collapse over trial
+  ravetools::collapse(x = sub_array,
+                      keep = c(1L, 3L),
+                      average = TRUE)
+})
+
+# Time x Channel x Group
+group_data <- simplify2array(group_data)
+
+data_by_channel_condition <- data_placeholder
+data_by_channel_condition$data <- group_data
+class(data_by_channel_condition) <- "data_by_channel_condition"
 ```
 
+Visualization:
 
-```{rave analyze_data, language = "R", export = "analysis_results"}
-parameter_grid <- build_parameter_grid(
+- By-channel plot
+  - plot ERP for each condition group
+- By-condition plot
+  - plot each channel (collapse trials)
+
+```{r}
+plot(data_by_channel_condition,
+     group_by = "channel",
+     channel_annotation = "full")
+
+plot(data_by_channel_condition,
+     group_by = "condition",
+     channel_annotation = "short")
+
+# plot_by_channel_condition(
+#   data_by_channel_condition = data_by_channel_condition,
+#   group_by = "channel",
+#   channel_annotation = "full"
+# )
+# 
+# plot_by_channel_condition(
+#   data_by_channel_condition = data_by_channel_condition,
+#   group_by = "condition",
+#   channel_annotation = "short"
+# )
+```
+
+### Collapse channels
+
+- By-condition plot
+  - plot each trial - collapse channels
+
+```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_per_condition"}
+if (inherits(filtered_array, "RAVEFileArray")) {
+  # unwrap the filtered_array
+  filtered_array_impl <- filtered_array$`@impl`
+} else {
+  filtered_array_impl <- filtered_array
+}
+
+dnames <- dimnames(filtered_array_impl)
+trial_numbers <- dnames$Trial
+
+group_data <- lapply(data_placeholder$groups, function(group) {
+  # group <- data_placeholder$groups[[1]]
+  sub_array <- subset(
+    filtered_array_impl,
+    Electrode ~ Electrode %in% analysis_channels_clean,
+    Trial ~ match(group$trials_included, trial_numbers),
+    drop = FALSE
+  )
+  # Drop dimnames to speed up
+  dimnames(sub_array) <- NULL
+  
+  # Collapse over trial (the trial is sorted by stimuli names)
+  voltage_by_trial <- ravetools::collapse(x = sub_array,
+                                          keep = c(1L, 2L),
+                                          average = TRUE)
+  return(voltage_by_trial)
+})
+
+data_by_trial_per_condition <- data_placeholder
+data_by_trial_per_condition$data <- group_data
+class(data_by_trial_per_condition) <- "data_by_trial_per_condition"
+```
+
+```{r}
+# or plot(...)
+plot_by_trial_per_condition(
+  data_by_trial_per_condition, space = 0.9)
+```
+
+- By-condition plot
+  - collapse channel - each cond. group is a line
+
+```{rave prepare_collapsed_voltage_per_condition, export = "data_collapse_by_condition"}
+data_collapse_by_condition <- data_by_trial_per_condition
+
+time_points <- data_collapse_by_condition$time_points
+sample_rate <- data_collapse_by_condition$sample_rate 
+
+time_range <- range(time_points)
+crp_time_begin <- 0.01
+if (crp_time_begin > time_range[[2]]) {
+  crp_time_begin <- 0
+}
+crp_time_end <- time_range[[2]]
+crp_time_step <- max(floor(sample_rate / 50), 5)
+
+# make sure CRP time points have at least 11 time-points
+if ((crp_time_end - crp_time_begin) * sample_rate <= 10) {
+  crp_enabled <- FALSE
+} else {
+  crp_enabled <- TRUE
+}
+
+
+group_data <- lapply(seq_along(data_collapse_by_condition$groups), function(ii) {
+  # ii = 2
+  group <- data_collapse_by_condition$groups[[ii]]
+  voltage_by_trial <- data_collapse_by_condition$data[[ii]]
+  
+  if (crp_enabled) {
+    crp_result <- ravetools::crp(
+      voltage_by_trial,
+      time = time_points,
+      t_start = crp_time_begin,
+      t_end = crp_time_end,
+      time_step = crp_time_step,
+      threshold_quantile = 0.98,
+      artifact_interval = "tR",
+      remove_artifacts = FALSE
+    )
+  } else {
+    crp_result <- NULL
+  }
+  
+  # Mean and se of mean
+  if (length(crp_result$bad_trials)) {
+    voltage_by_trial <- voltage_by_trial[, - crp_result$bad_trials, drop = FALSE]
+  }
+  
+  n_samples <- ncol(voltage_by_trial)
+  
+  mean_erp <- rowMeans(voltage_by_trial)
+  
+  return(list(
+    mean = mean_erp,
+    bad_trials = group$trials_included[crp_result$bad_trials], 
+    tau_r = c(crp_result$tau_R_lower, crp_result$tau_R, crp_result$tau_R_upper)
+  ))
+})
+
+mean_erp <- simplify2array(lapply(group_data, "[[", "mean"))
+bad_trials <- lapply(group_data, "[[", "bad_trials")
+crp_tau <- lapply(group_data, "[[", "tau_r")
+
+
+data_collapse_by_condition$data <- list(
+  mean_erp = mean_erp,
+  bad_trials = bad_trials,
+  crp_enabled = crp_enabled,
+  crp_time_range = c(crp_time_begin, crp_time_end),
+  crp_tau = crp_tau
+)
+class(data_collapse_by_condition) <- "data_collapse_by_condition"
+```
+
+```{r}
+# or plot(...)
+plot_collapse_by_condition(data_collapse_by_condition, time_range = c(-0.5, 1), flip_y = TRUE)
+```
+
+### Spectrogram analyses
+
+I decide to hide this part. Users can still use the `ravepipeline` infrastructure to run the analysis by loading the shared environment. However, calculating the spectrogram can be slow, hence I prefer to offloading the analysis to the interactive UI and report system, rather than making them stay in the pipeline
+
+```
+env <- pipeline$shared_env()
+spectrogram <- env$calculate_spectrogram(
   repository = repository,
   condition_groupings = condition_groupings,
-  analysis_settings = analysis_settings
+  channel = analysis_channels_clean[[1]]
+)
+
+# ITPC
+image(
+  z = spectrogram$data$itpc[, , 2],
+  zlim = c(0, 1),
+  x = spectrogram$time_points,
+  y = spectrogram$frequencies,
+  log = "y"
+)
+
+# Power
+hmap <- colorRampPalette(ravebuiltins::get_heatmap_palette("BlueWhiteRed"))(101)
+plim <- max(abs(range(spectrogram$data$power)))
+image(
+  z = spectrogram$data$power[, , 2],
+  zlim = c(-1, 1) * plim,
+  x = spectrogram$time_points,
+  y = spectrogram$frequencies,
+  col = hmap
 )
 ```
 
-```{rave prepare_voltage_over_time_per_channel, language = "R", export = "voltage_per_channel"}
-voltage_per_channel <- iterate_condition_analysis(
-  parameter_grid,
-  function(condition_group, analysis_setting) {
-    collapse_cond(
-      filtered_array = filtered_array,
-      condition_group = condition_group,
-      analysis_setting = analysis_setting
-    )
-  }
-)
-voltage_per_channel <- 
-  lapply(parameter_grid$condition_groups, function(condition_group) {
-    prepare_voltage_over_time_per_channel(
-      filtered_array = filtered_array,
-      condition_group = condition_group,
-      channels = analysis_channels_clean
-    )
-  })
-# lapply(voltage_per_channel, plot_voltage_over_time_per_channel)
-```
-
-
-```{rave prepare_voltage_over_time_per_cond_channel, export="voltage_per_cond_channel"}
-voltage_per_cond_channel <- 
-  prepare_voltage_over_time_per_cond_channel(
-    filtered_array = filtered_array,
-    condition_groups = parameter_grid$condition_groups,
-    channels = analysis_channels_clean
-  )
-# plot_voltage_over_time_per_cond_channel(voltage_per_cond_channel)
-# plot_voltage_over_time_per_cond(voltage_per_cond_channel)
-```
-
-```{rave prepare_voltage_over_time_per_cond_channel, export="voltage_per_trial"}
-voltage_per_trial <- 
-  lapply(parameter_grid$condition_groups, function(condition_group) {
-    prepare_voltage_over_time_per_trial(
-      filtered_array = filtered_array,
-      condition_group = condition_group,
-      channels = analysis_channels_clean
-    )
-  })
-# plot_voltage_over_time_per_trial(voltage_per_trial[[1]], type = "heat", sort_trial_by = "c")
-```
-
-```
-# Stack the voltage together instead of line plots
-# short analysis time window
-# Options to add ticks
-
-# Plot 1: 
-vo_time_channel <- lapply(parameter_grid$condition_groups, function(condition_group) {
-  # condition_group <- parameter_grid$condition_groups[[1]]
-  voltage_over_time_per_channel <-
-    prepare_voltage_over_time_per_channel(
-      filtered_array = filtered_array,
-      condition_group = condition_group,
-      channels = analysis_channels_clean
-    )
-  data <- voltage_over_time_per_channel
-  plot_voltage_over_time_per_channel(data)
-  voltage_over_time_per_channel
-})
-
-# plot 2: 
-voltage_over_time_per_cond_channel <- 
-  prepare_voltage_over_time_per_cond_channel(
-    filtered_array = filtered_array,
-    condition_groups = parameter_grid$condition_groups,
-    channels = analysis_channels_clean
-  )
-data <- voltage_over_time_per_cond_channel
-plot_voltage_over_time_per_cond_channel(data)
-plot_voltage_over_time_per_cond(data)
-
-# plot 3
-par(mfrow = c(1, 2))
-lapply(parameter_grid$condition_groups, function(condition_group) {
-  voltage_over_time_per_trial <- 
-    prepare_voltage_over_time_per_trial(
-      filtered_array = filtered_array,
-      condition_group = condition_group,
-      channels = analysis_channels_clean
-    )
-  data <- voltage_over_time_per_trial
-  plot_voltage_over_time_per_trial(data, type = "line", sort_trial_by = "c")
-  # plot_voltage_over_time_per_trial(data, type = "heat", sort_trial_by = "tr")
-  # plot_voltage_over_time_per_trial(data, type = "heat", sort_trial_by = "c")
-})
-
-```
 
 ## Build, Visualize, & Run
 

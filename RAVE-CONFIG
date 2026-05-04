@@ -55,6 +55,7 @@ SubPipelines:
     modules/custom_3d_viewer,
     modules/import_bids,
     modules/power_explorer,
+    modules/voltage_explorer,
     modules/generate_surface_atlas,
     modules/group_3d_viewer,
     modules/project_overview,

@@ -98,17 +98,20 @@ modules:
     label: Power Explorer
     order: 14
     badge: N=1|badge-primary
+  voltage_explorer:
+    label: Voltage Explorer
+    order: 15
   power_clust:
     label: Power Clustering
-    order: 15.1
+    order: 16.1
     group: Channel Clustering
   voltage_clust:
     label: ERP Clustering
-    order: 15.2
+    order: 16.2
     group: Channel Clustering
   trace_viewer:
     label: Recording Block Inspector
-    order: 16
+    order: 17
   configure_rave:
     label: Configurations
     order: 10001
