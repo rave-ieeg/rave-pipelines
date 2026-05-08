@@ -2125,7 +2125,7 @@ if( getOption("knit_rave_pipelines", default = FALSE) ) {
   )
   
   ieegio::io_write_yaml(
-    metadata, file = file.path(out_path, 'metadata.yaml'),
+    metadata, file.path(out_path, 'metadata.yaml'),
     sorted = TRUE
   )
   
