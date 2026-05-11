@@ -1,4 +1,4 @@
-rave_option_server <- function(input, output, session){
+rave_option_server <- function(input, output, session) {
 
   ns <- session$ns
   max_cores <- dipsaus::detectCores()
@@ -21,7 +21,7 @@ rave_option_server <- function(input, output, session){
     data_dir <- ravepipeline::raveio_getopt("data_dir", default = "<Missing>")
     cache_dir <- ravecore::cache_root()
 
-    healthy_directory <- function(path){
+    healthy_directory <- function(path) {
       ifelse(dir.exists(path), "[healthy]", "[unable to reach]")
     }
 
@@ -60,9 +60,9 @@ rave_option_server <- function(input, output, session){
       "  Architecture:    ", session_info$R.version$arch, "\n",
       "  Matrix products: ", session_info$matprod, "\n",
       local({
-        if (blas == lapack && nzchar(blas))
+        if (blas == lapack && nzchar(blas)) {
           c("  BLAS/LAPACK:     ", blas, "\n", sep = "")
-        else {
+        } else {
           if (nzchar(blas)) {
             c("  BLAS:            ", blas, "\n", sep = "")
           }
@@ -74,7 +74,7 @@ rave_option_server <- function(input, output, session){
 
       "\nRAVE status\n",
       "  Version:        ", package_ver("rave", version_only = TRUE), "\n",
-      "  Template brain: ", ravepipeline::raveio_getopt('threeBrain_template_subject', default = "N27"), "\n",
+      "  Template brain: ", ravepipeline::raveio_getopt("threeBrain_template_subject", default = "N27"), "\n",
       "  Directories:    ",
       "Raw ", healthy_directory(raw_dir), ", ",
       "Main ", healthy_directory(data_dir), ", ",
@@ -129,7 +129,7 @@ rave_option_server <- function(input, output, session){
     sv <- shinyvalidate::InputValidator$new(session = session)
 
     sv$add_rule(paste0(input_id, "_text"), function(value) {
-      if (length(value) != 1 || is.na(value) || trimws(value) == '') {
+      if (length(value) != 1 || is.na(value) || trimws(value) == "") {
         return(sprintf(
           "Path to [%s] is blank. Please enter a valid path",
           opt_name
@@ -350,19 +350,19 @@ rave_option_server <- function(input, output, session){
             ravepipeline::raveio_setopt("threeBrain_template_subject", value = template_subject)
             shidashi::show_notification("New template is set!", title = "Succeed!", type = "success")
             template_subject
-          }, error = function(e){
+          }, error = function(e) {
             old_template <- ravepipeline::raveio_getopt("threeBrain_template_subject",
                                                   default = "N27")
             shidashi::show_notification(sprintf(
               "Cannot download template subject [%s] due to the following reason: \n'%s'. Rewinding to previous subject [%s]",
               template_subject, paste(e$message, collapse = ""), old_template
-            ), title = "Fail to download the template", type = 'danger')
+            ), title = "Fail to download the template", type = "danger")
             old_template
           })
         } else {
           shidashi::show_notification(sprintf(
             "Cannot set template subject [%s]. Please check your template folder and make sure this name is correct", template_subject
-          ), title = "Fail to set the template", type = 'danger')
+          ), title = "Fail to set the template", type = "danger")
           return()
         }
       }

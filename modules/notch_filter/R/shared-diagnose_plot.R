@@ -2,7 +2,7 @@
 
 diagnose_notch_filters <- function(
   subject, electrodes, blocks,
-  max_freq = 300, winlen = "auto", nbins= 50,
+  max_freq = 300, winlen = "auto", nbins = 50,
   bg = "white", fg = "black",
   quiet = FALSE, ...
   # cex = 3,
@@ -16,15 +16,15 @@ diagnose_notch_filters <- function(
   sample_rates <- subject$preprocess_settings$sample_rates
   all_electrodes <- subject$electrodes
   sample_rates <- subject$raw_sample_rates
-  sample_rates <- sapply(electrodes, function(e){
+  sample_rates <- sapply(electrodes, function(e) {
     sample_rates[all_electrodes == e]
   })
   etypes <- subject$electrode_types
-  etypes <- sapply(electrodes, function(e){
+  etypes <- sapply(electrodes, function(e) {
     etypes[all_electrodes == e]
   })
 
-  if(missing(blocks)) {
+  if (missing(blocks)) {
     blocks <- subject$preprocess_settings$blocks
   }
 
@@ -52,20 +52,20 @@ diagnose_notch_filters <- function(
     srate <- sample_rates[[ii]]
 
 
-    if(isTRUE(winlen == "auto")) {
+    if (isTRUE(winlen == "auto")) {
       winlen <- 2
     }
 
-    if( winlen >= min(srate, 1000)) {
+    if ( winlen >= min(srate, 1000)) {
       # winlen should be in seconds, not timepoints
       winlen <- winlen / srate
     }
-    if( winlen <= 0.05 ) {
+    if ( winlen <= 0.05 ) {
       winlen <- 0.05
     }
     winlen_npts <- floor(winlen * srate)
 
-    for(block in blocks){
+    for (block in blocks) {
       # get signal
       h5file <- file.path(subject$preprocess_path, "voltage", sprintf("electrode_%s.h5", e))
       h5name_raw <- sprintf("raw/%s", block)
@@ -74,7 +74,7 @@ diagnose_notch_filters <- function(
 
       raw_signal <- ieegio::io_read_h5(h5file, name = h5name_raw, ram = TRUE)
 
-      if(has_notch) {
+      if (has_notch) {
         notch_signal <- ieegio::io_read_h5(h5file, name = h5name_notch, ram = TRUE)
 
         ravetools::diagnose_channel(
@@ -116,7 +116,7 @@ diagnose_notch_filters <- function(
 
   }
 
-  if(length(electrodes) == 1){
+  if (length(electrodes) == 1) {
     return(FUN(1))
   } else {
     lapply(seq_along(electrodes), FUN)

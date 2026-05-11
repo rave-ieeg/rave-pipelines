@@ -1,10 +1,10 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   ravedash::simple_layout(
     input_width = 4L,
     container_fixed = TRUE,
-    container_style = 'max-width:1444px;',
+    container_style = "max-width:1444px;",
     input_ui = {
       # project & subject
       ravedash::input_card(
@@ -63,7 +63,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
@@ -120,21 +120,21 @@ loader_server <- function(input, output, session, ...){
       res$promise$then(
 
         # When data can be imported
-        onFulfilled = function(e){
+        onFulfilled = function(e) {
 
           # Set epoch and/or reference as default
-          if(default_epoch || default_reference){
+          if (default_epoch || default_reference) {
             repo <- pipeline$read("repository")
-            if(default_epoch){
+            if (default_epoch) {
               repo$subject$set_default("epoch_name", repo$epoch_name)
             }
-            if(default_reference) {
+            if (default_reference) {
               repo$subject$set_default("reference_name", repo$reference_name)
             }
           }
 
           # Let the module know the data has been changed
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
           ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
@@ -143,7 +143,7 @@ loader_server <- function(input, output, session, ...){
 
 
         # this is what should happen when pipeline fails
-        onRejected = function(e){
+        onRejected = function(e) {
 
           # Close the alert
           dipsaus::close_alert2()

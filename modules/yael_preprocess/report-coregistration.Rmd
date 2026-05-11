@@ -58,7 +58,7 @@ fs <- list.files(coregistration_path)
 underlay <- c("mri_reference.nii.gz", "mri_reference.nii")
 underlay <- fs[tolower(fs) %in% underlay]
 
-if(!length(underlay)) {
+if (!length(underlay)) {
   stop("Cannot find the underlaying T1w (MRI_reference.nii[.gz]) image under: ",
        coregistration_path)
 }
@@ -67,11 +67,11 @@ underlay <- underlay[[1]]
 transforms <- c("CT_IJK_to_MR_RAS.txt", "CT_RAS_to_MR_RAS.txt")
 transforms <- fs[fs %in% transforms]
 
-if(length(transforms)) {
+if (length(transforms)) {
   transforms <- transforms[[1]]
   overlay <- c("ct_raw.nii.gz", "ct_raw.nii")
   overlay <- fs[tolower(fs) %in% overlay]
-  if(length(overlay)) {
+  if (length(overlay)) {
     overlay <- overlay[[1]]
   } else {
     # No raw CT... Using ct_in_t1.nii?
@@ -79,10 +79,10 @@ if(length(transforms)) {
   }
 }
 
-if(!length(transforms)) {
+if (!length(transforms)) {
   overlay <- c("ct_in_t1.nii.gz", "ct_in_t1.nii")
   overlay <- fs[tolower(fs) %in% overlay]
-  if(length(overlay)) {
+  if (length(overlay)) {
     overlay <- overlay[[1]]
   } else {
     stop("Cannot find the overlying CT image under: ",
@@ -93,9 +93,9 @@ if(!length(transforms)) {
   }
 }
 
-if(length(transforms)) {
+if (length(transforms)) {
   transform_path <- file.path(coregistration_path, transforms)
-  if(startsWith(transforms, "CT_IJK_to_MR_RAS")) {
+  if (startsWith(transforms, "CT_IJK_to_MR_RAS")) {
     transform_type <- "CT_IJK_to_MR_RAS"
     transform <- as.matrix(read.table(transform_path, header = FALSE))
   } else if (startsWith(transforms, "CT_RAS_to_MR_RAS")) {
@@ -114,7 +114,7 @@ if(length(transforms)) {
   transform <- diag(1, 4)
 }
 
-if(!is.matrix(transform) || nrow(transform) != 4 || ncol(transform) != 4) {
+if (!is.matrix(transform) || nrow(transform) != 4 || ncol(transform) != 4) {
   stop("Transform matrix must be a 4x4 matrix.")
 }
 

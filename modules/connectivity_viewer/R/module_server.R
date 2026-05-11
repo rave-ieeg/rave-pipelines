@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
 
@@ -27,11 +27,11 @@ module_server <- function(input, output, session, ...){
 
   # Register event: main pipeline need to run
   regenerate_viewer_electrodes_only <- function() {
-    shiny::validate(shiny::need(label = 'Need electrode table',
+    shiny::validate(shiny::need(label = "Need electrode table",
                                 !is.null(local_data$electrode_table)
     ))
 
-    local_reactives$update_3dviewer = Sys.time()
+    local_reactives$update_3dviewer <- Sys.time()
 
   }
 
@@ -67,7 +67,7 @@ module_server <- function(input, output, session, ...){
 
       proxy_controllers <- as.list(proxy$controllers)
       background <- proxy_controllers[["Background Color"]]
-      if(length(background) != 1) {
+      if (length(background) != 1) {
         theme <- shiny::isolate(ravedash::current_shiny_theme())
         background <- theme$background
       }
@@ -82,23 +82,23 @@ module_server <- function(input, output, session, ...){
       proxy_controllers <- proxy_controllers[
         names(proxy_controllers) %in% synced_controllers]
 
-      for(nm in names(proxy_controllers)) {
+      for (nm in names(proxy_controllers)) {
         controllers[[nm]] <- proxy_controllers[[nm]]
       }
 
       main_camera <- pipeline$get_settings("main_camera", default = list())
       proxy_main_camera <- proxy$main_camera
-      if(all(c("position", "zoom", "up") %in% names(proxy_main_camera))) {
+      if (all(c("position", "zoom", "up") %in% names(proxy_main_camera))) {
         main_camera <- proxy_main_camera
       }
 
       data_source <- input$data_source
       settings <- list()
-      if(identical(data_source, "Uploads")) {
+      if (identical(data_source, "Uploads")) {
         settings <- list(
           uploaded_source = input$uploaded_source
         )
-      } else if(identical(data_source, "Saved pipelines/modules")) {
+      } else if (identical(data_source, "Saved pipelines/modules")) {
         settings <- list(
           data_source_project = input$data_source_project,
           data_source_pipeline = input$data_source_pipeline,
@@ -129,14 +129,14 @@ module_server <- function(input, output, session, ...){
 
       ravepipeline::logger("Reading data loaded flag...", level = "debug")
 
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       ravepipeline::logger("Data read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
       # old_data <- component_container$data$loaded_brain
-      # if('multi-rave-brain' %in% class(loaded_brain)){
-      #   if(
+      # if("multi-rave-brain" %in% class(loaded_brain)) {
+      #   if (
       #     identical(old_data$template_subject, loaded_brain$template_subject) &&
       #     # identical(old_data$subject_code, loaded_data$subject_code) &&
       #     # identical(old_data$electrode_table, loaded_data$electrode_table) &&
@@ -175,17 +175,17 @@ module_server <- function(input, output, session, ...){
 
 
 
-  read_data_file <- function(info){
+  read_data_file <- function(info) {
     ret <- NULL
 
     # if(!grepl("\\.(csv|fst|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
-    if(!grepl("\\.(csv|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
+    if (!grepl("\\.(csv|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
       ravedash::error_notification(list(message = "Unsupported file format: only [.csv] and [.xls(x)] files are supported."))
       return(ret)
     }
 
     format <- "csv"
-    if( grepl("\\.fst$", info$name, ignore.case = TRUE) ) {
+    if ( grepl("\\.fst$", info$name, ignore.case = TRUE) ) {
       format <- "fst"
     } else if ( grepl("\\.xls[x]{0,1}$", info$name, ignore.case = TRUE) ) {
       format <- "xlsx"
@@ -206,7 +206,7 @@ module_server <- function(input, output, session, ...){
       )
     })
 
-    return (ret)
+    return(ret)
   }
 
   shiny::bindEvent(
@@ -216,10 +216,10 @@ module_server <- function(input, output, session, ...){
       fin <- NULL
       fin <- read_data_file(info)
 
-      if(!is.null(fin)) {
+      if (!is.null(fin)) {
         shiny::validate(shiny::need(
-          expr = all(c('SubjectCode', 'Electrode', 'Label', 'x', 'y', 'z') %in% names(fin)),
-          message= 'The uploaded data file must contain named headers: SubjectCode, Electrode, Label, x, y, z'
+          expr = all(c("SubjectCode", "Electrode", "Label", "x", "y", "z") %in% names(fin)),
+          message = "The uploaded data file must contain named headers: SubjectCode, Electrode, Label, x, y, z"
         ))
 
         #TODO validation checks here
@@ -239,22 +239,22 @@ module_server <- function(input, output, session, ...){
       fin <- NULL
       fin <- read_data_file(info)
 
-      if(!is.null(fin)) {
+      if (!is.null(fin)) {
         shiny::validate(shiny::need(
-          expr = all(c('Electrode') %in% names(fin)),
-          message= 'The uploaded data file must contain an Electrode column'
+          expr = all(c("Electrode") %in% names(fin)),
+          message = "The uploaded data file must contain an Electrode column"
         ))
 
         #TODO validation checks here
-        local_data$data_file = fin
+        local_data$data_file <- fin
 
-        if(is.null(local_data$data_file$SubjectCode)) {
+        if (is.null(local_data$data_file$SubjectCode)) {
           local_data$data_file$SubjectCode = local_reactives$selected_template
         }
 
         nms <- names(fin)
 
-        nms <- nms[!(nms %in% c('Electrode', 'SubjectCode', 'x', 'y', 'z'))]
+        nms <- nms[!(nms %in% c("Electrode", "SubjectCode", "x", "y", "z"))]
 
         is_numeric <- sapply(fin[nms], function(x) {
           all(is.numeric(x[!is.na(x)]))
@@ -263,8 +263,8 @@ module_server <- function(input, output, session, ...){
         nms <- nms[is_numeric]
 
         # update available variable choices
-        shiny::updateSelectInput(inputId='by_electrode_variable_selector',
-                                 choices=nms, selected = nms[1])
+        shiny::updateSelectInput(inputId = "by_electrode_variable_selector",
+                                 choices = nms, selected = nms[1])
 
         local_reactives$update_3dviewer <- Sys.time()
         local_reactives$update_outputs <- Sys.time()
@@ -281,7 +281,8 @@ module_server <- function(input, output, session, ...){
       local_data$selected_variable = input$by_electrode_variable_selector
       local_reactives$update_outputs = runif(1)
 
-    }), input$by_electrode_variable_selector, ignoreNULL=TRUE, ignoreInit = TRUE
+    }), input$by_electrode_variable_selector,
+    ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
 
@@ -292,7 +293,7 @@ module_server <- function(input, output, session, ...){
       fin <- NULL
       fin <- read_data_file(info)
 
-      if(!is.null(fin)) {
+      if (!is.null(fin)) {
         #TODO validation checks here
         local_data$connectivity_matrix <- fin
         local_reactives$update_3dviewer <- Sys.time()
@@ -324,20 +325,20 @@ module_server <- function(input, output, session, ...){
 
       brain <- loaded_brain$template_object
 
-      if(is.null(brain)) {
+      if (is.null(brain)) {
         return(threeBrain::threejs_brain(title = "No 3D model found"))
       }
 
       ## check if we electrodes to show
-      if(!is.null(local_data$electrode_table)) {
-        brain$set_electrodes(local_data$electrode_table, coord_sys = "MNI152", priority = 'sphere')
+      if (!is.null(local_data$electrode_table)) {
+        brain$set_electrodes(local_data$electrode_table, coord_sys = "MNI152", priority = "sphere")
       }
 
       ## do we have "regular" data file?
       datafile <- NULL
 
       ## check if we have data to add
-      if(!is.null(local_data$connectivity_matrix)) {
+      if (!is.null(local_data$connectivity_matrix)) {
 
         #TODO have a way to control which electrodes have been stimulated etc
         # rather than enforcing square matrices
@@ -350,28 +351,28 @@ module_server <- function(input, output, session, ...){
 
         dfA <- cbind(dfA, local_data$connectivity_matrix)
 
-        if(!is.null(local_data$data_file)) {
-          df <- merge(dfA, local_data$data_file, by = 'Electrode')
+        if (!is.null(local_data$data_file)) {
+          df <- merge(dfA, local_data$data_file, by = "Electrode")
         } else {
           df <- dfA
         }
         brain$set_electrode_values(df)
 
         # fix the color of the stimulated electrode
-        for(ri in 1:nrow(dfA)) {
+        for (ri in seq_len(nrow(dfA))) {
           varname <- (colnames(dfA)[-(seq_along(extra_cols))])[ri]
           brain$electrodes$fix_electrode_color(ri, "black", varname)
         }
       } else {
-        if(!is.null(local_data$data_file)) {
+        if (!is.null(local_data$data_file)) {
           brain$set_electrode_values(local_data$data_file)
         }
       }
 
       brain$render(outputId = "brain_viewer", session = session,
                    # palettes=res$palettes, value_ranges=res$val_ranges,
-                   control_display = FALSE, side_display=FALSE,
-                   timestamp=FALSE)
+                   control_display = FALSE, side_display = FALSE,
+                   timestamp = FALSE)
     }),
     outputId = "viewer",
     download_type = "threeBrain"
@@ -440,11 +441,11 @@ module_server <- function(input, output, session, ...){
       el <- df$Electrode
       .x <- seq_along(el)
 
-      rutabaga::plot_clean(.x, Y, xlab = 'Electrode #', ylab=selected_variable)
-      points(.x, Y, pch=16)
-      points(.x, Y, type='h')
-      rutabaga::ruta_axis(2, at=axTicks(2))
-      rutabaga::ruta_axis(1, at=axTicks(1), labels = el[axTicks(1)])
+      rutabaga::plot_clean(.x, Y, xlab = "Electrode #", ylab = selected_variable)
+      points(.x, Y, pch = 16)
+      points(.x, Y, type = "h")
+      rutabaga::ruta_axis(2, at = axTicks(2))
+      rutabaga::ruta_axis(1, at = axTicks(1), labels = el[axTicks(1)])
     }),
     outputId = "by_electrode",
     download_type = "image"

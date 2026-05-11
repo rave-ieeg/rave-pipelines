@@ -9,12 +9,12 @@ build_analysis_ranges <- function(repository, analysis_settings) {
     range <- new_analysis_range(name = analysis_range$label)
 
     event <- paste(analysis_range$event, collapse = " ")
-    if( identical(event, "Trial Onset") || !event %in% epoch$available_events ) {
+    if ( identical(event, "Trial Onset") || !event %in% epoch$available_events ) {
       event <- ""
     }
     range$set_value("event", event)
 
-    if(nzchar(event)) {
+    if (nzchar(event)) {
       cname <- sprintf("Event_%s", event)
       delta <- epoch$table[[cname]] - epoch$table$Time
     } else {

@@ -16,7 +16,7 @@ rave_unserialize <- function(data_path, target_export) {
 }
 
 rave_serialize <- function(object, data_path, target_export) {
-  if(file.exists(data_path)) {
+  if (file.exists(data_path)) {
     unlink(data_path, recursive = TRUE)
   }
   switch(

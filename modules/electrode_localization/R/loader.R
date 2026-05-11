@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container-fluid", style = "max-width: 1600px",
@@ -177,7 +177,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   get_plan <- shiny::debounce(shiny::reactive({
     input$loader_plan
@@ -192,7 +192,7 @@ loader_server <- function(input, output, session, ...){
 
       lapply(seq_along(plan), function(ii) {
         item <- plan[[ii]]
-        if(is.null(item)) {
+        if (is.null(item)) {
           msg <- "No channel in this group. This group will be skipped."
         } else {
           msg <- item$msg
@@ -245,7 +245,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       file_info <- input$loader_plan_upload
-      if(!length(file_info) || !length(file_info$datapath)) {
+      if (!length(file_info) || !length(file_info$datapath)) {
         return()
       }
       plan_table <- utils::read.csv(file_info$datapath)
@@ -255,19 +255,19 @@ loader_server <- function(input, output, session, ...){
       plan_list <- NULL
 
       # case 1: With GroupLabel, Channels, Type, Hemisphere
-      if(all(c("grouplabel", "channels") %in% plan_table_names)) {
+      if (all(c("grouplabel", "channels") %in% plan_table_names)) {
         plan_list <- lapply(split(plan_table, as.character(plan_table$grouplabel)), function(sub) {
           grouplabel <- sub$grouplabel[[1]]
           channels <- dipsaus::parse_svec(sub$channels)
           min_channel <- min(channels, na.rm = TRUE)
-          if(length(channels) == 1) {
+          if (length(channels) == 1) {
             channels <- sprintf("%.0f-%.0f", channels, channels)
           } else {
             channels <- dipsaus::deparse_svec(channels)
           }
           type <- unique(sub$type)
           type <- type[type %in% electrode_types]
-          if(length(type)) {
+          if (length(type)) {
             type <- type[[1]]
           } else {
             type <- "iEEG"
@@ -286,14 +286,14 @@ loader_server <- function(input, output, session, ...){
       }
 
       # case 2: electrodes.csv or similar to that
-      if("electrode" %in% plan_table_names && any(c("labelprefix", "label") %in% plan_table_names)) {
-        if(!length(plan_table$labelprefix)) {
+      if ("electrode" %in% plan_table_names && any(c("labelprefix", "label") %in% plan_table_names)) {
+        if (!length(plan_table$labelprefix)) {
           plan_table$labelprefix <- gsub("[0-9]+$", "", x = plan_table$label)
         }
         plan_list <- lapply(split(plan_table, plan_table$labelprefix), function(sub) {
           channels <- dipsaus::parse_svec(sub$electrode)
           min_channel <- min(channels, na.rm = TRUE)
-          if(length(channels) == 1) {
+          if (length(channels) == 1) {
             channels <- sprintf("%.0f-%.0f", channels, channels)
           } else {
             channels <- dipsaus::deparse_svec(channels)
@@ -314,7 +314,7 @@ loader_server <- function(input, output, session, ...){
         })
       }
 
-      if(length(plan_list)) {
+      if (length(plan_list)) {
         plan_list <- plan_list[order(sapply(plan_list, "[[", "min_channel"))]
         dipsaus::updateCompoundInput2(
           session = session,
@@ -337,8 +337,8 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       clip_text <- local_data$clip_text
       title <- local_data$clip_title
-      if( !length(clip_text) ) { return() }
-      if( !length(title) ) { title <- "Notification!" }
+      if ( !length(clip_text) ) { return() }
+      if ( !length(title) ) { title <- "Notification!" }
 
       local_data$clip_text <- NULL
       local_data$clip_title <- NULL
@@ -348,10 +348,10 @@ loader_server <- function(input, output, session, ...){
           paste(local_data$clip_message, collapse = ""),
           shiny::hr(),
           shiny::pre(
-            class='pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output',
-            `data-dismiss`="toast",
+            class = "pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output",
+            `data-dismiss` = "toast",
             type = "button",
-            `aria-label`="Close",
+            `aria-label` = "Close",
             `data-clipboard-text` = clip_text,
             shiny::code( clip_text )
           )
@@ -375,15 +375,15 @@ loader_server <- function(input, output, session, ...){
   load_coreg_params <- function() {
     project_name <- loader_project$get_sub_element_input()
     subject_code <- loader_subject$get_sub_element_input()
-    if(!loader_subject$sv$is_valid() || !length(project_name) || !length(subject_code) ||
-       is.na(project_name) || is.na(subject_code) || project_name == '' || subject_code == '') {
+    if (!loader_subject$sv$is_valid() || !length(project_name) || !length(subject_code) ||
+       is.na(project_name) || is.na(subject_code) || project_name == "" || subject_code == "") {
       return()
     }
     subject <- ravecore::RAVESubject$new(project_name = project_name,
                                        subject_code = subject_code,
                                        strict = FALSE)
     fs_path <- subject$freesurfer_path
-    if( length(fs_path) != 1 || is.na(fs_path) || !file.exists(fs_path) ) { return() }
+    if ( length(fs_path) != 1 || is.na(fs_path) || !file.exists(fs_path) ) { return() }
 
     path_coreg_conf <- file.path(subject$preprocess_settings$raw_path, "rave-imaging",
                                  "derivative", "conf-coregistration.yaml")
@@ -399,11 +399,11 @@ loader_server <- function(input, output, session, ...){
     mri_name <- character()
     trans_name <- NULL
 
-    if( file.exists(path_coreg_conf) ) {
+    if ( file.exists(path_coreg_conf) ) {
       coreg_conf <- ravepipeline::load_yaml(path_coreg_conf)
 
       # check outputs
-      if("CT_IJK_to_MR_RAS" %in% names(coreg_conf$outputs)) {
+      if ("CT_IJK_to_MR_RAS" %in% names(coreg_conf$outputs)) {
         localization_method <- "CT (IJK) to MR (RAS) transform + Raw CT"
         ct_name <- unique(basename(coreg_conf$input_image$backup))
         ct_name <- ct_name[ct_name %in% coreg_files]
@@ -427,52 +427,52 @@ loader_server <- function(input, output, session, ...){
       selected_method <- subject$get_default(
         "transform_space", default_if_missing = NULL,
         namespace = "electrode_localization")
-      if( length(selected_method) == 1 ) {
+      if ( length(selected_method) == 1 ) {
         localization_method <- names(LOCALIZATION_METHODS)[
           unlist(LOCALIZATION_METHODS) == selected_method]
       }
       ct_name <- subject$get_default(
         "path_ct", default_if_missing = NULL,
         namespace = "electrode_localization")
-      if(length(ct_name) == 1) {
+      if (length(ct_name) == 1) {
         ct_name <- basename(ct_name)
         ct_name <- ct_name[ct_name %in% coreg_files]
       }
-      if(!length(ct_name)) {
+      if (!length(ct_name)) {
         ct_name <- coreg_files[grepl("^CT.*\\.nii(\\.gz|)$", coreg_files)]
-        if(length(ct_name)) { ct_name <- ct_name[[1]] }
+        if (length(ct_name)) { ct_name <- ct_name[[1]] }
       }
 
       mri_name <- subject$get_default(
         "path_mri", default_if_missing = shiny::isolate(input$loader_mri_fname),
         namespace = "electrode_localization")
-      if(length(mri_name) == 1) {
+      if (length(mri_name) == 1) {
         mri_name <- basename(mri_name)
         mri_name <- mri_name[mri_name %in% coreg_files]
       }
-      if(!length(mri_name)) {
+      if (!length(mri_name)) {
         mri_name <- coreg_files[grepl("^MR.*\\.nii(\\.gz|)$", coreg_files)]
-        if(length(mri_name)) { mri_name <- mri_name[[1]] }
+        if (length(mri_name)) { mri_name <- mri_name[[1]] }
       }
 
       trans_name <- subject$get_default(
         "path_transform", default_if_missing = shiny::isolate(input$loader_transform_fname),
         namespace = "electrode_localization")
-      if(length(trans_name) == 1) {
+      if (length(trans_name) == 1) {
         trans_name <- basename(trans_name)
         trans_name <- trans_name[trans_name %in% coreg_files]
       }
-      if(!length(trans_name)) {
+      if (!length(trans_name)) {
         trans_name <- coreg_files[grepl("\\.(mat|txt)$", coreg_files)]
-        if(length(trans_name)) { trans_name <- trans_name[[1]] }
+        if (length(trans_name)) { trans_name <- trans_name[[1]] }
       }
 
-      if( length(trans_name) == 1 &&
+      if ( length(trans_name) == 1 &&
           (
             identical(localization_method, "Re-sampled CT") ||
             !isTRUE(localization_method %in% names(LOCALIZATION_METHODS))
           ) ) {
-        if( startsWith(trans_name, "CT_IJK") ) {
+        if ( startsWith(trans_name, "CT_IJK") ) {
           localization_method <- "CT (IJK) to MR (RAS) transform + Raw CT"
         } else if ( startsWith(trans_name, "ct2t1") ) {
           localization_method <- "FSL transform + Raw CT + MRI"
@@ -492,11 +492,11 @@ loader_server <- function(input, output, session, ...){
 
   }
 
-  refresh_ct_chocies <- function(value_ct = NULL, value_mri = NULL, value_transform = NULL, reset_method = FALSE){
+  refresh_ct_chocies <- function(value_ct = NULL, value_mri = NULL, value_transform = NULL, reset_method = FALSE) {
     coreg_params <- load_coreg_params()
 
     # coreg_params <- list(
-    #   method = '',
+    #   method = "",
     #   ct_filename = ct_name,
     #   mr_filename = mri_name,
     #   transform_filename = trans_name,
@@ -505,7 +505,7 @@ loader_server <- function(input, output, session, ...){
     #   subject = subject
     # )
 
-    if( !length(coreg_params) ) {
+    if ( !length(coreg_params) ) {
       shiny::updateSelectInput(
         session = session, inputId = "loader_ct_fname",
         choices = character(0L)
@@ -554,7 +554,7 @@ loader_server <- function(input, output, session, ...){
       selected = coreg_params$transform_filename
     )
 
-    if(!length(coreg_params$ct_filename) && !isTRUE(coreg_params$method %in% "Localize without CT")) {
+    if (!length(coreg_params$ct_filename) && !isTRUE(coreg_params$method %in% "Localize without CT")) {
       shidashi::card_tabset_activate(
         inputId = "image_selection_tabset",
         title = "Preprocess",
@@ -590,7 +590,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      if(!loader_project$sv$is_valid() || !loader_subject$sv$is_valid()) {
+      if (!loader_project$sv$is_valid() || !loader_subject$sv$is_valid()) {
         loading_error("Invalid project/subject. Please specify a valid subject first before uploading CT.")
         return()
       }
@@ -615,8 +615,8 @@ loader_server <- function(input, output, session, ...){
       yael_process <- ravecore::as_yael_process(subject)
 
       t1w <- input$loader_preprocess_t1
-      if(length(t1w)) {
-        if(endsWith(tolower(t1w$name), "nii.gz")) {
+      if (length(t1w)) {
+        if (endsWith(tolower(t1w$name), "nii.gz")) {
           new_path <- gsub(
             pattern = "gz$",
             replacement = "nii.gz",
@@ -634,8 +634,8 @@ loader_server <- function(input, output, session, ...){
       }
 
       ct <- input$loader_preprocess_ct
-      if(length(ct)) {
-        if(endsWith(tolower(ct$name), "nii.gz")) {
+      if (length(ct)) {
+        if (endsWith(tolower(ct$name), "nii.gz")) {
           new_path <- gsub(
             pattern = "gz$",
             replacement = "nii.gz",
@@ -655,10 +655,10 @@ loader_server <- function(input, output, session, ...){
       t1w_path <- yael_process$get_input_image("T1w")
       ct_path <- yael_process$get_input_image("CT")
 
-      if(!length(t1w_path)) {
+      if (!length(t1w_path)) {
         stop("T1w MRI image is missing. Please upload one.")
       }
-      if(!length(ct_path)) {
+      if (!length(ct_path)) {
         stop("CT image is missing. Please upload one.")
       }
 
@@ -745,7 +745,7 @@ loader_server <- function(input, output, session, ...){
         )
       )
 
-      if(!loader_project$sv$is_valid() || !loader_subject$sv$is_valid()) {
+      if (!loader_project$sv$is_valid() || !loader_subject$sv$is_valid()) {
         loading_error("Invalid project/subject.")
         return()
       }
@@ -757,18 +757,18 @@ loader_server <- function(input, output, session, ...){
                                          subject_code = subject_code,
                                          strict = FALSE)
       fs_path <- subject$freesurfer_path
-      if(length(fs_path) == 0 || is.na(fs_path) || !dir.exists(fs_path)) {
+      if (length(fs_path) == 0 || is.na(fs_path) || !dir.exists(fs_path)) {
         loading_error("Cannot find surface/volume reconstruction directory. Please at least run FreeSurfer autorecon1 (only ~10 min)")
         return()
       }
 
       check_path <- function(fname, type) {
-        if(length(fname) != 1 || is.na(fname) || fname == "") {
+        if (length(fname) != 1 || is.na(fname) || fname == "") {
           loading_error(sprintf("Invalid %s file. Please specify or upload your own.", type))
           return(NULL)
         }
         fpath <- file.path(fs_path, "..", "coregistration", fname)
-        if(!file.exists(fpath)) {
+        if (!file.exists(fpath)) {
           loading_error(sprintf("Invalid %s path. Please check or upload your own.", type))
           return(NULL)
         }
@@ -783,24 +783,24 @@ loader_server <- function(input, output, session, ...){
         paste(input$loader_method),
         "Re-sampled CT" = {
           path_ct <- check_path(input$loader_ct_fname, "CT")
-          if(is.null(path_ct)) { return() }
+          if (is.null(path_ct)) { return() }
         },
         "FSL transform + Raw CT + MRI" = {
           path_ct <- check_path(input$loader_ct_fname, "CT")
-          if(is.null(path_ct)) { return() }
+          if (is.null(path_ct)) { return() }
           path_mri <- check_path(input$loader_mri_fname, "MRI")
-          if(is.null(path_mri)) { return() }
+          if (is.null(path_mri)) { return() }
           path_transform <- check_path(input$loader_transform_fname, "transform matrix")
-          if(is.null(path_transform)) { return() }
+          if (is.null(path_transform)) { return() }
           transform_space <- "fsl"
         },
         "CT (IJK) to MR (RAS) transform + Raw CT" = {
           path_ct <- check_path(input$loader_ct_fname, "CT")
-          if(is.null(path_ct)) { return() }
+          if (is.null(path_ct)) { return() }
           path_mri <- check_path(input$loader_mri_fname, "MRI")
-          if(is.null(path_mri)) { return() }
+          if (is.null(path_mri)) { return() }
           path_transform <- check_path(input$loader_transform_fname, "transform matrix")
-          if(is.null(path_transform)) { return() }
+          if (is.null(path_transform)) { return() }
           transform_space <- "ijk2ras"
         }
       )
@@ -838,7 +838,7 @@ loader_server <- function(input, output, session, ...){
       dipsaus::close_alert2()
 
       # Let the module know the data has been changed
-      ravedash::fire_rave_event('data_changed', Sys.time())
+      ravedash::fire_rave_event("data_changed", Sys.time())
       ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code

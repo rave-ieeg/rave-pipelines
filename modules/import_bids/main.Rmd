@@ -14,7 +14,7 @@ ravepipeline::pipeline_setup_rmd("import_bids")
 ```{rave get_BIDS_subject_information, language = "R", export = "BIDS_subject_info", cue = "always"}
 bids_root <- ravepipeline::raveio_getopt("bids_data_dir")
 
-if(!checkmate::test_character(BIDS_subject, min.chars = 4, pattern = "^sub-", len = 1L, any.missing = FALSE)) {
+if (!checkmate::test_character(BIDS_subject, min.chars = 4, pattern = "^sub-", len = 1L, any.missing = FALSE)) {
   stop("BIDS format requires the subject code to start with `sub-`. Please add this prefix to the input.")
 }
 
@@ -29,7 +29,7 @@ dtypes <- runs_and_datatypes$data_types
 
 scode <- gsub("sub-", "", BIDS_subject)
 scode <- gsub("-", "_", scode)
-if(!grepl("^[a-zA-Z]", scode)) {
+if (!grepl("^[a-zA-Z]", scode)) {
   scode <- sprintf("subj_%s", scode)
 }
 
@@ -44,14 +44,14 @@ BIDS_subject_info <- list(
 
 ```{rave validate_BIDS_runs, language = "R", export = "migrate_plan", cue = "always"}
 
-if(!length(BIDS_runs)) {
+if (!length(BIDS_runs)) {
   stop("Please choose at least one run to import")
 }
 
 # Check if ieeg data files are missing
 runs <- lapply(BIDS_runs, function(run) {
   
-  if(!is.list(run)) {
+  if (!is.list(run)) {
     run_path <- run
     run_name <- NULL
   } else {
@@ -59,7 +59,7 @@ runs <- lapply(BIDS_runs, function(run) {
     run_name <- run$name
   }
   
-  if(!checkmate::test_character(run_path, len = 1L, min.chars = 1L, any.missing = FALSE)) {
+  if (!checkmate::test_character(run_path, len = 1L, min.chars = 1L, any.missing = FALSE)) {
     stop("Invalid choices of BIDS run to import: `BIDS_runs` must be non-empty and exist")
   }
   
@@ -67,11 +67,11 @@ runs <- lapply(BIDS_runs, function(run) {
     BIDS_subject_info$path,
     sprintf("%s_%s", run_path, BIDS_subject_info$data_types))
   
-  if(!any(file.exists(data_files))) {
+  if (!any(file.exists(data_files))) {
     stop("Run [", run_path, "] has no data in side.")
   }
   
-  if(!checkmate::test_character(run_name, len = 1L, any.missing = FALSE, pattern = "^[a-zA-Z0-9_]{1,}$")) {
+  if (!checkmate::test_character(run_name, len = 1L, any.missing = FALSE, pattern = "^[a-zA-Z0-9_]{1,}$")) {
     run_name <- suggust_block_name(run_path)
   }
   
@@ -85,7 +85,7 @@ runs <- lapply(BIDS_runs, function(run) {
 
 src_paths <- gsub("[/|\\\\]+", "/", sapply(runs, "[[", "path"))
 block_names <- sapply(runs, "[[", "name")
-if(any(duplicated(block_names))) {
+if (any(duplicated(block_names))) {
   block_names <- sprintf("%s%s", block_names, seq_along(block_names))
 }
 
@@ -124,11 +124,11 @@ bids_root <- BIDS_subject_info$path
 subject_root <- file.path(raw_path, subject_code)
 migrate_result_path <- file.path(subject_root, "conf-BIDS_import.yaml")
 
-if(!dir.exists(subject_root)) {
+if (!dir.exists(subject_root)) {
   raveio::dir_create2(subject_root)
 }
 
-if(file.exists(migrate_result_path)) {
+if (file.exists(migrate_result_path)) {
   migrate_result <- tryCatch({
     as.list(raveio::load_yaml(migrate_result_path))
   }, error = function(e) {
@@ -138,19 +138,19 @@ if(file.exists(migrate_result_path)) {
   migrate_result <- list()
 }
 migrate_result$profile <- "BIDS import configuration"
-if(!is.list(migrate_result$migrates)) {
+if (!is.list(migrate_result$migrates)) {
   migrate_result$migrates <- list()
 }
 migrate_result$subject_code <- list(
   BIDS = BIDS_subject,
   RAVE = subject_code
 )
-migrate_result$subject_path<- list(
+migrate_result$subject_path <- list(
   BIDS = bids_root,
   RAVE = subject_root
 )
 
-if(any(migrate_plan$Planned)) {
+if (any(migrate_plan$Planned)) {
   
   plan_table <- migrate_plan[migrate_plan$Planned, , drop = FALSE]
   res <- dipsaus::lapply_async2(
@@ -163,15 +163,15 @@ if(any(migrate_plan$Planned)) {
       src_files <- src_files[fe]
       
       dst_path <- file.path(subject_root, plan_table$Block[[ii]])
-      if(file.exists(dst_path)) {
-        if(backup) {
+      if (file.exists(dst_path)) {
+        if (backup) {
           raveio::backup_file(dst_path, remove = TRUE)
         }
       }
       unlink(dst_path, recursive = TRUE)
       raveio::dir_create2(dst_path)
       
-      for(jj in seq_along(dtypes)) {
+      for (jj in seq_along(dtypes)) {
         src_abspath <- src_files[[jj]]
         dst_abspath <- file.path(dst_path, basename(src_abspath))
         file.copy(

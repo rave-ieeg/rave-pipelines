@@ -19,7 +19,7 @@ subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code
 )
-if(!all(subject$preprocess_settings$notch_filtered)) {
+if (!all(subject$preprocess_settings$notch_filtered)) {
   stop("Please run Notch filter module first.")
 }
 ```
@@ -28,11 +28,11 @@ if(!all(subject$preprocess_settings$notch_filtered)) {
 # try to get previous reference pipeline
 previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
 previous_data <- NULL
-if(dir.exists(previous_pipeline_path)) {
+if (dir.exists(previous_pipeline_path)) {
   try(silent = TRUE, {
     previous_pipeline <- ravepipeline::pipeline(pipeline_name = "reference_module", paths = subject$pipeline_path, temporary = TRUE)
     previous_data <- previous_pipeline$read("preprocessing_history")
-    if(is.list(previous_data)) {
+    if (is.list(previous_data)) {
       previous_data <- previous_data$current
     }
   })
@@ -44,26 +44,26 @@ current <- list(
   wavelet_params = subject$preprocess_settings$wavelet_params
 )
 use_cache <- TRUE
-if(length(previous_data) != length(current)) {
+if (length(previous_data) != length(current)) {
   use_cache <- FALSE
 } else {
-  for(nm in names(current)) {
+  for (nm in names(current)) {
     a <- previous_data[[nm]]
     b <- current[[nm]]
     a <- unlist(a)
     b <- unlist(b)
-    if(length(a) != length(b)) {
+    if (length(a) != length(b)) {
       use_cache <- FALSE
       break
     }
     tryCatch({
-      if(length(a) > 0 && any(a != b)) {
+      if (length(a) > 0 && any(a != b)) {
         use_cache <- FALSE
       }
     }, error = function(e) {
       use_cache <<- FALSE
     })
-    if(!use_cache) { break }
+    if (!use_cache) { break }
   }
 }
 
@@ -77,15 +77,15 @@ preprocessing_history <- list(
 Loads preset reference table, and generate a reference file called `_unsaved`. The reference table will be saved to this file before exported.
 
 ```{rave load_presets, language = "R", export = "reference_table_initial", cue = "always"}
-if(isTRUE(reference_name %in% subject$reference_names)) {
+if (isTRUE(reference_name %in% subject$reference_names)) {
   tryCatch({
     reference_table_initial <- subject$get_reference(reference_name, simplify = FALSE)
     
-    reference_table_initial <- reference_table_initial[,c(
+    reference_table_initial <- reference_table_initial[, c(
       "Electrode", "Group", "Reference", "Type"
     )]
     
-  }, error = function(e){
+  }, error = function(e) {
     
     # log
     ravepipeline::logger("Unable to load reference [", reference_name, "]", level = "error")
@@ -101,14 +101,14 @@ if(isTRUE(reference_name %in% subject$reference_names)) {
   str_electrode_group <- gsub("[0-9]+$", "", electrode_table$Label)
   electrode_table$Group <- trimws(str_electrode_group)
   
-  if(!"LocationType" %in% names(electrode_table)) {
+  if (!"LocationType" %in% names(electrode_table)) {
     electrode_table$LocationType <- "iEEG"
   } else {
     electrode_table$LocationType[!electrode_table$LocationType %in% ravecore::LOCATION_TYPES] <- "iEEG"
   }
-  if(length(subject$electrode_types) == nrow(electrode_table)) {
+  if (length(subject$electrode_types) == nrow(electrode_table)) {
     electrode_table$SignalType <- subject$electrode_types
-  } else if(!"SignalType" %in% names(electrode_table)) {
+  } else if (!"SignalType" %in% names(electrode_table)) {
     electrode_table$SignalType <- "LFP"
   } else {
     electrode_table$SignalType[!electrode_table$SignalType %in% ravecore::SIGNAL_TYPES] <- "LFP"
@@ -121,8 +121,8 @@ if(isTRUE(reference_name %in% subject$reference_names)) {
     ltype <- sub$LocationType
     refs <- rep("noref", nrow(sub))
     ref_type <- rep("No Reference", nrow(sub))
-    seeg <- which(ltype == 'sEEG')
-    if(length(seeg) >= 2) {
+    seeg <- which(ltype == "sEEG")
+    if (length(seeg) >= 2) {
       last_idx <- seeg[[length(seeg)]]
       refs[seeg[-length(seeg)]] <- sprintf("ref_%d", sub$Electrode[seeg[-1]])
       ref_type[seeg[-length(seeg)]] <- "Bipolar Reference"
@@ -155,7 +155,7 @@ electrodes <- subject$electrodes
 is_lfp <- subject$electrode_types %in% "LFP"
 lfp_channels <- electrodes[is_lfp]
 
-if(!length(lfp_channels)) {
+if (!length(lfp_channels)) {
   stop("There is no LFP/macro channel for this subject")
 }
 
@@ -182,7 +182,7 @@ voltage_signals <- structure(
     
     progress$inc(sprintf("%s", block))
     
-    if( has_wavelet ) {
+    if ( has_wavelet ) {
       sample_signal <- ieegio::io_read_h5(
         first_inst$voltage_file,
         name = sprintf("/raw/voltage/%s", block),
@@ -201,7 +201,7 @@ voltage_signals <- structure(
     exists <- TRUE
     
     arr <- tryCatch({
-      if( !use_cache ) { stop("Do not use cache") }
+      if ( !use_cache ) { stop("Do not use cache") }
       filearray::filearray_checkload(
         filebase = block_path,
         mode = "readwrite", 
@@ -215,7 +215,7 @@ voltage_signals <- structure(
         signal_length = as.integer(signal_length),
         staged = TRUE
       )
-    }, error = function(e){
+    }, error = function(e) {
       unlink(block_path, recursive = TRUE)
       arr <- filearray::filearray_create(
         filebase = block_path, 
@@ -243,27 +243,27 @@ voltage_signals <- structure(
   })
 )
 
-exists <- vapply(voltage_signals, '[[', FALSE, "exists")
+exists <- vapply(voltage_signals, "[[", FALSE, "exists")
 missing_blocks <- blocks[!exists]
 
 subject_id <- subject$subject_id
 
 
-if(length(missing_blocks)) {
+if (length(missing_blocks)) {
   
   ravepipeline::lapply_jobs(
     seq_along(lfp_channels), 
-    function(ii){
+    function(ii) {
       e <- lfp_channels[[ii]]
       inst <- ravecore::new_electrode(subject = subject_id, number = e)
-      if( has_wavelet ) {
+      if ( has_wavelet ) {
         voltage_file <- inst$voltage_file
         h5_name_format <- "/raw/voltage/%s"
       } else {
         voltage_file <- inst$preprocess_file
         h5_name_format <- "/notch/%s"
       }
-      for(block in missing_blocks) {
+      for (block in missing_blocks) {
         s <- ieegio::io_read_h5(voltage_file, sprintf(h5_name_format, block), ram = TRUE)
         arr <- voltage_signals[[block]]$array$`@impl`
         arr[, ii] <- s
@@ -276,7 +276,7 @@ if(length(missing_blocks)) {
       missing_blocks = missing_blocks,
       voltage_signals = voltage_signals,
       has_wavelet = has_wavelet
-    ), callback = function(ii){
+    ), callback = function(ii) {
       sprintf("Creating cache|Electrode %s", electrodes[[ii]])
     }
   )
@@ -284,9 +284,9 @@ if(length(missing_blocks)) {
 }
 
 voltage_data <- list(
-  data = structure(lapply(voltage_signals, function(item){
+  data = structure(lapply(voltage_signals, function(item) {
     arr <- item$array$`@impl`
-    if(!item$exists) {
+    if (!item$exists) {
       arr$set_header("staged", TRUE)
     }
     arr$.mode <- "readonly"
@@ -296,7 +296,7 @@ voltage_data <- list(
 )
 
 # save pipeline
-if( !isTRUE(getOption("raveio.debug", FALSE)) ) {
+if ( !isTRUE(getOption("raveio.debug", FALSE)) ) {
   previous_pipeline_path <- file.path(subject$pipeline_path, "reference_module")
   ravepipeline::pipeline_fork(
     dest = previous_pipeline_path, 
@@ -320,7 +320,7 @@ reference_group$GroupID <- 0
 lfp_channels <- subject$electrodes[subject$electrode_types %in% c("LFP")]
 
 not_lfp <- !reference_group$Electrode %in% lfp_channels
-if(any(not_lfp)) {
+if (any(not_lfp)) {
   electrodes <- reference_group$Electrode[not_lfp]
   reference_group$Group[not_lfp] <- ""
   reference_group$Reference[not_lfp] <- "noref"
@@ -329,28 +329,28 @@ if(any(not_lfp)) {
 
 
 id <- 1
-for(x in electrode_group) {
+for (x in electrode_group) {
   e <- dipsaus::parse_svec(x$electrodes)
-  if(length(e)){
+  if (length(e)) {
     e <- unique(e)
-    if(length(x$name) != 1 || !is.character(x$name)) {
+    if (length(x$name) != 1 || !is.character(x$name)) {
       stop("Each electrode group must have a unique name")
     }
     
     x$name <- trimws(x$name)
     
-    if(x$name %in% group_names) {
+    if (x$name %in% group_names) {
       stop("Electrode groups must have unique names (violation: ", x$name, ")")
     }
     group_names <- c(group_names, x$name)
     
     emissing <- e[!e %in% lfp_channels]
-    if(length(emissing)) {
+    if (length(emissing)) {
       stop("Channel ", dipsaus::deparse_svec(emissing), " are not declared/imported or LFP channels (e.g. microwires, auxiliary, ...). Please remove from group [", x$name, "]")
     }
     
     edup <- e[e %in% electrodes]
-    if(length(edup)) {
+    if (length(edup)) {
       stop("Electrodes ", dipsaus::deparse_svec(edup), " appear in multiple groups. Please fix this issue by ensuring that each of channel only appears in one group at a time.")
     }
     electrodes <- c(electrodes, e)
@@ -374,30 +374,30 @@ reference_choices <- c(
   "White-matter Reference", "Bipolar Reference"
 )
 
-for(item in changes) {
+for (item in changes) {
   
   evec <- dipsaus::parse_svec(item$electrodes)
   sel <- reference_group$Electrode %in% evec
     
   
-  if(!any(sel)) { next }
-  if(length(item$reference_type) != 1) {
+  if (!any(sel)) { next }
+  if (length(item$reference_type) != 1) {
     stop("Reference type is missing for electrode ", dipsaus::deparse_svec(evec))
   }
   
   reference_group$Type[sel] <- item$reference_type
-  if(item$reference_type == reference_choices[[1]]) {
+  if (item$reference_type == reference_choices[[1]]) {
     reference_group$Reference[sel] <- "noref"
-  } else if(
-    item$reference_type %in% reference_choices[c(2,3)]
+  } else if (
+    item$reference_type %in% reference_choices[c(2, 3)]
   ) {
-    if(length(item$reference_signal) != 1) {
+    if (length(item$reference_signal) != 1) {
       stop("Reference signal must be the same within the group if the group reference type is common average or white-matter reference")
     }
     reference_group$Reference[sel] <- item$reference_signal
-  } else if(item$reference_type == reference_choices[[4]]) {
+  } else if (item$reference_type == reference_choices[[4]]) {
     
-    if(length(item$reference_signal) != sum(sel)) {
+    if (length(item$reference_signal) != sum(sel)) {
       stop("For Bipolar reference, `reference_signal` must have the same size as the number of electrodes")
     }
     reference_group$Reference[sel] <- item$reference_signal

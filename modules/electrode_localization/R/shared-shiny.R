@@ -2,7 +2,7 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
                                  on_modal_removal = NULL,
                                  ..., session = shiny::getDefaultReactiveDomain()) {
 
-  if(is.null(session)) {
+  if (is.null(session)) {
     stop("`run_command_pipeline` must run in shiny context")
   }
   ns <- session$ns
@@ -18,7 +18,7 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
     ravedash::safe_observe({
       shiny::removeModal(session = session)
       local_reactives$heads_on <- NULL
-      if(is.function(on_modal_removal)) {
+      if (is.function(on_modal_removal)) {
         on_modal_removal()
       }
     }),
@@ -47,9 +47,9 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
     )
   ))
 
-  if( !length(command) ) {
+  if ( !length(command) ) {
     command <- cmd$command
-    if(!length(command)) {
+    if (!length(command)) {
       command <- "bash"
     }
   }
@@ -65,13 +65,13 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
         content = paste0(
           '<code class="hljs-literal" style="word-wrap:break-word;width: 100%;white-space: pre-wrap;">',
           msg,
-          '</code>'
+          "</code>"
         )
       )
     )
   }
 
-  if(dipsaus::get_os() == "windows") {
+  if (dipsaus::get_os() == "windows") {
     wait <- TRUE
     renderMsg("Detected operating system - Windows... \nDue to technical issues, the console messages will not be displayed here interactively. Don't panic, the program has been scheduled. Please grab a cup of coffee and wait...\n\n\nEstimated run time: 5 min")
   }
@@ -85,7 +85,7 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
       script,
       paste("=================== Log:", Sys.time(), "===================")
     ), con = log_path)
-    if(.(!wait)) {
+    if (.(!wait)) {
       cat(script)
     }
     Sys.sleep(0.5)
@@ -102,7 +102,7 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
 
   final <- function(has_error = FALSE) {
     dipsaus::updateActionButtonStyled(
-      session = session, inputId = 'dismiss_modal', disabled = FALSE,
+      session = session, inputId = "dismiss_modal", disabled = FALSE,
       label = ifelse(has_error, "Gotcha", "Done"))
     ravepipeline::logger("Terminal command finished.", level = "info")
 
@@ -123,28 +123,28 @@ run_command_pipeline <- function(cmd, wait = TRUE, title = "Running Terminal Com
       code <- 0
       msg <- "Waiting for outputs..."
       try({
-        if(is.function(check)) {
+        if (is.function(check)) {
           code <- check()
         } else {
           code <- check
         }
         path <- cmd$log_file
-        if(length(path) != 1 || is.na(path) || !file.exists(path) || path == '') {
+        if (length(path) != 1 || is.na(path) || !file.exists(path) || path == "") {
           msg <- NULL
         } else {
           suppressWarnings({
             msg <- readLines(path)
           })
-          if(!length(msg) || isTRUE(msg == "")) {
+          if (!length(msg) || isTRUE(msg == "")) {
             msg <- "Waiting for outputs..."
           }
         }
       })
 
-      if(code == 0) {
+      if (code == 0) {
         renderMsg(c(msg, "Finished."))
         resolve(attr(code, "rs_exec_result"))
-      } else if(code < 0) {
+      } else if (code < 0) {
         renderMsg(c(msg, "An error is detected."))
         reject(1)
       } else {

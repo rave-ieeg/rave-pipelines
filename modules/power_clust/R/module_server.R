@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -43,12 +43,12 @@ module_server <- function(input, output, session, ...){
       frequency <- repository$frequency
       frequency <- frequency[frequency >= frequency_range[[1]] & frequency <= frequency_range[[2]]]
 
-      if(!length(frequency)) {
+      if (!length(frequency)) {
         stop("Frequency range is too narrow: there is no power frequency within that range. Please select a broader range!")
       }
 
       zeta_threshold <- input$zeta_threshold
-      if(length(zeta_threshold) != 1 || is.na(zeta_threshold)) {
+      if (length(zeta_threshold) != 1 || is.na(zeta_threshold)) {
         stop("Invalid `zeta` threshold. Please set a zeta threshold within (0, 1)")
       }
 
@@ -64,7 +64,7 @@ module_server <- function(input, output, session, ...){
 
       tryCatch(
         {
-          ravepipeline::logger("Scheduled: ", pipeline$pipeline_name, level = 'debug', reset_timer = TRUE)
+          ravepipeline::logger("Scheduled: ", pipeline$pipeline_name, level = "debug", reset_timer = TRUE)
 
           progress$inc("Applying baseline...")
 
@@ -84,14 +84,14 @@ module_server <- function(input, output, session, ...){
 
           progress$inc("Done.")
 
-          local_data$results <- pipeline[c('clustering_tree', 'combined_group_results', 'clustering_index')]
+          local_data$results <- pipeline[c("clustering_tree", "combined_group_results", "clustering_index")]
 
-          ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, level = 'debug')
+          ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, level = "debug")
           shidashi::clear_notifications(class = "pipeline-error")
           local_reactives$update_outputs <- Sys.time()
 
           # Also update plots
-          clustering_index <- pipeline['clustering_index']
+          clustering_index <- pipeline["clustering_index"]
 
           shiny::updateNumericInput(
             session = session,
@@ -103,9 +103,9 @@ module_server <- function(input, output, session, ...){
         error = function(e) {
           local_reactives$update_outputs <- FALSE
           msg <- paste(e$message, collapse = "\n")
-          if(inherits(e, "error")){
-            ravepipeline::logger(msg, level = 'error')
-            ravepipeline::logger(traceback(e), level = 'error', .sep = "\n")
+          if (inherits(e, "error")) {
+            ravepipeline::logger(msg, level = "error")
+            ravepipeline::logger(traceback(e), level = "error", .sep = "\n")
             shidashi::show_notification(
               message = msg,
               title = "Error while running pipeline", type = "danger",
@@ -125,7 +125,7 @@ module_server <- function(input, output, session, ...){
 
   initialize_inputs <- function() {
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     new_repository <- pipeline$read("repository")
 
@@ -138,7 +138,7 @@ module_server <- function(input, output, session, ...){
 
     # Time range
     full_timerange <- range(unlist(new_repository$time_windows))
-    analysis_window <- range(unlist(pipeline$get_settings('analysis_window')))
+    analysis_window <- range(unlist(pipeline$get_settings("analysis_window")))
     analysis_window[analysis_window < full_timerange[[1]]] <- full_timerange[[1]]
     analysis_window[analysis_window > full_timerange[[2]]] <- full_timerange[[2]]
     shiny::updateSliderInput(
@@ -152,7 +152,7 @@ module_server <- function(input, output, session, ...){
 
     # Frequency range
     frequency_max_range <- range(new_repository$frequency)
-    frequency_range <- range(unlist(pipeline$get_settings('frequency_range')))
+    frequency_range <- range(unlist(pipeline$get_settings("frequency_range")))
     frequency_range[frequency_range < frequency_max_range[[1]]] <- frequency_max_range[[1]]
     frequency_range[frequency_range > frequency_max_range[[2]]] <- frequency_max_range[[2]]
     shiny::updateSliderInput(
@@ -166,8 +166,8 @@ module_server <- function(input, output, session, ...){
 
     # Zeta ?
     # zeta_threshold
-    zeta_threshold <- as.double(unlist(pipeline$get_settings('zeta_threshold')))
-    if(length(zeta_threshold) != 1 || is.na(zeta_threshold) || zeta_threshold <= 0 || zeta_threshold >= 1) {
+    zeta_threshold <- as.double(unlist(pipeline$get_settings("zeta_threshold")))
+    if (length(zeta_threshold) != 1 || is.na(zeta_threshold) || zeta_threshold <= 0 || zeta_threshold >= 1) {
       zeta_threshold <- 0.5
     }
     shiny::updateSliderInput(
@@ -183,9 +183,9 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
       new_repository <- pipeline$read("repository")
-      if(!inherits(new_repository, "rave_prepare_power")){
+      if (!inherits(new_repository, "rave_prepare_power")) {
         ravepipeline::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_power`. Abort initialization", level = "warning")
         return()
       }
@@ -193,10 +193,10 @@ module_server <- function(input, output, session, ...){
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
-      if(inherits(old_repository, "rave_prepare_power")){
+      if (inherits(old_repository, "rave_prepare_power")) {
 
-        if( !attr(loaded_flag, "force") &&
-            identical(old_repository$signature, new_repository$signature) ){
+        if ( !attr(loaded_flag, "force") &&
+            identical(old_repository$signature, new_repository$signature) ) {
           ravepipeline::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
@@ -217,7 +217,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       n_clusters <- input$n_clusters
-      if(length(n_clusters) == 1 && !is.na(n_clusters)) {
+      if (length(n_clusters) == 1 && !is.na(n_clusters)) {
         local_reactives$n_clusters <- n_clusters
       }
     }),
@@ -229,13 +229,13 @@ module_server <- function(input, output, session, ...){
   brain_proxy <- threeBrain::brain_proxy(outputId = "viewer", session = session)
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
-      if(!length(local_reactives$update_outputs) || isFALSE(local_reactives$update_outputs)) { return() }
-      if(!length(local_data$results)) { return()}
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
+      if (!length(local_reactives$update_outputs) || isFALSE(local_reactives$update_outputs)) { return() }
+      if (!length(local_data$results)) { return()}
 
       n_clusters <- local_reactives$n_clusters
-      if(length(n_clusters) != 1 || is.na(n_clusters) || n_clusters <= 0) { return() }
+      if (length(n_clusters) != 1 || is.na(n_clusters) || n_clusters <= 0) { return() }
 
       clustering_tree <- local_data$results$clustering_tree
       combined_group_results <- local_data$results$combined_group_results
@@ -304,7 +304,7 @@ module_server <- function(input, output, session, ...){
         "zeta_threshold"
       )]
 
-      if(length(nms)) {
+      if (length(nms)) {
         pipeline$set_settings(.list = settings[nms])
         initialize_inputs()
       }
@@ -336,7 +336,7 @@ module_server <- function(input, output, session, ...){
     combined_group_results <- local_data$results$combined_group_results
 
     n_clusters <- local_reactives$n_clusters
-    if(length(n_clusters) != 1 || is.na(n_clusters)) {
+    if (length(n_clusters) != 1 || is.na(n_clusters)) {
       n_clusters <- clustering_index$suggested$k %||% 1
     }
 
@@ -348,13 +348,13 @@ module_server <- function(input, output, session, ...){
 
   output$viewer <- threeBrain::renderBrain({
 
-    if(!ravedash::watch_data_loaded()) { return() }
+    if (!ravedash::watch_data_loaded()) { return() }
     local_reactives$render_brain
 
     repository <- component_container$data$repository
-    if(!length(repository)) { return() }
+    if (!length(repository)) { return() }
     brain <- ravecore::rave_brain(repository$subject)
-    if(is.null(brain)) { return("No 3D model") }
+    if (is.null(brain)) { return("No 3D model") }
 
     brain$set_electrode_values(data.frame(
       Electrode = repository$electrode_list,
@@ -385,7 +385,7 @@ module_server <- function(input, output, session, ...){
     combined_group_results <- local_data$results$combined_group_results
 
     n_clusters <- local_reactives$n_clusters
-    if(length(n_clusters) != 1 || is.na(n_clusters)) {
+    if (length(n_clusters) != 1 || is.na(n_clusters)) {
       n_clusters <- clustering_index$suggested$k %||% 1
     }
 
@@ -399,7 +399,7 @@ module_server <- function(input, output, session, ...){
       cex = ifelse(length(channel_names) > 10, 0.8, 1)
     )
 
-    if(n_clusters >= 2 && n_clusters <= length(hclust_object$height)) {
+    if (n_clusters >= 2 && n_clusters <= length(hclust_object$height)) {
       rect_hclust2(hclust_object, n_clusters)
     }
 
@@ -430,11 +430,11 @@ module_server <- function(input, output, session, ...){
     )
 
     n_clusters <- local_reactives$n_clusters
-    if(length(n_clusters) != 1 || is.na(n_clusters)) {
+    if (length(n_clusters) != 1 || is.na(n_clusters)) {
       n_clusters <- clustering_index$suggested$k %||% 1
     }
 
-    if(isTRUE(n_clusters %in% clustering_index$scores$k)) {
+    if (isTRUE(n_clusters %in% clustering_index$scores$k)) {
       abline(v = n_clusters, lty = 2, col = 2)
     }
 
@@ -444,15 +444,15 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       click <- input$cluster_silhouette_plot_click
-      if(!is.list(click)) { return() }
+      if (!is.list(click)) { return() }
       click_x <- click$x
-      if(length(click_x) != 1 || is.na(click_x)) { return() }
+      if (length(click_x) != 1 || is.na(click_x)) { return() }
       click_x <- round(click_x)
-      if(click_x < 0) { return() }
-      if(isTRUE(click_x == input$n_clusters)) { return() }
+      if (click_x < 0) { return() }
+      if (isTRUE(click_x == input$n_clusters)) { return() }
       shiny::updateNumericInput(
         session = session,
-        input = 'n_clusters',
+        input = "n_clusters",
         value = click_x
       )
     }),
@@ -483,7 +483,7 @@ module_server <- function(input, output, session, ...){
     combined_group_results <- local_data$results$combined_group_results
 
     n_clusters <- local_reactives$n_clusters
-    if(length(n_clusters) != 1 || is.na(n_clusters)) {
+    if (length(n_clusters) != 1 || is.na(n_clusters)) {
       n_clusters <- clustering_index$suggested$k %||% 1
     }
 
@@ -568,7 +568,7 @@ module_server <- function(input, output, session, ...){
     combined_group_results <- local_data$results$combined_group_results
 
     n_clusters <- local_reactives$n_clusters
-    if(length(n_clusters) != 1 || is.na(n_clusters)) {
+    if (length(n_clusters) != 1 || is.na(n_clusters)) {
       n_clusters <- clustering_index$suggested$k %||% 1
     }
 

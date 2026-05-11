@@ -1,27 +1,27 @@
 library(shiny)
-page_title <- function(complete = TRUE){
-  if(complete){
+page_title <- function(complete = TRUE) {
+  if (complete) {
     re <- "RAVE"
   } else {
     re <- "RAVE 2.0"
   }
   re
 }
-page_logo <- function(size = c("normal", "small", "large")){
+page_logo <- function(size = c("normal", "small", "large")) {
   "shidashi/img/icon.png"
 }
-page_loader <- function(){
+page_loader <- function() {
   # if no loader is needed, then return NULL
   shiny::div(
     class = "preloader flex-column justify-content-center align-items-center",
     shiny::img(
       class = "animation__shake",
       src = page_logo("large"),
-      alt = "Logo", height="60", width="60"
+      alt = "Logo", height = "60", width = "60"
     )
   )
 }
-body_class <- function(){
+body_class <- function() {
   unique(c(
     #--- Start as dark-mode ---
     # "dark-mode",
@@ -33,7 +33,7 @@ body_class <- function(){
 
   ))
 }
-nav_class <- function(){
+nav_class <- function() {
   c(
     "shidashi-header",
     "navbar",
@@ -41,18 +41,18 @@ nav_class <- function(){
   )
 }
 
-sidebar_class <- function(){
+sidebar_class <- function() {
   c(
     #--- Start as dark-mode ---
     # "dark-mode"
   )
 }
 
-module_breadcrumb <- function(){}
+module_breadcrumb <- function() {}
 
-frontpage <- function(){
+frontpage <- function() {
 
-  if(isTRUE(ravepipeline::raveio_getopt(key = "secure_mode", default = FALSE))) {
+  if (isTRUE(ravepipeline::raveio_getopt(key = "secure_mode", default = FALSE))) {
     return(shiny::tags$h2(
       class = "display-4",
       "Please choose any module to start"
@@ -135,7 +135,7 @@ frontpage <- function(){
             shinyWidgets::switchInput(
               inputId = ns("allow_fork_clusters"),
               label = "Allow forked process",
-              labelWidth = "100%",width = "100%",
+              labelWidth = "100%", width = "100%",
               onStatus = "success",
               offStatus = "danger",
               onLabel = "Enabled",

@@ -13,14 +13,14 @@ TrialGroupVariable <- R6::R6Class(
   ),
   active = list(
     order = function(v) {
-      if(!missing(v)) {
+      if (!missing(v)) {
         v <- checkmate::assert_int(v, na.ok = TRUE, lower = 1L, coerce = TRUE)
         private$.order <- v
       }
       private$.order
     },
     id = function(v) {
-      if(!missing(v)) {
+      if (!missing(v)) {
         checkmate::assert_string(
           v,
           na.ok = FALSE,
@@ -31,7 +31,7 @@ TrialGroupVariable <- R6::R6Class(
           pattern = "^[a-zA-Z0-9][a-zA-Z0-9_\\.]{0,}$"
         )
         private$.id <- v
-        if(!nzchar(self$name)) {
+        if (!nzchar(self$name)) {
           self$name <- v
         }
       }
@@ -42,14 +42,14 @@ TrialGroupVariable <- R6::R6Class(
     },
 
     epoch = function() {
-      if(inherits(private$.epoch, "RAVEEpoch")) {
+      if (inherits(private$.epoch, "RAVEEpoch")) {
         return(private$.epoch$table)
       }
       return(private$.epoch)
     },
 
     selected_rows = function(v) {
-      if(!missing(v)) {
+      if (!missing(v)) {
         self$set_value(v)
       }
       self$get_value()
@@ -67,7 +67,7 @@ TrialGroupVariable <- R6::R6Class(
 
     trial_num = function(v) {
       epoch_table <- self$epoch
-      if(!missing(v)) {
+      if (!missing(v)) {
         v <- dipsaus::parse_svec(v)
         v <- which(epoch_table$Trial %in% v)
         self$set_value(v)
@@ -83,7 +83,7 @@ TrialGroupVariable <- R6::R6Class(
 
     conditions = function(v) {
       epoch_table <- self$epoch
-      if(!missing(v)) {
+      if (!missing(v)) {
         v <- which( epoch_table$Condition %in% v )
         self$set_value(v)
       } else {
@@ -103,7 +103,7 @@ TrialGroupVariable <- R6::R6Class(
 
     format = function(...) {
       trial_num <- self$trial_num
-      if(inherits(private$.epoch, "RAVEEpoch")) {
+      if (inherits(private$.epoch, "RAVEEpoch")) {
         e <- sprintf("  - Epoch      : %s (%s, subset=%d)",
                      private$.epoch$name,
                      private$.epoch$subject$subject_id,
@@ -127,11 +127,11 @@ TrialGroupVariable <- R6::R6Class(
 
       self$order <- order
 
-      if(identical(name, id)) {
+      if (identical(name, id)) {
         id <- tolower(gsub("[^a-zA-Z0-9_\\.]+", "_", id))
       }
-      if(!nzchar(id)) {
-        if(is.na(order)) {
+      if (!nzchar(id)) {
+        if (is.na(order)) {
           id <- asNamespace("raveio")$rand_string(4)
         } else {
           id <- as.character(private$.order)
@@ -140,7 +140,7 @@ TrialGroupVariable <- R6::R6Class(
 
       self$id <- id
 
-      if(missing(epoch) || is.null(epoch)) {
+      if (missing(epoch) || is.null(epoch)) {
         epoch <- data.frame(
           Block = character(0L),
           Time = numeric(0L),
@@ -149,7 +149,7 @@ TrialGroupVariable <- R6::R6Class(
         )
       }
 
-      if(inherits(epoch, "RAVEEpoch")) {
+      if (inherits(epoch, "RAVEEpoch")) {
         private$.epoch <- epoch
       } else {
         epoch <- as.data.frame(epoch)
@@ -212,7 +212,7 @@ TrialGroupVariable <- R6::R6Class(
     restore = function(x, ...) {
       stopifnot(inherits(x, "raveio_store.TrialGroupVariable"))
 
-      if(x$epoch$type == "RAVEEpoch") {
+      if (x$epoch$type == "RAVEEpoch") {
         subject <- as_rave_subject(subject_id = x$epoch$subject, strict = FALSE)
         epoch <- subject$get_epoch(epoch_name = x$epoch$name)
       } else {
@@ -346,7 +346,7 @@ new_analysis_range <- function(name, ...) {
       "ValidTimeRange" = quote({
         time_range <- .x$time_range
         max_analysis_time_range <- .x$max_analysis_time_range
-        if(
+        if (
           time_range[[1]] < max_analysis_time_range[[1]] ||
           time_range[[2]] > max_analysis_time_range[[2]]
         ) {
@@ -379,18 +379,18 @@ new_param_grid <- function(name = "Parameter grid (cond x time)") {
       initial_value = list(),
       constraints = "list",
       quote({
-        if(!is.list(.x)) { return("`condition_groups` must be a list") }
+        if (!is.list(.x)) { return("`condition_groups` must be a list") }
         has_trials <- FALSE
-        for(item in .x) {
-          if(!isTRUE(item$isTrialGroupVariable)) {
+        for (item in .x) {
+          if (!isTRUE(item$isTrialGroupVariable)) {
             return("`condition_groups` elements must be instances of `TrialGroupVariable`")
           }
           item$validate()
-          if( !has_trials && item$has_trials ) {
+          if ( !has_trials && item$has_trials ) {
             has_trials <- TRUE
           }
         }
-        if(!has_trials) {
+        if (!has_trials) {
           return("No valid condition group specified. Please check the inputs for trial conditions.")
         }
       })
@@ -404,9 +404,9 @@ new_param_grid <- function(name = "Parameter grid (cond x time)") {
       initial_value = list(),
       constraints = "list",
       quote({
-        if(!is.list(.x)) { return("`analysis_settings` must be a list") }
-        for(item in .x) {
-          if(!isTRUE(item$isAnalysisRange)) {
+        if (!is.list(.x)) { return("`analysis_settings` must be a list") }
+        for (item in .x) {
+          if (!isTRUE(item$isAnalysisRange)) {
             return("`analysis_settings` elements must be instances of created from `new_analysis_range`")
           }
           item$validate()
@@ -422,11 +422,11 @@ new_param_grid <- function(name = "Parameter grid (cond x time)") {
       "EventChecker" = quote({
         available_events <- c("", .x$condition_groups[[1]]$available_events)
         missing_events <- lapply(.x$analysis_settings, function(range) {
-          if(range$event %in% available_events) { return(NULL) }
+          if (range$event %in% available_events) { return(NULL) }
           return(range$event)
         })
         missing_events <- unlist(missing_events)
-        if(!length(missing_events)) { return(TRUE) }
+        if (!length(missing_events)) { return(TRUE) }
         sprintf("The following events are unavailable: [%s]", paste(missing_events, collapse = ", "))
       })
     )

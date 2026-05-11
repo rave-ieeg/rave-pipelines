@@ -37,7 +37,7 @@ BlackrockFile <- R6::R6Class(
 
       # Get parent directory and file prefix
       path <- gsub(sprintf("\\.(ccf|nev|ns[1-%d])$", private$.NS_MAX),
-                   '', path[[1]], ignore.case = TRUE)
+                   "", path[[1]], ignore.case = TRUE)
       dir_path <- normalizePath(dirname(path), mustWork = TRUE)
       filebase <- basename(path)
 
@@ -53,19 +53,19 @@ BlackrockFile <- R6::R6Class(
       nev_path <- file.path(dir_path, fs[is_nev])
       nsx_files <- file.path(dir_path, fs[is_nsx])
 
-      if(length(nev_path) == 0) {
+      if (length(nev_path) == 0) {
         stop("Cannot find any .nev file with this path: ", path)
       }
 
       private$.path <- dir_path
       private$.filebase <- filebase
       private$.nev_file <- fs[is_nev][[1]]
-      if(!inherits(private$.nev, "fastmap2")) {
+      if (!inherits(private$.nev, "fastmap2")) {
         private$.nev <- dipsaus::fastmap2()
       }
       # private$.nev <- NULL
 
-      for(i in seq_len(private$.NS_MAX)) {
+      for (i in seq_len(private$.NS_MAX)) {
         private[[sprintf(".ns%d_file", i)]] <- character(0L)
         private[[sprintf(".ns%d_data", i)]] <- NULL
       }
@@ -84,7 +84,7 @@ BlackrockFile <- R6::R6Class(
                               nev_data = nev_data)
 
       # save nev data
-      if(nev_data || !inherits(private$.nev, "fastmap2")) {
+      if (nev_data || !inherits(private$.nev, "fastmap2")) {
         private$.nev <- headers$nev
       } else {
         private$.nev$basic_header <- headers$nev$basic_header
@@ -93,7 +93,7 @@ BlackrockFile <- R6::R6Class(
 
 
       # save nsx data
-      for(fname in names(headers$nsx)) {
+      for (fname in names(headers$nsx)) {
         nm <- unlist(strsplit(fname, "\\."))
         ext <- tolower(nm[[length(nm)]])
         private[[sprintf(".%s_data", ext)]] <- headers$nsx[[fname]]
@@ -106,7 +106,7 @@ BlackrockFile <- R6::R6Class(
     .has_data = function() {
       sapply(paste0("ns", seq_len(private$.NS_MAX)), function(nm) {
         nsx <- private[[sprintf(".%s_data", nm)]]
-        if(!length(nsx)) {
+        if (!length(nsx)) {
           return(FALSE)
         }
         return(inherits(nsx$data, "FileArray"))
@@ -121,7 +121,7 @@ BlackrockFile <- R6::R6Class(
 
       re <- lapply(nms, function(nm) {
         header <- private[[sprintf(".%s_data", nm)]]
-        if(!length(header$ext_header$CC) || !nrow(header$ext_header$CC)) {
+        if (!length(header$ext_header$CC) || !nrow(header$ext_header$CC)) {
           return()
         }
         global_srate <- header$basic_header$time_resolution_timestamp$value
@@ -178,7 +178,7 @@ BlackrockFile <- R6::R6Class(
 
 
       cat(c(
-        "BlackRock Micro-systems file: [", private$.filebase, ']\n',
+        "BlackRock Micro-systems file: [", private$.filebase, "]\n",
         "Directory: ", private$.path, "\n",
         "Version: ", paste0(sprintf("%.0f", self$version), collapse = "."), "\n",
         "Block: ", self$block, "\n",
@@ -194,7 +194,7 @@ BlackrockFile <- R6::R6Class(
     #' @param block session block ID; default is the file name
     #' @param nev_data whether to load comments and 'waveforms'
     initialize = function(path, block, nev_data = TRUE) {
-      if(missing(block)) {
+      if (missing(block)) {
         block <- basename(path)
         block <- gsub("\\.(nev|ns[0-9]|ccf)$", "", block, ignore.case = TRUE)
       }
@@ -214,7 +214,7 @@ BlackrockFile <- R6::R6Class(
     #' @returns absolute file paths
     nsx_paths = function(which = NULL) {
       which <- as.integer(which)
-      if(!length(which)) {
+      if (!length(which)) {
         which <- which(self$has_nsx)
       } else if (any(is.na(which))) {
         stop("$nsx_paths: parameter `which` must be an integer")
@@ -243,7 +243,7 @@ BlackrockFile <- R6::R6Class(
       srate <- self$sample_rate_nev_timestamp
 
       re <- lapply(as.list(private$.nev$data_packets), function(packet) {
-        if(!identical(packet$value$event, "comment")) {
+        if (!identical(packet$value$event, "comment")) {
           return(NULL)
         }
         # extract comment, usually epoch
@@ -255,7 +255,7 @@ BlackrockFile <- R6::R6Class(
         )
       })
       re <- dipsaus::drop_nulls(re)
-      if(!length(re)) {
+      if (!length(re)) {
         return(data.frame(
           Block = character(0L),
           Time = numeric(0L),
@@ -274,7 +274,7 @@ BlackrockFile <- R6::R6Class(
       wave_table <- private$.nev$extended_header$NEUEVWAV
       srate_waveform <- private$.nev$basic_header$time_resolution_samples$value
       re <- lapply(as.list(private$.nev$data_packets), function(packet) {
-        if(!identical(packet$value$event, "spike")) {
+        if (!identical(packet$value$event, "spike")) {
           return(NULL)
         }
         re <- packet$value
@@ -282,7 +282,7 @@ BlackrockFile <- R6::R6Class(
         re$electrode <- re$packet_id
 
         sel <- wave_table$electrode_id == re$electrode
-        if(!any(sel)) {
+        if (!any(sel)) {
           return(NULL)
         }
         spike_width <- wave_table$spike_width[sel][[1]]
@@ -307,17 +307,17 @@ BlackrockFile <- R6::R6Class(
     #' as the unit)
     get_electrode = function(electrode, nstype = NULL) {
 
-      if(length(electrode) != 1) {
+      if (length(electrode) != 1) {
         stop("$get_electrode: electrode length must be one")
       }
       elec_table <- private$.electrode_ids()
       sel <- elec_table$Electrode %in% electrode
-      if(length(nstype)) {
+      if (length(nstype)) {
         sel <- sel & elec_table$NSType %in% nstype
       }
       sel <- which(sel)
 
-      if(!length(sel)) {
+      if (!length(sel)) {
         stop("$get_electrode: electrode cannot be found [", electrode, "]")
       }
 
@@ -325,7 +325,7 @@ BlackrockFile <- R6::R6Class(
 
       ns_type <- elec_table$NSType[[sel]]
       ns_order <- elec_table$NSOrder[[sel]]
-      if(!private$.has_data()[[ns_type]]) {
+      if (!private$.has_data()[[ns_type]]) {
         self$refresh_data(verbose = FALSE)
       }
 
@@ -359,7 +359,7 @@ BlackrockFile <- R6::R6Class(
     #' time-stamps
     sample_rate_nev_timestamp = function() {
       re <- private$.nev$basic_header$time_resolution_timestamp$value
-      if(!length(re)) {
+      if (!length(re)) {
         re <- NA
       }
       re[[1]]
@@ -405,10 +405,10 @@ BlackrockFile <- R6::R6Class(
 
 load_nev_events <- function(nsp, epoch_types) {
   readNSx_get_event <- readNSx::get_event
-  epoch_table <- lapply(epoch_types, function(epoch_type){
+  epoch_table <- lapply(epoch_types, function(epoch_type) {
     event <- readNSx_get_event(nsp, epoch_type)
 
-    if(!is.data.frame(event)) { return() }
+    if (!is.data.frame(event)) { return() }
     condition <- switch(
       epoch_type,
       "comment" = event$comment,
@@ -438,11 +438,11 @@ load_nev_events <- function(nsp, epoch_types) {
 
   epoch_table <- dipsaus::drop_nulls(epoch_table)
 
-  if(!length(epoch_table)) { return() }
+  if (!length(epoch_table)) { return() }
 
   epoch_table <- do.call(rbind, epoch_table)
 
-  if(!nrow(epoch_table)) { return() }
+  if (!nrow(epoch_table)) { return() }
   epoch_table <- epoch_table[order(epoch_table$AbsoluteTime), ]
   epoch_table$Specification <- nsp$nev$specification$version
   epoch_table$EventOrder <- seq_len(nrow(epoch_table))
@@ -487,14 +487,14 @@ convert_blackrock <- function(
   format <- match.arg(format)
   epoch_types <- epoch[epoch %in% c("comment", "digital_inputs", "recording", "configuration", "log", "button_trigger", "tracking", "video_sync")]
 
-  if(length(block) != 1 || !nzchar(block)) {
+  if (length(block) != 1 || !nzchar(block)) {
     block <- basename(file)
     block <- gsub("\\.(ccf|nev|ns[1-6])", "", block, ignore.case = TRUE)
   }
 
   # prepare saving directory
-  if(!length(to)) {
-    if(length(subject)) {
+  if (!length(to)) {
+    if (length(subject)) {
       root_path <- file.path(raveio_getopt("raw_data_dir"), subject[[1]])
     } else {
       root_path <- dirname(file)
@@ -517,18 +517,18 @@ convert_blackrock <- function(
 
   electrode_list <- lapply(seq_len(9), function(ii) {
     nsx <- nsp[[sprintf("ns%d", ii)]]
-    if(!length(nsx)) { return() }
+    if (!length(nsx)) { return() }
     as.integer(nsx$header_extended$CC$electrode_id)
   })
   names(electrode_list) <- sprintf("ns%d", seq_len(9))
   electrode_list <- electrode_list[!vapply(electrode_list, is.null, FALSE)]
 
-  if(!length(electrode_list)) {
+  if (!length(electrode_list)) {
     catgl("No channel found. Exit...", level = "INFO")
     return(invisible(structure(to, extraction_prefix = extraction_prefix, nparts = 1)))
   }
 
-  for(nsx in names(electrode_list)) {
+  for (nsx in names(electrode_list)) {
     catgl("Found channel(s) { dipsaus::deparse_svec(electrode_list[[nsx]]) } in [{ nsx }]", level = "INFO")
   }
 
@@ -546,7 +546,7 @@ convert_blackrock <- function(
 
   nparts <- max(c(unlist(lapply(seq_len(9), function(part) {
     nsx <- nsp[[sprintf("ns%s", part)]]
-    if(length(nsx)) { return(nsx$nparts) }
+    if (length(nsx)) { return(nsx$nparts) }
     return(0)
   })), 1))
 
@@ -554,7 +554,7 @@ convert_blackrock <- function(
   epoch_table <- load_nev_events(nsp, epoch_types)
 
   lapply(seq_len(nparts), function(part) {
-    if(nparts > 1) {
+    if (nparts > 1) {
       dir <- sprintf("%s_part%s", to, part)
     } else {
       dir <- to
@@ -563,7 +563,7 @@ convert_blackrock <- function(
     dir <- dir_create2(dir)
 
     flag <- file.path(dir, "rave_conversion_flag.txt")
-    if(file.exists(flag)) {
+    if (file.exists(flag)) {
       flag_data <- load_yaml(flag)
       flag_has_header <- isTRUE(flag_data$header_converted)
       flag_has_content <- isTRUE(flag_data$data_converted)
@@ -571,7 +571,7 @@ convert_blackrock <- function(
       flag_has_header <- FALSE
       flag_has_content <- FALSE
     }
-    if(!flag_has_header || !(header_only || flag_has_content)) {
+    if (!flag_has_header || !(header_only || flag_has_content)) {
 
       block_meta <- lapply_async(electrodes, function(e) {
 
@@ -592,9 +592,9 @@ convert_blackrock <- function(
           stringsAsFactors = FALSE
         )
 
-        if(!header_only) {
+        if (!header_only) {
           info_str <- jsonlite::toJSON(as.list(re), auto_unbox = TRUE)
-          if( format == "mat" ) {
+          if ( format == "mat" ) {
             fname <- file.path(dir, sprintf("channel_%s.mat", e))
             s <- as.vector(partition_data$data[])
             # R.matlab::writeMat(fname, data = s, meta = info_str)
@@ -618,7 +618,7 @@ convert_blackrock <- function(
       saveRDS(electrode_table, file = file.path(dir, "channels.rds"))
 
 
-      if(length(epoch_table)) {
+      if (length(epoch_table)) {
 
         time_start <- min(electrode_table$TimeStart)
         time_end <- max(electrode_table$TimeStart + electrode_table$Duration)
@@ -626,7 +626,7 @@ convert_blackrock <- function(
           epoch_table$AbsoluteTime > time_start - 0.01 &
             epoch_table$AbsoluteTime < time_end + 0.01, ]
 
-        if(nrow(epoch_table_sub) > 0) {
+        if (nrow(epoch_table_sub) > 0) {
           epoch_table_sub$Block <- basename(dir)
           epoch_table_sub$Time <- epoch_table_sub$AbsoluteTime - time_start
 
@@ -640,7 +640,7 @@ convert_blackrock <- function(
 
 
       flag_has_header <- TRUE
-      if(header_only) {
+      if (header_only) {
         flag_has_content <- FALSE
       } else {
         flag_has_content <- TRUE
@@ -664,8 +664,8 @@ convert_blackrock <- function(
 validate_spec <- function(name, type, size, n = 1, names = NULL, ...) {
   # check type first
   size_ <- byte_size_lut[[type]]
-  if(!missing(size) && length(size) == 1) {
-    if(!is.null(size_) && !size %in% size_) {
+  if (!missing(size) && length(size) == 1) {
+    if (!is.null(size_) && !size %in% size_) {
       stop("Cannot parse name [", name, "]: the type [", type, "] cannot have ", size, " bytes.")
     }
     size_ <- size
@@ -674,7 +674,7 @@ validate_spec <- function(name, type, size, n = 1, names = NULL, ...) {
   } else {
     size_ <- size_[[1]]
   }
-  if(!length(n)) {
+  if (!length(n)) {
     n <- 1L
   } else {
     n <- as.integer(n)
@@ -700,7 +700,7 @@ validate_spec <- function(name, type, size, n = 1, names = NULL, ...) {
 
 #' @export
 `print.nev-nsx-entry-list` <- function(x, ...) {
-  for(ii in seq_len(length(x))) {
+  for (ii in seq_along(x)) {
     print(x[[ii]])
   }
 }
@@ -773,7 +773,7 @@ parse_packet <- function(x, item, ...) {
     re$value
   })
   names(packet) <- names
-  if(length(item$event)) {
+  if (length(item$event)) {
     packet$event <- item$event
   }
   packet
@@ -792,7 +792,7 @@ parse_comment_packet <- function(x, item, ...) {
     idx <<- idx + sub_specs$.bytes
     re$value
   })
-  if(is.character(packet[[length(packet)]]) && length(x) > length(idx)) {
+  if (is.character(packet[[length(packet)]]) && length(x) > length(idx)) {
     s <- parse_string(x[-seq_len(idx)])
     packet[[length(packet)]] <- paste0(packet[[length(packet)]], s)
   }
@@ -807,17 +807,17 @@ parse_item <- function(slice_data, item) {
   # slice_idx <- section_slice_idx[ii, ]
   # slice_data <- section_data[seq(slice_idx[[1]], slice_idx[[2]])]
   parser <- get(sprintf("parse_%s", item$type), mode = "function")
-  if(!is.function(parser)) {
+  if (!is.function(parser)) {
     stop("Cannot obtain parser function for type: ", item$type)
   }
-  if(item$n > 1) {
+  if (item$n > 1) {
     re <- matrix(slice_data, ncol = item$n, byrow = FALSE)
     re <- apply(re, 2, parser, item = item)
   } else {
     re <- parser(slice_data, item = item)
   }
 
-  if(length(item$names)) {
+  if (length(item$names)) {
     names(re) <- item$names
   }
   structure(
@@ -867,7 +867,7 @@ parse__with_string_key <- function(conn, section_specs, n_items,
                     size = 1L, endian = "little")
     key <- key_parser(data[key_rule$start_byte + seq_len(key_rule$.bytes)])
     item <- dictionary[[key]]
-    if(is.null(item)) {
+    if (is.null(item)) {
       stop("Cannot find specification for keyword: [", key, "]")
     }
     item$name <- key
@@ -875,10 +875,10 @@ parse__with_string_key <- function(conn, section_specs, n_items,
 
     p2_length <- item$.bytes - initial_read
 
-    if(p2_length < 0) {
+    if (p2_length < 0) {
       stop("Wrong specification: data packet size is not enough to aquire packet key/ID. To obtain the key, it requires [", initial_read, "] bytes, but the packet size is: [", item$.bytes, "]")
     }
-    if(length(p2_length)) {
+    if (length(p2_length)) {
       data_part2 <- readBin(conn, what = "raw", n = p2_length,
                             size = 1L, endian = "little")
       data <- c(data, data_part2)
@@ -887,7 +887,7 @@ parse__with_string_key <- function(conn, section_specs, n_items,
     parse_item(slice_data = data, item = item)
   })
 
-  if(!as_data_frame) {
+  if (!as_data_frame) {
     return(re)
   }
 
@@ -907,7 +907,7 @@ parse__with_string_key <- function(conn, section_specs, n_items,
 }
 parse__with_numeric_key <- function(conn, section_specs, data_packet_sizes) {
   re <- dipsaus::fastqueue2()
-  if(!data_packet_sizes) {
+  if (!data_packet_sizes) {
     return(re)
   }
   key_rule <- do.call(validate_spec, section_specs$key_rule)
@@ -918,25 +918,25 @@ parse__with_numeric_key <- function(conn, section_specs, data_packet_sizes) {
     keys[dipsaus::parse_svec(key)] <- key
     return(key)
   })
-  for(key in names(dictionary)) {
+  for (key in names(dictionary)) {
     item <- dictionary[[key]]
     item$name <- item$name %||% key
     dictionary[[key]] <- do.call(validate_spec, item)
   }
 
   # read the read of data
-  while(length({
+  while (length({
     data <- readBin(conn, what = "raw", n = data_packet_sizes,
                     size = 1L, endian = "little")
   }) == data_packet_sizes) {
 
     key <- key_parser(data[key_rule$start_byte + seq_len(key_rule$.bytes)])
     dict_key <- keys[[key]]
-    if(is.na(dict_key)) {
+    if (is.na(dict_key)) {
       stop(sprintf("Unknown [%s=%s]", key_rule$name, key))
     }
     item <- dictionary[[dict_key]]
-    if(is.null(item)) {
+    if (is.null(item)) {
       stop("Cannot find specification for keyword: [", key, "]")
     }
 
@@ -967,7 +967,7 @@ parse__nev <- function(nev_path, specification, nev_data = TRUE) {
   # TODO: Postprocessing
   data_packets2 <- dipsaus::fastqueue2()
 
-  if( nev_data ) {
+  if ( nev_data ) {
     data_packets <- parse__with_numeric_key(
       conn, specification[[3]],
       data_packet_sizes = data_packet_sizes)
@@ -975,9 +975,9 @@ parse__nev <- function(nev_path, specification, nev_data = TRUE) {
     # parse waveform
     waveform_flag <- rawToBits(basic_header$additional_flags$raw)
     waveform_dtype <- NA
-    if(length(waveform_flag)) {
+    if (length(waveform_flag)) {
       waveform_flag <- as.integer(waveform_flag[[1]])
-      if(waveform_flag == 1) {
+      if (waveform_flag == 1) {
         waveform_dtype <- "int16"
       }
     }
@@ -985,24 +985,24 @@ parse__nev <- function(nev_path, specification, nev_data = TRUE) {
     spike_widths <- ext_header$NEUEVWAV$spike_width
     bytes_per_waveforms <- ext_header$NEUEVWAV$bytes_per_waveform
 
-    while(!is.null({packet <- data_packets$remove()})) {
+    while (!is.null({packet <- data_packets$remove()})) {
 
-      if(length(packet$value$waveform) && is.raw(packet$value$waveform)) {
+      if (length(packet$value$waveform) && is.raw(packet$value$waveform)) {
 
         electrode_id <- packet$value$packet_id
         sel <- electrode_ids == electrode_id
         waveform <- packet$value$waveform
-        if(any(sel)) {
+        if (any(sel)) {
           spike_width <- spike_widths[sel]
           bytes_per_waveform <- bytes_per_waveforms[sel]
-          if(bytes_per_waveform == 0) {
+          if (bytes_per_waveform == 0) {
             bytes_per_waveform <- 1
           }
 
 
 
           # translate waveform
-          if(is.na(waveform_dtype)) {
+          if (is.na(waveform_dtype)) {
 
             bytes <- 2^ceiling(log2(bytes_per_waveform))
             waveform <- matrix(waveform, nrow = bytes_per_waveform)
@@ -1058,20 +1058,20 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
 
   re$header_signature <- signature
 
-  if(!header_only) {
+  if (!header_only) {
     # Read the rest of data
     data_specs <- specification[[4]]$dictionary$data_points
     n_timepoints <- data_header$data_header$value$number_of_data_points
     n_channels <- basic_header$channel_count$value
 
-    if(n_timepoints == 0) {
+    if (n_timepoints == 0) {
       stop("Cannot read BlackRock NSx file. Cannot obtain a positive number of time-points from the NSx headers")
     }
 
 
     arr <- tryCatch(
       expr = {
-        if(force_update) {
+        if (force_update) {
           stop("Force updating NSx data file.")
         }
         filearray::filearray_checkload(
@@ -1083,7 +1083,7 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
         )
       },
       error = function(e) {
-        if(file.exists(filebase)) {
+        if (file.exists(filebase)) {
           unlink(filebase, recursive = TRUE)
         }
         dir_create2(dirname(filebase))
@@ -1099,7 +1099,7 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
         arr
       }
     )
-    if(!isTRUE(arr$get_header(key = "ready", default = FALSE))) {
+    if (!isTRUE(arr$get_header(key = "ready", default = FALSE))) {
 
       parition_size <- ceiling(2^21 / n_channels)
       niters <- ceiling(n_timepoints / parition_size)
@@ -1116,7 +1116,7 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
       ratio <- ratio[seq_len(n_channels)]
 
       units <- sapply(ext_header$CC$units, function(unit) {
-        switch (
+        switch(
           unit,
           "V" = { 1e6 },
           "mV" = { 1e3 },
@@ -1143,7 +1143,7 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
 
         data_specs$n <- parition_size * n_channels
 
-        if( data_specs$n > pts_total - pts_read ) {
+        if ( data_specs$n > pts_total - pts_read ) {
           data_specs$n <- pts_total - pts_read
         }
         pts_read <<- pts_read + data_specs$n
@@ -1156,15 +1156,15 @@ parse__nsx <- function(nsx_path, specification, header_only = FALSE, verbose = T
         data <- parser(data)
         ntp <- length(data) / n_channels
 
-        if( round(ntp) != ntp ) {
+        if ( round(ntp) != ntp ) {
           warning("Number of points is not integer. The data might be incomplete")
           ntp <- floor(ntp)
-          if( ntp > 0 ) {
+          if ( ntp > 0 ) {
             data <- data[seq_len(n_channels * ntp)]
           }
         }
 
-        if( ntp > 0 ) {
+        if ( ntp > 0 ) {
           dim(data) <- c(n_channels, ntp)
           data <- (data - min_digit) * ratio + min_analog
 
@@ -1190,7 +1190,7 @@ blackrock_specification <- function(path) {
   file_type <- parse_string(header[seq_len(8)])
   file_version <- parse_uint8(header[c(9, 10)])
 
-  file_type <- switch (
+  file_type <- switch(
     file_type,
     NEURALEV = { "nev" },
     BREVENTS = { "nev" },
@@ -1205,7 +1205,7 @@ blackrock_specification <- function(path) {
   # get specification
   spec_file <- system.file("specifications", sprintf("blackrock-%s-%d.%d.yaml", file_type, file_version[[1]], file_version[[2]]), package = "raveio")
 
-  if(!file.exists(spec_file)) {
+  if (!file.exists(spec_file)) {
     stop(sprintf(
       "`read_nsx_nev`: Unable to find file specification file of [.%s] with version [%d.%d]. The version might be too old (<= 2.1) or too new. Please contact RAVE develop team to add file specification.",
       file_type, file_version[[1]], file_version[[2]]))
@@ -1244,15 +1244,15 @@ read_nsx_nev <- function(paths, nev_path = NULL,
                          header_only = FALSE, nev_data = TRUE,
                          verbose = TRUE, ram = FALSE, force_update = FALSE,
                          temp_path = file.path(tempdir(), "blackrock-temp")) {
-  if(!all(file.exists(paths))) {
+  if (!all(file.exists(paths))) {
     stop("read_nsx_nev: at least one path cannot be found.")
   }
 
   fnames <- basename(paths)
 
-  if(length(nev_path)) {
+  if (length(nev_path)) {
     nev_info <- blackrock_specification(nev_path)
-    if(!identical(nev_info$type, "nev")) {
+    if (!identical(nev_info$type, "nev")) {
       stop("`read_nsx_nev`: the given `nev_path` is not a valid neural-event file (.nev): ",
            nev_path)
     }
@@ -1272,7 +1272,7 @@ read_nsx_nev <- function(paths, nev_path = NULL,
     lapply(paths, function(path) {
       info <- blackrock_specification(path)
 
-      if(!identical(info$type, "nsx")) {
+      if (!identical(info$type, "nsx")) {
         stop("read_nsx_nev: path is not a valid nsx file (.ns1, .ns2, ..., .ns5): ", path)
       }
 
@@ -1287,7 +1287,7 @@ read_nsx_nev <- function(paths, nev_path = NULL,
       # Post processing
       re <- blackrock_postprocess(nsx = re, nev = nev)
 
-      if(ram && !header_only) {
+      if (ram && !header_only) {
         re$data <- re$data[drop = FALSE]
       }
       re

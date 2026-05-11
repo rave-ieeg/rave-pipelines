@@ -5,7 +5,7 @@
 # 3. Surface recon
 # 4. CT co-registration
 dry_run <- ravecore::cmd_dry_run()
-module_html <- function(){
+module_html <- function() {
 
   shiny::div(
     class = "container",
@@ -52,10 +52,10 @@ module_html <- function(){
                 )
               ),
               shiny::div(
-                "If your original image files have DICOM format. The following script uses ", shiny::pre(class="pre-compact no-padding display-inline", "dcm2niix"), " external library to convert DICOM images to Nifti format for later purposes. ",
+                "If your original image files have DICOM format. The following script uses ", shiny::pre(class = "pre-compact no-padding display-inline", "dcm2niix"), " external library to convert DICOM images to Nifti format for later purposes. ",
                 shiny::br(),
                 "* The script requires Unix ",
-                shiny::pre(class="pre-compact no-padding display-inline", "bash"),
+                shiny::pre(class = "pre-compact no-padding display-inline", "bash"),
                 " terminal. For Windows users, please use Window sub-Linux system (WSL2). If your data is in Nifti format, the file will be copied directly. No external scripts will be used.",
 
                 shiny::hr(),
@@ -167,7 +167,7 @@ module_html <- function(){
               ),
               shiny::div(
                 "* If you choose to use the FreeSurfer, then the script requires Unix ",
-                shiny::pre(class="pre-compact no-padding display-inline", "bash"),
+                shiny::pre(class = "pre-compact no-padding display-inline", "bash"),
                 " terminals. If you are using Windows, ",
                 "please use Window sub-system for Linux [WSL2].",
 
@@ -235,7 +235,7 @@ module_html <- function(){
                   class = "float-right",
                   shiny::div(
                     local({
-                      if(dry_run) {
+                      if (dry_run) {
                         NULL
                       } else {
                         shiny::conditionalPanel(
@@ -264,29 +264,29 @@ module_html <- function(){
               shiny::p(
                 "This step aligns the CT to MR image. ",
                 "For MRI, ",
-                shiny::pre(class="pre-compact no-padding display-inline", "MRI_RAW.nii"),
+                shiny::pre(class = "pre-compact no-padding display-inline", "MRI_RAW.nii"),
                 " is the original image file, and ",
-                shiny::pre(class="pre-compact no-padding display-inline", "T1.nii"),
+                shiny::pre(class = "pre-compact no-padding display-inline", "T1.nii"),
                 " is the FreeSurfer/ANTs-normalized image.",
               ),
               shiny::div(
                 shiny::tags$ul(
                   shiny::tags$li(
-                    shiny::pre(class="pre-compact no-padding display-inline", "NiftyReg"),
+                    shiny::pre(class = "pre-compact no-padding display-inline", "NiftyReg"),
                     " is always available. "
                   ),
                   shiny::tags$li(
-                    shiny::pre(class="pre-compact no-padding display-inline", "ANTs"),
+                    shiny::pre(class = "pre-compact no-padding display-inline", "ANTs"),
                     " and ",
-                    shiny::pre(class="pre-compact no-padding display-inline", "img_pipe"),
+                    shiny::pre(class = "pre-compact no-padding display-inline", "img_pipe"),
                     " require enabling RAVE-Python support"
                   ),
                   shiny::tags$li(
-                    shiny::pre(class="pre-compact no-padding display-inline", "FSL-FLIRT"),
+                    shiny::pre(class = "pre-compact no-padding display-inline", "FSL-FLIRT"),
                     " and ",
-                    shiny::pre(class="pre-compact no-padding display-inline", "AFNI-ALICE"),
+                    shiny::pre(class = "pre-compact no-padding display-inline", "AFNI-ALICE"),
                     " call external scripts that requires Unix ",
-                    shiny::pre(class="pre-compact no-padding display-inline", "bash"),
+                    shiny::pre(class = "pre-compact no-padding display-inline", "bash"),
                     " terminals. If you are using these two on Windows, ",
                     "please use the Windows sub-system for Linux (WSL2)."
                   )
@@ -564,7 +564,7 @@ module_html <- function(){
                   class = "float-right",
                   shiny::div(
                     local({
-                      if(dry_run) {
+                      if (dry_run) {
                         NULL
                       } else {
                         shiny::actionButton(ns("btn_coreg_run"), "Run from RAVE")
@@ -585,7 +585,7 @@ module_html <- function(){
             #   append_tools = FALSE,
             #   shiny::div(
             #     "This *optional* step non-linearly aligns native ",
-            #     shiny::pre(class="pre-compact no-padding display-inline", "aparc+aseg"),
+            #     shiny::pre(class = "pre-compact no-padding display-inline", "aparc+aseg"),
             #     "to template brain in MNI space. Please make sure to finish FreeSurfer ",
             #     "has finished for this subject. You can skip this step and proceed to ",
             #     "electrode localization.",

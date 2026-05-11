@@ -1,9 +1,9 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
   error_notification <- function(e) {
     shidashi::clear_notifications(class = ns("error_notif"))
-    if(!inherits(e, "condition")) {
+    if (!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
     ravepipeline::logger_error_condition(e)
@@ -51,10 +51,10 @@ module_server <- function(input, output, session, ...){
   # ---- generate reports ------------------------------------
   report_btn_onclick <- shiny::bindEvent(
     shiny::reactive({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
       res <- ravedash::get_rave_event("message_button_clicked")
-      if(is.null(res)) { return(NULL) }
+      if (is.null(res)) { return(NULL) }
       structure(TRUE, timestamp = res)
     }),
     ravedash::get_rave_event("message_button_clicked"),
@@ -71,8 +71,8 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
       report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
     }),
     server_tools$run_analysis_flag(),
@@ -86,7 +86,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       # There is not too many interaction, so update everytime
       check_result <- pipeline$read(var_names = "check_result")
@@ -174,13 +174,13 @@ module_server <- function(input, output, session, ...){
 
   output$basic_info <- shiny::renderUI({
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     project_name <- local_reactives$project_name
     subject_code <- local_reactives$subject_code
     actions <- local_reactives$actions
     tools <- local_reactives$tools
-    if(!length(project_name)) { return() }
+    if (!length(project_name)) { return() }
 
     shiny::div(
       "Project: ", shiny::strong(project_name),
@@ -220,14 +220,14 @@ module_server <- function(input, output, session, ...){
   })
 
 
-  update_nii_t1 <- function(){
+  update_nii_t1 <- function() {
     mri_path <- shiny::isolate(file.path(local_reactives$temp_dir, "inputs", "MRI"))
     choices <- character(0L)
-    if(length(mri_path) == 1 && !is.na(mri_path) && dir.exists(mri_path)) {
+    if (length(mri_path) == 1 && !is.na(mri_path) && dir.exists(mri_path)) {
       choices <- list.files(mri_path, pattern = "nii($|\\.gz$)", all.files = FALSE,
                             full.names = FALSE, recursive = FALSE, ignore.case = TRUE)
     }
-    if(!length(choices)) {
+    if (!length(choices)) {
       choices <- character(0L)
     }
 
@@ -235,7 +235,7 @@ module_server <- function(input, output, session, ...){
       subject <- component_container$data$subject
       subject$get_default("nii_t1", default_if_missing = input$param_fs_infile,
                           namespace = "yael_preprocess")
-    }, error = function(e){
+    }, error = function(e) {
       input$param_fs_infile
     })
 
@@ -253,14 +253,14 @@ module_server <- function(input, output, session, ...){
     )
   }
 
-  update_nii_ct <- function(){
+  update_nii_ct <- function() {
     ct_path <- shiny::isolate(file.path(local_reactives$temp_dir, "inputs", "CT"))
     choices <- character(0L)
-    if(length(ct_path) == 1 && !is.na(ct_path) && dir.exists(ct_path)) {
+    if (length(ct_path) == 1 && !is.na(ct_path) && dir.exists(ct_path)) {
       choices <- list.files(ct_path, pattern = "nii($|\\.gz$)", all.files = FALSE,
                             full.names = FALSE, recursive = FALSE, ignore.case = TRUE)
     }
-    if(!length(choices)) {
+    if (!length(choices)) {
       choices <- character(0L)
     }
 
@@ -268,7 +268,7 @@ module_server <- function(input, output, session, ...){
       subject <- component_container$data$subject
       subject$get_default("nii_ct", default_if_missing = input$param_coreg_ct,
                           namespace = "yael_preprocess")
-    }, error = function(e){
+    }, error = function(e) {
       input$param_coreg_ct
     })
 
@@ -315,15 +315,15 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  watch_log <- function(){
+  watch_log <- function() {
     path <- local_data$log_file
-    if(length(path) != 1 || is.na(path) || !file.exists(path) || path == '') {
+    if (length(path) != 1 || is.na(path) || !file.exists(path) || path == "") {
       msg <- NULL
     } else {
       suppressWarnings({
         msg <- readLines(path)
       })
-      if(!length(msg) || isTRUE(msg == "")) {
+      if (!length(msg) || isTRUE(msg == "")) {
         msg <- "Waiting for outputs..."
       }
       later::later(watch_log, delay = 0.5)
@@ -335,9 +335,9 @@ module_server <- function(input, output, session, ...){
       list(
         selector = sprintf("pre#%s", ns("verbatim_log")),
         content = paste0(
-          '<code class="hljs-literal" style="word-wrap:break-word;width: 100%;white-space: pre-wrap;">',
+          '<code class = "hljs-literal" style="word-wrap:break-word;width: 100%;white-space: pre-wrap;">',
           msg,
-          '</code>'
+          "</code>"
         )
       )
     )
@@ -360,9 +360,9 @@ module_server <- function(input, output, session, ...){
       list(
         selector = sprintf("pre#%s", ns("verbatim_log")),
         content = paste0(
-          '<code class="hljs-literal" style="word-wrap:break-word;width: 100%;white-space: pre-wrap;">',
+          '<code class = "hljs-literal" style="word-wrap:break-word;width: 100%;white-space: pre-wrap;">',
           msg,
-          '</code>'
+          "</code>"
         )
       )
     )
@@ -385,9 +385,9 @@ module_server <- function(input, output, session, ...){
       footer = dipsaus::actionButtonStyled(ns("dismiss_modal"), "Running...", disabled = "")
     ))
 
-    if( !length(command) ) {
+    if ( !length(command) ) {
       command <- cmd$command
-      if(!length(command)) {
+      if (!length(command)) {
         command <- "bash"
       }
     }
@@ -395,7 +395,7 @@ module_server <- function(input, output, session, ...){
 
     job_id <- ravepipeline::start_job(
       function(command, script, script_path, log_path) {
-        if(!length(command)) {
+        if (!length(command)) {
           command <- "bash"
         }
         writeLines(c(
@@ -443,13 +443,13 @@ module_server <- function(input, output, session, ...){
         msg <- "Waiting for outputs..."
         tryCatch({
           path <- cmd$log_file
-          if(length(path) != 1 || is.na(path) || !file.exists(path) || path == '') {
+          if (length(path) != 1 || is.na(path) || !file.exists(path) || path == "") {
             msg <- NULL
           } else {
             suppressWarnings({
               msg <- readLines(path)
             })
-            if(!length(msg) || isTRUE(msg == "")) {
+            if (!length(msg) || isTRUE(msg == "")) {
               msg <- "Waiting for outputs..."
             }
           }
@@ -462,7 +462,7 @@ module_server <- function(input, output, session, ...){
           {
             renderMsg(msg)
             res <- ravepipeline::resolve_job(job_id = job_id, timeout = 0, unresolved = "silent")
-            if(isTRUE(res)) {
+            if (isTRUE(res)) {
               msg <- c(msg, "Finished.")
               local_data$current_logs <- msg
               renderMsg(msg)
@@ -487,13 +487,13 @@ module_server <- function(input, output, session, ...){
       onFulfilled = function(msg) {
         renderMsg(msg)
         dipsaus::updateActionButtonStyled(
-          session = session, inputId = 'dismiss_modal', disabled = FALSE,
+          session = session, inputId = "dismiss_modal", disabled = FALSE,
           label = "Done")
         return(TRUE)
       },
       onRejected = function() {
         dipsaus::updateActionButtonStyled(
-          session = session, inputId = 'dismiss_modal', disabled = FALSE,
+          session = session, inputId = "dismiss_modal", disabled = FALSE,
           label = "Gotcha")
         return(FALSE)
       }
@@ -525,7 +525,7 @@ module_server <- function(input, output, session, ...){
     filename = "logfile.txt",
     content = function(conn) {
       path <- local_reactives$logfile_path
-      if( length(path) == 1 && !is.na(path) && file.exists(path) ) {
+      if ( length(path) == 1 && !is.na(path) && file.exists(path) ) {
         file.copy(path, conn, overwrite = TRUE, recursive = FALSE)
       } else {
         writeLines("Cannot find the log file...", con = conn)
@@ -540,11 +540,11 @@ module_server <- function(input, output, session, ...){
       # cmd2 <- res$import_CT
       cmd1 <- local_reactives$bash_scripts$import_T1
       cmd2 <- local_reactives$bash_scripts$import_CT
-      if(isTRUE(cmd1$error)) {
+      if (isTRUE(cmd1$error)) {
         error_notification(cmd1$condition)
         return()
       }
-      if(isTRUE(cmd2$error)) {
+      if (isTRUE(cmd2$error)) {
         error_notification(cmd2$condition)
         return()
       }
@@ -561,10 +561,10 @@ module_server <- function(input, output, session, ...){
                  "paste the command below:"),
           shiny::hr(),
           shiny::pre(
-            class='pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output',
-            `data-dismiss`="toast",
+            class = "pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output",
+            `data-dismiss` = "toast",
             type = "button",
-            `aria-label`="Close",
+            `aria-label` = "Close",
             `data-clipboard-text` = script,
             shiny::code( script )
           )
@@ -582,7 +582,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       # cmd1 <- res$import_T1
       cmd <- local_reactives$bash_scripts$import_T1
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
@@ -597,7 +597,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       # cmd1 <- res$import_T1
       cmd <- local_reactives$bash_scripts$import_CT
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
@@ -615,7 +615,7 @@ module_server <- function(input, output, session, ...){
       # cmd <- res$image_segmentation
       # cmd2 <- res$import_CT
       cmd <- local_reactives$bash_scripts$image_segmentation
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
@@ -629,10 +629,10 @@ module_server <- function(input, output, session, ...){
                  "paste the command below:"),
           shiny::hr(),
           shiny::pre(
-            class='pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output',
-            `data-dismiss`="toast",
+            class = "pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output",
+            `data-dismiss` = "toast",
             type = "button",
-            `aria-label`="Close",
+            `aria-label` = "Close",
             `data-clipboard-text` = script,
             shiny::code( script )
           )
@@ -649,7 +649,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       cmd <- local_reactives$bash_scripts$image_segmentation
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
@@ -684,7 +684,7 @@ module_server <- function(input, output, session, ...){
           stop("Unknown coregistration command")
         }
       )
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
@@ -698,10 +698,10 @@ module_server <- function(input, output, session, ...){
                  "paste the command below:"),
           shiny::hr(),
           shiny::pre(
-            class='pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output',
-            `data-dismiss`="toast",
+            class = "pre-compact bg-gray-90 clipboard-btn shidashi-clipboard-output",
+            `data-dismiss` = "toast",
             type = "button",
-            `aria-label`="Close",
+            `aria-label` = "Close",
             `data-clipboard-text` = script,
             shiny::code( script )
           )
@@ -749,7 +749,7 @@ module_server <- function(input, output, session, ...){
           stop("Unknown coregistration program")
         }
       )
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
@@ -757,8 +757,8 @@ module_server <- function(input, output, session, ...){
 
       # set flag so rpymat is not checked
       check_rpymat <- FALSE
-      if(native) {
-        if(dipsaus::get_os() == "windows") {
+      if (native) {
+        if (dipsaus::get_os() == "windows") {
           dipsaus::shiny_alert2(
             title = sprintf("Running coregistration via %s", bin),
             text = ravedash::be_patient_text(),
@@ -793,14 +793,14 @@ module_server <- function(input, output, session, ...){
       native <- TRUE
       bin <- "RAVE+ANTs"
       cmd <- local_reactives$bash_scripts$morphmri_ants
-      if(isTRUE(cmd$error)) {
+      if (isTRUE(cmd$error)) {
         error_notification(cmd$condition)
         return()
       }
       ravepipeline::logger("Running {bin} from console", level = "info", use_glue = TRUE)
 
       # set flag so rpymat is not checked
-      if(dipsaus::get_os() == "windows") {
+      if (dipsaus::get_os() == "windows") {
         dipsaus::shiny_alert2(
           title = sprintf("Morphing MRI to template via %s", bin),
           text = ravedash::be_patient_text(),
@@ -922,7 +922,7 @@ module_server <- function(input, output, session, ...){
 
   ct_preview_path <- shiny::reactive({
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
     subject <- pipeline$read("subject")
 
     params <- input_params()
@@ -935,7 +935,7 @@ module_server <- function(input, output, session, ...){
     shiny::bindCache(
       shiny::renderPlot({
         loaded_flag <- ravedash::watch_data_loaded()
-        if(!loaded_flag){ return() }
+        if (!loaded_flag) { return() }
         subject <- pipeline$read("subject")
 
         params <- input_params()
@@ -944,7 +944,7 @@ module_server <- function(input, output, session, ...){
                           "rave-imaging", "inputs", "CT", nii_ct)
         has_path <- FALSE
         nii <- NULL
-        if(length(path) == 1 && !is.na(path) && file.exists(path)) {
+        if (length(path) == 1 && !is.na(path) && file.exists(path)) {
           try({
             nii <- ieegio::read_volume(path)
             has_path <- TRUE
@@ -965,9 +965,9 @@ module_server <- function(input, output, session, ...){
         on.exit({
           do.call(par, old_par)
         })
-        layout(matrix(c(4,4,4,1,2,3), nrow = 2, byrow = TRUE),
+        layout(matrix(c(4, 4, 4, 1, 2, 3), nrow = 2, byrow = TRUE),
                heights = c(lcm(1.5), 1))
-        par(mar = c(0,0,0,0), bg = "black", fg = "white", cex = 1.5)
+        par(mar = c(0, 0, 0, 0), bg = "black", fg = "white", cex = 1.5)
         plot(nii, position = position, center_position = TRUE, which = "axial", pixel_width = 0.5, vlim = vlim)
         plot(nii, position = position, center_position = TRUE, which = "coronal", pixel_width = 0.5, vlim = vlim)
         plot(nii, position = position, center_position = TRUE, which = "sagittal", pixel_width = 0.5, vlim = vlim)
@@ -990,7 +990,7 @@ module_server <- function(input, output, session, ...){
 
   mri_preview_path <- shiny::reactive({
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
     subject <- pipeline$read("subject")
 
     params <- input_params()
@@ -1003,7 +1003,7 @@ module_server <- function(input, output, session, ...){
     shiny::bindCache(
       shiny::renderPlot({
         loaded_flag <- ravedash::watch_data_loaded()
-        if(!loaded_flag){ return() }
+        if (!loaded_flag) { return() }
         subject <- pipeline$read("subject")
 
         params <- input_params()
@@ -1012,7 +1012,7 @@ module_server <- function(input, output, session, ...){
                           "rave-imaging", "inputs", "MRI", nii_t1)
         has_path <- FALSE
         nii <- NULL
-        if(length(path) == 1 && !is.na(path) && file.exists(path)) {
+        if (length(path) == 1 && !is.na(path) && file.exists(path)) {
           try({
             nii <- ieegio::read_volume(path)
             has_path <- TRUE
@@ -1029,9 +1029,9 @@ module_server <- function(input, output, session, ...){
         on.exit({
           do.call(par, old_par)
         })
-        layout(matrix(c(4,4,4,1,2,3), nrow = 2, byrow = TRUE),
+        layout(matrix(c(4, 4, 4, 1, 2, 3), nrow = 2, byrow = TRUE),
                heights = c(lcm(1.5), 1))
-        par(mar = c(0,0,0,0), bg = "black", fg = "white", cex = 1.5)
+        par(mar = c(0, 0, 0, 0), bg = "black", fg = "white", cex = 1.5)
         plot(nii, position = c(0, 0, 0), center_position = TRUE, which = "axial", pixel_width = 0.5, vlim = vlim)
         plot(nii, position = c(0, 0, 0), center_position = TRUE, which = "coronal", pixel_width = 0.5, vlim = vlim)
         plot(nii, position = c(0, 0, 0), center_position = TRUE, which = "sagittal", pixel_width = 0.5, vlim = vlim)
@@ -1054,7 +1054,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       params <- input_params()
       # save parameters
@@ -1087,15 +1087,15 @@ module_server <- function(input, output, session, ...){
   )
 
 
-  render_shell <- function(cmd, shell = "/bin/sh"){
+  render_shell <- function(cmd, shell = "/bin/sh") {
     cmd <- paste(cmd, collapse = "\n")
     cmd <- unlist(strsplit(cmd, "\n"))
     shiny::div(
       # class = "clipboard-btn shidashi-clipboard-output",
       shiny::pre(
-        class='pre-compact bg-gray-90',
-        lapply(cmd, function(s){
-          if(startsWith(trimws(s), "#")) {
+        class = "pre-compact bg-gray-90",
+        lapply(cmd, function(s) {
+          if (startsWith(trimws(s), "#")) {
             shiny::tags$code(class = "hljs-comment", s)
           } else {
             shiny::tags$code(class = "hljs-literal", s)
@@ -1104,13 +1104,13 @@ module_server <- function(input, output, session, ...){
       ),
       `data-clipboard-text` = paste(c(
         shell,
-        unlist(lapply(cmd, function(s){
-          if(startsWith(trimws(s), "#")) { s <- NULL }
+        unlist(lapply(cmd, function(s) {
+          if (startsWith(trimws(s), "#")) { s <- NULL }
           s
         })),
         "\n"
       ), collapse = "\n"),
-      # title='Click to copy!',
+      # title="Click to copy!",
       # role = "button"
     )
   }
@@ -1170,7 +1170,7 @@ module_server <- function(input, output, session, ...){
       shiny::need(!isTRUE(cmd$error),
                   message = cmd$condition$message)
     )
-    if(program %in% c("AFNI", "FSL")) {
+    if (program %in% c("AFNI", "FSL")) {
       shell <- "/bin/sh"
     } else {
       shell <- Sys.which("Rscript")
@@ -1185,7 +1185,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       mri_file <- input$param_acpc_infile
-      if(!length(mri_file)) {
+      if (!length(mri_file)) {
         stop("No MRI file specified. Please select one.")
       }
       dipsaus::updateActionButtonStyled(
@@ -1206,7 +1206,7 @@ module_server <- function(input, output, session, ...){
       pipeline$set_settings(
         acpc_infile = mri_file
       )
-      results <- pipeline$eval('viewer_acpc')
+      results <- pipeline$eval("viewer_acpc")
       local_reactives$viewer_acpc <- results$viewer_acpc
     }, error_wrapper = "notification"),
     input$param_acpc_start,
@@ -1223,7 +1223,7 @@ module_server <- function(input, output, session, ...){
       )
     }, add = TRUE, after = TRUE)
 
-    if( !is.null(local_reactives$viewer_acpc) ) {
+    if ( !is.null(local_reactives$viewer_acpc) ) {
       viewer_acpc <- local_reactives$viewer_acpc
       viewer_acpc$plot(
         control_presets = "acpcrealign",
@@ -1232,17 +1232,17 @@ module_server <- function(input, output, session, ...){
     }
   })
 
-  acpc_proxy <- threeBrain::brain_proxy('acpc_3dviewer', session = session)
+  acpc_proxy <- threeBrain::brain_proxy("acpc_3dviewer", session = session)
 
   output$acpc_results <- shiny::renderUI({
     acpc <- local_reactives$acpc_alignment
-    if(is.null(local_reactives$viewer_acpc)) {
+    if (is.null(local_reactives$viewer_acpc)) {
       return(shiny::p("Please choose a MRI file (if there is no file in the dropdown menu, please click on ", ravedash::shiny_icons$refresh, " button to update file list). Then click on 'Start re-alignment' button."))
     }
-    if(!is.list(acpc) || !isTRUE(acpc$ac_set)) {
+    if (!is.list(acpc) || !isTRUE(acpc$ac_set)) {
       return(p("Please use the controller 'Click to Register/Reset AC' to start localizing AC. Try to focus the crosshair (in the slice panels) to the anterior commissure. Once finished, click on 'Confirm Updating AC'."))
     }
-    if(!isTRUE(acpc$pc_set)) {
+    if (!isTRUE(acpc$pc_set)) {
       return("You have AC set. Now use the controller 'Click to Register/Reset PC' to start localizing PC. Again, focus the crosshair to the posterior commissure. Once finished, click on 'Confirm Updating PC'.")
     }
     re <- apply(acpc$ras2acpc, 1, function(r) {
@@ -1274,10 +1274,10 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       acpc <- local_reactives$acpc_alignment
-      if(!is.list(acpc) || !isTRUE(acpc$ac_set)) {
+      if (!is.list(acpc) || !isTRUE(acpc$ac_set)) {
         stop("Anterior commissure is unset. Please set the position of AC.")
       }
-      if(!isTRUE(acpc$pc_set)) {
+      if (!isTRUE(acpc$pc_set)) {
         stop("Posterior commissure is unset. Please set the position of PC.")
       }
 
@@ -1290,7 +1290,7 @@ module_server <- function(input, output, session, ...){
       )
       suc <- FALSE
       on.exit({
-        if(!suc) {
+        if (!suc) {
           Sys.sleep(0.5)
           dipsaus::close_alert2()
         }
@@ -1353,7 +1353,7 @@ module_server <- function(input, output, session, ...){
                 coordinate_system = "ACPC",
                 orientation = "RAS"
               ),
-              path = './acpc-alignment/MR_Scanner_to_MR_ACPC.txt',
+              path = "./acpc-alignment/MR_Scanner_to_MR_ACPC.txt",
               backup = "./derivative/MR_Scanner_to_MR_ACPC.txt",
               comment = "From Scanner to ACPC coordinate"
             )

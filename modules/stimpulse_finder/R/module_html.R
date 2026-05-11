@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -152,10 +152,10 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'Collapsed over frequency',
+              "Collapsed over frequency",
               class_body = "no-padding fill-width min-height-600 resize-vertical",
               shiny::div(
-                class = 'position-relative height-350 fill-width',
+                class = "position-relative height-350 fill-width",
                 plotly::plotlyOutput(
                   outputId = ns("stream_plot"),
                   width = "100%",
@@ -217,7 +217,7 @@ module_html <- function(){
               ), # row
 
               shiny::div(
-                class = 'position-relative fill-width height-350',
+                class = "position-relative fill-width height-350",
                 shidashi::flex_container(
                   style = "width:100%; height:100%",
 

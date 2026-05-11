@@ -1,4 +1,6 @@
 
+`%OF%` <- dipsaus::`%OF%`
+
 plot_by_channel_condition <- function(
     data_by_channel_condition, group_by = c("condition", "channel"),
     space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
@@ -49,7 +51,7 @@ plot_by_channel_condition <- function(
   duration <- end_time - start_time
   time_range <- c(start_time, end_time) + time_shift
 
-  channel_names <- switch (
+  channel_names <- switch(
     channel_annotation,
     "number" = coord_table$Electrode,
     "short" = coord_table$ShortLabel,
@@ -64,7 +66,7 @@ plot_by_channel_condition <- function(
   tck <- -0.005 * (3 + cex)
   par_opt$cex.lab <- 1
 
-  switch (
+  switch(
     group_by,
     "condition" = {
       if (length(coord_table$LeadChannel) && is.logical(coord_table$LeadChannel)) {
@@ -107,7 +109,7 @@ plot_by_channel_condition <- function(
           main = bquote(
             .(group$label) ~ scriptstyle(
               "(" *
-                .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu*V ~
+                .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu * V ~
                 ", n =" ~ .(group$n_trials) *
               ")"
             )
@@ -166,7 +168,7 @@ plot_by_channel_condition <- function(
           main = bquote(
             .(sprintf("Ch %s", channel_names[[ii]])) ~
               scriptstyle(
-                "("~ .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu*V ~ ")"
+                "(" ~ .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu * V ~ ")"
               )
           ),
         )
@@ -390,7 +392,7 @@ plot_collapse_by_condition <- function(
     main = "Mean response by condition", adj = 0, axes = FALSE)
 
   graphics::mtext(side = 1L, "Time (s)", line = 2)
-  graphics::mtext(side = 2L, bquote("Voltage" ~ (mu*V)), line = 2)
+  graphics::mtext(side = 2L, bquote("Voltage" ~ (mu * V)), line = 2)
 
   graphics::axis(1L, pretty(time_range))
   graphics::axis(2L, c(data_range, 0), labels = c(sprintf("%.0f", data_range), "0"), las = 1)

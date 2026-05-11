@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
 
@@ -55,7 +55,7 @@ module_server <- function(input, output, session, ...){
       )
 
       data_table <- NULL
-      if(
+      if (
         length(results$path_datatable) == 1 &&
         file.exists(results$path_datatable) &&
         grepl("\\.fst$", results$path_datatable, ignore.case = TRUE)
@@ -76,11 +76,11 @@ module_server <- function(input, output, session, ...){
 
       data_source <- input$data_source
       settings <- list()
-      if(identical(data_source, "Uploads")) {
+      if (identical(data_source, "Uploads")) {
         settings <- list(
           uploaded_source = input$uploaded_source
         )
-      } else if(identical(data_source, "Saved pipelines/modules")) {
+      } else if (identical(data_source, "Saved pipelines/modules")) {
         settings <- list(
           data_source_project = input$data_source_project,
           data_source_pipeline = input$data_source_pipeline,
@@ -132,7 +132,7 @@ module_server <- function(input, output, session, ...){
 
       proxy_controllers <- as.list(proxy$controllers)
       background <- proxy_controllers[["Background Color"]]
-      if(length(background) != 1) {
+      if (length(background) != 1) {
         theme <- shiny::isolate(ravedash::current_shiny_theme())
         background <- theme$background
       }
@@ -147,23 +147,23 @@ module_server <- function(input, output, session, ...){
       proxy_controllers <- proxy_controllers[
         names(proxy_controllers) %in% synced_controllers]
 
-      for(nm in names(proxy_controllers)) {
+      for (nm in names(proxy_controllers)) {
         controllers[[nm]] <- proxy_controllers[[nm]]
       }
 
       main_camera <- pipeline$get_settings("main_camera", default = list())
       proxy_main_camera <- proxy$main_camera
-      if(all(c("position", "zoom", "up") %in% names(proxy_main_camera))) {
+      if (all(c("position", "zoom", "up") %in% names(proxy_main_camera))) {
         main_camera <- proxy_main_camera
       }
 
       data_source <- input$data_source
       settings <- list()
-      if(identical(data_source, "Uploads")) {
+      if (identical(data_source, "Uploads")) {
         settings <- list(
           uploaded_source = input$uploaded_source
         )
-      } else if(identical(data_source, "Saved pipelines/modules")) {
+      } else if (identical(data_source, "Saved pipelines/modules")) {
         settings <- list(
           data_source_project = input$data_source_project,
           data_source_pipeline = input$data_source_pipeline,
@@ -191,13 +191,13 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
 
 
       loaded_data <- pipeline$read("loaded_brain")
 
-      if(!is.list(loaded_data)) {
+      if (!is.list(loaded_data)) {
         ravepipeline::logger("Data read from the pipeline, but it is not a list. Abort initialization", level = "warning")
         return()
       }
@@ -205,9 +205,9 @@ module_server <- function(input, output, session, ...){
 
       # check if the repository has the same subject as current one
       old_data <- component_container$data$loaded_brain
-      if(is.list(old_data)){
+      if (is.list(old_data)) {
 
-        if(
+        if (
           identical(old_data$project_name, loaded_data$project_name) &&
           identical(old_data$subject_code, loaded_data$subject_code) &&
           identical(old_data$electrode_table, loaded_data$electrode_table) &&
@@ -244,11 +244,11 @@ module_server <- function(input, output, session, ...){
 
   update_upload_source <- function(selected = NULL) {
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     loaded_brain <- component_container$data$loaded_brain
     subject <- get_brain_subject(loaded_brain)
-    if(is.null(subject)) { return() }
+    if (is.null(subject)) { return() }
 
     root_path <- get_subject_imaging_datapath(
       subject_code = subject$subject_code,
@@ -257,18 +257,18 @@ module_server <- function(input, output, session, ...){
     )
 
     candidates <- NULL
-    if(dir.exists(root_path)) {
+    if (dir.exists(root_path)) {
       candidates <- list.files(
         path = root_path, pattern = "\\.(csv|fst)$", ignore.case = TRUE,
         full.names = FALSE, all.files = FALSE, recursive = TRUE,
         include.dirs = FALSE)
       tryCatch({
-        if(length(candidates)) {
+        if (length(candidates)) {
           o <- order(file.mtime(file.path(root_path, candidates)),
                      decreasing = TRUE)
           candidates <- candidates[o]
         }
-      }, error = function(e){})
+      }, error = function(e) {})
     }
 
     selected <- c(
@@ -295,22 +295,22 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       loaded_brain <- component_container$data$loaded_brain
-      if(length(loaded_brain$subject_code) != 1) {
+      if (length(loaded_brain$subject_code) != 1) {
         return()
       }
 
       subject <- get_brain_subject(loaded_brain)
-      if(is.null(subject)) { return() }
+      if (is.null(subject)) { return() }
 
 
       info <- input$uploaded_file
-      if(!grepl("\\.(csv|fst|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
+      if (!grepl("\\.(csv|fst|xls[x]{0,1})$", info$name, ignore.case = TRUE)) {
         ravedash::error_notification(list(message = "Unsupported file format: only [.csv] and [.fst] files are supported."))
         return()
       }
 
       format <- "csv"
-      if( grepl("\\.fst$", info$name, ignore.case = TRUE) ) {
+      if ( grepl("\\.fst$", info$name, ignore.case = TRUE) ) {
         format <- "fst"
       } else if ( grepl("\\.xls[x]{0,1}$", info$name, ignore.case = TRUE) ) {
         format <- "xlsx"
@@ -329,8 +329,8 @@ module_server <- function(input, output, session, ...){
             read_xlsx(info$datapath)
           }
         )
-        if(!"Electrode" %in% names(header)) {
-          stop('The uploaded data file must contain named headers, and one of the headers must be "Electrode".')
+        if (!"Electrode" %in% names(header)) {
+          stop("The uploaded data file must contain named headers, and one of the headers must be \"Electrode\".")
         }
 
         # save to somewhere?
@@ -344,7 +344,7 @@ module_server <- function(input, output, session, ...){
         new_name <- gsub("\\.(csv|xls[x]{0,1})$", ".fst", info$name)
         fpath <- file.path(root_path, new_name)
 
-        if(format != "fst") {
+        if (format != "fst") {
           ieegio::io_write_fst(header, fpath)
         } else {
           file.copy(from = info$datapath, to = fpath, overwrite = TRUE)
@@ -385,7 +385,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       selected <- shiny::isolate(input$download_template_type) %OF% TEMPLATE_CHOICES
 
@@ -424,8 +424,8 @@ module_server <- function(input, output, session, ...){
   template_example <- shiny::reactive({
     tryCatch({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
-      if(!isTRUE(input$download_template_type %in% TEMPLATE_CHOICES)) {
+      if (!loaded_flag) { return() }
+      if (!isTRUE(input$download_template_type %in% TEMPLATE_CHOICES)) {
         return()
       }
 
@@ -433,14 +433,14 @@ module_server <- function(input, output, session, ...){
       loaded_data <- component_container$data$loaded_brain
       subject_code <- loaded_data$subject_code
       electrode_table <- loaded_data$electrode_table
-      if(!is.data.frame(electrode_table)) { return(NULL) }
-      if(length(subject_code) != 1) {
+      if (!is.data.frame(electrode_table)) { return(NULL) }
+      if (length(subject_code) != 1) {
         subject_code <- "N27"
       }
 
       electrodes <- electrode_table$Electrode
       nelec <- length(electrodes)
-      if(nelec == 0) { return() }
+      if (nelec == 0) { return() }
       tbl <- switch(
         input$download_template_type,
         "Simple property" = {
@@ -477,7 +477,7 @@ module_server <- function(input, output, session, ...){
     filename = "electrode_value.csv",
     content = function(con) {
       template <- template_example()
-      if(!is.data.frame(template)) {
+      if (!is.data.frame(template)) {
         stop("No template is available. Electrode table is not detected.")
       }
       utils::write.csv(x = template, file = con, row.names = FALSE)
@@ -511,7 +511,7 @@ module_server <- function(input, output, session, ...){
       caption = caption,
       options = list(
         columnDefs = list(
-          list(className = 'dt-right', targets = "_all")
+          list(className = "dt-right", targets = "_all")
         )
       )
     )
@@ -519,10 +519,10 @@ module_server <- function(input, output, session, ...){
 
   update_pipeline_source <- function(selected = NULL) {
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     loaded_brain <- component_container$data$loaded_brain
-    if(!length(loaded_brain$subject_code) == 1) { return() }
+    if (!length(loaded_brain$subject_code) == 1) { return() }
 
     subject_code <- loaded_brain$subject_code
     candidates <- get_projects_with_scode(subject_code = subject_code, refresh = TRUE)
@@ -552,15 +552,15 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       loaded_brain <- component_container$data$loaded_brain
-      if(length(loaded_brain$subject_code) != 1) {
+      if (length(loaded_brain$subject_code) != 1) {
         return()
       }
 
       project_name <- input$data_source_project
-      if(length(project_name) != 1 || project_name %in% c("", ".", "/")) { return() }
+      if (length(project_name) != 1 || project_name %in% c("", ".", "/")) { return() }
       subject_code <- loaded_brain$subject_code
 
       root_path <- get_subject_imaging_datapath(
@@ -572,13 +572,13 @@ module_server <- function(input, output, session, ...){
       avaialble_pipelines <- list.dirs(root_path, full.names = FALSE, recursive = FALSE)
       avaialble_pipelines <- unlist(lapply(avaialble_pipelines, function(pn) {
         re <- list.dirs(file.path(root_path, pn), full.names = FALSE, recursive = FALSE)
-        if(length(re)) {
+        if (length(re)) {
           re <- sprintf("%s/%s", pn, re)
         }
         re
       }))
       candidates <- as.character(avaialble_pipelines)
-      if(!length(candidates)) {
+      if (!length(candidates)) {
         label <- "(No saved pipeline found)"
       } else {
         label <- "Select a saved pipeline"
@@ -608,18 +608,18 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       loaded_brain <- component_container$data$loaded_brain
-      if(length(loaded_brain$subject_code) != 1) {
+      if (length(loaded_brain$subject_code) != 1) {
         return()
       }
 
       project_name <- input$data_source_project
-      if(length(project_name) != 1 || project_name %in% c("", "/", ".")) { return() }
+      if (length(project_name) != 1 || project_name %in% c("", "/", ".")) { return() }
 
       pipepath <- input$data_source_pipeline
-      if(length(pipepath) != 1 || pipepath %in% c(".", "")) { return() }
+      if (length(pipepath) != 1 || pipepath %in% c(".", "")) { return() }
 
       subject_code <- loaded_brain$subject_code
 
@@ -630,7 +630,7 @@ module_server <- function(input, output, session, ...){
         type = "pipeline"
       )
 
-      if(length(pipepath) != 1 || is.na(pipepath) || !dir.exists(pipepath)) {
+      if (length(pipepath) != 1 || is.na(pipepath) || !dir.exists(pipepath)) {
         return()
       }
 
@@ -665,15 +665,15 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       # loaded_brain <- pipeline$read("loaded_brain")
       loaded_brain <- component_container$data$loaded_brain
 
 
-      if( identical(input$data_source, "Uploads") ) {
+      if ( identical(input$data_source, "Uploads") ) {
         update_upload_source()
-      } else if( identical(input$data_source, "Saved pipelines/modules") ) {
+      } else if ( identical(input$data_source, "Saved pipelines/modules") ) {
         # get_projects_with_scode()
         update_pipeline_source()
       }
@@ -745,11 +745,11 @@ module_server <- function(input, output, session, ...){
 
 
     mni305 <- controllers[["Intersect MNI305"]]
-    if(length(mni305) == 1) {
+    if (length(mni305) == 1) {
       mni152 <- suppressWarnings({
         mni305 <- as.numeric(strsplit(mni305, ",")[[1]])
         mni305 <- mni305[!is.na(mni305)]
-        if(length(mni305) != 3) {
+        if (length(mni305) != 3) {
           mni152 <- ""
         } else {
           mni152 <- ravecore::MNI305_to_MNI152 %*% c(mni305, 1)
@@ -773,13 +773,13 @@ module_server <- function(input, output, session, ...){
     # electrode = electrode_number,
     # data = selected_data
     selection_info <- NULL
-    if(is.list(viewer_selection)) {
+    if (is.list(viewer_selection)) {
 
       value <- viewer_selection$data$value
       value_info <- "No value selected"
-      if(length(value)) {
-        if(is.numeric(value)) {
-          if(length(value) == 1) {
+      if (length(value)) {
+        if (is.numeric(value)) {
+          if (length(value) == 1) {
             value_info <- sprintf("%.4g", value)
           } else {
             value_info <- shiny::tagList(
@@ -790,7 +790,7 @@ module_server <- function(input, output, session, ...){
           }
         } else {
           value <- unique(value)
-          if(length(value) == 1) {
+          if (length(value) == 1) {
             value_info <- as.character(value)
           } else {
             value_info <- shiny::tagList(
@@ -806,7 +806,7 @@ module_server <- function(input, output, session, ...){
       electrode_mni <- unlist(viewer_selection$raw$object$MNI305_position)
       electrode_mni <- as.numeric(electrode_mni)
       electrode_mni <- electrode_mni[!is.na(electrode_mni)]
-      if( length(electrode_mni) == 3 ) {
+      if ( length(electrode_mni) == 3 ) {
         electrode_mni <- ravecore::MNI305_to_MNI152 %*% c(electrode_mni, 1)
         electrode_mni <- shiny::tags$small(
           shiny::a(
@@ -863,7 +863,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       info <- as.list(proxy$mouse_event_double_click)
-      if(!isTRUE(info$is_electrode)) {
+      if (!isTRUE(info$is_electrode)) {
         return()
       }
       current_clip <- info$current_clip
@@ -875,15 +875,15 @@ module_server <- function(input, output, session, ...){
       selected_data <- NULL
 
       data_table <- local_reactives$data_table
-      if(inherits(data_table, "fst_table")) {
+      if (inherits(data_table, "fst_table")) {
         nms <- names(data_table)
-        if("Electrode" %in% nms) {
-          if(current_clip %in% nms) {
+        if ("Electrode" %in% nms) {
+          if (current_clip %in% nms) {
             sel <- data_table$Electrode %in% electrode_number
-            if(any(sel)) {
+            if (any(sel)) {
               data <- data_table[[current_clip]][sel]
 
-              if('Time' %in% nms) {
+              if ("Time" %in% nms) {
                 time <- data_table$Time[sel]
               } else {
                 time <- NULL
@@ -947,14 +947,14 @@ module_server <- function(input, output, session, ...){
       use_factor <- is.factor(data$value)
 
       plot_data <- as.data.frame(t(sapply(split(data, timestr), function(sub) {
-        if( use_factor ) {
+        if ( use_factor ) {
           c(sub$time[[1]], cumsum(table(sub$value)))
         } else {
           c(sub$time[[1]], nrow(sub), dipsaus::mean_se(sub$value))
         }
       })))
 
-      if( use_factor ) {
+      if ( use_factor ) {
         nms <- c("..Time", levels(data$value))
       } else {
         nms <- c("Time", "n", "mean", "se")
@@ -966,23 +966,23 @@ module_server <- function(input, output, session, ...){
 
       vname <- paste(viewer_selection$name, collapse = "")
 
-      if( use_factor ) {
+      if ( use_factor ) {
 
         x <- plot_data$..Time
         y <- as.matrix(plot_data)
-        y[,1] <- 0
+        y[, 1] <- 0
 
         plot(
           x = range(x, na.rm = TRUE),
           y = range(y, na.rm = TRUE),
-          xlab = "Time", type = 'n', ylab = sprintf("%s (count)", vname),
+          xlab = "Time", type = "n", ylab = sprintf("%s (count)", vname),
           main = "Accumulated count over time"
         )
 
         graphics::grid()
 
         idxlist <- seq_len(length(nms) - 1)
-        for(ii in idxlist) {
+        for (ii in idxlist) {
           graphics::polygon(
             x = c(x, rev(x)),
             y = c(y[, ii], rev(y[, ii + 1])),
@@ -990,7 +990,7 @@ module_server <- function(input, output, session, ...){
             col = dipsaus::col2hexStr(ii, alpha = 0.4)
           )
         }
-        graphics::matlines(x = x, y = y[,-1], lty = 1, col = idxlist)
+        graphics::matlines(x = x, y = y[, -1], lty = 1, col = idxlist)
         ytext <- y[nrow(y), -1]
         xtext <- x[[length(x)]]
 
@@ -1011,14 +1011,14 @@ module_server <- function(input, output, session, ...){
         plot(
           x = range(x, na.rm = TRUE),
           y = range(y + se, y - se, na.rm = TRUE),
-          xlab = "Time", type = 'n', ylab = vname,
+          xlab = "Time", type = "n", ylab = vname,
           main = ifelse(
             max_n > 1,
             sprintf("Mean value over time (max count: %.0f)", max_n),
             "Value over time")
         )
         graphics::grid()
-        if(max_n > 1) {
+        if (max_n > 1) {
           graphics::polygon(
             x = c(x, rev(x)),
             y = c(y - se, rev(y + se)),
@@ -1046,14 +1046,14 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       info <- as.list(input$viewer_selected_data_click)
       time <- info$x
-      if(length(time) != 1 || is.na(time) || !is.numeric(time)) {
+      if (length(time) != 1 || is.na(time) || !is.numeric(time)) {
         return()
       }
       proxy$set_controllers(list(Time = time))
 
       # set time
       shiny::isolate({
-        if(is.list(local_reactives$viewer_selection$data)) {
+        if (is.list(local_reactives$viewer_selection$data)) {
           local_reactives$viewer_selection$data$current_time <- time
         }
       })

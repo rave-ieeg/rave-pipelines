@@ -48,7 +48,7 @@ repository <- ravecore::prepare_subject_voltage_with_epochs(
 available_channels <- repository$electrode_list
 analysis_channels_clean <- dipsaus::parse_svec(unlist(analysis_channels))
 analysis_channels_clean <- analysis_channels_clean[analysis_channels_clean %in% available_channels]
-if(!length(analysis_channels_clean)) {
+if (!length(analysis_channels_clean)) {
   stop("No channels selected for analysis. Please specify the electrode channels from the following loaded: ",
        dipsaus::deparse_svec(available_channels))
 }

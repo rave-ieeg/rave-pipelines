@@ -36,12 +36,12 @@ save_meta2 <- ravecore::save_meta2
 stopifnot2 <- ravecore:::stopifnot2
 
 with_future_parallel <- function(expr, env = parent.frame(), quoted = FALSE,
-         on_failure = 'multisession', max_workers = NA,
-         ...){
-  if(!quoted){
+         on_failure = "multisession", max_workers = NA,
+         ...) {
+  if (!quoted) {
     expr <- substitute(expr)
   }
-  if(!is.na(max_workers) && max_workers >= 1){
+  if (!is.na(max_workers) && max_workers >= 1) {
     max_workers <- min(as.integer(max_workers), raveio_getopt("max_worker", 1L))
   } else {
     max_workers <- raveio_getopt("max_worker", 1L)
@@ -64,8 +64,8 @@ with_future_parallel <- function(expr, env = parent.frame(), quoted = FALSE,
   re
 }
 lapply_async <- ravetools:::lapply_async
-save_h5 <- function(x, file, name, chunk = 'auto', level = 4, replace = TRUE,
-                    new_file = FALSE, ctype = NULL, quiet = FALSE, ...){
+save_h5 <- function(x, file, name, chunk = "auto", level = 4, replace = TRUE,
+                    new_file = FALSE, ctype = NULL, quiet = FALSE, ...) {
   ieegio::io_write_h5(
     x = x,
     file = file,
@@ -79,7 +79,7 @@ save_h5 <- function(x, file, name, chunk = 'auto', level = 4, replace = TRUE,
     ...
   )
 }
-load_h5 <- function(file, name, read_only = TRUE, ram = FALSE, quiet = FALSE){
+load_h5 <- function(file, name, read_only = TRUE, ram = FALSE, quiet = FALSE) {
   return(ieegio::io_read_h5(
     file = file,
     name = name,
@@ -96,30 +96,30 @@ is.blank <- function(x) {
 
 
 is_valid_ish <- function(x, min_len = 1, max_len = Inf, mode = NA,
-         na = TRUE, blank = FALSE, all = FALSE){
-  if(!is.na(mode) && mode(x) != mode){
+         na = TRUE, blank = FALSE, all = FALSE) {
+  if (!is.na(mode) && mode(x) != mode) {
     return(FALSE)
   }
   len <- length(x)
-  if(len < min_len || len > max_len){
+  if (len < min_len || len > max_len) {
     return(FALSE)
   }
-  if(len == 0){
+  if (len == 0) {
     return(TRUE)
   }
-  if(na){
-    if(!all && any(is.na(x))){
+  if (na) {
+    if (!all && any(is.na(x))) {
       return(FALSE)
     }
-    if(all && all(!is.na(x))){
+    if (all && all(!is.na(x))) {
       return(FALSE)
     }
   }
-  if(blank && mode(x) == 'character'){
-    if(!all && any(is.blank(x), na.rm = TRUE)){
+  if (blank && mode(x) == "character") {
+    if (!all && any(is.blank(x), na.rm = TRUE)) {
       return(FALSE)
     }
-    if(all && all(!is.blank(x), na.rm = TRUE)){
+    if (all && all(!is.blank(x), na.rm = TRUE)) {
       return(FALSE)
     }
   }

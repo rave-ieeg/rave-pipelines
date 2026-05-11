@@ -29,9 +29,9 @@ subject <- RAVESubject$new(
 ```{rave validate_data, language = "R", export = "validation_result"}
 
 blocks <- import_blocks__session_block
-miss_b <- blocks[!blocks%in% subject$preprocess_settings$all_blocks]
+miss_b <- blocks[!blocks %in% subject$preprocess_settings$all_blocks]
 
-if(length(miss_b)) {
+if (length(miss_b)) {
   stop("The following block folders are missing: ",
        paste(miss_b, collapse = ", "))
 }
@@ -39,7 +39,7 @@ if(length(miss_b)) {
 lfp_channels <- dipsaus::parse_svec(import_channels__lfp_channels)
 microwire_channels <- dipsaus::parse_svec(import_channels__microwire_channels)
 auxiliary_channels <- dipsaus::parse_svec(import_channels__auxiliary_channels)
-if(!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
+if (!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
   stop("No channel is set.")
 }
 
@@ -47,47 +47,47 @@ lfp_sample_rate <- import_channels__lfp_sample_rate
 microwire_sample_rate <- import_channels__microwire_sample_rate
 auxiliary_sample_rate <- import_channels__auxiliary_sample_rate
 
-if(length(lfp_channels) > 0 && (!length(lfp_sample_rate) || !isTRUE(lfp_sample_rate > 1))) {
+if (length(lfp_channels) > 0 && (!length(lfp_sample_rate) || !isTRUE(lfp_sample_rate > 1))) {
   stop("LFP sample rate is invalid")
 }
 
-if(length(microwire_channels) > 0 && (!length(microwire_sample_rate) || !isTRUE(microwire_sample_rate > 1))) {
+if (length(microwire_channels) > 0 && (!length(microwire_sample_rate) || !isTRUE(microwire_sample_rate > 1))) {
   stop("Microwire sample rate is invalid")
 }
 
-if(length(auxiliary_channels) > 0 && (!length(auxiliary_sample_rate) || !isTRUE(auxiliary_sample_rate > 1))) {
+if (length(auxiliary_channels) > 0 && (!length(auxiliary_sample_rate) || !isTRUE(auxiliary_sample_rate > 1))) {
   stop("Auxiliary sample rate is invalid")
 }
 
 format <- import_blocks__format
-if(!is.numeric(format)) {
+if (!is.numeric(format)) {
   format <- which(startsWith(names(IMPORT_FORMATS), trimws(format)))
 }
 
 clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
 
-if(isTRUE(skip_validation)) {
+if (isTRUE(skip_validation)) {
   ravepipeline::logger("`skip_validation` is on.", level = "warn")
   validation_result <- TRUE
 } else {
   validate_channels <- function(channels) {
-    if(!length(channels)) { return() }
+    if (!length(channels)) { return() }
     validation_result <- validate_raw_file(
       subject_code = subject$subject_code,
       blocks = blocks, electrodes = channels,
       format = format
     )
-    if(!validation_result) {
-      reasons <- attr(validation_result, 'reason')
-      if(!is.list(reasons) || !length(reasons)){ stop('rave_import error: unknown reason.') }
-      msg <- sapply(seq_along(reasons), function(ii){
+    if (!validation_result) {
+      reasons <- attr(validation_result, "reason")
+      if (!is.list(reasons) || !length(reasons)) { stop("rave_import error: unknown reason.") }
+      msg <- sapply(seq_along(reasons), function(ii) {
         nm <- names(reasons)[[ii]]
         items <- reasons[[ii]]
-        paste0(ii, ' - ', nm, '\n', paste0('    ', items, collapse = '\n'))
+        paste0(ii, " - ", nm, "\n", paste0("    ", items, collapse = "\n"))
       })
-      stop('The following issues found when validating subject ',
-           sQuote(subject$subject_code), ' in project ', sQuote(subject$project_name),
-           '.\n', msg, call. = bquote(validate_raw_file(
+      stop("The following issues found when validating subject ",
+           sQuote(subject$subject_code), " in project ", sQuote(subject$project_name),
+           ".\n", msg, call. = bquote(validate_raw_file(
         subject_code = .(subject$subject_code),
         blocks = .(blocks), electrodes = .(channels),
         format = .(format)
@@ -113,7 +113,7 @@ subject$initialize_paths(include_freesurfer = FALSE)
 
 blocks <- import_blocks__session_block
 format <- import_blocks__format
-if(!is.numeric(format)) {
+if (!is.numeric(format)) {
   format <- which(startsWith(names(IMPORT_FORMATS), trimws(format)))
 }
 
@@ -130,24 +130,24 @@ microwire_unit <- import_channels__microwire_unit
 auxiliary_unit <- import_channels__auxiliary_unit
 
 
-if(length(lfp_unit) != 1 || is.na(lfp_unit) ||
+if (length(lfp_unit) != 1 || is.na(lfp_unit) ||
    lfp_unit == "NA" || !isTRUE(lfp_unit %in% c("V", "mV", "uV"))) {
   lfp_unit <- NA
 }
 
-if(length(microwire_unit) != 1 || is.na(microwire_unit) ||
+if (length(microwire_unit) != 1 || is.na(microwire_unit) ||
    microwire_unit == "NA" || !isTRUE(microwire_unit %in% c("V", "mV", "uV"))) {
   microwire_unit <- NA
 }
 
-if(length(auxiliary_unit) != 1 || is.na(auxiliary_unit) ||
+if (length(auxiliary_unit) != 1 || is.na(auxiliary_unit) ||
    auxiliary_unit == "NA" || !isTRUE(auxiliary_unit %in% c("V", "mV", "uV"))) {
   auxiliary_unit <- NA
 }
 
 all_channels <- c(lfp_channels, microwire_channels, auxiliary_channels)
 
-if(force_import) {
+if (force_import) {
   preproc <- subject$preprocess_settings
   preproc$data$checklevel <- 0L
   
@@ -156,23 +156,23 @@ if(force_import) {
   preproc$data$electrodes <- NULL
   preproc$data$`@remove`(as.character(all_channels))
   
-  if(!setequal(preproc$blocks, blocks)) {
-    lapply(existing, function(e){
+  if (!setequal(preproc$blocks, blocks)) {
+    lapply(existing, function(e) {
       preproc$data[[as.character(e)]]$data_imported <- FALSE
     })
     preproc$set_blocks(blocks)
   }
-  if(length(lfp_channels)) {
+  if (length(lfp_channels)) {
     preproc$set_electrodes(lfp_channels, type = "LFP", add = TRUE)
     preproc$set_sample_rates(lfp_sample_rate, type = "LFP")
   }
   
-  if(length(microwire_channels)) {
+  if (length(microwire_channels)) {
     preproc$set_electrodes(microwire_channels, type = "Spike", add = TRUE)
     preproc$set_sample_rates(microwire_sample_rate, type = "Spike")
   }
   
-  if(length(auxiliary_channels)) {
+  if (length(auxiliary_channels)) {
     preproc$set_electrodes(auxiliary_channels, type = "Auxiliary", add = TRUE)
     preproc$set_sample_rates(auxiliary_sample_rate, type = "Auxiliary")
   }
@@ -180,7 +180,7 @@ if(force_import) {
 }
 
 # import LFP
-if(length(lfp_channels)) {
+if (length(lfp_channels)) {
   rave_import(
     project_name = subject$project_name,
     subject_code = subject$subject_code,
@@ -193,7 +193,7 @@ if(length(lfp_channels)) {
 }
 
 # import Microwire
-if(length(microwire_channels)) {
+if (length(microwire_channels)) {
   rave_import(
     project_name = subject$project_name,
     subject_code = subject$subject_code,
@@ -207,7 +207,7 @@ if(length(microwire_channels)) {
 
 
 # import auxiliary
-if(length(auxiliary_channels)) {
+if (length(auxiliary_channels)) {
   rave_import(
     project_name = subject$project_name,
     subject_code = subject$subject_code,
@@ -222,7 +222,7 @@ if(length(auxiliary_channels)) {
 
 compose_params <- clean_compose_setup(compose_setup = compose_setup, electrodes = lfp_channels)
 
-if(length(compose_params)) {
+if (length(compose_params)) {
   lapply_async(compose_params, function(item) {
     ravecore::compose_channel(
       subject = subject$subject_id,
@@ -237,13 +237,13 @@ if(length(compose_params)) {
 
 module_id <- "import_lfp_native"
 data_types <- NULL
-if(length(lfp_channels)) {
+if (length(lfp_channels)) {
   data_types <- "LFP"
 }
-if(length(microwire_channels)) {
+if (length(microwire_channels)) {
   data_types <- c(data_types, "Spike")
 }
-if(length(lfp_channels)) {
+if (length(lfp_channels)) {
   data_types <- c(data_types, "Auxiliary")
 }
 

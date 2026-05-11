@@ -15,7 +15,7 @@ LOCALIZATION_METHODS <- list(
 electrode_prototypes <- fastmap2()
 local({
   plist <- threeBrain::list_electrode_prototypes()
-  for(nm in names(plist)) {
+  for (nm in names(plist)) {
     electrode_prototypes[[nm]] <- list(
       path = plist[[nm]]
     )
@@ -24,11 +24,11 @@ local({
 electrode_types <- c("iEEG", "ECoG", "Others", names(electrode_prototypes))
 
 get_prototype <- function(pname) {
-  if(is.na(pname) || !nzchar(pname)) { return() }
-  if( pname %in% ravecore::LOCATION_TYPES ) { return() }
+  if (is.na(pname) || !nzchar(pname)) { return() }
+  if ( pname %in% ravecore::LOCATION_TYPES ) { return() }
   li <- electrode_prototypes[[pname]]
-  if(is.null(li)) { return() }
-  if(is.null(li$prototype)) {
+  if (is.null(li)) { return() }
+  if (is.null(li$prototype)) {
     proto <- threeBrain::new_electrode_prototype(base_prototype = li$path)
     proto$name <- toupper(pname)
     electrode_prototypes[[pname]]$prototype <- proto
@@ -38,115 +38,115 @@ get_prototype <- function(pname) {
 }
 
 
-deparse_svec <- function(nums, connect = '-', concatenate = TRUE, collapse = ',', max_lag = 1, do_sort = TRUE, na_rm = TRUE){
-  if( na_rm ) {
+deparse_svec <- function(nums, connect = "-", concatenate = TRUE, collapse = ",", max_lag = 1, do_sort = TRUE, na_rm = TRUE) {
+  if ( na_rm ) {
     nums <- nums[is.finite(nums)]
   }
-  if(length(nums) == 0){
-    return('')
+  if (length(nums) == 0) {
+    return("")
   }
   alag <- seq_len(max(1, max_lag))
-  if( do_sort ) {
+  if ( do_sort ) {
     nums <- sort(unique(nums), na.last = NA)
   }
 
   force(connect)
-  res <- Reduce(x = nums, right = FALSE, init = list(character(0L), NA, 0L), f = function(res, el){
-    if(is.na(res[[2]])) {
-      if(is.na(el)) {
+  res <- Reduce(x = nums, right = FALSE, init = list(character(0L), NA, 0L), f = function(res, el) {
+    if (is.na(res[[2]])) {
+      if (is.na(el)) {
         res[[3]] <- res[[3]] + 1L
         return(res)
       }
-      if(res[[3]] > 0) {
+      if (res[[3]] > 0) {
         s <- c(res[[1]], sprintf("NAx%d", res[[3]]))
       } else {
         s <- res[[1]]
       }
       return(list(s, el, el))
     }
-    if(is.na(el) || (el - res[[3]] > max_lag) || (el < res[[2]])) {
-      if( res[[2]] == res[[3]] ) {
+    if (is.na(el) || (el - res[[3]] > max_lag) || (el < res[[2]])) {
+      if ( res[[2]] == res[[3]] ) {
         s <- c(res[[1]], as.character(res[[2]]))
       } else {
         s <- c(res[[1]], sprintf("%s%s%s", res[[2]], connect, res[[3]]))
       }
-      if(is.na(el)) {
+      if (is.na(el)) {
         return(list(s, el, 1L))
       }
       return(list(s, el, el))
     }
-    if( el > res[[3]] ) {
+    if ( el > res[[3]] ) {
       return(list(res[[1]], res[[2]], el))
     }
     return(res)
   })
 
   re <- res[[1]]
-  if(is.na(res[[2]])) {
-    if(res[[3]] > 0) {
+  if (is.na(res[[2]])) {
+    if (res[[3]] > 0) {
       re <- c(re, sprintf("NAx%d", res[[3]]))
     }
   } else {
-    if( res[[2]] == res[[3]] ) {
+    if ( res[[2]] == res[[3]] ) {
       re <- c(re, as.character(res[[2]]))
     } else {
       re <- c(re, sprintf("%s%s%s", res[[2]], connect, res[[3]]))
     }
   }
-  if(concatenate){
+  if (concatenate) {
     re <- paste(re, collapse = collapse)
   }
   re
 }
 
-parse_svec <- function(text, sep = ',', connect = '-:|', sort = FALSE, unique = TRUE, na_rm = TRUE){
-  connect <- unique(unlist(strsplit(connect, '')))
-  connect[connect %in% c('|', ':', '~')] <- paste0('\\', connect[connect %in% c('|', ':', '~')])
-  if('-' %in% connect) {
+parse_svec <- function(text, sep = ",", connect = "-:|", sort = FALSE, unique = TRUE, na_rm = TRUE) {
+  connect <- unique(unlist(strsplit(connect, "")))
+  connect[connect %in% c("|", ":", "~")] <- paste0("\\", connect[connect %in% c("|", ":", "~")])
+  if ("-" %in% connect) {
     connect <- c(connect[connect != "-"], "-")
   }
-  connect <- paste(connect, collapse = '')
+  connect <- paste(connect, collapse = "")
 
-  if(length(text) != 1) {
+  if (length(text) != 1) {
     text <- paste(text, collapse = sep)
   }
 
 
-  if(length(text) == 0 || !nzchar(trimws(text))){
+  if (length(text) == 0 || !nzchar(trimws(text))) {
     return(NULL)
   }
 
-  if(is.numeric(text)){
-    if(unique) {
+  if (is.numeric(text)) {
+    if (unique) {
       text <- unique(text)
     }
-    if(sort) {
+    if (sort) {
       text <- sort(text)
     }
     return(text)
   }
   s <- unlist(strsplit(text, sep, perl = TRUE))
   s <- trimws(s)
-  s <- s[s!='']
+  s <- s[s != ""]
 
-  s <- s[grepl(sprintf('^[0-9\\ %s]+$', connect), s) | grepl("^NAx[0-9]+$", s)]
+  s <- s[grepl(sprintf("^[0-9\\ %s]+$", connect), s) | grepl("^NAx[0-9]+$", s)]
 
   re <- NULL
-  for(ss in s){
-    if(grepl(sprintf('[%s]', connect), ss)){
-      ss <- unlist(strsplit(ss,  sprintf('[%s]', connect), perl = TRUE))
+  for (ss in s) {
+    if (grepl(sprintf("[%s]", connect), ss)) {
+      ss <- unlist(strsplit(ss,  sprintf("[%s]", connect), perl = TRUE))
       ss <- trimws(ss)
-      ss <- ss[grepl('^[0-9]+$', ss)]
+      ss <- ss[grepl("^[0-9]+$", ss)]
       ss <- as.numeric(ss)
       ss <- ss[!is.na(ss)]
-      if(length(ss) >= 2){
+      if (length(ss) >= 2) {
         re <- c(re, (ss[1]:ss[2]))
       }
     } else if ( grepl("^NAx[0-9]+$", ss) ) {
-      if( !na_rm ) {
+      if ( !na_rm ) {
         reps <- gsub("^NAx", "", ss)
         reps <- as.integer(reps)
-        if(reps > 0) {
+        if (reps > 0) {
           re <- c(re, rep(NA, reps))
         }
       }
@@ -155,13 +155,13 @@ parse_svec <- function(text, sep = ',', connect = '-:|', sort = FALSE, unique = 
     }
   }
 
-  if(unique){
+  if (unique) {
     re <- unique(re)
   }
-  if(sort){
+  if (sort) {
     re <- sort(re)
   }
-  if(na_rm && anyNA(re)) {
+  if (na_rm && anyNA(re)) {
     re <- re[!is.na(re)]
   }
 
@@ -180,8 +180,8 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
   )
 
   electrode_file <- electrode_file[file.exists(electrode_file)]
-  if(!length(electrode_file)){
-    if( strict ) {
+  if (!length(electrode_file)) {
+    if ( strict ) {
       stop("Cannot find valid electrode file.")
     }
     return(default_plan)
@@ -200,12 +200,12 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
   # table_names <- names(table)
   # n <- nrow(table)
 
-  if(!n || !all(c('Electrode', "Label") %in% table_names)) {
-    if( strict ) {
+  if (!n || !all(c("Electrode", "Label") %in% table_names)) {
+    if ( strict ) {
       stop("Electrode table must contain column `Electrode` and `Label` (case-sensitive).")
     }
-    if(n > 0) {
-      if(length(table$Electrode)) {
+    if (n > 0) {
+      if (length(table$Electrode)) {
         default_plan[[1]]$dimension <- deparse_svec(table$Electrode)
       } else {
         default_plan[[1]]$dimension <- as.character(n)
@@ -214,24 +214,24 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
     return(default_plan)
   }
 
-  if(!"LocationType" %in% table_names) {
+  if (!"LocationType" %in% table_names) {
     table$LocationType <- ravecore::LOCATION_TYPES[[1]]
   } else {
     table$LocationType[!table$LocationType %in% ravecore::LOCATION_TYPES] <- ravecore::LOCATION_TYPES[[1]]
   }
-  if(!"Hemisphere" %in% table_names) {
+  if (!"Hemisphere" %in% table_names) {
     table$Hemisphere <- "auto"
   }
-  if(!"LabelPrefix" %in% table_names) {
+  if (!"LabelPrefix" %in% table_names) {
     table$LabelPrefix <- gsub("[0-9]+$", "", table$Label)
   }
-  if(!"Prototype" %in% table_names) {
+  if (!"Prototype" %in% table_names) {
     table$Prototype <- ""
   }
-  if(!"Dimension" %in% table_names) {
+  if (!"Dimension" %in% table_names) {
     table$Dimension <- ""
   }
-  if(!"Prototype" %in% names(table)) {
+  if (!"Prototype" %in% names(table)) {
     table$Prototype <- ""
   }
   table$Prototype[is.na(table$Prototype)] <- ""
@@ -247,14 +247,14 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
     pname <- sub$Prototype[[1]]
     lname <- sub$LabelPrefix[[1]]
 
-    if(is.null(brain)) {
+    if (is.null(brain)) {
       prototype <- get_prototype(pname)
     } else {
       prototype <- brain$electrodes$add_geometry(
         label_prefix = lname, prototype_name = pname)
     }
 
-    if(is.null(prototype)) {
+    if (is.null(prototype)) {
       pname <- sub$LocationType[[1]]
 
       re <- list(
@@ -265,7 +265,7 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
         min_channel = min(sub$Electrode)
       )
 
-      if( instantiate ) {
+      if ( instantiate ) {
         re$prototype <- NULL
         re$batch_size <- nrow(sub)
         re$prototype_name <- NULL
@@ -275,7 +275,7 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
       n_channels <- prototype$n_channels
       chans <- sub$Electrode
 
-      if(length(sub$ContactOrder)) {
+      if (length(sub$ContactOrder)) {
         corder <- as.integer(sub$ContactOrder)
       } else {
         corder <- seq_along(chans)
@@ -283,7 +283,7 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
 
       sel <- !is.na(corder) & !duplicated(corder) & corder >= 1 & corder <= n_channels
       corder <- corder[sel]
-      if(!length(corder)) {
+      if (!length(corder)) {
         re <- list(
           label = lname,
           dimension = "",
@@ -296,7 +296,7 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
         channel_number[corder] <- chans[sel]
 
         dimension <- deparse_svec(channel_number, do_sort = FALSE, na_rm = FALSE)
-        if(grepl("^[0-9]+$", dimension)) {
+        if (grepl("^[0-9]+$", dimension)) {
           dimension <- sprintf("%s,", dimension)
         }
         re <- list(
@@ -308,13 +308,13 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
         )
       }
 
-      if( instantiate ) {
+      if ( instantiate ) {
         re$prototype <- prototype
         re$prototype_name <- toupper(pname)
         # used to control the orientation of the electrode
         geometry_table <- prototype$control_points
 
-        if(is.data.frame(geometry_table)) {
+        if (is.data.frame(geometry_table)) {
           re$batch_size <- nrow(geometry_table)
         } else {
           # still need to manually localize everything
@@ -323,16 +323,16 @@ read_plan_list <- function( electrode_file, brain = NULL, strict = FALSE, instan
       }
     }
 
-    if( instantiate ) {
+    if ( instantiate ) {
       # For server functions
       re$group_table <- sub
       re$label_prefix <- re$label
 
 
-      if( length(sub$Interpolation) && grepl("^[0-9x,. ]+$", sub$Interpolation[[1]] ) ) {
+      if ( length(sub$Interpolation) && grepl("^[0-9x,. ]+$", sub$Interpolation[[1]] ) ) {
         interpolation_string <- sub$Interpolation[[1]]
       } else {
-        if(!is.null(prototype) && isTRUE(is.character(prototype$default_interpolation))) {
+        if (!is.null(prototype) && isTRUE(is.character(prototype$default_interpolation))) {
           interpolation_string <- prototype$default_interpolation
         } else {
           interpolation_string <- max(c(1L, re$batch_size - 2L))
@@ -364,18 +364,18 @@ summarize_plan_list <- function( plan ) {
   lapply(seq_along(plan), function(ii) {
     item <- plan[[ii]]
 
-    if(!is.list(item) || length(item$dimension) != 1) {
+    if (!is.list(item) || length(item$dimension) != 1) {
       return(NULL)
     }
 
-    if(length(item$label) == 0 || !nzchar(trimws(item$label))) {
+    if (length(item$label) == 0 || !nzchar(trimws(item$label))) {
       item$label <- sprintf("Group%s_Chan", ii)
     } else {
       item$label <- trimws(item$label)
     }
 
     dimension <- trimws(item$dimension)
-    if(!nzchar(dimension)) {
+    if (!nzchar(dimension)) {
       item$msg <- "No channel in this group. This group will be skipped."
       item$channels <- ""
       item$n <- 0L
@@ -383,26 +383,26 @@ summarize_plan_list <- function( plan ) {
     }
     proto <- get_prototype(item$type)
     proto_specs <- "No details"
-    if(inherits(proto, "ElectrodePrototype")) {
+    if (inherits(proto, "ElectrodePrototype")) {
       proto_specs <- paste(utils::capture.output({ print(proto, details = FALSE) }), collapse = "\n")
     }
-    if(grepl("^[0-9]+$", dimension)) {
+    if (grepl("^[0-9]+$", dimension)) {
       n_channels <- as.integer(dimension)
-      if( n_channels == 0 ) {
+      if ( n_channels == 0 ) {
         item$msg <- "No channel in this group. This group will be skipped."
         item$channels <- ""
         item$n <- 0L
         return(item)
       }
       item$n <- n_channels
-      if( n_channels == 1 ) {
+      if ( n_channels == 1 ) {
         item$channels <- as.character(n + 1)
       } else {
         item$channels <- sprintf("%d-%d", n + 1, n + n_channels)
       }
       n <<- n + n_channels
 
-      if(is.null(proto)) {
+      if (is.null(proto)) {
         item$msg <- sprintf("%s channel [%s] (nchans=%d)", item$type, item$channels, n_channels)
       } else {
         item$msg <- sprintf("<details><summary>%s channel [%s] (nchans=%d). This electrode prototype has %d channels in total.</summary><pre>%s</pre></details>", item$type, item$channels, n_channels, proto$n_channels, proto_specs)
@@ -410,19 +410,19 @@ summarize_plan_list <- function( plan ) {
 
       return(item)
     }
-    if(grepl("^[0-9 ]+x[0-9 ]+$", dimension)) {
+    if (grepl("^[0-9 ]+x[0-9 ]+$", dimension)) {
       dimension <- parse_svec(dimension, sep = "[x]", unique = FALSE)
       n_channels <- prod(dimension)
       item$n <- n_channels
 
-      if( n_channels == 1 ) {
+      if ( n_channels == 1 ) {
         item$channels <- as.character(n + 1)
       } else {
         item$channels <- sprintf("%d-%d", n + 1, n + n_channels)
       }
       n <<- n + n_channels
 
-      if(is.null(proto)) {
+      if (is.null(proto)) {
         item$msg <- sprintf("%s channel [%s] (nchans=%d)", item$type, item$channels, n_channels)
       } else {
         item$msg <- sprintf("<details><summary>%s channel [%s] (nchans=%d). This electrode prototype has %d channels in total.</summary><pre>%s</pre></details>", item$type, item$channels, n_channels, proto$n_channels, proto_specs)
@@ -435,7 +435,7 @@ summarize_plan_list <- function( plan ) {
     n <<- max(c(n, chans), na.rm = TRUE)
 
     plugged <- item$n - sum(is.na(chans))
-    if(is.null(proto)) {
+    if (is.null(proto)) {
       item$msg <- sprintf("%s channel [%s] (nchans=%d, unplugged=%d)", item$type, dimension, plugged, item$n - plugged)
     } else {
       item$msg <- sprintf("<details><summary>%s channel [%s] (nchans=%d, unplugged=%d). This electrode prototype has %d channels in total.</summary><pre>%s</pre></details>", item$type, dimension, plugged, item$n - plugged, proto$n_channels, proto_specs)

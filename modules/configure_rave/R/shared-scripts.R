@@ -11,24 +11,24 @@ get_basic_info <- function() {
   data_dir <- ravepipeline::raveio_getopt("data_dir", default = "<Missing>")
   cache_dir <- ravecore::cache_root()
 
-  healthy_directory <- function(path){
+  healthy_directory <- function(path) {
     ifelse(dir.exists(path), "[healthy]", "[unable to reach]")
   }
 
   package_ver <- function(name, version_only = FALSE) {
     suppressWarnings({
-      if(name %in% names(session_info$otherPkgs)) {
+      if (name %in% names(session_info$otherPkgs)) {
         desc <- session_info$otherPkgs[[name]]
-      } else if(name %in% names(session_info$loadedOnly)) {
+      } else if (name %in% names(session_info$loadedOnly)) {
         desc <- session_info$loadedOnly[[name]]
       } else {
         desc <- utils::packageDescription(name, drop = TRUE)
       }
     })
 
-    if(!inherits(desc, "packageDescription")) { return(NULL) }
+    if (!inherits(desc, "packageDescription")) { return(NULL) }
 
-    if(version_only) {
+    if (version_only) {
       return(desc$Version)
     }
     sprintf("%s [%s]", desc$Package, desc$Version)
@@ -50,9 +50,9 @@ get_basic_info <- function() {
     "  Architecture:    ", session_info$R.version$arch, "\n",
     "  Matrix products: ", session_info$matprod, "\n",
     local({
-      if (blas == lapack && nzchar(blas))
+      if (blas == lapack && nzchar(blas)) {
         c("  BLAS/LAPACK:     ", blas, "\n", sep = "")
-      else {
+      } else {
         if (nzchar(blas)) {
           c("  BLAS:            ", blas, "\n", sep = "")
         }
@@ -64,7 +64,7 @@ get_basic_info <- function() {
 
     "\nRAVE status\n",
     "  Version:        ", package_ver("rave", version_only = TRUE), "\n",
-    "  Template brain: ", ravepipeline::raveio_getopt('threeBrain_template_subject', default = "N27"), "\n",
+    "  Template brain: ", ravepipeline::raveio_getopt("threeBrain_template_subject", default = "N27"), "\n",
     "  Directories:    ",
     "Raw ", healthy_directory(raw_dir), ", ",
     "Main ", healthy_directory(data_dir), ", ",

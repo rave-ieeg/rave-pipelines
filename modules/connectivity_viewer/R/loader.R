@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
   all_templates <- names(threeBrain::available_templates())
 
   current_rave_template <- ravepipeline::raveio_getopt("threeBrain_template_subject")
@@ -27,7 +27,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
   #                     ifelse(stringr::str_detect(template_strings, stringr::fixed('req Download')), 100, 0)
   # )
 
-  template_strings = all_templates[template_exists]
+  template_strings <- all_templates[template_exists]
 
   shiny::div(
     class = "container",
@@ -51,7 +51,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
             title = "Template brain",
 
             shidashi::flex_item(
-              shiny::selectInput(ns('loader_selected_template'), 'Available templates',
+              shiny::selectInput(ns("loader_selected_template"), "Available templates",
                                  # choices = template_strings,
                                  choices = unname(template_strings),
                                  selected = current_rave_template)
@@ -101,7 +101,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                 choices = c("sphere.reg", "inflated", "white", "smoothwm", "pial-outer-smooth"),
                 selected = local({
                   v <- pipeline$get_settings("surface_types")
-                  if(!length(v)) {
+                  if (!length(v)) {
                     v <- character()
                   }
                   v
@@ -144,7 +144,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   local_reactives <- shiny::reactiveValues()
   local_data <- dipsaus::fastmap2()
@@ -155,11 +155,11 @@ loader_server <- function(input, output, session, ...){
 
     projects <- NULL
 
-    if(isTRUE(pnames$`@has`(subject_code))) {
+    if (isTRUE(pnames$`@has`(subject_code))) {
       projects <- pnames[[subject_code]]
     } else {
       projects <- get_projects_with_scode(subject_code)
-      if(length(projects)) {
+      if (length(projects)) {
         local_data$project_names[[subject_code]] <- projects
       }
     }
@@ -208,10 +208,10 @@ loader_server <- function(input, output, session, ...){
       res$promise$then(
 
         # When data can be imported
-        onFulfilled = function(e){
+        onFulfilled = function(e) {
 
           # Let the module know the data has been changed
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
 
           ravepipeline::logger("Data has been loaded!")
 
@@ -221,7 +221,7 @@ loader_server <- function(input, output, session, ...){
 
 
         # this is what should happen when pipeline fails
-        onRejected = function(e){
+        onRejected = function(e) {
 
           # Close the alert
           dipsaus::close_alert2()

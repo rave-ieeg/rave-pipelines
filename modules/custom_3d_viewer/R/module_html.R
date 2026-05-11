@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   all_modules <- sort(unique(ravepipeline::pipeline_list()))
 
@@ -167,10 +167,10 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              title = 'RAVE 3D Viewer',
+              title = "RAVE 3D Viewer",
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 # MIGRATED: removed ravedash::output_gadget_container() wrapper
                 # ravedash::output_gadget_container(
                   threeBrain::threejsBrainOutput(

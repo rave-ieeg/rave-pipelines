@@ -3,16 +3,16 @@ library(shiny)
 # Debug
 if (FALSE) {
   template_settings$set(
-    'root_path' = "inst/template/"
+    "root_path" = "inst/template/"
   )
 }
 
 
-if (system.file(package = 'raveio') != "") {
+if (system.file(package = "raveio") != "") {
   if (dir.exists("./_pipelines")) {
-    ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
+    ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir("raveio", "data"), "pipelines")))
   } else {
-    ravepipeline::pipeline_root(c(".", file.path(raveio:::R_user_dir('raveio', 'data'), "pipelines")))
+    ravepipeline::pipeline_root(c(".", file.path(raveio:::R_user_dir("raveio", "data"), "pipelines")))
   }
 }
 
@@ -20,7 +20,7 @@ if (file.exists("prelaunch.R")) {
   source("prelaunch.R")
 }
 
-server <- function(input, output, session){
+server <- function(input, output, session) {
 
   # Sync input ID
   shidashi::register_session(session = session)
@@ -202,7 +202,7 @@ server <- function(input, output, session){
                 if (!length(host)) {
                   host <- "127.0.0.1"
                 }
-                jupyter_wd <- ravepipeline::raveio_getopt('data_dir')
+                jupyter_wd <- ravepipeline::raveio_getopt("data_dir")
 
                 ravedash::show_notification(
                   title = "Starting JupyterLab-server",

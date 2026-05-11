@@ -21,13 +21,13 @@ subject <- ravecore::new_rave_subject(
 
 ```{rave clean_loaded_electrodes, export = "loaded_electrodes_cleaned"}
 loaded_electrodes <- ravecore:::parse_svec(loaded_electrodes)
-if(!length(loaded_electrodes) %in% c(1, 2)) {
+if (!length(loaded_electrodes) %in% c(1, 2)) {
   stop("Only two electrode channels are allowed. Please enter one channel, or two channels (for bipolar re-reference)")
 }
 
 electrode_types <- subject$electrode_types[subject$electrodes %in% loaded_electrodes]
 electrode_types <- unique(electrode_types)
-if(length(electrode_types) != 1) {
+if (length(electrode_types) != 1) {
   stop("Electrode channels must have the same signal type (e.g. both are LFP, or Aux, but not either).")
 }
 loaded_electrodes_cleaned <- sort(loaded_electrodes)
@@ -42,7 +42,7 @@ repository <- ravecore::prepare_subject_raw_voltage_with_blocks(
 ```
 
 ```{rave preload_stim_epoch, export = "preloaded_stim_epoch"}
-if(isTRUE(epoch_name %in% subject$epoch_names)) {
+if (isTRUE(epoch_name %in% subject$epoch_names)) {
   preloaded_stim_epoch <- subject$get_epoch(epoch_name)
 } else {
   preloaded_stim_epoch <- NULL
@@ -51,7 +51,7 @@ if(isTRUE(epoch_name %in% subject$epoch_names)) {
 
 ```{rave load_signals, export = "loaded_signals"}
 filarray_root <- file.path("data", "raw-voltage")
-if(!dir.exists(filarray_root)) {
+if (!dir.exists(filarray_root)) {
   dir.create(filarray_root, showWarnings = FALSE, recursive = TRUE)
 }
 
@@ -70,7 +70,7 @@ loaded_signals <- lapply(subject$blocks, function(block) {
   
   signals <- signal_info$data[, signal_info$dimnames$Electrode %in% electrode_list, drop = FALSE, dimnames = FALSE]
   
-  if(file.exists(fbase)) {
+  if (file.exists(fbase)) {
     unlink(fbase, recursive = TRUE)
   }
   farr <- filearray::filearray_create(
@@ -88,17 +88,17 @@ loaded_signals <- lapply(subject$blocks, function(block) {
   
   
   # set epoch
-  if(!is.null(preloaded_stim_epoch)) {
+  if (!is.null(preloaded_stim_epoch)) {
     epoch_table <- preloaded_stim_epoch$table
-    if(is.data.frame(epoch_table) && nrow(epoch_table)) {
+    if (is.data.frame(epoch_table) && nrow(epoch_table)) {
       block_epoch_table <- epoch_table[epoch_table$Block == block, ]
-      if(nrow(block_epoch_table)) {
+      if (nrow(block_epoch_table)) {
         farr$set_header("epoch_table", block_epoch_table, save = FALSE)
       }
     }
   }
   
-  if(length(electrode_list) == 1) {
+  if (length(electrode_list) == 1) {
     
     farr[] <- signals
     

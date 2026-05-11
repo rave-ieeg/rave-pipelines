@@ -7,7 +7,7 @@
 NULL
 
 `%OF%` <- dipsaus::`%OF%`
-TEMPLATE_CHOICES = c(
+TEMPLATE_CHOICES <- c(
   "Simple property",
   "Multiple properties",
   "Animation"
@@ -47,7 +47,7 @@ load_brain_from_subject_code <- function(
   electrode_table <- ravepipeline::pipeline_load_extdata("suggested_electrode_table", pipe_dir = pipeline$pipeline_path)
 
   include_electrodes <- FALSE
-  if(!is.data.frame(electrode_table)) {
+  if (!is.data.frame(electrode_table)) {
     include_electrodes <- TRUE
   }
 
@@ -63,8 +63,8 @@ load_brain_from_subject_code <- function(
     annotations = annot_types,
     include_electrodes = include_electrodes
   )
-  if( use_template ) {
-    if(is.null(brain)) {
+  if ( use_template ) {
+    if (is.null(brain)) {
       template <- threeBrain::merge_brain(
         template_surface_types = surface_types
         # template_atlas_types = overlay_types,
@@ -82,31 +82,31 @@ load_brain_from_subject_code <- function(
   } else {
     template <- NULL
   }
-  if(is.null(brain)) {
+  if (is.null(brain)) {
     stop("Unable to find the 3D brain models. Have you created one yet? See rave.wiki or the following paper if you haven't: https://doi.org/10.1523/ENEURO.0328-23.2023")
   }
 
-  if(!include_electrodes) {
+  if (!include_electrodes) {
 
-    if(use_spheres) {
+    if (use_spheres) {
       priority <- "sphere"
     } else {
       priority <- "prototype"
     }
 
-    if(isTRUE(override_radius > 0)) {
+    if (isTRUE(override_radius > 0)) {
       electrode_table$Radius <- override_radius
     }
 
     coordinate_sys <- paste(coordinate_sys, collapse = "")
-    if(isTRUE(coordinate_sys %in% c("tkrRAS", "ScannerRAS", "MNI152", "MNI305"))) {
+    if (isTRUE(coordinate_sys %in% c("tkrRAS", "ScannerRAS", "MNI152", "MNI305"))) {
       brain$set_electrodes(electrode_table, coord_sys = coordinate_sys, priority = priority)
     } else {
       brain$set_electrodes(electrode_table, priority = priority)
     }
   }
 
-  if(use_template && !is.null(template)) {
+  if (use_template && !is.null(template)) {
     brain <- template
   }
 
@@ -124,7 +124,7 @@ load_brain_from_subject_code <- function(
 }
 
 read_xlsx <- function(path, sheet = NULL, ...) {
-  if( !rpymat:::env_available() && !dipsaus::package_installed("readxl") ) {
+  if ( !rpymat:::env_available() && !dipsaus::package_installed("readxl") ) {
     ravemanager:::install_packages("readxl")
   }
   rpymat::read_xlsx(path = path, sheet = sheet, ...)

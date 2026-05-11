@@ -12,25 +12,23 @@ read_vmrk <- function(file) {
   comments <- items[!sel]
   items <- items[sel]
 
-  if(!length(items)){
+  if (!length(items)) {
     return()
   }
 
   # parse header comments, get marker infos
-  tmp <- paste(comments, collapse = '')
-  marker_info <- stringr::str_extract(tmp, 'Mk<([^=]+)>=(<[^<>]+>[,; ]+){0,}')
-  marker_info <- stringr::str_split(marker_info, '([<>,;]+)|(^Mk)')[[1]]
+  tmp <- paste(comments, collapse = "")
+  marker_info <- stringr::str_extract(tmp, "Mk<([^=]+)>=(<[^<>]+>[,; ]+) {0,}")
+  marker_info <- stringr::str_split(marker_info, "([<>,;]+)|(^Mk)")[[1]]
   marker_info <- stringr::str_trim(marker_info)
-  marker_info <- marker_info[!marker_info %in% c('', '=')]
+  marker_info <- marker_info[!marker_info %in% c("", "=")]
 
   markers <- stringr::str_match(items, pattern = pattern)
-  markers <- cbind( markers[,2],
-                    stringr::str_split(markers[,3], ',', simplify = TRUE)
-  )
+  markers <- cbind(markers[, 2], stringr::str_split(markers[, 3], ",", simplify = TRUE))
 
   # don't know the last two columns, remove them
   markers <- markers[, seq_len(6), drop = FALSE]
-  colnames(markers) <- c('MarkerNumber', 'Type', 'Description', 'StartPosition', 'Size', 'Channel')
+  colnames(markers) <- c("MarkerNumber", "Type", "Description", "StartPosition", "Size", "Channel")
 
   markers <- as.data.frame(markers)
   markers$MarkerNumber <- as.integer(markers$MarkerNumber)
@@ -46,7 +44,7 @@ read_vmrk <- function(file) {
 
 }
 
-read_ini <- function (path, encoding = getOption("encoding")) {
+read_ini <- function(path, encoding = getOption("encoding")) {
   regexp_section <- "^\\s*\\[\\s*(.+?)\\s*]"
   regexp_keyval <- "^\\s*[^=]+=.+"
   regexp_comment <- "^\\s*[;#]"
@@ -129,7 +127,7 @@ read_ini <- function (path, encoding = getOption("encoding")) {
 #'
 #' header_file <- 'sub-01_ses-01_task-visual_run-01_ieeg.vhdr'
 #'
-#' if( file.exists(header_file) ){
+#' if( file.exists(header_file) ) {
 #'   # load a subject header
 #'   header <- read_eeg_header(header_file)
 #'
@@ -154,19 +152,19 @@ read_eeg_header <- function(file) {
 
   # Get channel information
   channel_names <- names(vhdr[["Channel Infos"]])
-  channel_info <- stringr::str_split(vhdr[["Channel Infos"]], ',', simplify = TRUE)
-  if(ncol(channel_info) == 3){
-    colnames(channel_info) <- c('number', 'reference', 'resolution')
+  channel_info <- stringr::str_split(vhdr[["Channel Infos"]], ",", simplify = TRUE)
+  if (ncol(channel_info) == 3) {
+    colnames(channel_info) <- c("number", "reference", "resolution")
     channel_info <- as.data.frame(channel_info, row.names = channel_names)
-    channel_info$unit <- 'uV'
+    channel_info$unit <- "uV"
   } else {
-    colnames(channel_info) <- c('number', 'reference', 'resolution', 'unit')
+    colnames(channel_info) <- c("number", "reference", "resolution", "unit")
     channel_info <- as.data.frame(channel_info, row.names = channel_names)
   }
 
   # adjust storage mode?
   channel_info$resolution <- as.numeric(channel_info$resolution)
-  sel <- channel_info$reference == ''
+  sel <- channel_info$reference == ""
   channel_info$reference[sel] <- NA
 
 
@@ -182,9 +180,9 @@ read_eeg_header <- function(file) {
   root <- dirname(file)
   vmrk_file <- common$MarkerFile
   markers <- NULL
-  if(length(vmrk_file) == 1 && is.character(vmrk_file)){
+  if (length(vmrk_file) == 1 && is.character(vmrk_file)) {
     vmrk_file <- file.path(root, vmrk_file)
-    if(isTRUE(file.exists(vmrk_file))){
+    if (isTRUE(file.exists(vmrk_file))) {
       # read markers file
       markers <- read_vmrk(vmrk_file)
     }
@@ -214,28 +212,28 @@ read_eeg_marker <- function(file) {
 #' @export
 read_eeg_data <- function(header, path = NULL) {
 
-  if(is.null(path)){
+  if (is.null(path)) {
     path <- header$root_path
   }
-  if(!file.exists(path)){
-    stop('Cannot find .eeg/.dat path')
+  if (!file.exists(path)) {
+    stop("Cannot find .eeg/.dat path")
   }
-  if(file.exists(path) && !dir.exists(path)){
+  if (file.exists(path) && !dir.exists(path)) {
     # path is a file, we assume the directory stores data
-    fname <- stringr::str_extract(path, '[^/\\\\]+$')
+    fname <- stringr::str_extract(path, "[^/\\\\]+$")
     path <- dirname(path)
   } else {
     fname <- header$common$DataFile
   }
 
-  if(fname != header$common$DataFile){
-    if(file.exists(file.path(path, header$common$DataFile))){
-      warning('File name ', sQuote(fname), ' does not match with data file stored in header. Original file ',
-              sQuote(header$common$DataFile), ' exists, read the original file instead.')
+  if (fname != header$common$DataFile) {
+    if (file.exists(file.path(path, header$common$DataFile))) {
+      warning("File name ", sQuote(fname), " does not match with data file stored in header. Original file ",
+              sQuote(header$common$DataFile), " exists, read the original file instead.")
       fname <- header$common$DataFile
     }else {
-      warning('File name ', sQuote(fname), ' does not match with data file stored in header. Original file ',
-              sQuote(header$common$DataFile), ' is missing. Read ', sQuote(fname), ' instead.')
+      warning("File name ", sQuote(fname), " does not match with data file stored in header. Original file ",
+              sQuote(header$common$DataFile), " is missing. Read ", sQuote(fname), " instead.")
     }
 
   }
@@ -244,36 +242,39 @@ read_eeg_data <- function(header, path = NULL) {
 
   nchannels <- nrow(header$channels)
 
-  binary <- stringr::str_to_upper(header$common$DataFormat) == 'BINARY'
+  binary <- stringr::str_to_upper(header$common$DataFormat) == "BINARY"
 
   orientation <- stringr::str_to_upper(header$common$DataOrientation)
 
   # In case of MULTIPLEXED all channel data are written sequentially in one
   # line for one sampling point in time. The next line contains the data
   # for the next sampling point in time
-  multiplexed <- stringr::str_detect(orientation, 'MULTI')
+  multiplexed <- stringr::str_detect(orientation, "MULTI")
 
-  if(binary){
+  if (binary) {
     # get type
     # BinaryFormat Encoding of EEG data. Possible values:
     #   IEEE_FLOAT_32: IEEE floating-point format, single precision, 4 bytes per value
     #   INT_16: 16-bit signed integer (length = 2 bytes)
     binary_format <- stringr::str_to_upper(header$raw$`Binary Infos`$BinaryFormat)
     # two cases: float_32 or int_16. Might be other methods? not sure
-    binary_format <- stringr::str_split(binary_format, '_')[[1]]
-    binary_format <- binary_format[length(binary_format) - c(0,1)]
+    binary_format <- stringr::str_split(binary_format, "_")[[1]]
+    binary_format <- binary_format[length(binary_format) - c(0, 1)]
     len <- as.integer(binary_format[[1]]) / 8
     binary_format <- binary_format[[2]]
-    if(binary_format == 'FLOAT'){
-      type <- 'double'
-    } else if (binary_format == 'INT'){
-      type <- 'integer'
+    if (binary_format == "FLOAT") {
+      type <- "double"
+    } else if (binary_format == "INT") {
+      type <- "integer"
     } else {
-      stop('Found binary format ', sQuote(binary_format), ' in header file. Not supported yet. ',
-           'Only IEEE_FLOAT_32 (float) and INT_16 (int) are supported.')
+      stop("Found binary format ", sQuote(binary_format), " in header file. Not supported yet. ",
+           "Only IEEE_FLOAT_32 (float) and INT_16 (int) are supported.")
     }
 
-    s <- readBin(file, what = type, size = len, n = file.info(file)$size/len)
+    s <- readBin(file,
+                 what = type,
+                 size = len,
+                 n = file.info(file)$size / len)
 
     # if multiplexed, by row
     s <- matrix(s, nrow = nchannels, byrow = !multiplexed)
@@ -285,10 +286,10 @@ read_eeg_data <- function(header, path = NULL) {
     DecimalSymbol <- text_info$DecimalSymbol
     s <- data.table::fread(file = file, skip = SkipLines, dec = DecimalSymbol,
                            sep = " ", header = FALSE)
-    if(length(SkipColumns) > 0 && any(SkipColumns > 0)){
+    if (length(SkipColumns) > 0 && any(SkipColumns > 0)) {
       s <- s[, -SkipColumns, with = FALSE]
     }
-    if(multiplexed){
+    if (multiplexed) {
       # need transpose to channel x timepoints
       s <- data.table::transpose(s)
     }
@@ -311,20 +312,20 @@ read_eeg_data <- function(header, path = NULL) {
 
   resolution <- as.numeric(header$channels$resolution)
 
-  if(length(resolution) != nrow(s)){
+  if (length(resolution) != nrow(s)) {
     # not likely, but in case this happends, stop loudly, don't give
     # wrong results
-    stop('Number of channels does not match with data read from the file.')
+    stop("Number of channels does not match with data read from the file.")
   }
 
-  if(!all(resolution == 1)){
+  if (!all(resolution == 1)) {
     s <- s * resolution
   }
 
   dipsaus::list_to_fastmap2(list(
     header = header,
     data = s,
-    description = 'channel by time-points'
+    description = "channel by time-points"
   ))
 
 }

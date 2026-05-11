@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fixedPage(
     shiny::fixedRow(
@@ -48,7 +48,7 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              title = 'Data integrity check',
+              title = "Data integrity check",
               shiny::p("Data integrity check examines the data files for any possible issues within the subject. Basic checks only validate small files such as preprocess configuration and meta data. Full checks will also  validate large data, looking for broken or obsolete files."),
               shidashi::flip_box(
                 front = shiny::uiOutput(ns("validation_check")),
@@ -84,7 +84,7 @@ module_html <- function(){
             ),
 
             ravedash::output_card(
-              title = 'Backward compatibility',
+              title = "Backward compatibility",
               shiny::p("Convert data format so subjects can be loaded by RAVE 1.0 modules."),
               dipsaus::actionButtonStyled(
                 inputId = ns("compatibility_do"),

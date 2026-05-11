@@ -7,14 +7,14 @@ local_data <- fastmap::fastmap()
 local_reactives <- shiny::reactiveValues()
 
 
-# module_ui_loader <- function(){
+# module_ui_loader <- function() {
 #   shiny::tagList(
 #     # ui_step1(),
 #     ui_step2()
 #   )
 # }
 #
-# module_ui_main <- function(){
+# module_ui_main <- function() {
 #   module_ui_loader()
 # }
 
@@ -30,7 +30,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
     label = "Channel information",
     import_setup_id = "import_setup",
     import_blocks_id = "import_blocks"
-  ){
+  ) {
     IMPORT_FORMATS <- list(
       `.mat/.h5 file per electrode per block` = "native_matlab",
       `Single .mat/.h5 file per block` = "native_matlab2",
@@ -47,9 +47,9 @@ comp_import_channels <- with(asNamespace("ravedash"), {
     comp$no_save <- c("", "msg", "actions", "actions_alt", "snapshot",
                       "do_import")
 
-    all_formats <- IMPORT_FORMATS[c(1,2,3,4,7)]
+    all_formats <- IMPORT_FORMATS[c(1, 2, 3, 4, 7)]
 
-    comp$ui_func <- function(id, value, depends){
+    comp$ui_func <- function(id, value, depends) {
 
       shidashi::card2(
         title = label,
@@ -59,7 +59,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
         ),
         class_body = "",
         body_main = shiny::div(
-          class = 'padding-10',
+          class = "padding-10",
 
           flex_group_box(
             title = "Header inspector",
@@ -169,20 +169,20 @@ comp_import_channels <- with(asNamespace("ravedash"), {
             title = "Compose channels",
             shidashi::flex_item(
               shiny::p(
-                class = 'mb-0',
+                class = "mb-0",
                 'Create a "phantom" (not physically existed) channel from imported channels. You can ',
                 shiny::actionLink(
                   inputId = comp$get_sub_element_id("compose_upload", TRUE),
-                  label = 'click here to upload'
+                  label = "click here to upload"
                 ),
-                ' or enter the configurations directly below by clicking on ',
-                shiny::span("+", class = "inline code keyword"), 'button. ',
+                " or enter the configurations directly below by clicking on ",
+                shiny::span("+", class = "inline code keyword"), "button. ",
                 'Once the channel is set up, you can click on "Validate & import" to import the raw channels and compose the phantom channels. This will begin the pre-process. Alternatively, if the signals have been imported and processed, you can "Compose channels only". Notice this feature has a restriction that only allows you to add phantom channels. Existing channels will not be changed.'
               ),
               shiny::tags$details(
                 class = "mb-4",
-                shiny::tags$summary('Click me to see the explanation'),
-                'To compose a new channel, at least one existing channel (see entry `Compose from channels`) must be selected. By default, the new signal will be the average of all input signals with equal weights. Please use the entry `Weights` if unequal weights are to be used. ',
+                shiny::tags$summary("Click me to see the explanation"),
+                "To compose a new channel, at least one existing channel (see entry `Compose from channels`) must be selected. By default, the new signal will be the average of all input signals with equal weights. Please use the entry `Weights` if unequal weights are to be used. ",
                 "For example, if you enter: ",
                 shiny::span("New channel = '100'", class = "inline code keyword"),
                 ", ",
@@ -191,7 +191,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                 shiny::span("Weights = '3, -1, -2'", class = "inline code keyword"),
                 ", then RAVE will create a new \"phantom\" channel 100. ",
                 "The voltage potential of this new channel will be:",
-                shiny::tags$code("new channel = 3 x chan_14 - chan_15 - 2 x chan_16.", style = 'text-align: center')
+                shiny::tags$code("new channel = 3 x chan_14 - chan_15 - 2 x chan_16.", style = "text-align: center")
               )
             ),
             shidashi::flex_break(),
@@ -297,14 +297,14 @@ comp_import_channels <- with(asNamespace("ravedash"), {
       )
 
       output[[comp$get_sub_element_id("msg", FALSE)]] <- shiny::renderText({
-        if(isTRUE(local_reactives$valid_setup)) {
+        if (isTRUE(local_reactives$valid_setup)) {
           "Subject folder has been created. Please choose session blocks."
         } else {
           local_reactives$validation_message
         }
       })
 
-      disable_ui <- function(){
+      disable_ui <- function() {
         dipsaus::updateActionButtonStyled(
           session = session,
           inputId = comp$get_sub_element_id("actions", with_namespace = FALSE),
@@ -336,16 +336,16 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           # ))
           info <- block_setups()
           is_valid <- TRUE
-          if(!is.list(info)){
+          if (!is.list(info)) {
             local_reactives$validation_message <- "Waiting..."
             is_valid <- FALSE
           }
-          if(!isTRUE(info$valid)){
+          if (!isTRUE(info$valid)) {
             local_reactives$validation_message <- "Please finish the previous steps."
             is_valid <- FALSE
           }
 
-          if(!is_valid) {
+          if (!is_valid) {
             disable_ui()
             return()
           }
@@ -364,7 +364,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           local_reactives$info <- info
 
           # get electrode files
-          fs <- lapply(file.path(preproc$raw_path, blocks), function(f){
+          fs <- lapply(file.path(preproc$raw_path, blocks), function(f) {
             list.files(f)
           })
           common_names <- table(unlist(fs))
@@ -407,14 +407,14 @@ comp_import_channels <- with(asNamespace("ravedash"), {
       shiny::bindEvent(
         safe_observe({
           info <- local_reactives$info
-          if(!is.list(info) || !isTRUE(info$valid)) { return() }
+          if (!is.list(info) || !isTRUE(info$valid)) { return() }
           preproc <- info$preproc
-          if(is.null(preproc)){ return() }
+          if (is.null(preproc)) { return() }
           format <- info$current_format
           blocks <- info$current_blocks
 
           # get potential electrodes
-          if(format == 1) {
+          if (format == 1) {
             fs <- list.files(file.path(preproc$raw_path, blocks[[1]]))
             es <- gsub("(^.*[^0-9]|^)([0-9]+)\\.(mat|h5)", "\\2", fs)
             es <- es[grepl("^[0-9]+$", es)]
@@ -426,18 +426,18 @@ comp_import_channels <- with(asNamespace("ravedash"), {
             )
           } else if (format == 3) {
             electrode_file <- comp$get_sub_element_input("electrode_file")
-            if(!length(electrode_file) || electrode_file == "auto") {
+            if (!length(electrode_file) || electrode_file == "auto") {
               electrode_file <- list.files(file.path(preproc$raw_path, blocks[[1]]),
                                            pattern = "\\.edf$", ignore.case = TRUE)
             }
-            if(!length(electrode_file)) {
+            if (!length(electrode_file)) {
               local_reactives$snapshot <- shiny::p(
                 "Cannot find any EDF file in the first block (",
                 blocks[[1]], ")"
               )
             } else {
               edf_path <- file.path(preproc$raw_path, blocks[[1]], electrode_file)
-              if(length(edf_path) > 1){
+              if (length(edf_path) > 1) {
                 edf_path <- edf_path[which.max(file.size(edf_path))]
               }
               tryCatch({
@@ -469,8 +469,8 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                     )
                   )
                 )
-              }, error = function(e){
-                if(isTRUE(electrode_file == "auto")) {
+              }, error = function(e) {
+                if (isTRUE(electrode_file == "auto")) {
                   local_reactives$snapshot <- shiny::p(
                     "Cannot read the EDF file ", basename(edf_path),
                     " in the first block (",
@@ -492,7 +492,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
             # Ignore electrode_file
             electrode_file <- list.files(file.path(preproc$raw_path, blocks[[1]]),
                                          pattern = "\\.nev$", ignore.case = TRUE)
-            if(!length(electrode_file)) {
+            if (!length(electrode_file)) {
               local_reactives$snapshot <- shiny::p(
                 "Cannot find any NEV file in the first block (",
                 blocks[[1]], ")"
@@ -531,7 +531,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                   ),
                   "If no physical unit specified, all the signals will use [uV] by default."
                 )
-              }, error = function(e){
+              }, error = function(e) {
                 local_reactives$snapshot <- shiny::p(
                   "Cannot read the BlackRock files ",
                   gsub("\\.nev", ".*", basename(electrode_file), ignore.case = TRUE),
@@ -561,14 +561,14 @@ comp_import_channels <- with(asNamespace("ravedash"), {
 
           # Update LFP inputs
           compose_params <- lapply(lfp_channels, function(e) {
-            if(!isTRUE(preproc$data[[e]]$composed)) {
+            if (!isTRUE(preproc$data[[e]]$composed)) {
               return(NULL)
             }
             tryCatch({
               params <- preproc$data[[e]]$composed_params
               o <- order(params$from)
               weights <- params$original_weights[o]
-              if(length(unique(weights)) == 1) {
+              if (length(unique(weights)) == 1) {
                 weights <- weights[[1]]
               }
               list(
@@ -577,7 +577,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                 weights = paste(weights, collapse = ","),
                 normalize = ifelse(isTRUE(params$normalize_factor == 1), "no", "yes")
               )
-            }, error = function(...){ NULL })
+            }, error = function(...) { NULL })
           })
           compose_params <- compose_params[!vapply(compose_params, is.null, FALSE)]
           electrodes <- lfp_channels[!lfp_channels %in% unlist(lapply(compose_params, "[[", "number"))]
@@ -590,7 +590,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           )
 
           lfp_srate <- preproc$sample_rates[lfp_sel]
-          if(length(lfp_srate)) {
+          if (length(lfp_srate)) {
             shiny::updateNumericInput(
               session = session,
               inputId = comp$get_sub_element_id("lfp_sample_rate", FALSE),
@@ -620,7 +620,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           )
 
           spike_srate <- preproc$sample_rates[spike_sel]
-          if(length(spike_srate)) {
+          if (length(spike_srate)) {
             shiny::updateNumericInput(
               session = session,
               inputId = comp$get_sub_element_id("lfp_sample_rate", FALSE),
@@ -636,7 +636,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           )
 
           misc_srate <- preproc$sample_rates[misc_sel]
-          if(length(misc_srate)) {
+          if (length(misc_srate)) {
             shiny::updateNumericInput(
               session = session,
               inputId = comp$get_sub_element_id("auxiliary_sample_rate", FALSE),
@@ -654,7 +654,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
 
       enable_compose_button <- function(enable = TRUE) {
         info <- local_reactives$info
-        if(!is.list(info) || !isTRUE(info$valid)) {
+        if (!is.list(info) || !isTRUE(info$valid)) {
           dipsaus::updateActionButtonStyled(
             session = session,
             inputId = comp$get_sub_element_id("actions_compose", with_namespace = FALSE),
@@ -670,7 +670,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
       }
 
       check_compose_setup <- function() {
-        if(isTRUE(local_reactives$valid_setup)) {
+        if (isTRUE(local_reactives$valid_setup)) {
           enable_compose_button(FALSE)
           return()
         }
@@ -679,7 +679,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
         auxiliary_channels <- dipsaus::parse_svec(comp$get_sub_element_input("auxiliary_channels"))
         electrodes <- c(lfp_channels, microwire_channels, auxiliary_channels)
         compose_setup <- comp$get_sub_element_input("compose_setup")
-        if(!length(compose_setup)) {
+        if (!length(compose_setup)) {
           enable_compose_button(FALSE)
           return()
         }
@@ -699,47 +699,47 @@ comp_import_channels <- with(asNamespace("ravedash"), {
             )
             return(msg)
           }
-          if( length(item$number) != 1 || is.na(item$number) ) {
+          if ( length(item$number) != 1 || is.na(item$number) ) {
             set_message("")
             return(NULL)
           }
-          if(item$number < 1) {
+          if (item$number < 1) {
             return(set_message("Invalid channel number to compose: ", item$number))
           }
-          if(item$number %in% electrodes) {
+          if (item$number %in% electrodes) {
             return(set_message("Channel number conflicts with existing physical channels", item$number))
           }
-          if(item$number %in% new_channels) {
+          if (item$number %in% new_channels) {
             return(set_message("Channel number already used. Please choose another one.", item$number))
           }
           from <- dipsaus::parse_svec(item$from)
           weights <- unlist(strsplit(item$weights, ","))
           weights <- trimws(weights)
-          weights <- weights[weights != '']
-          if(!length(from)) {
+          weights <- weights[weights != ""]
+          if (!length(from)) {
             return(set_message("Cannot compose signals from empty list of channels: ", item$number))
           }
-          if(!all(from %in% electrodes)) {
+          if (!all(from %in% electrodes)) {
             return(set_message("Cannot compose channel from non-existing channels: ", item$from))
           }
 
-          if(length(weights) > 0) {
-            if(length(weights) > 1 && length(from) != length(weights)) {
+          if (length(weights) > 0) {
+            if (length(weights) > 1 && length(from) != length(weights)) {
               return(set_message("Length of weights must be 0, 1, or equal to the length of composing channels."))
             }
             weights <- as.numeric(weights)
-            if(anyNA(weights) || any(weights == 0)) {
+            if (anyNA(weights) || any(weights == 0)) {
               return(set_message("Weights must be non-zero number."))
             }
           }
-          if(length(weights) == 0) {
+          if (length(weights) == 0) {
             weights <- 1 / length(from)
           }
-          if(length(weights) == 1) {
+          if (length(weights) == 1) {
             weights <- rep(weights, length(from))
           }
 
-          if(identical(item$normalize, "yes")) {
+          if (identical(item$normalize, "yes")) {
             weights2 <- weights / sqrt(sum(weights^2))
             normalize <- TRUE
           } else {
@@ -767,7 +767,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
         re <- re[!vapply(re, is.null, FALSE)]
 
 
-        if(!length(re) || any(vapply(re, is.character, FALSE))) {
+        if (!length(re) || any(vapply(re, is.character, FALSE))) {
           enable_compose_button(FALSE)
         } else {
           enable_compose_button(TRUE)
@@ -784,20 +784,20 @@ comp_import_channels <- with(asNamespace("ravedash"), {
       shiny::bindEvent(
         safe_observe({
           info <- local_reactives$info
-          if(!is.list(info) || !isTRUE(info$valid)) {
+          if (!is.list(info) || !isTRUE(info$valid)) {
             stop("The inputs are invalid. Please check your inputs.")
           }
           preproc <- info$preproc
           compose_setup <- dipsaus::drop_nulls(lapply(check_compose_setup(), function(item) {
-            if(!is.list(item)) {
-              if(is.character(item)) {
+            if (!is.list(item)) {
+              if (is.character(item)) {
                 stop(item)
               }
               return(NULL)
             }
             item
           }))
-          if(!length(compose_setup)) {
+          if (!length(compose_setup)) {
             return()
           }
           composing_channels <- unlist(lapply(
@@ -814,7 +814,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
               easyClose = FALSE,
               shiny::fluidRow(
                 local({
-                  if(length(composing_channels)) {
+                  if (length(composing_channels)) {
                     shiny::column(
                       width = 12,
                       shiny::p(
@@ -826,7 +826,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                   } else { NULL }
                 }),
                 local({
-                  if(length(composed)) {
+                  if (length(composed)) {
                     shiny::column(
                       width = 12,
                       shiny::p(
@@ -844,7 +844,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
               footer = shiny::tagList(
                 shiny::modalButton("Cancel"),
                 local({
-                  if(length(composing_channels)) {
+                  if (length(composing_channels)) {
                     dipsaus::actionButtonStyled(
                       inputId = comp$get_sub_element_id("action_compose_do", TRUE),
                       label = "Let's go"
@@ -862,13 +862,13 @@ comp_import_channels <- with(asNamespace("ravedash"), {
       shiny::bindEvent(
         safe_observe({
           info <- local_reactives$info
-          if(!is.list(info) || !isTRUE(info$valid)) {
+          if (!is.list(info) || !isTRUE(info$valid)) {
             stop("The inputs are invalid. Please check your inputs.")
           }
           preproc <- info$preproc
           compose_setup <- as.list(dipsaus::drop_nulls(lapply(check_compose_setup(), function(item) {
-            if(!is.list(item)) {
-              if(is.character(item)) {
+            if (!is.list(item)) {
+              if (is.character(item)) {
                 stop(item)
               }
               return(NULL)
@@ -881,7 +881,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           sel <- composing_channels %in% preproc$electrodes
           composed <- composing_channels[sel]
           composing_channels <- composing_channels[!sel]
-          if(!length(composing_channels)) {
+          if (!length(composing_channels)) {
             stop("No channel to compose.")
           }
 
@@ -900,7 +900,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
           on.exit({
             Sys.sleep(0.5)
             dipsaus::close_alert2()
-            if(finished) {
+            if (finished) {
               shiny::removeModal()
             }
           }, add = TRUE, after = FALSE)
@@ -929,11 +929,11 @@ comp_import_channels <- with(asNamespace("ravedash"), {
 
         with_error_notification({
           info <- local_reactives$info
-          if(!is.list(info) || !isTRUE(info$valid)) {
+          if (!is.list(info) || !isTRUE(info$valid)) {
             stop("The inputs are invalid. Please check your inputs.")
           }
           preproc <- info$preproc
-          if(is.null(preproc)){
+          if (is.null(preproc)) {
             stop("The inputs are invalid. Please check your inputs.")
           }
           format <- info$current_format
@@ -954,28 +954,28 @@ comp_import_channels <- with(asNamespace("ravedash"), {
 
           compose_setup <- comp$get_sub_element_input("compose_setup")
 
-          if(!isTRUE(format %in% seq_along(all_formats))) {
+          if (!isTRUE(format %in% seq_along(all_formats))) {
             stop("The format is invalid.")
           }
-          if(!length(blocks)) {
+          if (!length(blocks)) {
             stop("The session block has zero length.")
           }
-          if(!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
+          if (!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
             stop("No channels will be imported.")
           }
-          if(length(lfp_channels) > 0 && !isTRUE(lfp_sample_rate > 1)) {
+          if (length(lfp_channels) > 0 && !isTRUE(lfp_sample_rate > 1)) {
             stop("LFP sample rate must be positive.")
           }
-          if(length(microwire_channels) > 0 && !isTRUE(microwire_sample_rate > 1)) {
+          if (length(microwire_channels) > 0 && !isTRUE(microwire_sample_rate > 1)) {
             stop("Microwire sample rate must be positive.")
           }
-          if(length(auxiliary_channels) > 0 && !isTRUE(auxiliary_sample_rate > 1)) {
+          if (length(auxiliary_channels) > 0 && !isTRUE(auxiliary_sample_rate > 1)) {
             stop("Auxiliary sample rate must be positive.")
           }
 
           compose_setup <- lapply(check_compose_setup(), function(item) {
-            if(!is.list(item)) {
-              if(is.character(item)) {
+            if (!is.list(item)) {
+              if (is.character(item)) {
                 stop(item)
               }
               return(NULL)
@@ -1069,7 +1069,7 @@ comp_import_channels <- with(asNamespace("ravedash"), {
                   ),
 
                   {
-                    if(any_imported){
+                    if (any_imported) {
                       "* The subject has been imported before. Proceed and you will need to re-process all other modules, including Wavelet."
                     } else {
                       NULL
@@ -1222,24 +1222,24 @@ comp_import_channels <- with(asNamespace("ravedash"), {
       shiny::bindEvent(
         safe_observe({
           finfo <- comp$get_sub_element_input("compose_upload_file")
-          if(length(finfo$datapath) != 1 || !file.exists(finfo$datapath)) {
+          if (length(finfo$datapath) != 1 || !file.exists(finfo$datapath)) {
             stop("The file upload might have failed/been invalid.")
           }
           tbl <- utils::read.csv(finfo$datapath)
-          if(!nrow(tbl)) {
+          if (!nrow(tbl)) {
             stop("The uploaded table contains no data.")
           }
-          if(!all(c("Source", "Target", "Weight") %in% names(tbl))) {
+          if (!all(c("Source", "Target", "Weight") %in% names(tbl))) {
             stop("The uploaded table column must contains the following columns (case-sensitive): [Source, Target, Weight]; one or more missing...")
           }
           tbl$Source <- as.integer(tbl$Source)
           tbl$Target <- as.integer(tbl$Target)
           tbl$Weight <- as.numeric(tbl$Weight)
-          tbl <- tbl[stats::complete.cases(tbl), ,drop = FALSE]
+          tbl <- tbl[stats::complete.cases(tbl), , drop = FALSE]
           value <- lapply(split(tbl, tbl$Target), function(sub) {
             o <- order(sub$Source)
             w <- sub$Weight[o]
-            if(length(unique(w)) == 1) {
+            if (length(unique(w)) == 1) {
               w <- w[[1]]
             }
             list(
@@ -1277,9 +1277,9 @@ comp_import_channels <- with(asNamespace("ravedash"), {
             info <- local_reactives$info
             preproc <- info$preproc
             tbl <- preproc$get_compose_weights(flat = TRUE)
-            if(!is.data.frame(tbl)) {
+            if (!is.data.frame(tbl)) {
               elec <- preproc$electrodes
-              if(!length(elec)) { elec <- 1:4 }
+              if (!length(elec)) { elec <- 1:4 }
               tbl <- data.frame(
                 Source = elec,
                 Target = 10^ceiling(log10(max(elec))) + 1,

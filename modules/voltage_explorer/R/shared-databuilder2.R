@@ -18,11 +18,11 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
     label %?<-% sprintf("A%s", ii)
 
     event <- paste(analysis_range$event, collapse = " ")
-    if( identical(event, "Trial Onset") || !event %in% epoch$available_events ) {
+    if ( identical(event, "Trial Onset") || !event %in% epoch$available_events ) {
       event <- ""
     }
 
-    if(nzchar(event)) {
+    if (nzchar(event)) {
       cname <- sprintf("Event_%s", event)
       delta <- epoch_table[[cname]] - epoch_table$Time
     } else {
@@ -33,7 +33,7 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
 
     max_shift <- max(abs(time_shift_range))
 
-    if( max_shift > max_time_duration ) {
+    if ( max_shift > max_time_duration ) {
       stop(sprintf("Trial event [%s] needs to load at least %.2f seconds of data. Please either load enough data (time duration) or change the analysis event type.", event, max_shift))
     }
     # TODO: need to check if time range is valid with shifts
@@ -41,13 +41,13 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
 
     channels <- dipsaus::parse_svec(analysis_range$channels, unique = TRUE)
 
-    if(!length(channels)) {
+    if (!length(channels)) {
       channels <- repository$electrode_list
     } else {
       channels <- channels[channels %in% repository$electrode_list]
     }
 
-    if(!length(channels)) {
+    if (!length(channels)) {
       stop("Analysis setting ", sQuote(label), " does not contain any valid channels. Please revise the channel for analysis.")
     }
 
@@ -86,7 +86,7 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
     condition_column <- epoch_table[[cond_cname]]
 
     conditions <- conditions[conditions %in% condition_column]
-    if(!length(conditions)) {
+    if (!length(conditions)) {
       # no condition
       return(NULL)
     }
@@ -114,7 +114,7 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
     )
   }))
   condition_groups <- dipsaus::drop_nulls(condition_groups)
-  if(!length(condition_groups)) {
+  if (!length(condition_groups)) {
     stop("No valid condition specified. Please check inputs for condition groups.")
   }
 
@@ -133,16 +133,16 @@ subset_filtered_array <- function(filtered_array, condition_group, analysis_sett
   epoch_table <- filtered_array$get_header("epoch_table")
   sample_rate <- filtered_array$get_header("sample_rate")
   channels <- analysis_setting$channels
-  if(!length(channels)) {
+  if (!length(channels)) {
     channels <- filtered_array$get_header("filtered_channels")
   }
 
   sel <- epoch_table$Trial %in% condition_group$trial_numbers
 
   delta <- NULL
-  if(length(analysis_setting$event) && nzchar(analysis_setting$event)) {
+  if (length(analysis_setting$event) && nzchar(analysis_setting$event)) {
     idx <- which(tolower(names(epoch_table)) %in% tolower(sprintf(c("Event_%s", "Event%s"), analysis_setting$event)))
-    if(length(idx)) {
+    if (length(idx)) {
       delta <- round((epoch_table[[idx]] - epoch_table$Time) * sample_rate)
     } else {
       analysis_setting$event <- ""
@@ -158,7 +158,7 @@ subset_filtered_array <- function(filtered_array, condition_group, analysis_sett
   )
   dimnames(subarray) <- NULL
 
-  if(length(delta)) {
+  if (length(delta)) {
     subarray <- ravetools::shift_array(subarray, along_margin = 1L, unit_margin = 2L, shift_amount = delta[sel])
   }
   subarray

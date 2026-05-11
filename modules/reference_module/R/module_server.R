@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -14,7 +14,7 @@ module_server <- function(input, output, session, ...){
   server_tools <- get_default_handlers(session = session)
 
   error_notification <- function(e) {
-    if(!inherits(e, "condition")) {
+    if (!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
     ravepipeline::logger_error_condition(e)
@@ -41,20 +41,20 @@ module_server <- function(input, output, session, ...){
     )
   }
 
-  get_reference_options <- function(){
+  get_reference_options <- function() {
     loaded_flag <- shiny::isolate(ravedash::watch_data_loaded())
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     repo <- component_container$data$repository
-    if(!length(repo)) { return() }
+    if (!length(repo)) { return() }
     subject <- repo$subject
-    if(!length(subject)) { return() }
+    if (!length(subject)) { return() }
 
     refs <- list.files(subject$reference_path, pattern = "^ref_.*\\.h5", ignore.case = TRUE, full.names = FALSE, include.dirs = FALSE, recursive = FALSE)
-    refs <- gsub('\\.h5$', "", refs, ignore.case = TRUE)
+    refs <- gsub("\\.h5$", "", refs, ignore.case = TRUE)
     refs <- unique(refs)
 
-    if(!length(refs)) {
+    if (!length(refs)) {
       ravepipeline::logger("Trying to get reference signals... No reference found.", level = "trace")
       return()
     }
@@ -66,13 +66,13 @@ module_server <- function(input, output, session, ...){
 
   get_reference_data <- function(name) {
     loaded_flag <- shiny::isolate(ravedash::watch_data_loaded())
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     repo <- component_container$data$repository
-    if(!length(repo)) { return() }
+    if (!length(repo)) { return() }
     subject <- repo$subject
-    if(!length(subject)) { return() }
-    if(!name %in% get_reference_options()) { return() }
+    if (!length(subject)) { return() }
+    if (!name %in% get_reference_options()) { return() }
 
     re <- local_data$reference_data[[name]]
 
@@ -82,17 +82,17 @@ module_server <- function(input, output, session, ...){
     has_wavelets <- subject$has_wavelet[subject$electrodes %in% ref_channels]
     has_wavelet <- all(has_wavelets)
 
-    if( has_wavelet ) {
-      if(all(c("voltage", "wavelet") %in% names(re))){ return(re) }
+    if ( has_wavelet ) {
+      if (all(c("voltage", "wavelet") %in% names(re))) { return(re) }
     } else {
-      if(all(c("voltage") %in% names(re))){ return(re) }
+      if (all(c("voltage") %in% names(re))) { return(re) }
     }
 
     re <- list()
     inst <- ravecore::new_reference(subject = subject, number = name)
     re$voltage <- inst$load_blocks(subject$blocks, simplify = FALSE, type = "voltage")
 
-    if( has_wavelet ) {
+    if ( has_wavelet ) {
       tryCatch({
         re$wavelet <- inst$load_blocks(
           subject$blocks, simplify = FALSE,
@@ -109,36 +109,36 @@ module_server <- function(input, output, session, ...){
   voltage_data <- shiny::bindEvent(
     shiny::reactive({
       data_loaded <- ravedash::watch_data_loaded()
-      if(!data_loaded) { return() }
+      if (!data_loaded) { return() }
       block <- input$plot_block
-      if(!length(block)){ return() }
+      if (!length(block)) { return() }
 
       repo <- component_container$data$repository
-      if(!length(repo)){ return() }
+      if (!length(repo)) { return() }
       subject <- repo$subject
-      if(!length(subject)){ return() }
-      if(!isTRUE(block %in% subject$blocks)){ return() }
+      if (!length(subject)) { return() }
+      if (!isTRUE(block %in% subject$blocks)) { return() }
 
       re <- local_data$voltage_data[[block]]
 
-      if(is.list(re)) {
+      if (is.list(re)) {
         return(re)
       }
 
       voltage_data <- pipeline$read(var_names = "voltage_data")
-      if(!is.list(voltage_data) || !is.list(voltage_data$data)){ return() }
+      if (!is.list(voltage_data) || !is.list(voltage_data$data)) { return() }
       arr <- voltage_data$data[[block]]
 
       srates <- subject$raw_sample_rates[subject$electrodes %in% voltage_data$electrodes]
 
-      if(!length(srates)){
+      if (!length(srates)) {
         error_notification(list(message = sprintf("Cannot determine the sample rate from this group of electrodes. Please contact RAVE team to report this bug.")))
         return()
       }
 
       re <- list(
         subject = subject,
-        data = arr[drop=FALSE],
+        data = arr[drop = FALSE],
         electrodes = voltage_data$electrodes,
         sample_rate = srates[[1]]
       )
@@ -164,12 +164,12 @@ module_server <- function(input, output, session, ...){
     sample_rate <- ginfo$sample_rate
 
     current_tab <- input$reference_output_tabset
-    if(!length(current_tab)){ current_tab <- "Group inspection" }
+    if (!length(current_tab)) { current_tab <- "Group inspection" }
     blocks <- subject$blocks
     block <- shiny::isolate(input$plot_block) %OF% blocks
 
 
-    switch (
+    switch(
       current_tab,
       `Group inspection` = {
 
@@ -181,16 +181,16 @@ module_server <- function(input, output, session, ...){
 
         ginsp_type <- shiny::isolate(input$ginsp_type) %OF% ginsp_type_choices
         ginsp_gap <- shiny::isolate(input$ginsp_gap)
-        if(!length(ginsp_gap) || !is.numeric(ginsp_gap) || ginsp_gap <= 0) { ginsp_gap <- 0.999 }
+        if (!length(ginsp_gap) || !is.numeric(ginsp_gap) || ginsp_gap <= 0) { ginsp_gap <- 0.999 }
 
         ginsp_duration <- shiny::isolate(input$ginsp_duration)
-        if(!length(ginsp_duration) || !is.numeric(ginsp_duration) || ginsp_duration <= 0) { ginsp_duration <- 5 }
+        if (!length(ginsp_duration) || !is.numeric(ginsp_duration) || ginsp_duration <= 0) { ginsp_duration <- 5 }
 
         ginsp_start_max <- ginsp_start_max()
         ginsp_start <- shiny::isolate(input$ginsp_start)
-        if(!length(ginsp_start) || !is.numeric(ginsp_start)){ ginsp_start <- 0 }
+        if (!length(ginsp_start) || !is.numeric(ginsp_start)) { ginsp_start <- 0 }
 
-        if(ginsp_start > ginsp_start_max){ ginsp_start <- ginsp_start_max }
+        if (ginsp_start > ginsp_start_max) { ginsp_start <- ginsp_start_max }
 
         shiny::fluidRow(
           shiny::column(
@@ -253,17 +253,17 @@ module_server <- function(input, output, session, ...){
         einsp_winlen_max <- floor(sample_rate * 2)
         einsp_winlen <- shiny::isolate(input$einsp_winlen)
 
-        if(length(einsp_winlen) != 1 || !(is.numeric(einsp_winlen)) || einsp_winlen < 100 ||
+        if (length(einsp_winlen) != 1 || !(is.numeric(einsp_winlen)) || einsp_winlen < 100 ||
            einsp_winlen > einsp_winlen_max) {
           einsp_winlen <- einsp_winlen_max
         }
 
         einsp_freq_max <- floor(sample_rate / 2)
         einsp_freq <- shiny::isolate(input$einsp_freq)
-        if(!length(einsp_freq) || !(is.numeric(einsp_freq)) || einsp_freq < 10 ) {
+        if (!length(einsp_freq) || !(is.numeric(einsp_freq)) || einsp_freq < 10 ) {
           einsp_freq <- 300
         }
-        if(einsp_freq > einsp_freq_max) {
+        if (einsp_freq > einsp_freq_max) {
           einsp_freq <- einsp_freq_max
         }
 
@@ -286,7 +286,7 @@ module_server <- function(input, output, session, ...){
               shidashi::flex_item(
                 .class = "fill-width",
                 shiny::tags$label(
-                  class="control-label",
+                  class = "control-label",
                   "Electrode"
                 )
               ),
@@ -338,20 +338,20 @@ module_server <- function(input, output, session, ...){
         ) %OF% epoch_chohices
 
         refinsp_pre <- shiny::isolate(input$refinsp_pre)
-        if(!length(refinsp_pre) || !isTRUE(refinsp_pre >= 0)) {
+        if (!length(refinsp_pre) || !isTRUE(refinsp_pre >= 0)) {
           refinsp_pre <- 1L
         }
         refinsp_post <- shiny::isolate(input$refinsp_post)
-        if(!length(refinsp_post) || !isTRUE(refinsp_post >= 0)) {
+        if (!length(refinsp_post) || !isTRUE(refinsp_post >= 0)) {
           refinsp_post <- 2L
         }
         refinsp_baseline <- shiny::isolate(input$refinsp_baseline)
-        if(length(refinsp_baseline) != 2 || refinsp_baseline[[1]] > refinsp_baseline[[2]]) {
+        if (length(refinsp_baseline) != 2 || refinsp_baseline[[1]] > refinsp_baseline[[2]]) {
           refinsp_baseline <- c(-refinsp_pre, 0)
         }
 
         refinsp_range <- shiny::isolate(input$refinsp_range)
-        if(!length(refinsp_range) || is.na(refinsp_range)) {
+        if (!length(refinsp_range) || is.na(refinsp_range)) {
           refinsp_range <- 0.99
         } else {
           refinsp_range <- abs(refinsp_range)
@@ -359,7 +359,7 @@ module_server <- function(input, output, session, ...){
 
         freq_range <- range(subject$preprocess_settings$wavelet_params$frequencies)
         refinsp_freq_range <- shiny::isolate(input$refinsp_freq_range)
-        if(length(refinsp_freq_range) != 2) {
+        if (length(refinsp_freq_range) != 2) {
           refinsp_freq_range <- freq_range
         } else {
           refinsp_freq_range[refinsp_freq_range < freq_range[[1]]] <- freq_range[[1]]
@@ -452,7 +452,7 @@ module_server <- function(input, output, session, ...){
       `Preview & Export` = {
 
         preview_save_name <- shiny::isolate(input$preview_save_name)
-        if(!length(preview_save_name) || !nchar(trimws(preview_save_name))) {
+        if (!length(preview_save_name) || !nchar(trimws(preview_save_name))) {
           preview_save_name <- "default"
         }
 
@@ -465,7 +465,7 @@ module_server <- function(input, output, session, ...){
           shiny::column(
             width = 8L,
             shiny::textOutput(ns("preview_save_path"),
-                              container = function(...){
+                              container = function(...) {
                                 shiny::div(style = "margin-bottom: 0.5rem;", ...)
                               }),
             dipsaus::actionButtonStyled(ns("preview_save_btn"), "Generate & save")
@@ -480,10 +480,10 @@ module_server <- function(input, output, session, ...){
       data_loaded <- ravedash::watch_data_loaded()
       repo <- component_container$data$repository
       subject <- repo$subject
-      if(!data_loaded || is.null(subject)) { return() }
+      if (!data_loaded || is.null(subject)) { return() }
 
       table <- local_reactives$reference_table
-      if(!is.data.frame(table)) {
+      if (!is.data.frame(table)) {
         error_notification(list(
           "Fatal error: reference table is missing..."
         ))
@@ -491,13 +491,13 @@ module_server <- function(input, output, session, ...){
       }
 
       name <- trimws(input$preview_save_name)
-      if(!length(name) || !nchar(name)) {
+      if (!length(name) || !nchar(name)) {
         error_notification(list(
           "Reference name cannot be blank"
         ))
         return()
       }
-      if(!grepl("^[a-zA-Z0-9_]+$", name)) {
+      if (!grepl("^[a-zA-Z0-9_]+$", name)) {
         error_notification(list(
           sprintf("A valid reference name can only contain letters (a-zA-Z), digits (0-9), or underscore (_). Please revise your current input: [%s]", name)
         ))
@@ -525,16 +525,16 @@ module_server <- function(input, output, session, ...){
 
   output$preview_save_path <- shiny::renderText({
     data_loaded <- ravedash::watch_data_loaded()
-    if(!data_loaded) { return() }
+    if (!data_loaded) { return() }
     name <- input$preview_save_name
     name <- trimws(name)
-    if(!length(name) || !nchar(name)) {
+    if (!length(name) || !nchar(name)) {
       dipsaus::updateActionButtonStyled(
         session = session, inputId = "preview_save_btn", disabled = TRUE
       )
       return("Please enter a valid reference name")
     }
-    if(!grepl("^[a-zA-Z0-9_]+$", name)) {
+    if (!grepl("^[a-zA-Z0-9_]+$", name)) {
       dipsaus::updateActionButtonStyled(
         session = session, inputId = "preview_save_btn", disabled = TRUE
       )
@@ -553,20 +553,20 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       ginfo <- current_group()
-      if(!is.list(ginfo)){ return() }
+      if (!is.list(ginfo)) { return() }
 
       electrode_choice <- as.character(ginfo$data$Electrode)
       nchoices <- length(electrode_choice)
-      if(!nchoices) { return() }
+      if (!nchoices) { return() }
 
       einsp_electrode <- as.character(input$einsp_electrode)
-      if(!length(einsp_electrode)){
+      if (!length(einsp_electrode)) {
         idx <- length(electrode_choice)
       } else {
         idx <- which(electrode_choice == einsp_electrode)
       }
       idx <- idx - 1
-      if(idx <= 0) {
+      if (idx <= 0) {
         idx <- length(electrode_choice)
       }
       einsp_electrode <- electrode_choice[[idx]]
@@ -584,18 +584,18 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       ginfo <- current_group()
-      if(!is.list(ginfo)){ return() }
+      if (!is.list(ginfo)) { return() }
 
       electrode_choice <- as.character(ginfo$data$Electrode)
       nchoices <- length(electrode_choice)
-      if(!nchoices) { return() }
+      if (!nchoices) { return() }
 
       einsp_electrode <- as.character(input$einsp_electrode)
-      if(!length(einsp_electrode)){
+      if (!length(einsp_electrode)) {
         idx <- 1
       } else {
         idx <- which(electrode_choice == einsp_electrode) + 1
-        if(idx > nchoices) {
+        if (idx > nchoices) {
           idx <- 1
         }
       }
@@ -613,7 +613,7 @@ module_server <- function(input, output, session, ...){
 
   ginsp_start_max <- shiny::reactive({
     vdata <- voltage_data()
-    if(!is.list(vdata)){ return(300) }
+    if (!is.list(vdata)) { return(300) }
     floor(nrow(vdata$data) / vdata$sample_rate)
   })
 
@@ -634,7 +634,7 @@ module_server <- function(input, output, session, ...){
       block <- input$plot_block
       existing_refs <- get_reference_options()
 
-      if(!length(ginsp_gap) || is.na(ginsp_gap)){ ginsp_gap <- 0.999 }
+      if (!length(ginsp_gap) || is.na(ginsp_gap)) { ginsp_gap <- 0.999 }
 
       shiny::validate(
         shiny::need(isTRUE(data_loaded), message = "Data not loaded"),
@@ -668,9 +668,9 @@ module_server <- function(input, output, session, ...){
       tidx_end <- round((ginsp_start + ginsp_duration) * vdata$sample_rate)
       max_tps <- nrow(vdata$data)
 
-      if(tidx_start <= 0 ) { tidx_start <- 1 }
-      if( tidx_end > max_tps ){ tidx_end <- max_tps }
-      if( tidx_end <= tidx_start ) { tidx_start <- tidx_end - min(100, max_tps - 1) }
+      if (tidx_start <= 0 ) { tidx_start <- 1 }
+      if ( tidx_end > max_tps ) { tidx_end <- max_tps }
+      if ( tidx_end <= tidx_start ) { tidx_start <- tidx_end - min(100, max_tps - 1) }
       ginsp_start <- (tidx_start - 1) / vdata$sample_rate
       ginsp_duration <- (tidx_end - tidx_start) / vdata$sample_rate
 
@@ -678,17 +678,17 @@ module_server <- function(input, output, session, ...){
       elec_idx <- vdata$electrodes %in% electrodes
       signals <- vdata$data[tp_idx, , drop = FALSE]
 
-      if(ginsp_gap <= 1) {
+      if (ginsp_gap <= 1) {
         ginsp_gap <- stats::quantile(signals, max(ginsp_gap, 0.01), na.rm = TRUE)
       }
       ginsp_gap <- abs(ginsp_gap)
 
       is_bipolar <- isTRUE(ginfo$data$Type[[1]] %in% reference_choices[4])
 
-      get_cols <- function(col, invalid = "red"){
+      get_cols <- function(col, invalid = "red") {
         re <- rep(col, length(electrodes))
         re[invalids] <- invalid
-        if(!is_bipolar) {
+        if (!is_bipolar) {
           re <- c("orange", re)
         }
         re
@@ -699,33 +699,33 @@ module_server <- function(input, output, session, ...){
       can_show_refs <- TRUE
 
 
-      if( is_bipolar ) {
+      if ( is_bipolar ) {
         elec_idx2 <- which(elec_idx)
-        refed_signals <- sapply(seq_along(ref_names), function(ii){
+        refed_signals <- sapply(seq_along(ref_names), function(ii) {
           name <- ref_names[[ii]]
           eidx <- elec_idx2[[ii]]
           name2 <- dipsaus::parse_svec(gsub("^ref_", "", name))
-          if(name %in% c("", "noref") || !length(name2)) {
-            return(signals[,eidx])
+          if (name %in% c("", "noref") || !length(name2)) {
+            return(signals[, eidx])
           }
 
-          if(length(name2) == 1 && isTRUE(name2 %in% vdata$electrodes)) {
+          if (length(name2) == 1 && isTRUE(name2 %in% vdata$electrodes)) {
             ref_data <- signals[, vdata$electrodes %in% name2, drop = FALSE]
-            return(signals[,eidx] - ref_data)
+            return(signals[, eidx] - ref_data)
           }
 
-          if(name %in% existing_refs) {
+          if (name %in% existing_refs) {
             ref_data <- get_reference_data(name)
-            if(is.null(ref_data)) {
+            if (is.null(ref_data)) {
               ref_data <- 0
             } else {
               ref_data <- ref_data$voltage[[block]][tp_idx]
             }
-            return(signals[,eidx] - ref_data)
+            return(signals[, eidx] - ref_data)
           }
-          return(signals[,eidx])
+          return(signals[, eidx])
         })
-        if(!is.matrix(refed_signals)) {
+        if (!is.matrix(refed_signals)) {
           dim(refed_signals) <- c(length(refed_signals) / length(ref_names), length(ref_names))
         }
         # refed_signals <- t(refed_signals[, elec_idx, drop = FALSE])
@@ -736,10 +736,10 @@ module_server <- function(input, output, session, ...){
       } else {
         ref_signal <- unique(ginfo$data$Reference)
         ref_signal <- ref_signal[ref_signal %in% existing_refs]
-        if(length(ref_signal)) {
+        if (length(ref_signal)) {
           ref_signal <- ref_signal[[1]]
           ref_data <- get_reference_data(ref_signal)
-          if(is.null(ref_data)) {
+          if (is.null(ref_data)) {
             ref_signal <- "noref"
             ref_data <- 0
           } else {
@@ -749,10 +749,10 @@ module_server <- function(input, output, session, ...){
           ref_signal <- ref_names[!ref_names %in% c("", "noref")]
           ref_signal <- unlist(lapply(ref_signal, function(x) {
             re <- dipsaus::parse_svec(gsub("^ref_", "", x))
-            if(length(re) == 1 && re %in% vdata$electrodes) { return(re) }
+            if (length(re) == 1 && re %in% vdata$electrodes) { return(re) }
             return(NULL)
           }))
-          if(!length(ref_signal)) {
+          if (!length(ref_signal)) {
             ref_signal <- "noref"
             ref_data <- 0
           } else {
@@ -766,12 +766,12 @@ module_server <- function(input, output, session, ...){
 
         signals <- t(cbind(ref_data, signals))
         refed_signals <- t(cbind(ref_data, refed_signals))
-        channel_names <- c('REF', electrodes)
+        channel_names <- c("REF", electrodes)
 
         main <- sprintf("Reference: %s", ref_signal)
       }
 
-      if(ginsp_type == "Show original signals only") {
+      if (ginsp_type == "Show original signals only") {
         ravetools::plot_signals(
           signals = signals,
           sample_rate = vdata$sample_rate,
@@ -784,7 +784,7 @@ module_server <- function(input, output, session, ...){
           ylab = "Electrode Channels",
           new_plot = TRUE,
           main = main,
-          col = get_cols('dodgerblue3')
+          col = get_cols("dodgerblue3")
         )
       } else if (ginsp_type == "Show referenced signals only") {
         ravetools::plot_signals(
@@ -799,7 +799,7 @@ module_server <- function(input, output, session, ...){
           ylab = "Electrode Channels",
           new_plot = TRUE,
           main = main,
-          col = get_cols('gray60')
+          col = get_cols("gray60")
         )
       } else {
         ravetools::plot_signals(
@@ -814,7 +814,7 @@ module_server <- function(input, output, session, ...){
           ylab = "Electrode Channels",
           new_plot = TRUE,
           main = main,
-          col = get_cols('dodgerblue3')
+          col = get_cols("dodgerblue3")
         )
         ravetools::plot_signals(
           signals = refed_signals,
@@ -828,7 +828,7 @@ module_server <- function(input, output, session, ...){
           ylab = "Electrode Channels",
           new_plot = FALSE,
           main = main,
-          col = get_cols('gray60')
+          col = get_cols("gray60")
         )
       }
 
@@ -881,21 +881,21 @@ module_server <- function(input, output, session, ...){
       # on.exit({ do.call(graphics::par, old_theme) }, add = TRUE)
 
 
-      signals <- vdata$data[,vdata$electrodes == einsp_electrode, drop = TRUE]
+      signals <- vdata$data[, vdata$electrodes == einsp_electrode, drop = TRUE]
 
       ref_name <- ginfo$data$Reference[ginfo$data$Electrode == einsp_electrode]
-      if(length(ref_name) == 1 && startsWith(ref_name, "ref_")) {
+      if (length(ref_name) == 1 && startsWith(ref_name, "ref_")) {
 
         elecs <- dipsaus::parse_svec(gsub("^ref_", "", ref_name))
 
-        if(length(elecs) == 0) {
+        if (length(elecs) == 0) {
           ref_data <- 0
-        } else if(length(elecs) == 1 && elecs %in% vdata$electrodes) {
-          ref_data <- vdata$data[,vdata$electrodes == elecs, drop = TRUE]
+        } else if (length(elecs) == 1 && elecs %in% vdata$electrodes) {
+          ref_data <- vdata$data[, vdata$electrodes == elecs, drop = TRUE]
 
         } else {
           ref_data <- get_reference_data(ref_name)
-          if(is.null(ref_data)) {
+          if (is.null(ref_data)) {
             ref_data <- 0
           } else {
             ref_data <- ref_data$voltage[[block]]
@@ -995,7 +995,7 @@ module_server <- function(input, output, session, ...){
       shiny::validate(
         shiny::need(
           length(ref_type) > 0 &&
-            ref_type[[1]] %in% reference_choices[c(2,3)] &&
+            ref_type[[1]] %in% reference_choices[c(2, 3)] &&
             length(ref_name) > 0,
           message = "This plot is designed to visualize non-zero common-average or white-matter reference signals."
         )
@@ -1019,7 +1019,7 @@ module_server <- function(input, output, session, ...){
       tidx <- seq(-refinsp_pre * srate, refinsp_post * srate, by = 1L)
       freq <- subject$preprocess_settings$wavelet_params$frequencies
       freq_sel <- freq >= refinsp_freq_range[[1]] & freq <= refinsp_freq_range[[2]]
-      if(!any(freq_sel)) {
+      if (!any(freq_sel)) {
         freq_sel <- which.min(abs(freq - refinsp_freq_range[[1]]))
       }
 
@@ -1027,23 +1027,23 @@ module_server <- function(input, output, session, ...){
         trial <- epoch$trial_at(ii, df = FALSE)
         idx <- round(trial$Time * srate + tidx)
         block_data <- ref_data[[trial$Block]]
-        if(!is.matrix(block_data)) { return(NULL) }
+        if (!is.matrix(block_data)) { return(NULL) }
         dm <- dim(block_data)
 
-        if(any(idx <= 1 | idx > dm[[1]])){
+        if (any(idx <= 1 | idx > dm[[1]])) {
           return(NULL)
         }
-        re <- block_data[idx,freq_sel,drop=FALSE]
-        if(!length(re)) { return(NULL) }
+        re <- block_data[idx, freq_sel, drop = FALSE]
+        if (!length(re)) { return(NULL) }
         re
       })
       missing_trial <- vapply(power, is.null, FUN.VALUE = FALSE)
       power <- power[!missing_trial]
-      if(!length(power)) {
+      if (!length(power)) {
         error_notification(list(message = "No trial satisfies the condition. Please make sure the epoch is valid, and epoch time range (-pre, post) is reasonable."))
         return()
       }
-      if(sum(missing_trial) > 0) {
+      if (sum(missing_trial) > 0) {
         shidashi::clear_notifications(class = "error_notif")
         shidashi::show_notification(
           message = sprintf("Dropped %d trials due to missing data. (Missing blocks, or invalid epoch time range)", sum(missing_trial)),
@@ -1071,8 +1071,8 @@ module_server <- function(input, output, session, ...){
       bl <- ravetools::collapse(bl, keep = c(1, 3), average = TRUE)
       pal <- colorRampPalette(c("navy", "white", "red"))(101)
 
-      if(length(refinsp_range) == 1 && isTRUE(refinsp_range > 0)) {
-        if(refinsp_range <= 1) {
+      if (length(refinsp_range) == 1 && isTRUE(refinsp_range > 0)) {
+        if (refinsp_range <= 1) {
           zlim <- quantile(abs(bl), probs = refinsp_range)
         } else {
           zlim <- refinsp_range
@@ -1083,7 +1083,7 @@ module_server <- function(input, output, session, ...){
       bl[bl > zlim] <- zlim
       bl[bl < -zlim] <- -zlim
 
-      layout(matrix(c(1,2), nrow = 1), widths = c(1, lcm(2.5)))
+      layout(matrix(c(1, 2), nrow = 1), widths = c(1, lcm(2.5)))
 
       par(mai = c(0.82, 0.82, 0.82, 0.1))
       image(z = bl, x = tidx / srate, y = seq_len(ncol(bl)), las = 1,
@@ -1114,9 +1114,9 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       refinsp_pre <- input$refinsp_pre
       refinsp_post <- input$refinsp_post
-      if(!length(refinsp_pre) || !length(refinsp_post) ||
+      if (!length(refinsp_pre) || !length(refinsp_post) ||
          is.na(refinsp_pre) || is.na(refinsp_post)) {return()}
-      if(refinsp_pre < 0 || refinsp_post < 0) {
+      if (refinsp_pre < 0 || refinsp_post < 0) {
         error_notification(list(message = "Epoch pre & post must be non-negative"))
         return()
       }
@@ -1152,7 +1152,7 @@ module_server <- function(input, output, session, ...){
   #   ravedash::safe_observe({
   #
   #     # Invalidate previous results (stop them because they are no longer needed)
-  #     if(!is.null(local_data$results)) {
+  #     if (!is.null(local_data$results)) {
   #       local_data$results$invalidate()
   #       ravepipeline::logger("Invalidating previous run", level = "trace")
   #     }
@@ -1187,15 +1187,15 @@ module_server <- function(input, output, session, ...){
   #     ravepipeline::logger("Scheduled: ", pipeline_name, level = 'debug', reset_timer = TRUE)
   #
   #     results$promise$then(
-  #       onFulfilled = function(...){
+  #       onFulfilled = function(...) {
   #         ravepipeline::logger("Fulfilled: ", pipeline_name, level = 'debug')
   #         shidashi::clear_notifications(class = "pipeline-error")
   #         local_reactives$update_outputs <- Sys.time()
   #         return(TRUE)
   #       },
-  #       onRejected = function(e, ...){
+  #       onRejected = function(e, ...) {
   #         msg <- paste(e$message, collapse = "\n")
-  #         if(inherits(e, "error")){
+  #         if (inherits(e, "error")) {
   #           ravepipeline::logger(msg, level = 'error')
   #           ravepipeline::logger(traceback(e), level = 'error', .sep = "\n")
   #           shidashi::show_notification(
@@ -1220,7 +1220,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       new_subject <- pipeline$read("subject")
       new_repository <- ravecore::prepare_subject_bare0(
@@ -1230,7 +1230,7 @@ module_server <- function(input, output, session, ...){
         auto_exclude = FALSE
       )
 
-      if(!inherits(new_repository, "rave_prepare_subject_bare0")){
+      if (!inherits(new_repository, "rave_prepare_subject_bare0")) {
         ravepipeline::logger("Repository read from the pipeline, but it is not an instance of `rave_prepare_subject_bare0`. Abort initialization", level = "warning")
         return()
       }
@@ -1238,22 +1238,22 @@ module_server <- function(input, output, session, ...){
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
-      if(inherits(old_repository, "rave_prepare_subject_bare0")){
+      if (inherits(old_repository, "rave_prepare_subject_bare0")) {
 
-        if( !attr(loaded_flag, "force") &&
-            identical(old_repository$signature, new_repository$signature) ){
+        if ( !attr(loaded_flag, "force") &&
+            identical(old_repository$signature, new_repository$signature) ) {
           ravepipeline::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
       }
 
       # Reset custom UI
-      ref_tbl <- new_subject$get_reference('_unsaved')
+      ref_tbl <- new_subject$get_reference("_unsaved")
       groups <- unique(ref_tbl$Group)
-      electrode_group <- dipsaus::drop_nulls(lapply(groups, function(gname){
-        if(!nzchar(trimws(gname))) { return() }
+      electrode_group <- dipsaus::drop_nulls(lapply(groups, function(gname) {
+        if (!nzchar(trimws(gname))) { return() }
         channels <- ref_tbl$Electrode[ref_tbl$Group == gname]
-        if(!length(channels)) { return() }
+        if (!length(channels)) { return() }
         list(
           electrodes = dipsaus::deparse_svec(channels),
           name = gname
@@ -1315,11 +1315,11 @@ module_server <- function(input, output, session, ...){
         as_promise = TRUE,
         scheduler = "none", type = "vanilla",
         names = c(
-          'electrode_group', 'reference_group'),
+          "electrode_group", "reference_group"),
       )
 
       res$promise$then(
-        onFulfilled = function(...){
+        onFulfilled = function(...) {
           tbl_new <- pipeline$read("reference_group")
           tbl_new <- tbl_new[, c("Electrode", "Group")]
           tbl_old <- shiny::isolate(local_reactives$reference_table)
@@ -1334,7 +1334,7 @@ module_server <- function(input, output, session, ...){
 
           shidashi::clear_notifications(class = ns("error_notif"))
         },
-        onRejected = function(e){
+        onRejected = function(e) {
           ravepipeline::logger_error_condition(e)
           error_notification(e)
         }
@@ -1349,13 +1349,13 @@ module_server <- function(input, output, session, ...){
   group_info <- shiny::bindEvent(
     shiny::reactive({
       ref_tbl <- local_reactives$reference_table
-      if(!is.data.frame(ref_tbl)){ return(list()) }
+      if (!is.data.frame(ref_tbl)) { return(list()) }
 
       ravepipeline::logger("Gathering reference group information...",
                        level = "trace")
       group_names <- unique(ref_tbl$Group)
 
-      if(length(group_names)) {
+      if (length(group_names)) {
         selected <- input$group_name %OF% group_names
       } else {
         selected <- character(0L)
@@ -1367,7 +1367,7 @@ module_server <- function(input, output, session, ...){
         selected = selected
       )
 
-      structure(lapply(group_names, function(gname){
+      structure(lapply(group_names, function(gname) {
         sub <- ref_tbl[ref_tbl$Group == gname, ]
         list(
           name = gname,
@@ -1441,7 +1441,7 @@ module_server <- function(input, output, session, ...){
       subject <- repo$subject
 
       misschan <- channels[!channels %in% subject$electrodes]
-      if(length(misschan)) {
+      if (length(misschan)) {
         error_notification(list(message = sprintf(
           "Cannot generate reference. The following channels are invalid: %s",
           dipsaus::deparse_svec(misschan)
@@ -1450,7 +1450,7 @@ module_server <- function(input, output, session, ...){
       }
 
       channels <- channels[channels %in% subject$electrodes]
-      if(!length(channels)) {
+      if (!length(channels)) {
         error_notification(list(message = "Cannot generate reference: none of the channels is valid"))
         return()
       }
@@ -1470,7 +1470,7 @@ module_server <- function(input, output, session, ...){
           shiny::modalButton("Cancel"),
           dipsaus::actionButtonStyled(
             inputId = ns("reference_channels_btn2"),
-            label = 'Confirm'
+            label = "Confirm"
           )
         )
       ))
@@ -1483,7 +1483,7 @@ module_server <- function(input, output, session, ...){
   output$reference_details <- shiny::renderUI({
     local_reactives$refresh
 
-    if(!isTRUE(local_reactives$group_confirmed)) {
+    if (!isTRUE(local_reactives$group_confirmed)) {
       shidashi::card_operate(title = "Electrode groups", method = "expand")
       return(shiny::p("Please confirm the electrode groups by pressing the button ",
                       shiny::strong("Set groups"), " first."))
@@ -1494,7 +1494,7 @@ module_server <- function(input, output, session, ...){
     group_name <- input$group_name
     group_info <- group_info()
 
-    if(isTRUE(reference_type %in% reference_choices[c(2,3)])) {
+    if (isTRUE(reference_type %in% reference_choices[c(2, 3)])) {
 
       ref_choices <- c(
         get_reference_options(),
@@ -1519,7 +1519,7 @@ module_server <- function(input, output, session, ...){
         )
       ))
 
-    } else if(isTRUE(reference_type %in% reference_choices[4])) {
+    } else if (isTRUE(reference_type %in% reference_choices[4])) {
       # Bipolar
       return(dipsaus::actionButtonStyled(
         inputId = ns("bipolar_btn"),
@@ -1562,22 +1562,22 @@ module_server <- function(input, output, session, ...){
   get_bipolar_table <- shiny::reactive({
     local_reactives$refresh_bipolar_table
     ginfo <- current_group()
-    if(!is.list(ginfo) || !is.data.frame(ginfo$data)) {
+    if (!is.list(ginfo) || !is.data.frame(ginfo$data)) {
       return("Initializing...")
     }
 
     table <- ginfo$data[, c("Electrode", "Group", "Reference", "Type")]
-    if(!nrow(table)) {
+    if (!nrow(table)) {
       return("Current group has no electrode")
     }
     re <- local_data$bipolar_table
 
-    if(is.data.frame(re) && setequal(re$Electrode, table$Electrode)) {
+    if (is.data.frame(re) && setequal(re$Electrode, table$Electrode)) {
       return(re)
     }
-    if(!all(table$Type == reference_choices[4])) {
+    if (!all(table$Type == reference_choices[4])) {
       table$Type <- reference_choices[4]
-      table <- table[order(table$Electrode),]
+      table <- table[order(table$Electrode), ]
       table$Reference <- c(sprintf("ref_%s", table$Electrode[-1]), "")
     }
     local_data$bipolar_table <- table
@@ -1601,7 +1601,7 @@ module_server <- function(input, output, session, ...){
       class = "compact",
       filter = "none",
       editable = list(target = "cell",
-                      disable = list(columns = c(0,1,3))),
+                      disable = list(columns = c(0, 1, 3))),
       extensions = "KeyTable",
       options = list(
         ordering = FALSE,
@@ -1614,11 +1614,11 @@ module_server <- function(input, output, session, ...){
             const KEY_CODES = ['Tab','ArrowDown','ArrowRight','ArrowLeft','ArrowUp'];
             const KEY_ENTER = 'Enter';
 
-            this.on('key', function(e, datatable, key, cell, originalEvent){
+            this.on('key', function(e, datatable, key, cell, originalEvent) {
               const targetName = originalEvent.target.localName;
               const keycode = originalEvent.code;
 
-              if( keycode == KEY_ENTER && (
+              if ( keycode == KEY_ENTER && (
                 targetName == 'div' ||
                 targetName == 'body'
               )) {
@@ -1626,24 +1626,24 @@ module_server <- function(input, output, session, ...){
               }
             });
 
-            this.on('keydown', function(e){
+            this.on('keydown', function(e) {
 
-              if(e.target.localName == 'input' && (
+              if (e.target.localName == 'input' && (
                 KEY_CODES.indexOf(e.code) > -1 ||
                 e.code === KEY_ENTER
-              )){
+              )) {
 
                 $(e.target).trigger('blur');
               }
             });
 
-            this.on('key-focus', function(e, datatable, cell, originalEvent){
+            this.on('key-focus', function(e, datatable, cell, originalEvent) {
               const targetName = originalEvent.target.localName;
               const type = originalEvent.type;
               const keycode = originalEvent.code;
 
-              if(type == 'keydown' && targetName == 'input' &&
-                KEY_CODES.includes(keycode) ){
+              if (type == 'keydown' && targetName == 'input' &&
+                KEY_CODES.includes(keycode) ) {
 
                 $(cell.node()).trigger('dblclick.dt');
               }
@@ -1657,8 +1657,8 @@ module_server <- function(input, output, session, ...){
     re
   }, server = FALSE)
 
-  proxy = DT::dataTableProxy(
-    outputId = ns('bipolar_table'),
+  proxy <- DT::dataTableProxy(
+    outputId = ns("bipolar_table"),
     deferUntilFlush = TRUE,
     session = session$rootScope()
   )
@@ -1670,11 +1670,11 @@ module_server <- function(input, output, session, ...){
       val <- gsub("[^0-9,-]", "", val0)
       elecs <- dipsaus::parse_svec(val)
 
-      if( length(elecs) ) {
+      if ( length(elecs) ) {
         val <- dipsaus::deparse_svec(elecs)
         val <- sprintf("ref_%s", val)
-        if(length(elecs) > 1) {
-          if(!isTRUE(val %in% get_reference_options())) {
+        if (length(elecs) > 1) {
+          if (!isTRUE(val %in% get_reference_options())) {
             error_notification(list(
               message = sprintf(
                 "Cannot find reference signal called `%s`. Set to no-reference as a fallback. Please correct.",
@@ -1685,10 +1685,10 @@ module_server <- function(input, output, session, ...){
           }
         } else {
           repo <- component_container$data$repository
-          if(!length(repo)) { return() }
+          if (!length(repo)) { return() }
           subject <- repo$subject
-          if(!length(subject)) { return() }
-          if(!elecs %in% subject$electrodes){
+          if (!length(subject)) { return() }
+          if (!elecs %in% subject$electrodes) {
             error_notification(list(
               message = sprintf(
                 "Channel %s is not valid. Set to no-reference as a fallback. Please fix.",
@@ -1700,7 +1700,7 @@ module_server <- function(input, output, session, ...){
         }
 
         info$value <- val
-      } else if(startsWith(tolower(val0), "n")) {
+      } else if (startsWith(tolower(val0), "n")) {
         info$value <- "noref"
       } else {
         info$value <- ""
@@ -1721,7 +1721,7 @@ module_server <- function(input, output, session, ...){
   )
 
   output$ref_generator <- shiny::renderUI({
-    if(!isTRUE(input$reference_channels == "[new reference]")) {
+    if (!isTRUE(input$reference_channels == "[new reference]")) {
       return()
     }
     shidashi::flex_container(
@@ -1750,16 +1750,16 @@ module_server <- function(input, output, session, ...){
 
       data_loaded <- ravedash::watch_data_loaded()
       data_opened <- ravedash::watch_loader_opened()
-      if(!data_loaded || data_opened){ return() }
+      if (!data_loaded || data_opened) { return() }
 
       repo <- component_container$data$repository
       subject <- repo$subject
 
-      if(is.null(subject)) { return() }
+      if (is.null(subject)) { return() }
 
       ginfo <- group_info()
       group_name <- input$group_name
-      if(!group_name %in% names(ginfo)){ return() }
+      if (!group_name %in% names(ginfo)) { return() }
 
       # list(
       #   name = gname,
@@ -1771,7 +1771,7 @@ module_server <- function(input, output, session, ...){
       ginfo$subject <- subject
 
       sample_rate <- subject$raw_sample_rates[subject$electrodes %in% ginfo$data$Electrode]
-      if(!length(sample_rate)) { return() }
+      if (!length(sample_rate)) { return() }
 
       ginfo$sample_rate <- sample_rate[[1]]
 
@@ -1858,7 +1858,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       ginfo <- current_group()
 
-      if(is.null(ginfo)){ return() }
+      if (is.null(ginfo)) { return() }
 
       # get current type
       ref_type <- ginfo$data$Type[[1]] %OF% reference_choices
@@ -1872,7 +1872,7 @@ module_server <- function(input, output, session, ...){
       # update anyway
       ref_chan <- unique(ginfo$data$Reference)
       ref_chan <- ref_chan[startsWith(ref_chan, "ref_")]
-      if(length(ref_chan)) {
+      if (length(ref_chan)) {
         ref_chan <- ref_chan[[1]]
         ravepipeline::logger("Triggered UI update: `Reference to` [{ref_chan}]", level = "trace", use_glue = TRUE)
         shiny::updateSelectInput(
@@ -1900,12 +1900,12 @@ module_server <- function(input, output, session, ...){
                        level = "trace", use_glue = TRUE)
 
       ref_type <- input$reference_type
-      if(length(ref_type)) {
+      if (length(ref_type)) {
 
         ref_signals <- input$reference_channels
-        if(ref_type == reference_choices[[1]]) {
+        if (ref_type == reference_choices[[1]]) {
           ref_signals <- "noref"
-        } else if(ref_type %in% reference_choices[4]) {
+        } else if (ref_type %in% reference_choices[4]) {
           bipolar_table <- get_bipolar_table()
           ref_signals <- bipolar_table$Reference
         }
@@ -1920,7 +1920,7 @@ module_server <- function(input, output, session, ...){
         changes <- as.list(pipeline$get_settings("changes"))
 
         # Make changes
-        dup <- vapply(changes, function(item){
+        dup <- vapply(changes, function(item) {
           ginfo$name %in% item$group_name
         }, FUN.VALUE = FALSE)
         changes <- changes[!dup]
@@ -1937,7 +1937,7 @@ module_server <- function(input, output, session, ...){
         type = "vanilla")
 
       res$promise$then(
-        onFulfilled = function(...){
+        onFulfilled = function(...) {
 
           updated_reftable <- pipeline$read("reference_updated")
 
@@ -1947,7 +1947,7 @@ module_server <- function(input, output, session, ...){
 
           info_notification("Reference table updated. Updating the visualizations...")
 
-        }, onRejected = function(e){
+        }, onRejected = function(e) {
 
           error_notification(e)
 
@@ -1959,7 +1959,7 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::onSessionEnded(function(){
+  shiny::onSessionEnded(function() {
     local_data$`@reset`()
     gc()
   })

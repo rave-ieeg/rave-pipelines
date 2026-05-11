@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -29,8 +29,8 @@ module_server <- function(input, output, session, ...){
   # ---- generate reports ------------------------------------
   report_btn_onclick <- shiny::bindEvent(
     shiny::reactive({
-      if(!ravedash::watch_data_loaded()) { return(FALSE) }
-      if(ravedash::watch_loader_opened()) { return(FALSE) }
+      if (!ravedash::watch_data_loaded()) { return(FALSE) }
+      if (ravedash::watch_loader_opened()) { return(FALSE) }
       res <- ravedash::get_rave_event("message_button_clicked")
       structure(!is.null(res), timestamp = res)
     }),
@@ -41,8 +41,8 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!report_btn_onclick()) { return() }
-      if(is.null(report_wizard)) { return() }
+      if (!report_btn_onclick()) { return() }
+      if (is.null(report_wizard)) { return() }
       report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
     }),
     report_btn_onclick(),
@@ -58,13 +58,13 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       tryCatch({
-        if(!sv$is_valid()) {
+        if (!sv$is_valid()) {
           stop("There are some invalid inputs. Please fix them before applying wavelet")
         }
 
         # collect information
         tbl <- kernel_params()
-        if(!is.data.frame(tbl)) {
+        if (!is.data.frame(tbl)) {
           stop("No kernel table found. ")
         }
 
@@ -81,7 +81,7 @@ module_server <- function(input, output, session, ...){
         res <- pipeline$run(as_promise = TRUE, names = "kernels")
 
         res$promise$then(
-          onFulfilled = function(...){
+          onFulfilled = function(...) {
 
             settings <- pipeline$get_settings()
 
@@ -128,13 +128,13 @@ module_server <- function(input, output, session, ...){
             ))
 
           },
-          onRejected = function(e){
+          onRejected = function(e) {
             error_notification(e)
           }
         )
 
 
-      }, error = function(e){
+      }, error = function(e) {
         error_notification(e)
       })
 
@@ -150,12 +150,12 @@ module_server <- function(input, output, session, ...){
     dipsaus::shiny_alert2(
       title = "Running Wavelet in progress",
       text = ravedash::be_patient_text(),
-      icon = 'info',
+      icon = "info",
       auto_close = FALSE,
       buttons = FALSE
     )
 
-    if( async ) {
+    if ( async ) {
       local_data$wavelet_jobid <- ravepipeline::start_job(
         function(pipeline) {
           print(pipeline)
@@ -184,13 +184,13 @@ module_server <- function(input, output, session, ...){
     }
 
     promise$then(
-      onFulfilled = function(...){
+      onFulfilled = function(...) {
 
         dipsaus::close_alert2()
         dipsaus::shiny_alert2(
           title = "Done!",
           text = "Wavelet has finished. Trying to make data compatible with RAVE 1.0 modules... (Please wait...)",
-          icon = 'success',
+          icon = "success",
           auto_close = FALSE,
           buttons = FALSE
         )
@@ -210,7 +210,7 @@ module_server <- function(input, output, session, ...){
           # save pipeline to subject
           subject <- pipeline$read("subject")
           fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
-          if(file.exists(fork_path)) {
+          if (file.exists(fork_path)) {
             ravecore::backup_file(fork_path, remove = TRUE)
           }
           pipeline$fork(fork_path)
@@ -223,7 +223,7 @@ module_server <- function(input, output, session, ...){
           dipsaus::shiny_alert2(
             title = "Done!",
             text = "Please feel free to close this dialogue",
-            icon = 'success',
+            icon = "success",
             auto_close = TRUE,
             buttons = list("OK" = TRUE)
           )
@@ -232,7 +232,7 @@ module_server <- function(input, output, session, ...){
           dipsaus::shiny_alert2(
             title = "Wavelet done, but...",
             text = sprintf("Wavelet has finished. You should be able to run RAVE 2.0 pipelines freely. However, an error occurred while back-porting data to RAVE 1.0 format. Therefore, you might encounter some troubles running 1.0 modules. If you do need RAVE 1.0 modules, please go to [Data Tools] module to validate your data and manually convert the format.\n\nError message: %s", e$message),
-            icon = 'warning',
+            icon = "warning",
             auto_close = TRUE,
             buttons = list("OK" = TRUE)
           )
@@ -241,14 +241,14 @@ module_server <- function(input, output, session, ...){
         shiny::removeModal()
 
       },
-      onRejected = function(e){
+      onRejected = function(e) {
 
         dipsaus::close_alert2()
         dipsaus::shiny_alert2(
           title = "Errors",
           text = paste(c("The following error is found while applying wavelet:",
                          e$message), collapse = " \n"),
-          icon = 'error',
+          icon = "error",
           danger_mode = TRUE,
           auto_close = FALSE,
           buttons = list("OK" = TRUE)
@@ -276,7 +276,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
 
       subject <- pipeline$read("subject")
@@ -290,10 +290,10 @@ module_server <- function(input, output, session, ...){
         etypes %in% c("LFP", "EKG", "Audio") & notch_filtered
       ]
       sample_rates <- subject$raw_sample_rates
-      sample_rates <- sapply(electrodes, function(e){
+      sample_rates <- sapply(electrodes, function(e) {
         sample_rates[all_electrodes == e]
       })
-      etypes <- sapply(electrodes, function(e){
+      etypes <- sapply(electrodes, function(e) {
         etypes[all_electrodes == e]
       })
 
@@ -307,7 +307,7 @@ module_server <- function(input, output, session, ...){
 
       # reset inputs
       fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
-      if(dir.exists(fork_path)) {
+      if (dir.exists(fork_path)) {
         try(silent = FALSE, expr = {
           forked_pipeline <- ravepipeline::pipeline(pipeline_name = pipeline$pipeline_name,
                                               paths = subject$pipeline_path)
@@ -317,10 +317,10 @@ module_server <- function(input, output, session, ...){
           pre_downsample <- previous_settings$pre_downsample
           precision <- previous_settings$precision
 
-          if(length(pre_downsample) == 1 && !is.na(pre_downsample) &&
+          if (length(pre_downsample) == 1 && !is.na(pre_downsample) &&
              pre_downsample >= 1) {
             dsamp <- floor(min(sample_rates) / target_sample_rate / 2)
-            if(dsamp <= 1){
+            if (dsamp <= 1) {
               dsamp <- 1
             }
             dsamp <- 2^(seq_len(floor(log2(dsamp)) + 1) - 1)
@@ -335,7 +335,7 @@ module_server <- function(input, output, session, ...){
 
           }
 
-          if(length(target_sample_rate) == 1 && !is.na(target_sample_rate) &&
+          if (length(target_sample_rate) == 1 && !is.na(target_sample_rate) &&
              target_sample_rate > 0) {
             shiny::updateNumericInput(
               session = session,
@@ -367,7 +367,7 @@ module_server <- function(input, output, session, ...){
   sv$add_rule(
     "target_sample_rate",
     function(value) {
-      if(value <= 1) {
+      if (value <= 1) {
         return("Cannot down-sample wavelet coefficients to a sample rate less-equal than 1")
       }
       return()
@@ -376,7 +376,7 @@ module_server <- function(input, output, session, ...){
   sv$add_rule(
     "pre_downsample",
     function(value) {
-      if(!length(value)) {
+      if (!length(value)) {
         return("Please choose a value. (I suggest `1`)")
       }
       return()
@@ -385,8 +385,8 @@ module_server <- function(input, output, session, ...){
   sv$add_rule(
     "preset_upload",
     function(value) {
-      if(isTRUE(input$use_preset == "Upload preset")) {
-        if(!is.data.frame(local_reactives$wavelet_param_tbl)) {
+      if (isTRUE(input$use_preset == "Upload preset")) {
+        if (!is.data.frame(local_reactives$wavelet_param_tbl)) {
           return("Please upload a preset kernel table in csv format. The table should contain two columns: `Frequency` and `Cycles`")
         }
       }
@@ -400,20 +400,20 @@ module_server <- function(input, output, session, ...){
   # updates
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(is.null(local_data$subject)){ return() }
+      if (is.null(local_data$subject)) { return() }
       target_sample_rate <- input$target_sample_rate
-      if(!length(target_sample_rate) ||
+      if (!length(target_sample_rate) ||
          is.na(target_sample_rate) ||
-         target_sample_rate < 1){ return() }
+         target_sample_rate < 1) { return() }
 
       dsamp <- floor(min(local_data$sample_rates) / target_sample_rate / 2)
-      if(dsamp <= 1){
+      if (dsamp <= 1) {
         dsamp <- 1
       }
       dsamp <- 2^(seq_len(floor(log2(dsamp)) + 1) - 1)
 
       pre_downsample <- local_reactives$pre_downsample
-      if(!length(pre_downsample)) {
+      if (!length(pre_downsample)) {
         pre_downsample <- input$pre_downsample
       }
       local_reactives$pre_downsample <- NULL
@@ -432,11 +432,11 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(is.null(local_data$subject)){ return() }
+      if (is.null(local_data$subject)) { return() }
       dsamp <- input$pre_downsample
-      if(!length(dsamp)) { return() }
+      if (!length(dsamp)) { return() }
       dsamp <- as.integer(dsamp)
-      if(is.na(dsamp)){ return() }
+      if (is.na(dsamp)) { return() }
 
       max_freq <- floor(min(local_data$sample_rates) / 2 / dsamp)
 
@@ -460,10 +460,10 @@ module_server <- function(input, output, session, ...){
       tryCatch({
 
         datapath <- input$preset_upload$datapath
-        if(!file.exists(datapath)){ stop("The uploaded file is corrupted") }
+        if (!file.exists(datapath)) { stop("The uploaded file is corrupted") }
 
         tbl <- utils::read.csv(datapath)
-        if(!all(c("Frequency", "Cycles") %in% names(tbl))){
+        if (!all(c("Frequency", "Cycles") %in% names(tbl))) {
           stop("The uploaded csv table must contain the following two columns: 'Frequency', 'Cycles' (case-sensitive)")
         }
         tbl <- tbl[
@@ -473,7 +473,7 @@ module_server <- function(input, output, session, ...){
         freqs <- as.numeric(tbl$Frequency)
         cycle <- as.numeric(tbl$Cycles)
 
-        if(any(is.na(freqs)) || any(is.na(cycle))) {
+        if (any(is.na(freqs)) || any(is.na(cycle))) {
           stop("Cannot parse the parameter table: none numerical values detected.")
         }
 
@@ -482,7 +482,7 @@ module_server <- function(input, output, session, ...){
           Cycles = cycle
         )
 
-      }, error = function(e){
+      }, error = function(e) {
         error_notification(e)
       })
 
@@ -496,17 +496,17 @@ module_server <- function(input, output, session, ...){
 
     use_preset <- input$use_preset
 
-    if(isTRUE(use_preset == "Builtin tool")) {
+    if (isTRUE(use_preset == "Builtin tool")) {
       freq_range <- input$freq_range
       step <- input$freq_step
       cycle_range <- input$cycle_range
-      if(length(freq_range) != 2){
+      if (length(freq_range) != 2) {
         freq_range <- c(2, 200)
       }
-      if(length(cycle_range) != 2){
+      if (length(cycle_range) != 2) {
         cycle_range <- c(3, 20)
       }
-      if(length(step) != 1){
+      if (length(step) != 1) {
         step <- 2
       }
 
@@ -559,11 +559,11 @@ module_server <- function(input, output, session, ...){
 
   output$download_kernel_table <- shiny::downloadHandler(
     "RAVE-wavelet-parameters.csv",
-    function(conn){
+    function(conn) {
       tryCatch({
         tbl <- kernel_params()
         utils::write.csv(tbl, file = conn, row.names = FALSE)
-      }, error = function(e){
+      }, error = function(e) {
         error_notification(list(message = "The wavelet does not have any configurations"))
       })
     }
@@ -593,7 +593,7 @@ module_server <- function(input, output, session, ...){
         )
       )
 
-      if('LFP' %in% etypes){
+      if ("LFP" %in% etypes) {
         srate <- srate[etypes == "LFP"][[1]]
       } else {
         srate <- min(srate)
@@ -615,7 +615,7 @@ module_server <- function(input, output, session, ...){
         freqs = tbl$Frequency, wave_num = tbl$Cycles,
         srate = srate
       )
-      plot(kernel, cex = 1.4, mai = c(1.02,0.82,0.82,0.42))
+      plot(kernel, cex = 1.4, mai = c(1.02, 0.82, 0.82, 0.42))
     }),
     outputId = "kernel_plot",
     download_type = "image"

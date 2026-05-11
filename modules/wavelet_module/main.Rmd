@@ -45,7 +45,7 @@ notch_filtered_electrodes <- electrodes[
   subject$preprocess_settings$notch_filtered &
     etypes %in% c("LFP", "EKG", "Audio")
 ]
-if(!length(notch_filtered_electrodes)) {
+if (!length(notch_filtered_electrodes)) {
   stop("There is no electrode available to the wavelet module")
 }
 ```
@@ -54,9 +54,9 @@ if(!length(notch_filtered_electrodes)) {
 sample_rates <- subject$preprocess_settings$sample_rates
 electrodes <- subject$electrodes
 
-sample_rates <- sapply(notch_filtered_electrodes, function(e){
+sample_rates <- sapply(notch_filtered_electrodes, function(e) {
   re <- sample_rates[electrodes == e]
-  if(!length(re)) {
+  if (!length(re)) {
     stop("Electrode ", e, " does not have sample rate. The data might not be imported correctly and some configurations are missing.")
   }
   re[[1]]
@@ -71,27 +71,27 @@ sample_rates <- sapply(notch_filtered_electrodes, function(e){
 freqs <- unlist(kernel_table$Frequency)
 cycles <- unlist(kernel_table$Cycles)
 
-if(any(is.na(freqs) | freqs <= 0)) {
+if (any(is.na(freqs) | freqs <= 0)) {
   stop("The wavelet kernel table contains negative `Frequency` value(s)")
 }
 
-if(length(cycles) != 2) {
-  if(length(freqs) != length(cycles)) {
+if (length(cycles) != 2) {
+  if (length(freqs) != length(cycles)) {
     stop("The wavelet kernel table lengths are inconsistent: the lenth of `Cycles` must be either 2 (a range on which wavelet cycles that will be interpolated log-linearly), or the same length as `Frequency`.")
   }
 }
 
-if(any(is.na(cycles) | cycles <= 1)) {
+if (any(is.na(cycles) | cycles <= 1)) {
   stop("The wavelet kernel table contains negative or 0 `Cycles` value(s): wavelet cycles must be greater equal than 1 (also integer numbers are strongly recommended)")
 }
 
-if(length(freqs) != 2 && length(cycles) == 2) {
-  if(cycles[[1]] > cycles[[2]]) {
+if (length(freqs) != 2 && length(cycles) == 2) {
+  if (cycles[[1]] > cycles[[2]]) {
     stop("The wavelet kernel table: when `Cycles` is a range, (length of 2), it must be in non-decreasing order.")
   }
 }
 
-if(length(precision) != 1 || !precision %in% c("float", "double")) {
+if (length(precision) != 1 || !precision %in% c("float", "double")) {
   precision <- "float"
 }
 

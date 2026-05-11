@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -156,7 +156,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   local_reactives <- shiny::reactiveValues()
   local_data <- dipsaus::fastmap2()
@@ -164,7 +164,7 @@ loader_server <- function(input, output, session, ...){
 
   output$loader_electrode_tbl_upload_explanation <- shiny::renderUI({
     source_type <- input$loader_electrode_source
-    switch (
+    switch(
       source_type,
       "File upload - auto" = {
         shiny::column(
@@ -231,7 +231,7 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       info <- input$loader_electrode_tbl_upload
       print(info)
-      if(!length(info)) {
+      if (!length(info)) {
         local_reactives$electrode_table <- NULL
         return()
       }
@@ -245,7 +245,7 @@ loader_server <- function(input, output, session, ...){
   get_electrode_coordinates <- shiny::reactive({
     project_name <- loader_project$get_sub_element_input()
     subject_code <- loader_subject$get_sub_element_input()
-    if(!length(project_name) || !length(subject_code)) {
+    if (!length(project_name) || !length(subject_code)) {
       return()
     }
 
@@ -279,11 +279,11 @@ loader_server <- function(input, output, session, ...){
 
     coordinate_sys <- ""
 
-    switch (
+    switch(
       source_type,
       "File upload - auto" = {
         electrode_table <- local_reactives$electrode_table
-        if(is.data.frame(electrode_table) && all(c("Coord_x", "Coord_y", "Coord_z") %in% names(electrode_table))) {
+        if (is.data.frame(electrode_table) && all(c("Coord_x", "Coord_y", "Coord_z") %in% names(electrode_table))) {
           electrode_table$x <- electrode_table$Coord_x
           electrode_table$y <- electrode_table$Coord_y
           electrode_table$z <- electrode_table$Coord_z
@@ -303,24 +303,24 @@ loader_server <- function(input, output, session, ...){
         coordinate_sys <- "MNI152"
       }
     )
-    if(!is.data.frame(electrode_table)) { return() }
+    if (!is.data.frame(electrode_table)) { return() }
     nms <- names(electrode_table)
-    if(
+    if (
       !all(c("Coord_x", "Coord_y", "Coord_z") %in% nms) &&
       !all(c("x", "y", "z") %in% nms)
     ) {
       return()
     }
-    if(!"Electrode" %in% nms) {
-      if("Channel" %in% nms) {
+    if (!"Electrode" %in% nms) {
+      if ("Channel" %in% nms) {
         electrode_table$Electrode <- electrode_table$Channel
       } else {
         electrode_table$Electrode <- seq_len(nrow(electrode_table))
       }
     }
     electrode_table$Electrode <- as.integer(electrode_table$Electrode)
-    if(!"Label" %in% nms) {
-      if("name" %in% nms) {
+    if (!"Label" %in% nms) {
+      if ("name" %in% nms) {
         electrode_table$Label <- electrode_table$name
       } else {
         electrode_table$Label <- sprintf("Electrode%04d", electrode_table$Electrode)
@@ -355,7 +355,7 @@ loader_server <- function(input, output, session, ...){
                         ))
 
     digit_nms <- c(
-      'Coord_x', 'Coord_y', 'Coord_z', "MNI305_x", "MNI305_y", "MNI305_z",
+      "Coord_x", "Coord_y", "Coord_z", "MNI305_x", "MNI305_y", "MNI305_z",
       "MNI152_x", "MNI152_y", "MNI152_z", "T1R", "T1A", "T1S", "x", "y", "z",
       "OrigCoord_x", "OrigCoord_y", "OrigCoord_z", "DistanceShifted",
       "DistanceToPial", "Sphere_x", "Sphere_y", "Sphere_z"
@@ -370,7 +370,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       radius <- input$loader_override_radius
-      if(isTRUE(radius > 0)) {
+      if (isTRUE(radius > 0)) {
         shiny::updateCheckboxInput(
           session = session,
           inputId = "loader_use_spheres",
@@ -430,10 +430,10 @@ loader_server <- function(input, output, session, ...){
       res$promise$then(
 
         # When data can be imported
-        onFulfilled = function(e){
+        onFulfilled = function(e) {
 
           # Let the module know the data has been changed
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
           ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
@@ -442,7 +442,7 @@ loader_server <- function(input, output, session, ...){
 
 
         # this is what should happen when pipeline fails
-        onRejected = function(e){
+        onRejected = function(e) {
 
           # Close the alert
           dipsaus::close_alert2()

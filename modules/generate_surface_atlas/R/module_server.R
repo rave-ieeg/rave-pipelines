@@ -1,6 +1,6 @@
 `%OF%` <- dipsaus::`%OF%`
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -33,7 +33,7 @@ module_server <- function(input, output, session, ...){
     )
 
     value_names <- names(local_data$value_table)
-    if("Electrode" %in% value_names) {
+    if ("Electrode" %in% value_names) {
       template_brain$set_electrode_values(local_data$value_table)
     }
 
@@ -41,7 +41,7 @@ module_server <- function(input, output, session, ...){
     local_data$brain_list <- brain_list
     local_data$template_brain <- template_brain
 
-    if( update_outputs ) {
+    if ( update_outputs ) {
       local_reactives$update_outputs <- Sys.time()
     }
   }
@@ -50,7 +50,7 @@ module_server <- function(input, output, session, ...){
   run_pipeline <- function(target = c("mapped_results", "mapped_atlas", "save_atlas")) {
     target <- match.arg(target)
 
-    mapping_method <- switch (
+    mapping_method <- switch(
       paste(input$mapping_method, collapse = ""),
       "high-density ECoG" = "high-density",
       {
@@ -69,13 +69,13 @@ module_server <- function(input, output, session, ...){
       )
     )
 
-    if( target != "mapped_results" ) {
+    if ( target != "mapped_results" ) {
       value_name <- input$value_name
-      if(!length(value_name) || value_name %in% c('[None]', "[Subject]")) {
+      if (!length(value_name) || value_name %in% c("[None]", "[Subject]")) {
         stop("Value name cannot be empty, '[None]', or '[Subject]'")
       }
       mapping_threshold <- input$mapping_threshold
-      if(length(mapping_threshold) != 1 || !is.finite(mapping_threshold)) {
+      if (length(mapping_threshold) != 1 || !is.finite(mapping_threshold)) {
         mapping_threshold <- 1
       }
 
@@ -84,9 +84,9 @@ module_server <- function(input, output, session, ...){
       settings$mapping_threshold <- mapping_threshold
     }
 
-    if( target == "save_atlas" ) {
+    if ( target == "save_atlas" ) {
       atlas_name <- input$atlas_name
-      if(length(atlas_name) != 1 || is.na(atlas_name) || !nzchar(atlas_name)) {
+      if (length(atlas_name) != 1 || is.na(atlas_name) || !nzchar(atlas_name)) {
         atlas_name <- ""
       }
       settings$atlas_name <- atlas_name
@@ -114,17 +114,17 @@ module_server <- function(input, output, session, ...){
       return_values = FALSE
     )
 
-    if( target != "mapped_results" ) {
+    if ( target != "mapped_results" ) {
       local_data$mapped_atlas <- pipeline$read("mapped_atlas")
     }
 
     refresh_template_brain(update_outputs = target %in% c("mapped_results", "mapped_atlas"))
 
-    if( target == "save_atlas" ) {
+    if ( target == "save_atlas" ) {
 
       shiny::removeModal(session = session)
 
-      save_atlas_paths <- pipeline$read('save_atlas')
+      save_atlas_paths <- pipeline$read("save_atlas")
       folder_name <- dirname(save_atlas_paths[[1]])
       save_atlas_names <- paste(sQuote(basename(unlist(save_atlas_paths))), collapse = "\n")
       ravedash::show_notification(title = "Done exporting", type = "success", autohide = FALSE, close = TRUE, message = paste(
@@ -143,7 +143,7 @@ module_server <- function(input, output, session, ...){
 
       value_name <- input$value_name
 
-      if(value_name %in% c("[None]", "[Subject]")) {
+      if (value_name %in% c("[None]", "[Subject]")) {
         ravedash::shiny_alert2(
           title = "Invalid data value name",
           icon = "error",
@@ -214,13 +214,13 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       cleaned_inputs <- pipeline$read("cleaned_inputs")
       settings <- pipeline$get_settings()
       value_table <- settings$value_table
 
-      if(
+      if (
         identical(local_data$cleaned_inputs, cleaned_inputs) &&
         identical(local_data$value_table, value_table)
       ) {
@@ -280,7 +280,7 @@ module_server <- function(input, output, session, ...){
       )
 
       mapping_threshold <- settings$mapping_threshold
-      if(!isTRUE(mapping_threshold > 0)) {
+      if (!isTRUE(mapping_threshold > 0)) {
         mapping_threshold <- 1
       }
       shiny::updateNumericInput(
@@ -339,13 +339,13 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!length(local_reactives$update_outputs) ||
+      if (!length(local_reactives$update_outputs) ||
          isFALSE(local_reactives$update_outputs)) {
         return()
       }
       value_name <- input$value_name
-      if(length(value_name) != 1) { return() }
-      brain_proxy$set_controllers(list('Display Data' = value_name))
+      if (length(value_name) != 1) { return() }
+      brain_proxy$set_controllers(list("Display Data" = value_name))
     }),
     input$value_name,
     ignoreNULL = TRUE,
@@ -375,13 +375,13 @@ module_server <- function(input, output, session, ...){
       export_options <- input$export_options
       overwrite <- "Overwrite existing files (if exists)" %in% export_options
       atlas_name <- input$atlas_name
-      if(length(atlas_name) != 1 || is.na(atlas_name) || !nzchar(atlas_name)) {
+      if (length(atlas_name) != 1 || is.na(atlas_name) || !nzchar(atlas_name)) {
         atlas_name <- input$value_name
       }
       cleaned_inputs <- pipeline$read("cleaned_inputs")
       template_path <- file.path(cleaned_inputs$template$path, "label")
       value_type <- input$value_type
-      if(identical(value_type, "numerical")) {
+      if (identical(value_type, "numerical")) {
         file_ext <- "curv"
       } else {
         file_ext <- "annot"
@@ -390,8 +390,8 @@ module_server <- function(input, output, session, ...){
         template_path,
         sprintf("%sh.%s.%s", c("l", "r"), atlas_name, file_ext))
 
-      if(any(file.exists(expected_paths))) {
-        if(!overwrite) {
+      if (any(file.exists(expected_paths))) {
+        if (!overwrite) {
           stop(
             "Atlas files with name `", atlas_name, "` have already existed ",
             "under the template folder: \n  ", normalizePath(template_path),
@@ -429,12 +429,12 @@ module_server <- function(input, output, session, ...){
       )
 
       value_name <- shiny::isolate(input$value_name)
-      if(length(value_name) == 1) {
-        controllers[['Display Data']] <- value_name
+      if (length(value_name) == 1) {
+        controllers[["Display Data"]] <- value_name
       }
       controllers = list("Display Data" = value_name)
 
-      if(length(local_data$mapped_atlas)) {
+      if (length(local_data$mapped_atlas)) {
         mapped_atlas <- local_data$mapped_atlas
 
         annot_name <- sprintf("label/rave_temporary.%s", mapped_atlas$file_ext)

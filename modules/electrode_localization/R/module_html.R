@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -30,8 +30,10 @@ module_html <- function(){
               ),
               shiny::uiOutput(ns("fsindex_selector")),
               footer = shiny::tagList(
-                shiny::a(class = "toggle-advance-options", href="#", "Show/Hide localization instructions"),
-                shiny::uiOutput(ns("instruction_text"), container = function(..., class = ""){
+                shiny::a(class = "toggle-advance-options",
+                         href = "#",
+                         "Show/Hide localization instructions"),
+                shiny::uiOutput(ns("instruction_text"), container = function(..., class = "") {
                   shiny::div(..., class = dipsaus::combine_html_class(class, "rave-optional soft-hidden"))
                 })
               )
@@ -49,14 +51,14 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'YAEL 3D Viewer',
+              "YAEL 3D Viewer",
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 # MIGRATED: removed ravedash::output_gadget_container() wrapper
                 threeBrain::threejsBrainOutput(
                     outputId = ns("localization_viewer"),
-                    width = '100%',
+                    width = "100%",
                     height = "100%"
                   )
               )

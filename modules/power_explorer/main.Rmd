@@ -20,7 +20,7 @@ options(knit_rave_pipelines = TRUE)
 ```{rave check_load_power, language = "R", export = "repository"}
 subject <- ravecore::as_rave_subject(subject_id = sprintf("%s/%s", project_name, subject_code))
 
-if(exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
+if (exists('epoch_choice__load_single_trial') && isTRUE(epoch_choice__load_single_trial)) {
   
   to_ep <- function(en) {
     file.path(subject$meta_path, paste0('epoch_', en, '.csv'))

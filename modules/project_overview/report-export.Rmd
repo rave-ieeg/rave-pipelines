@@ -240,7 +240,7 @@ if (!is.null(meta_summary) && length(meta_summary)) {
           subject$meta_data(meta_type = meta_type, meta_name = name),
           error = function(e) NULL
         )
-      } else NULL
+      } else { NULL }
 
       csv_href <- NULL
       if (is.data.frame(data_df) && nrow(data_df)) {

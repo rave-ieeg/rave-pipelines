@@ -1,7 +1,7 @@
 library(shiny)
 library(shidashi)
 
-server <- function(input, output, session, ...){
+server <- function(input, output, session, ...) {
 
   # For loader
   loader_server(input, output, session, ...)

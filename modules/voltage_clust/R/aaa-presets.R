@@ -11,7 +11,7 @@ component_container <- ravedash::new_rave_shiny_component_container(
 
 
 presets_condition_groups <- with(asNamespace("ravedash"), {
-  function (id = "condition_groups", varname = "condition_groups",
+  function(id = "condition_groups", varname = "condition_groups",
             label = "Create Condition Contrast", pipeline_repository = "repository")
   {
     comp <- RAVEShinyComponent$new(id = id, varname = varname)
@@ -30,8 +30,7 @@ presets_condition_groups <- with(asNamespace("ravedash"), {
         repository <- ravepipeline::pipeline_read(var_names = pipeline_repository,
                                                   pipe_dir = comp$container$pipeline_path)
         comp$container$data[[pipeline_repository]] <- repository
-      }
-      else {
+      } else {
         repository <- comp$container$data[[pipeline_repository]]
       }
       if (!inherits(repository, "rave_repository")) {

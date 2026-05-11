@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   bids_datasets <- sort(get_BIDS_datasets())
 
@@ -48,7 +48,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                 "Import settings"
               ),
               shiny::checkboxInput(
-                inputId = ns('loader_conf_allsessions'),
+                inputId = ns("loader_conf_allsessions"),
                 label = "Import all BIDS sessions and nested runs",
                 value = TRUE,
                 width = "100%"
@@ -90,13 +90,13 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                 )
               ),
               shiny::checkboxInput(
-                inputId = ns('loader_conf_overwrite'),
+                inputId = ns("loader_conf_overwrite"),
                 label = "Overwrite existing imports (otherwise only new runs will be imported)",
                 value = isTRUE(pipeline$get_settings("overwrite")),
                 width = "100%"
               ),
               shiny::checkboxInput(
-                inputId = ns('loader_conf_backup'),
+                inputId = ns("loader_conf_backup"),
                 label = "Backup existing imports if the blocks exist",
                 value = isTRUE(pipeline$get_settings("backup")),
                 width = "100%"
@@ -123,14 +123,14 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Validator for `loader_bids_dataset` & `loader_bids_subject`
   sv_loader_subject <- shinyvalidate::InputValidator$new(session = session)
   sv_loader_subject$add_rule(
     inputId = "loader_bids_dataset",
     rule = function(value) {
-      if(checkmate::test_character(
+      if (checkmate::test_character(
         value,
         len = 1L,
         min.chars = 1L,
@@ -146,7 +146,7 @@ loader_server <- function(input, output, session, ...){
   sv_loader_subject$add_rule(
     inputId = "loader_bids_subject",
     rule = function(value) {
-      if(checkmate::test_character(
+      if (checkmate::test_character(
         value,
         len = 1L,
         min.chars = 1L,
@@ -165,7 +165,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       dset <- input$loader_bids_dataset
-      if(length(dset) != 1 || is.na(dset) || !nzchar(dset)) {
+      if (length(dset) != 1 || is.na(dset) || !nzchar(dset)) {
         return()
       }
       choices <- get_BIDS_subject(dset)
@@ -184,7 +184,7 @@ loader_server <- function(input, output, session, ...){
   # Update `loader_subject_session` list
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!isTRUE(sv_loader_subject$is_valid())) { return() }
+      if (!isTRUE(sv_loader_subject$is_valid())) { return() }
       sessions <- get_BIDS_subject_sessions(
         BIDS_dataset = input$loader_bids_dataset,
         BIDS_subject = input$loader_bids_subject
@@ -205,12 +205,12 @@ loader_server <- function(input, output, session, ...){
   # Update `loader_subject_runs` list
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!isTRUE(sv_loader_subject$is_valid())) { return() }
+      if (!isTRUE(sv_loader_subject$is_valid())) { return() }
 
       BIDS_root <- ravepipeline::raveio_getopt("bids_data_dir")
 
       BIDS_sessions <- input$loader_subject_session
-      if(!length(BIDS_sessions) || "[All sessions]" %in% BIDS_sessions) {
+      if (!length(BIDS_sessions) || "[All sessions]" %in% BIDS_sessions) {
         BIDS_sessions <- NULL
       } else {
         BIDS_sessions <- BIDS_sessions[grepl("^ses-", BIDS_sessions)]
@@ -248,7 +248,7 @@ loader_server <- function(input, output, session, ...){
       BIDS_subject <- input$loader_bids_subject
       import_all_sessions <- input$loader_conf_allsessions
 
-      if( isTRUE(import_all_sessions) ) {
+      if ( isTRUE(import_all_sessions) ) {
         BIDS_sessions <- NULL
         BIDS_runs <- find_bids_runs(
           subject_path = file.path(BIDS_root, BIDS_dataset, BIDS_subject),
@@ -257,7 +257,7 @@ loader_server <- function(input, output, session, ...){
         )$runs
       } else {
         BIDS_sessions <- input$loader_subject_session
-        if(!length(BIDS_sessions) || "[All sessions]" %in% BIDS_sessions) {
+        if (!length(BIDS_sessions) || "[All sessions]" %in% BIDS_sessions) {
           BIDS_sessions <- NULL
         } else {
           BIDS_sessions <- BIDS_sessions[grepl("^ses-", BIDS_sessions)]
@@ -285,7 +285,7 @@ loader_server <- function(input, output, session, ...){
       plan_table <- migrate_plan[migrate_plan$Planned, ]
       not_planned <- migrate_plan[!migrate_plan$Planned, ]
 
-      if(nrow(plan_table)) {
+      if (nrow(plan_table)) {
         confirm_btn <- dipsaus::actionButtonStyled(
           inputId = ns("loader_confirm_import"),
           label = "Confirm import",
@@ -318,8 +318,8 @@ loader_server <- function(input, output, session, ...){
                                   shiny::tags$small("(click me to fold/unfold)", class = "text-secondary")),
               shiny::tagList(lapply(seq_len(nrow(plan_table)), function(ii) {
                 is_overwrite <- plan_table$BlockExist[[ii]]
-                if( is_overwrite ) {
-                  if( backup ) {
+                if ( is_overwrite ) {
+                  if ( backup ) {
                     op_msg <- "This BIDS run replace an existing RAVE block; the existing files will be renamed"
                     op_col <- "#FFA500"
                   } else {
@@ -353,11 +353,11 @@ loader_server <- function(input, output, session, ...){
               shiny::tagList(lapply(seq_len(nrow(not_planned)), function(ii) {
                 src_missing <- !not_planned$SourceExist[[ii]]
                 dst_exists <- not_planned$BlockExist[[ii]]
-                if( src_missing ) {
+                if ( src_missing ) {
                   op_msg <- "Cannot find any data related"
                   op_col <- "#FFA500"
                 } else {
-                  if( dst_exists ) {
+                  if ( dst_exists ) {
                     op_msg <- "An existing RAVE block with the same name exists and overwriting is disabled by the user"
                     op_col <- "#FF4500"
                   } else {

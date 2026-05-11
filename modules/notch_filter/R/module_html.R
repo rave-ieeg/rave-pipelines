@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -159,13 +159,13 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'Notch - Inspect signals',
+              "Notch - Inspect signals",
               class_body = "no-padding fill-width screen-height height-700 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 # MIGRATED: removed ravedash::output_gadget_container() wrapper
                 shiny::plotOutput(ns("signal_plot"),
-                                    width = '100%', height = "100%")
+                                    width = "100%", height = "100%")
 
               )
             )

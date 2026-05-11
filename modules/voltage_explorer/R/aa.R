@@ -18,7 +18,7 @@ debug <- TRUE
 #' If \code{FALSE} is returned, \code{open_loader} event will be dispatched,
 #' resulting in calling function \code{loader_html}.
 #' @returns Logical variable of length one.
-check_data_loaded <- function(first_time = FALSE){
+check_data_loaded <- function(first_time = FALSE) {
   # Always use loading screen
   TRUE
 }
@@ -28,7 +28,7 @@ check_data_loaded <- function(first_time = FALSE){
 # ----------- Initial configurations -----------
 
 # Change the logger level when `debug` is enabled
-if(exists('debug', inherits = FALSE) && isTRUE(get('debug'))){
+if (exists("debug", inherits = FALSE) && isTRUE(get("debug"))) {
   ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {
   ravepipeline::logger_threshold("info", module_id = module_id)

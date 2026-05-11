@@ -14,13 +14,13 @@ DEFAULT_VOLTAGE_UNIT <- "MicroVolt"
 apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
   type <- match.arg(type)
 
-  if( type == "fir" ) {
+  if ( type == "fir" ) {
     type <- "fir_kaiser"
   } else if ( type == "iir" ) {
     type <- "butter"
   }
 
-  if(!is.matrix(signals)) {
+  if (!is.matrix(signals)) {
     signals <- matrix(signals, ncol = 1L)
     is_vector <- TRUE
   } else {
@@ -43,7 +43,7 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
     },
     "decimate" = {
       checkmate::assert_integerish(args$by, lower = 1, any.missing = FALSE, len = 1L, null.ok = FALSE, .var.name = "by")
-      if(args$by > 1) {
+      if (args$by > 1) {
         signals <- apply(signals, 2L, ravetools::decimate, q = args$by)
       }
     },
@@ -57,10 +57,10 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
       slen <- nrow(signals)
       time <- args$start_time + seq(0, by = 1 / args$sample_rate, length.out = slen)
       sel <- rep(FALSE, slen)
-      for(window in windows) {
+      for (window in windows) {
         sel <- sel | (time >= window[[1]] & time <= window[[2]])
       }
-      if(length(args$physical_unit) && startsWith(args$physical_unit, "Ampl")) {
+      if (length(args$physical_unit) && startsWith(args$physical_unit, "Ampl")) {
         # hilbert then baseline -> amplitude % change
         baseline <- colMeans(signals[sel, , drop = FALSE])
         baseline[is.na(baseline)] <- 0
@@ -87,7 +87,7 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
       args$scale %?<-% TRUE
 
       # if( isTRUE(args$high_pass_freq < 2) ) {
-      #   if(!isTRUE(args$high_pass_trans_freq < args$high_pass_freq)) {
+      #   if (!isTRUE(args$high_pass_trans_freq < args$high_pass_freq)) {
       #     args$high_pass_trans_freq <- args$high_pass_freq - 0.0001
       #   }
       # }
@@ -112,7 +112,7 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
     }
   )
 
-  if( is_vector ) {
+  if ( is_vector ) {
     drop( signals )
   } else {
     signals
@@ -129,19 +129,19 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
 
   config <- c(as.list(config), list(...))
 
-  if(length(config$type) != 1) {
+  if (length(config$type) != 1) {
     stop("Unknown filter type. Please specify the `filter$type`.")
   }
 
   type <- match.arg(config$type, choices = ALLOWED_FILTER_TYPES)
 
-  if( type %in% disallow_types ) {
+  if ( type %in% disallow_types ) {
     stop("Filter ", type, " is disallowed at this stage.")
   }
 
   ravepipeline::logger("Checking pre-analysis filter {type}", level = "debug", use_glue = TRUE)
 
-  if( type == "fir" ) {
+  if ( type == "fir" ) {
     type <- "fir_kaiser"
   } else if ( type == "iir" ) {
     type <- "butter"
@@ -165,7 +165,7 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
       checkmate::assert_numeric(config$start_time, any.missing = FALSE, len = 1L, finite = TRUE,
                                 null.ok = FALSE, .var.name = "sample_rate")
       config$windows <- ravecore::validate_time_window(config$windows)
-      if(identical(config$physical_unit, "Amplitude")) {
+      if (identical(config$physical_unit, "Amplitude")) {
         config$physical_unit <- "Amplitude % Change"
       }
     },
@@ -226,7 +226,7 @@ apply_filters_to_signals <- function(signals, filter_configs) {
   # }, callback = I)
 
   signals <- signals[drop = TRUE]
-  for(config in filter_configs) {
+  for (config in filter_configs) {
     # config = filter_configs[[3]]
     call <- as.call(c(
       list(quote(apply_filter), signals = quote(signals)), #, sample_rate = sample_rate, start_time = start_time),
@@ -255,7 +255,7 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
 
   physical_unit <- DEFAULT_VOLTAGE_UNIT
 
-  for(ii in seq_along(configs)) {
+  for (ii in seq_along(configs)) {
     conf <- configs[[ ii ]]
     conf <- assert_filter_config(
       config = conf,
@@ -263,30 +263,30 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
       start_time = start_time,
       physical_unit = physical_unit
     )
-    if(length(conf$physical_unit)) {
+    if (length(conf$physical_unit)) {
       physical_unit <- conf$physical_unit
     }
-    if(identical(conf$type, "decimate")) {
+    if (identical(conf$type, "decimate")) {
       new_srate <- new_srate / conf$by
       n_timepoints <- ceiling(n_timepoints / conf$by)
     } else {
-      if( isTRUE(is.finite(conf$high_pass_freq)) ) {
-        if( isTRUE(is.finite(conf$low_pass_freq)) ) {
+      if ( isTRUE(is.finite(conf$high_pass_freq)) ) {
+        if ( isTRUE(is.finite(conf$low_pass_freq)) ) {
           # either band-pass or band-stop
-          if( isTRUE( conf$low_pass_freq > conf$high_pass_freq ) ) {
+          if ( isTRUE( conf$low_pass_freq > conf$high_pass_freq ) ) {
             # band-pass
-            if( !isTRUE(high_pass >= conf$high_pass_freq) ) {
+            if ( !isTRUE(high_pass >= conf$high_pass_freq) ) {
               high_pass <- conf$high_pass_freq
             }
-            if( !isTRUE(low_pass <= conf$low_pass_freq) ) {
+            if ( !isTRUE(low_pass <= conf$low_pass_freq) ) {
               low_pass <- conf$low_pass_freq
             }
           }
-        } else if( !isTRUE(high_pass >= conf$high_pass_freq) ) {
+        } else if ( !isTRUE(high_pass >= conf$high_pass_freq) ) {
           high_pass <- conf$high_pass_freq
         }
-      } else if( isTRUE(is.finite(conf$low_pass_freq)) ) {
-        if( !isTRUE(low_pass <= conf$low_pass_freq) ) {
+      } else if ( isTRUE(is.finite(conf$low_pass_freq)) ) {
+        if ( !isTRUE(low_pass <= conf$low_pass_freq) ) {
           low_pass <- conf$low_pass_freq
         }
       }
@@ -314,7 +314,7 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
   )
 
   pre_analysis_filter_array <- filearray::filearray_load_or_create(
-    filebase = file.path('data', array_type, fsep = "/"),
+    filebase = file.path("data", array_type, fsep = "/"),
     mode = "readonly",
     type = "float",
     symlink_ok = FALSE,

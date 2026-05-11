@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   available_template_subjects <- names(threeBrain::available_templates())
   saved_template <- pipeline$get_settings(

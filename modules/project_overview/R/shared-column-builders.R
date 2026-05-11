@@ -40,7 +40,7 @@ make_subjects_columns <- function(cache_dir) {
         filtered_ref_names,
         function(name) {
           ref <- snapshot$reference_tables[[name]]
-          if(!nrow(ref)) { return(NULL) }
+          if (!nrow(ref)) { return(NULL) }
           noref_count <- sum(ref$Type %in% c("No Reference"), na.rm = TRUE)
           bad_channels <- sum(ref$Type %in% c(""), na.rm = TRUE)
 
@@ -111,7 +111,7 @@ make_subjects_columns <- function(cache_dir) {
     "Report Time" = function(subject) {
       snapshot <- read_snapshot(subject)
       snapshot_date <- snapshot$snapshot_date
-      if(!length(snapshot_date)) {
+      if (!length(snapshot_date)) {
         return(NA)
       }
       strftime(snapshot_date, usetz = TRUE)
@@ -125,7 +125,7 @@ snapshot_subject <- function(subject_id, cache_dir = NULL, snapshot_dir = NULL, 
   subject <- ravecore::as_rave_subject(subject_id, strict = FALSE)
   subject_code <- subject$subject_code
 
-  if(length(cache_dir) == 1) {
+  if (length(cache_dir) == 1) {
     subject_cache <- file.path(cache_dir, "subjects", subject_code)
     ravepipeline::dir_create2(subject_cache)
     snapshot_path <- file.path(subject_cache, "snapshot.rds")
@@ -135,7 +135,7 @@ snapshot_subject <- function(subject_id, cache_dir = NULL, snapshot_dir = NULL, 
   }
 
   # Viewer goes to snapshot_dir (project group_path) for standalone_report access
-  if(length(snapshot_dir) == 1) {
+  if (length(snapshot_dir) == 1) {
     viewer_dir <- file.path(snapshot_dir, "subjects", subject_code)
     ravepipeline::dir_create2(viewer_dir)
     viewer_path <- file.path(viewer_dir, "viewer.html")
@@ -143,12 +143,12 @@ snapshot_subject <- function(subject_id, cache_dir = NULL, snapshot_dir = NULL, 
     viewer_path <- NULL
   }
 
-  if(length(viewer_path) && (!use_cache || !file.exists(viewer_path))) {
+  if (length(viewer_path) && (!use_cache || !file.exists(viewer_path))) {
     brain <- ravecore::rave_brain(subject = subject, surfaces = c("pial", "inflated", "white"))
     threeBrain::save_brain(brain$plot(), path = viewer_path, title = subject$subject_id)
   }
 
-  if(use_cache && length(snapshot_path) && file.exists(snapshot_path)) {
+  if (use_cache && length(snapshot_path) && file.exists(snapshot_path)) {
     return(readRDS(snapshot_path))
   }
 
@@ -199,7 +199,7 @@ snapshot_subject <- function(subject_id, cache_dir = NULL, snapshot_dir = NULL, 
     snapshot_date = Sys.time()
   )
 
-  if(length(snapshot_path) == 1) {
+  if (length(snapshot_path) == 1) {
     saveRDS(re, file = snapshot_path)
   }
   re
@@ -237,7 +237,7 @@ snapshot_project <- function(project_name, subject_codes = NULL, template = "fsa
     snapshot_subject = snapshot_subject,
     use_cache = use_cache
   ), callback = function(subject_id) {
-    sprintf('Creating snapshot|%s', subject_id)
+    sprintf("Creating snapshot|%s", subject_id)
   })
 
   # Generate group-level viewer

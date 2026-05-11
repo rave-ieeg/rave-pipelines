@@ -24,7 +24,7 @@ With `export="subject"`, the subject variable will be registered for the followi
 #### Step 2: Load epoch and reference information
 
 ```{rave load_repository, language = "R", export = "repository"}
-repository <- switch (
+repository <- switch(
   repository_datatype,
   "voltage" = {
     ravecore::prepare_subject_voltage_with_blocks(
@@ -53,7 +53,7 @@ repository <- switch (
 ```
 
 ```{rave generate_annotation_table, language = "R", export = "annotation_table"}
-if(is.null(epoch_name) || is.na(epoch_name)) {
+if (is.null(epoch_name) || is.na(epoch_name)) {
   annotation_table <- NULL
 } else {
   epoch <- ravecore::RAVEEpoch$new(subject = subject, name = epoch_name)
@@ -62,7 +62,7 @@ if(is.null(epoch_name) || is.na(epoch_name)) {
   annotation_table <- data.table::rbindlist(lapply(seq_along(epoch_events), function(ii) {
     event_name <- epoch_events[[ii]]
     event_cname <- epoch$get_event_colname(event = event_name, missing = "warning")
-    if(event_name == "") { event_name <- "Onset" }
+    if (event_name == "") { event_name <- "Onset" }
     annotation_table <- data.frame(
       block = epoch$table$Block,
       time = epoch$table[[event_cname]], 

@@ -1,6 +1,6 @@
 
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -80,7 +80,8 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   shinyWidgets::switchInput(
                     inputId = ns("allow_fork_clusters"),
                     label = "Allow forked process",
-                    labelWidth = "100%",width = "100%",
+                    labelWidth = "100%",
+                    width = "100%",
                     onStatus = "success",
                     offStatus = "danger",
                     onLabel = "Enabled",
@@ -354,7 +355,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   max_cores <- dipsaus::detectCores()
   local_reactives <- shiny::reactiveValues()
@@ -380,12 +381,12 @@ loader_server <- function(input, output, session, ...){
 
     msg <- utils::capture.output({
       python_info <- pipeline$run("python_summary", type = "callr")
-      if(is.list(python_info)) {
+      if (is.list(python_info)) {
         cat(format(python_info$summary), sep = "\n")
       }
     }, type = "output")
 
-    if(!is.list(python_info) || isFALSE(python_info$summary)) {
+    if (!is.list(python_info) || isFALSE(python_info$summary)) {
       python_config <- FALSE
     } else {
       python_config <- dipsaus::ansi_strip(msg)
@@ -393,7 +394,7 @@ loader_server <- function(input, output, session, ...){
 
     local_reactives$python_config <- python_config
 
-    if(isFALSE(python_config)) {
+    if (isFALSE(python_config)) {
       local_reactives$python_package_table <- NULL
     } else {
       local_reactives$python_package_table <- python_info$packages
@@ -420,7 +421,7 @@ loader_server <- function(input, output, session, ...){
         message = "Please click button [Check Python status] to start..."
       )
     )
-    if(isFALSE(python_config)) {
+    if (isFALSE(python_config)) {
       cat("Python is not configured for RAVE yet...\n")
     } else {
       cat(python_config, sep = "\n")
@@ -446,18 +447,18 @@ loader_server <- function(input, output, session, ...){
       pkgs <- unlist(strsplit(input$python_install_packages, ","))
       pkgs <- trimws(pkgs)
       pkgs <- pkgs[pkgs != ""]
-      if(!length(pkgs)) {
+      if (!length(pkgs)) {
         stop("No package to install. Please specify the packages.")
       }
 
       use_pip <- identical(input$python_install_use_pip, "pip3")
       conda_channel <- trimws(paste(input$python_install_conda_channel, collapse = ""))
-      if( !nzchar(conda_channel) ) {
+      if ( !nzchar(conda_channel) ) {
         conda_channel <- character()
       }
 
       python_config <- local_reactives$python_config
-      if(!length(python_config)) {
+      if (!length(python_config)) {
         load_py_info()
         python_config <- local_reactives$python_config
       }
@@ -465,7 +466,7 @@ loader_server <- function(input, output, session, ...){
       promise <- ravedash::with_log_modal(
         title = "Adding Python/Conda packages",
         expr = bquote({
-          if( isFALSE(.(python_config)) ) {
+          if ( isFALSE(.(python_config)) ) {
             cat("Configuring Python for RAVE (might take a while)...\n")
             # configure python
             ravemanager::configure_python()
@@ -502,7 +503,7 @@ loader_server <- function(input, output, session, ...){
       pkgs <- unlist(strsplit(input$r_install_packages, ","))
       pkgs <- trimws(pkgs)
       pkgs <- pkgs[pkgs != ""]
-      if(!length(pkgs)) {
+      if (!length(pkgs)) {
         stop("No package to install. Please specify the packages.")
       }
 
@@ -513,8 +514,8 @@ loader_server <- function(input, output, session, ...){
       ravemanager <- asNamespace("ravemanager")
 
       mirrors <- as.list(ravemanager$get_mirror())
-      for(url in repos) {
-        if(startsWith(url, "http") && !isTRUE(url %in% mirrors)) {
+      for (url in repos) {
+        if (startsWith(url, "http") && !isTRUE(url %in% mirrors)) {
           mirrors[[sprintf("repo%02d", length(mirrors) + 1)]] <- url
         }
       }
@@ -543,7 +544,7 @@ loader_server <- function(input, output, session, ...){
           repos[current_repos$name] <- current_repos$url
           options(repos = repos)
 
-          for(pkg in pkgs) {
+          for (pkg in pkgs) {
             cat("Installing ", pkg, "\n", sep = "")
             pak$pkg_install(pkg = pkg, lib = lib, upgrade = FALSE, ask = FALSE, dependencies = NA)
           }
@@ -597,21 +598,21 @@ loader_server <- function(input, output, session, ...){
       project_name <- trimws(input$rave_install_subject_project)
       subject_code <- trimws(input$rave_install_subject_code)
 
-      if(length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
+      if (length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
         project_name <- NA
       } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = project_name, ignore.case = TRUE)) {
         stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
       }
 
-      if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
+      if (length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
         subject_code <- NA
       } else if (!grepl(pattern = "^[a-z][a-z0-9_]", x = subject_code, ignore.case = TRUE)) {
         stop("Project name must start with letters and can only contain letters (a-z), digits (0-9)")
       }
 
-      if(!is.na(project_name) && !is.na(subject_code)) {
+      if (!is.na(project_name) && !is.na(subject_code)) {
         subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
-        if(file.exists(subject$path)) {
+        if (file.exists(subject$path)) {
           stop("Subject [", subject_code, "] already exists. Please consider changing to another subject code.")
         }
       }
@@ -628,10 +629,10 @@ loader_server <- function(input, output, session, ...){
           subject_code <- .(subject_code)
 
           cat("Downloading from\n  ", url, "\n", sep = "")
-          if(!is.na(project_name)) {
+          if (!is.na(project_name)) {
             cat("Setting project: ", project_name, "\n", sep = "")
           }
-          if(!is.na(subject_code)) {
+          if (!is.na(subject_code)) {
             cat("Setting subject: ", subject_code, "\n", sep = "")
           }
 
@@ -731,13 +732,13 @@ loader_server <- function(input, output, session, ...){
     sv <- shinyvalidate::InputValidator$new(session = session)
 
     sv$add_rule(paste0(input_id, "_text"), function(value) {
-      if(length(value) != 1 || is.na(value) || trimws(value) == '') {
+      if (length(value) != 1 || is.na(value) || trimws(value) == "") {
         return(sprintf(
           "Path to [%s] is blank. Please enter a valid path",
           opt_name
         ))
       }
-      if(!ok_ifnot_exists && !dir.exists(value)) {
+      if (!ok_ifnot_exists && !dir.exists(value)) {
         return(sprintf(
           "Path to [%s] does not exists",
           opt_name
@@ -750,7 +751,7 @@ loader_server <- function(input, output, session, ...){
 
     shiny::bindEvent(
       ravedash::safe_observe({
-        if(!sv$is_valid()) { return() }
+        if (!sv$is_valid()) { return() }
         val <- normalizePath(input[[paste0(input_id, "_text")]])
         ravepipeline::logger(
           "Trying to set RAVE option [{opt_key}] <- {val}",
@@ -805,10 +806,10 @@ loader_server <- function(input, output, session, ...){
       suppressWarnings({
         value <- as.integer(value)
       })
-      if(length(value) != 1 || is.na(value)) {
+      if (length(value) != 1 || is.na(value)) {
         return("Invalid CPU cores: must be an integer")
       }
-      if(value < 1 || value > max_cores) {
+      if (value < 1 || value > max_cores) {
         return(sprintf("Invalid CPU cores: must be an integer from 1 to %.0f", max_cores))
       }
       return()
@@ -818,9 +819,9 @@ loader_server <- function(input, output, session, ...){
 
     shiny::bindEvent(
       ravedash::safe_observe({
-        if(!sv$is_valid()) { return() }
+        if (!sv$is_valid()) { return() }
         max_worker <- as.integer(input$max_worker_text)
-        if(!length(max_worker) || is.na(max_worker) ||
+        if (!length(max_worker) || is.na(max_worker) ||
            max_worker < 1 || max_worker > max_cores) {
           return()
         }
@@ -861,7 +862,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       v <- input$allow_fork_clusters
-      if(length(v) != 1) { return() }
+      if (length(v) != 1) { return() }
       disable_fork_clusters <- !v
 
       ravepipeline::logger(
@@ -882,8 +883,8 @@ loader_server <- function(input, output, session, ...){
 
   get_available_templates <- local({
     templates <- NULL
-    function(){
-      if(is.null(templates)) {
+    function() {
+      if (is.null(templates)) {
         templates <<- threeBrain::available_templates()
       }
       templates
@@ -893,11 +894,11 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       template_subject <- input$template_subject_text
-      if(!length(template_subject)) { return() }
-      if(is.na(template_subject)) { return() }
+      if (!length(template_subject)) { return() }
+      if (is.na(template_subject)) { return() }
 
       template_subject <- gsub("[^a-zA-Z0-9_-]", "", template_subject)
-      if( !nchar(template_subject) ) {
+      if ( !nchar(template_subject) ) {
         shinyWidgets::updateSearchInput(
           session = session, inputId = "template_subject",
           value = "", trigger = FALSE
@@ -914,12 +915,12 @@ loader_server <- function(input, output, session, ...){
       root_path <- threeBrain::default_template_directory()
       path <- file.path(root_path, template_subject)
 
-      if(dir.exists(path)) {
+      if (dir.exists(path)) {
         ravepipeline::raveio_setopt("threeBrain_template_subject", value = template_subject)
         shidashi::show_notification("New template is set!", title = "Succeed!", type = "success")
       } else {
         templates <- get_available_templates()
-        if(template_subject %in% names(templates)) {
+        if (template_subject %in% names(templates)) {
 
           timeout <- getOption("timeout")
           shidashi::show_notification(
@@ -944,19 +945,19 @@ loader_server <- function(input, output, session, ...){
             ravepipeline::raveio_setopt("threeBrain_template_subject", value = template_subject)
             shidashi::show_notification("New template is set!", title = "Succeed!", type = "success")
             template_subject
-          }, error = function(e){
+          }, error = function(e) {
             old_template <- ravepipeline::raveio_getopt("threeBrain_template_subject",
                                                   default = "N27")
             shidashi::show_notification(sprintf(
               "Cannot download template subject [%s] due to the following reason: \n'%s'. Rewinding to previous subject [%s]",
               template_subject, paste(e$message, collapse = ""), old_template
-            ), title = "Fail to download the template", type = 'danger')
+            ), title = "Fail to download the template", type = "danger")
             old_template
           })
         } else {
           shidashi::show_notification(sprintf(
             "Cannot set template subject [%s]. Please check your template folder and make sure this name is correct", template_subject
-          ), title = "Fail to set the template", type = 'danger')
+          ), title = "Fail to set the template", type = "danger")
           return()
         }
       }

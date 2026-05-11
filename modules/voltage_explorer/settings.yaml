@@ -1,17 +1,10 @@
-analysis_channels: 14
-analysis_settings:
-  '1':
-    label: A
-    event: Trial Onset
-    channels:
-    - 14.0
-    - 15.0
-  '2':
-    label: B
-    event: Trial Onset
-    channels:
-    - 13.0
-    - 16.0
+analysis_electrodes: '14 '
+analysis_electrodes__category: FSLabel
+analysis_ranges: ~
+analysis_ranges__lock: ~
+baseline__global_baseline_choice: ~
+baseline__unit_of_analysis: ~
+baseline__windows: ~
 condition_groupings:
   '1':
     label: AOnly
@@ -27,29 +20,28 @@ condition_groupings:
     - drive_av
     - known_av
     - meant_av
+condition_groups: ~
 epoch_choice: auditory_onset
 epoch_choice__trial_ends: 3
 epoch_choice__trial_ends_rel_to_event: ~
 epoch_choice__trial_starts: -1
 epoch_choice__trial_starts_rel_to_event: ~
 filter_configurations:
+- type: decimate
+  by: 4
+- type: fir
+  high_pass_freq: ~
+  low_pass_freq: 30
+  high_pass_trans_freq: ~
+  low_pass_trans_freq: ~
+  stopband_attenuation: 40
 - type: detrend
+- type: demean
 - type: baseline
   windows:
   - -1.0
   - -0.5
-# - type: decimate
-#   by: 2.0
-# - type: fir
-#   high_pass_freq: 0.1
-#   low_pass_freq: 30.0
-# - type: decimate
-#   by: 4.0
 loaded_electrodes: 13-16,24
-plot_range:
-  time:
-  - -0.1
-  - 0.4
 project_name: demo
 reference_name: default
 subject_code: DemoSubject

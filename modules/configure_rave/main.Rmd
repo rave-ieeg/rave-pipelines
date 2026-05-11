@@ -26,7 +26,7 @@ system_summary <- sessionInfo()
 ```{rave get_python_information, language = "R", export = "python_summary", cue = "always"}
 python_summary <- FALSE
 try({
-  if(dir.exists(rpymat::env_path())) {
+  if (dir.exists(rpymat::env_path())) {
     summary <- rpymat::ensure_rpymat(verbose = FALSE)
     packages <- reticulate::py_list_packages(rpymat::env_path())
     python_summary <- list(
@@ -59,7 +59,7 @@ try({
 ```{r execute}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 ravepipeline::pipeline_run(type = "vanilla")
-ravepipeline::pipeline_progress(method = 'details')
+ravepipeline::pipeline_progress(method = "details")
 ```
 
 

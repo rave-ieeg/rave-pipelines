@@ -6,7 +6,7 @@ targets::tar_option_set(
 
 ensure_brain_template <- function(template_subject = ravepipeline::raveio_getopt("threeBrain_template_subject")) {
   template_subject <- template_subject[!is.na(template_subject)]
-  if(!length(template_subject)) {
+  if (!length(template_subject)) {
     template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject")
   } else {
     template_subject <- template_subject[[1]]

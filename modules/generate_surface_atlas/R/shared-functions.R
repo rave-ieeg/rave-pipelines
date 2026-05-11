@@ -7,7 +7,7 @@ extract_meta_value_table <- function(value_file, project_name) {
   subjects <- project$subjects()
 
   # Source data from which the mask/value files will be created
-  if(is.data.frame(value_file)) {
+  if (is.data.frame(value_file)) {
     value_table <- value_file
   } else {
     value_table <- data.table::fread(value_file)
@@ -26,7 +26,7 @@ load_mapped_brain <- function(project_name, subject_codes, mapped_results) {
   res <- lapply(subject_codes, function(subject_code) {
     subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
     brain <- ravecore::rave_brain(subject)
-    if(is.null(brain)) { return() }
+    if (is.null(brain)) { return() }
     electrode_table <- brain$electrodes$raw_table
     electrode_table$Subject <- subject_code
     merged <- merge(
@@ -117,7 +117,7 @@ generate_atlas <- function(
     mesh_values <- combined_table[[value_name]][kdtree$index]
     dim(mesh_values) <- dim(kdtree$index)
 
-    if(value_type == "numerical") {
+    if (value_type == "numerical") {
       mesh_values_weighted_avg <- rowSums(mesh_values * weights)
       re <- ieegio::as_ieegio_surface(
         x = NULL,
@@ -130,7 +130,7 @@ generate_atlas <- function(
       best_matching_value <- sapply(seq_len(nrow(weights)), function(ii) {
         x <- weights[ii, ]
         idx <- which.max(x)
-        if(x[[idx]] == 0) { return("Unknown") }
+        if (x[[idx]] == 0) { return("Unknown") }
         return(mesh_values[ii, idx])
       })
       best_matching_value <- factor(as.character(best_matching_value), levels = levels)
@@ -170,7 +170,7 @@ generate_atlas <- function(
   file_type <- ifelse(value_type == "numerical", "measurements", "annotations")
   ieegio::write_surface(
     x = atlas_right,
-    format = 'freesurfer',
+    format = "freesurfer",
     type = file_type,
     con = file.path(
       threeBrain::default_template_directory(),
@@ -182,7 +182,7 @@ generate_atlas <- function(
 
   ieegio::write_surface(
     x = atlas_left,
-    format = 'freesurfer',
+    format = "freesurfer",
     type = file_type,
     con = file.path(
       threeBrain::default_template_directory(),

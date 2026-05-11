@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     shiny::div(
@@ -17,7 +17,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # query_string <- "/?type=widget&output_id=plot_overall&rave_id=Pnd8MuxNVsZGcbrRWn8G&module=standalone_viewer"
   query_string <- session$clientData$url_search
@@ -41,7 +41,7 @@ loader_server <- function(input, output, session, ...){
       snapshot_path <- paste(snapshot_path[grepl("^[a-zA-Z0-9]", snapshot_path)],
                              collapse = .Platform$file.sep)
 
-      if(!nzchar(snapshot_path)) {
+      if (!nzchar(snapshot_path)) {
         snapshot_path <- "project-report.html"
       }
       filepath <- file.path(project$group_path("project_overview"), "snapshot", snapshot_path)
@@ -71,7 +71,7 @@ loader_server <- function(input, output, session, ...){
                                            subject_code = subject_code,
                                            strict = FALSE)
       report_html <- NULL
-      if(length(report_filename)) {
+      if (length(report_filename)) {
         report_html <- file.path(subject$report_path, report_filename, "report.html")
       } else {
         report_name <- query_list$query$report_name
@@ -79,7 +79,7 @@ loader_server <- function(input, output, session, ...){
           subject$report_path,
           pattern = sprintf("^report-%s_datetime-[0-9]{6}T[0-9]{6}_", report_name)
         )
-        if(length(reports)) {
+        if (length(reports)) {
           report_filename <- sort(reports, decreasing = TRUE)[[1]]
           report_html <- file.path(subject$report_path, report_filename, "report.html")
         }
@@ -112,9 +112,9 @@ loader_server <- function(input, output, session, ...){
 
   output$download_btn <- shiny::downloadHandler(
     filename = function(...) {
-      if(!length(local_data$report_html)) { return("report.html") }
+      if (!length(local_data$report_html)) { return("report.html") }
       name <- basename(dirname(local_data$report_html))
-      if(!endsWith(name, ".html")) {
+      if (!endsWith(name, ".html")) {
         name <- sprintf("%s.html", name)
       }
       name

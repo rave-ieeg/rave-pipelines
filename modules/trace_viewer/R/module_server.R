@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -27,22 +27,22 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      if(!ravedash::watch_data_loaded()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
 
       repository <- local_data$repository
 
       # Collect input data
       recording_block <- input$recording_block
-      if(!length(recording_block)) {
+      if (!length(recording_block)) {
         stop("Recording block is empty. Please choose a recording block first")
       }
-      if(!isTRUE(recording_block %in% repository$blocks)) {
+      if (!isTRUE(recording_block %in% repository$blocks)) {
         stop("Invalid recording block chosen: ", paste(recording_block))
       }
       local_data$recording_block <- recording_block
 
       epoch_name <- input$annotation_source
-      if(epoch_name == "") {
+      if (epoch_name == "") {
         epoch_name = NULL
       }
       epoch_events <- input$annotation_events
@@ -58,10 +58,10 @@ module_server <- function(input, output, session, ...){
 
       channels <- dipsaus::parse_svec(input$electrode_text)
       channels <- channels[channels %in% repository$electrode_list]
-      if(!length(channels)) {
+      if (!length(channels)) {
         channels <- repository$electrode_list
       }
-      if(!length(channels)) {
+      if (!length(channels)) {
         stop("No channel to visualize. Please import valid channels")
       }
 
@@ -93,15 +93,15 @@ module_server <- function(input, output, session, ...){
       )
 
       channel_gap <- input$viewer_channel_gap
-      if(!isTRUE(channel_gap > 0)) {
+      if (!isTRUE(channel_gap > 0)) {
         # find signal gap by quantile
-        if(n_timepoints > 60000) {
+        if (n_timepoints > 60000) {
           qt <- quantile(signal_info$data[sample(n_timepoints - 60001, 1) + seq_len(60000), ], c(0.005, 0.995), na.rm = TRUE)
         } else {
           qt <- quantile(signal_info$data[], c(0.005, 0.995), na.rm = TRUE)
         }
         channel_gap <- max(0, ceiling(qt[[2]] - qt[[1]]))
-        if(is.finite(channel_gap)) {
+        if (is.finite(channel_gap)) {
 
           shiny::updateNumericInput(
             session = session,
@@ -125,7 +125,7 @@ module_server <- function(input, output, session, ...){
         ylab = "Channel"
       )
 
-      if(is.data.frame(annotation_table)) {
+      if (is.data.frame(annotation_table)) {
         annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
         stream_plot_container$annotations <- annotation_subset
 
@@ -161,18 +161,18 @@ module_server <- function(input, output, session, ...){
 
 
     start_time <- shiny::isolate(input$viewer_start_time)
-    if(is.na(start_time)) { start_time <- stream_plot_container$start_time }
+    if (is.na(start_time)) { start_time <- stream_plot_container$start_time }
 
     duration <- shiny::isolate(input$viewer_duration)
-    if(is.na(duration)) { start_time <- stream_plot_container$max_duration }
+    if (is.na(duration)) { start_time <- stream_plot_container$max_duration }
 
     channel_gap <- shiny::isolate(input$viewer_channel_gap)
-    if(is.na(channel_gap)) { channel_gap <- stream_plot_container$channel_gap }
+    if (is.na(channel_gap)) { channel_gap <- stream_plot_container$channel_gap }
 
     highpass_freq <- local_data$highpass_freq
     lowpass_freq <- local_data$lowpass_freq
-    if(!length(highpass_freq)) { highpass_freq <- NA }
-    if(!length(lowpass_freq)) { lowpass_freq <- NA }
+    if (!length(highpass_freq)) { highpass_freq <- NA }
+    if (!length(lowpass_freq)) { lowpass_freq <- NA }
     # print(c(highpass_freq, lowpass_freq))
 
     auto_decimate <- paste(input$auto_decimate, collapse = "")
@@ -180,7 +180,7 @@ module_server <- function(input, output, session, ...){
 
     needs_update <- FALSE
     current_range <- stream_plot_container$start_time + c(0, stream_plot_container$max_duration)
-    if(
+    if (
       init ||
       current_range[[1]] > start_time ||
       current_range[[2]] < end_time
@@ -189,7 +189,7 @@ module_server <- function(input, output, session, ...){
     }
 
     stream_plot_container$channel_gap <- channel_gap
-    switch (
+    switch(
       auto_decimate,
       "high-quality" = { stream_plot_container$MAX_POINTS <- 2000000 },
       "performance" = { stream_plot_container$MAX_POINTS <- 100000 },
@@ -197,7 +197,7 @@ module_server <- function(input, output, session, ...){
     )
 
     # Update stream_plot_container
-    if( needs_update ) {
+    if ( needs_update ) {
       electrode_table <- local_data$electrode_table
       recording_block <- local_data$recording_block
       repository <- local_data$repository
@@ -206,17 +206,17 @@ module_server <- function(input, output, session, ...){
 
       # Set annotations
       annotation_table <- local_data$annotation_table
-      if(is.data.frame(annotation_table)) {
+      if (is.data.frame(annotation_table)) {
         stream_plot_container$annotations <- annotation_table[annotation_table$block %in% recording_block, ]
       } else {
         stream_plot_container$annotations <- NULL
       }
 
       msg <- NULL
-      if(!is.na(highpass_freq)) {
+      if (!is.na(highpass_freq)) {
         msg <- sprintf(" HighPass=%g", highpass_freq)
       }
-      if(!is.na(lowpass_freq)) {
+      if (!is.na(lowpass_freq)) {
         msg <- c(msg, sprintf(" LowPass=%g", lowpass_freq))
       }
       msg <- paste(msg, collapse = ",")
@@ -224,7 +224,7 @@ module_server <- function(input, output, session, ...){
 
       signal_types <- unique(electrode_table$SignalType)
 
-      if( init ) {
+      if ( init ) {
         load_start_time <- start_time
         load_duration <- duration
       } else {
@@ -232,14 +232,14 @@ module_server <- function(input, output, session, ...){
 
         total_sample_rates <- sum(electrode_table$SampleRate)
         total_timepoints <- duration * total_sample_rates
-        if(total_timepoints <= 1e6) {
+        if (total_timepoints <= 1e6) {
           # 40 MB from disk
           load_duration <- 1e7 / total_sample_rates
           load_start_time <- start_time - ((load_duration - duration) * 0.5)
-          if(load_start_time < 0) {
+          if (load_start_time < 0) {
             load_start_time <- 0
           }
-        } else if(total_timepoints <= 1e7){
+        } else if (total_timepoints <= 1e7) {
           # max 100 MB from disk
           load_start_time <- start_time
           load_duration <- duration + ceiling(duration * 0.75)
@@ -251,7 +251,7 @@ module_server <- function(input, output, session, ...){
 
       # construct filters
       filters <- list()
-      if(!is.na(highpass_freq) || !is.na(lowpass_freq)) {
+      if (!is.na(highpass_freq) || !is.na(lowpass_freq)) {
 
         # print(c(highpass_freq, lowpass_freq))
 
@@ -291,10 +291,10 @@ module_server <- function(input, output, session, ...){
         dimnames(signal_data) <- NULL
 
 
-        for(filter in filters) {
+        for (filter in filters) {
           # print(filter)
           filter_impl <- filter[[signal_type]]
-          if(length(filter_impl)) {
+          if (length(filter_impl)) {
             signal_data <- ravetools::filtfilt(b = filter_impl$b, a = filter_impl$a, x = signal_data)
           }
         }
@@ -311,7 +311,7 @@ module_server <- function(input, output, session, ...){
     }
 
 
-    if(!init) {
+    if (!init) {
       show_rendering_notification(message = "Updating graphics...", session = session)
       stream_plot_container$update(proxy = stream_proxy,
                                    start_time = start_time,
@@ -322,16 +322,16 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
 
       stream_plot_container <- local_reactives$stream_plot_container
-      if(!length(stream_plot_container)) { return() }
+      if (!length(stream_plot_container)) { return() }
 
       annotation_subset <- stream_plot_container$annotations
-      if(!is.data.frame(annotation_subset) || !nrow(annotation_subset)) { return() }
+      if (!is.data.frame(annotation_subset) || !nrow(annotation_subset)) { return() }
 
       sel <- annotation_subset$trial_name %in% input$viewer_trial
-      if(!any(sel)) { return() }
+      if (!any(sel)) { return() }
 
       start_time <- annotation_subset$time[sel][[1]] - 0.5
       shiny::updateNumericInput(
@@ -346,20 +346,20 @@ module_server <- function(input, output, session, ...){
   )
 
   switch_trial <- function(delta = 1) {
-    if(!ravedash::watch_data_loaded()) { return() }
+    if (!ravedash::watch_data_loaded()) { return() }
 
     stream_plot_container <- local_reactives$stream_plot_container
-    if(!length(stream_plot_container)) { return() }
+    if (!length(stream_plot_container)) { return() }
 
     annotation_subset <- stream_plot_container$annotations
-    if(!is.data.frame(annotation_subset) || !nrow(annotation_subset)) { return() }
+    if (!is.data.frame(annotation_subset) || !nrow(annotation_subset)) { return() }
 
     nr <- nrow(annotation_subset)
-    if(!nr) { return() }
+    if (!nr) { return() }
 
     sel <- which(annotation_subset$trial_name %in% input$viewer_trial)
 
-    if(!length(sel)) { sel <- 0 }
+    if (!length(sel)) { sel <- 0 }
 
     sel <- (sel + delta - 1) %% nr + 1
     new_trial <- annotation_subset$trial_name[[sel]]
@@ -389,13 +389,13 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       highpass_freq <- input$filter_highpass
-      if(length(highpass_freq) != 1 || is.na(highpass_freq) || highpass_freq <= 0) {
+      if (length(highpass_freq) != 1 || is.na(highpass_freq) || highpass_freq <= 0) {
         highpass_freq <- NA
       }
 
       lowpass_freq <- input$filter_lowpass
 
-      if(length(lowpass_freq) != 1 || is.na(lowpass_freq) || lowpass_freq <= 0) {
+      if (length(lowpass_freq) != 1 || is.na(lowpass_freq) || lowpass_freq <= 0) {
         lowpass_freq <- NA
       }
 
@@ -409,9 +409,9 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
       duration <- input$viewer_duration
-      if(!is.numeric(duration) || is.na(duration)) { return() }
+      if (!is.numeric(duration) || is.na(duration)) { return() }
       shiny::updateNumericInput(
         session = session,
         inputId = "viewer_start_time",
@@ -424,10 +424,10 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
 
       stream_plot_container <- local_reactives$stream_plot_container
-      if(!length(stream_plot_container)) { return() }
+      if (!length(stream_plot_container)) { return() }
 
       update_plot(init = FALSE)
     }),
@@ -444,9 +444,9 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
       new_repository <- pipeline$read("repository")
-      if(!inherits(new_repository, "rave_repository")){
+      if (!inherits(new_repository, "rave_repository")) {
         ravepipeline::logger("Repository read from the pipeline, but it is not an instance of `rave_repository`. Abort initialization", level = "warning")
         return()
       }
@@ -454,10 +454,10 @@ module_server <- function(input, output, session, ...){
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
-      if(inherits(old_repository, "rave_repository")){
+      if (inherits(old_repository, "rave_repository")) {
 
-        if( !attr(loaded_flag, "force") &&
-            identical(old_repository$signature, new_repository$signature) ){
+        if ( !attr(loaded_flag, "force") &&
+            identical(old_repository$signature, new_repository$signature) ) {
           ravepipeline::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "info", use_glue = TRUE)
           return()
         }
@@ -481,7 +481,7 @@ module_server <- function(input, output, session, ...){
 
       shiny::updateSelectInput(
         session = session,
-        inputId = 'recording_block',
+        inputId = "recording_block",
         choices = new_repository$blocks
       )
 
@@ -514,13 +514,13 @@ module_server <- function(input, output, session, ...){
       nyquist <- floor(min(unlist(new_repository$sample_rates)) / 2)
       shiny::updateNumericInput(
         session = session,
-        inputId = 'filter_highpass',
+        inputId = "filter_highpass",
         max = nyquist
       )
 
       shiny::updateNumericInput(
         session = session,
-        inputId = 'filter_lowpass',
+        inputId = "filter_lowpass",
         max = nyquist
       )
 
@@ -532,11 +532,11 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
       epoch_name <- input$annotation_source
 
       repository <- component_container$data$repository
-      if(!epoch_name %in% repository$subject$epoch_names) { return() }
+      if (!epoch_name %in% repository$subject$epoch_names) { return() }
       epoch <- repository$subject$get_epoch(epoch_name = epoch_name)
       available_events <- epoch$available_events
       available_events <- available_events[available_events != ""]
@@ -557,16 +557,16 @@ module_server <- function(input, output, session, ...){
       relayout <- as.list(plotly::event_data("plotly_relayout"))
       start_time <- as.numeric(relayout[["xaxis.range[0]"]])
       end_time <- as.numeric(relayout[["xaxis.range[1]"]])
-      if(length(start_time) != 1 || is.na(start_time)) { return() }
+      if (length(start_time) != 1 || is.na(start_time)) { return() }
       # start_time <- floor(start_time)
       shiny::updateNumericInput(session = session,
-                                inputId = 'viewer_start_time',
+                                inputId = "viewer_start_time",
                                 value = start_time)
 
-      if(length(end_time) != 1 || is.na(end_time)) { return() }
+      if (length(end_time) != 1 || is.na(end_time)) { return() }
       duration <- end_time - start_time
       shiny::updateNumericInput(session = session,
-                                inputId = 'viewer_duration',
+                                inputId = "viewer_duration",
                                 value = duration)
     }),
     input$viewer_apply_brush,
@@ -591,10 +591,10 @@ module_server <- function(input, output, session, ...){
     stream_plot_container <- local_reactives$stream_plot_container
 
     start_time <- shiny::isolate(input$viewer_start_time)
-    if(is.na(start_time)) { start_time <- stream_plot_container$start_time }
+    if (is.na(start_time)) { start_time <- stream_plot_container$start_time }
 
     duration <- shiny::isolate(input$viewer_duration)
-    if(is.na(duration)) { start_time <- stream_plot_container$max_duration }
+    if (is.na(duration)) { start_time <- stream_plot_container$max_duration }
 
     impl <- stream_plot_container$render()
     plotly::layout(

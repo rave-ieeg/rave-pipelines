@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
   `%OF%` <- dipsaus::`%OF%`
 
@@ -30,13 +30,13 @@ module_server <- function(input, output, session, ...){
   brain_proxy <- threeBrain::brain_proxy(outputId = "viewer3d", session = session)
 
   gen_capability_ui <- function(mapping_capabilities, i) {
-    if(!is.data.frame(mapping_capabilities) || nrow(mapping_capabilities) < i) { return(NULL) }
+    if (!is.data.frame(mapping_capabilities) || nrow(mapping_capabilities) < i) { return(NULL) }
     # i <- 1
     capabilities <- as.list(mapping_capabilities[i, ])
     subject_code <- capabilities$Subject
 
-    if( capabilities$mni152 ) {
-      if(capabilities$ants) {
+    if ( capabilities$mni152 ) {
+      if (capabilities$ants) {
         volume_capability <- "yes"
       } else {
         volume_capability <- "yes (if Python is configured)"
@@ -46,13 +46,13 @@ module_server <- function(input, output, session, ...){
     }
 
     cache <- NULL
-    if(capabilities$surface_cache) {
+    if (capabilities$surface_cache) {
       cache <- "surface"
     }
-    if(capabilities$mni152_cache) {
+    if (capabilities$mni152_cache) {
       cache <- c(cache, "volume")
     }
-    if(!length(cache)) {
+    if (!length(cache)) {
       cache <- "none"
     } else {
       cache <- paste(cache, collapse = ", ")
@@ -121,7 +121,7 @@ module_server <- function(input, output, session, ...){
 
     mapping_capabilities <- shiny::isolate(local_reactives$mapping_capabilities)
 
-    if(!isTRUE(result) && !is.data.frame(mapping_capabilities)) {
+    if (!isTRUE(result) && !is.data.frame(mapping_capabilities)) {
       ravedash::shiny_alert2(
         title = "Errors",
         text = paste(
@@ -180,22 +180,22 @@ module_server <- function(input, output, session, ...){
   }
 
   update_viewer <- function() {
-    if(!isTRUE(local_data$template_needs_update)) { return() }
+    if (!isTRUE(local_data$template_needs_update)) { return() }
 
     # Update the viewer with
     template <- pipeline$read("template")
 
     radius <- input$electrode_radius
-    if(isTRUE(radius > 0)) {
+    if (isTRUE(radius > 0)) {
       # Needs to overwrite the electrode radius
       lapply(template$objects, function(brain) {
         electrode_table <- brain$electrodes$raw_table
-        if(is.data.frame(electrode_table)) {
+        if (is.data.frame(electrode_table)) {
           electrode_table$Radius <- radius
           brain$set_electrodes(electrode_table, priority = "sphere")
         }
         value_table <- brain$electrodes$value_table
-        if(is.data.frame(value_table)) {
+        if (is.data.frame(value_table)) {
           brain$set_electrode_values(value_table)
         }
         brain
@@ -203,7 +203,7 @@ module_server <- function(input, output, session, ...){
     }
 
     data_uploader <- input$data_uploader
-    if(length(data_uploader)) {
+    if (length(data_uploader)) {
       value_table <- utils::read.csv(data_uploader$datapath[[1]])
       template$set_electrode_values(value_table)
     }
@@ -215,10 +215,10 @@ module_server <- function(input, output, session, ...){
     missing_volumes <- additional_volumes[!additional_volumes %in% template$template_object$atlas_types]
     missing_surfaces <- additional_surfaces[!additional_surfaces %in% template$template_object$surface_types]
 
-    if(length(c(missing_volumes, missing_surfaces))) {
+    if (length(c(missing_volumes, missing_surfaces))) {
       temporary_template <- threeBrain::merge_brain(
         template_subject = local_data$template_name,
-        template_surface_types = unique(c('pial', "sphere.reg", input$additional_surfaces)),
+        template_surface_types = unique(c("pial", "sphere.reg", input$additional_surfaces)),
         template_atlas_types = additional_volumes,
         template_annotation_types = additional_annots
       )
@@ -252,7 +252,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       local_data$template_needs_update <- TRUE
-      if(!local_data$has_template) {
+      if (!local_data$has_template) {
         generate_viewer()
         return()
       }
@@ -268,17 +268,18 @@ module_server <- function(input, output, session, ...){
   value_table_example <- shiny::reactive({
     tryCatch({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
-      if(!isTRUE(input$download_sample_value_table_type %in% SAMPLE_VALUE_CHOICES)) {
+      if (!loaded_flag) { return() }
+      if (!isTRUE(input$download_sample_value_table_type %in% SAMPLE_VALUE_CHOICES)) {
         return()
       }
       subject_codes <- input$subject_codes
-      if(!length(subject_codes)) {
+      if (!length(subject_codes)) {
         subject_codes <- sprintf("Subject%03d", 1:3)
       }
 
       subject_codes <- sort(sample(subject_codes, 10, replace = TRUE))
-      electrodes <- unname(unlist(lapply(table(subject_codes), seq_len)))
+      # electrodes <- unname(unlist(lapply(table(subject_codes), seq_len)))
+      electrodes <- sequence(table(subject_codes))
       nelec <- 10
       tbl <- switch(
         input$download_sample_value_table_type,
@@ -315,7 +316,7 @@ module_server <- function(input, output, session, ...){
     filename = "electrode_value.csv",
     content = function(con) {
       sample_value_table <- value_table_example()
-      if(!is.data.frame(sample_value_table)) {
+      if (!is.data.frame(sample_value_table)) {
         stop("No sample value table is available. Electrode table is not detected.")
       }
       utils::write.csv(x = sample_value_table, file = con, row.names = FALSE)
@@ -349,7 +350,7 @@ module_server <- function(input, output, session, ...){
       caption = caption,
       options = list(
         columnDefs = list(
-          list(className = 'dt-right', targets = "_all")
+          list(className = "dt-right", targets = "_all")
         )
       )
     )
@@ -358,7 +359,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       mapping_method <- input$mapping_method %OF% c("auto", "non-linear surface normalization", "non-linear volumetric normalization")
-      mapping_method <- switch (
+      mapping_method <- switch(
         mapping_method,
         "non-linear surface normalization" = "sphere.reg",
         "non-linear volumetric normalization" = "mni152",
@@ -404,7 +405,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       selected <- shiny::isolate(input$download_template_type) %OF% SAMPLE_VALUE_CHOICES
 
@@ -472,11 +473,11 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       project_name <- pipeline$get_settings("project_name")
       template_info <- pipeline$read("template_info")
-      if(
+      if (
         identical(project_name, local_data$project_name) &&
         identical(template_info$name, local_data$template_name)
       ) {
@@ -574,7 +575,7 @@ module_server <- function(input, output, session, ...){
               shiny::tags$li(
                 "`sphere.reg`, or surface normalization: This method uses ",
                 shiny::a(
-                  href = 'https://surfer.nmr.mgh.harvard.edu/fswiki/SurfaceRegAndTemplates',
+                  href = "https://surfer.nmr.mgh.harvard.edu/fswiki/SurfaceRegAndTemplates",
                   target = "_blank", "FreeSurfer spherical normalization"), " ",
                 "to align the gyrification information. (FreeSurfer recon-all ",
                 "folder required)"
@@ -627,7 +628,7 @@ module_server <- function(input, output, session, ...){
         "visibility" = "all visible"
       )
 
-      switch (
+      switch(
         mapping_method,
         "sphere.reg" = {
           controllers[["Surface Mapping"]] <- "sphere.reg"

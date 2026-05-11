@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -17,7 +17,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       local_reactives$validation_results <- NULL
       expand_card(NULL)
@@ -38,7 +38,7 @@ module_server <- function(input, output, session, ...){
 
       local_reactives$validation_results <- NULL
 
-      if(mode == "normal") {
+      if (mode == "normal") {
         dipsaus::shiny_alert2(
           title = "Validation in progress...",
           text = "Please wait...",
@@ -68,7 +68,7 @@ module_server <- function(input, output, session, ...){
 
       tryCatch({
         subject <- component_container$data$subject
-        if(!inherits(subject, "RAVESubject")) {
+        if (!inherits(subject, "RAVESubject")) {
           stop("Subject is invalid. Please validate the subject first")
         }
 
@@ -117,8 +117,8 @@ module_server <- function(input, output, session, ...){
       "Backward compatibility",
       "Export data"
     )
-    for(card_title in card_titles) {
-      if(identical(card_title, title)) {
+    for (card_title in card_titles) {
+      if (identical(card_title, title)) {
         shidashi::card_operate(title = card_title, method = "expand")
       } else {
         shidashi::card_operate(title = card_title, method = "collapse")
@@ -153,25 +153,25 @@ module_server <- function(input, output, session, ...){
 
   output$validation_check <- shiny::renderUI({
     validation_results <- local_reactives$validation_results
-    if(is.null(validation_results)) { return(invisible()) }
+    if (is.null(validation_results)) { return(invisible()) }
     keys <- c("paths", "preprocess", "meta", "voltage_data",
               "power_phase_data", "epoch_tables", "reference_tables")
     re <- list()
-    for(k in keys) {
+    for (k in keys) {
       items <- validation_results[[k]]
-      if(length(items)) {
+      if (length(items)) {
         re0 <- lapply(names(items), function(nm) {
           item <- items[[nm]]
           s <- utils::capture.output({
             print(item, use_logger = FALSE)
           })
 
-          if(isTRUE(item$valid)) {
+          if (isTRUE(item$valid)) {
             cls <- "hljs-comment"
-          } else if(is.na(item$valid)) {
+          } else if (is.na(item$valid)) {
             cls <- "hljs-literal"
           } else {
-            if(identical(item$severity, "minor")) {
+            if (identical(item$severity, "minor")) {
               cls <- "hljs-literal"
             } else {
               cls <- "hljs-keyword"
@@ -192,18 +192,18 @@ module_server <- function(input, output, session, ...){
   export_validator <- local({
     sv <- shinyvalidate::InputValidator$new(session = session)
     sv$add_rule("export_type", function(value) {
-      if(!length(value)) { return() }
+      if (!length(value)) { return() }
       subject <- component_container$data$subject
-      if(inherits(subject, "RAVESubject")) {
+      if (inherits(subject, "RAVESubject")) {
         switch(
           value,
           "power" = {
-            if(!any(subject$preprocess_settings$has_wavelet)) {
+            if (!any(subject$preprocess_settings$has_wavelet)) {
               return("Please make sure that Wavelet has been applied")
             }
           },
           "voltage" = {
-            if(!any(subject$preprocess_settings$notch_filtered)) {
+            if (!any(subject$preprocess_settings$notch_filtered)) {
               return("Please make sure the Notch filters have been applied")
             }
           }
@@ -213,32 +213,32 @@ module_server <- function(input, output, session, ...){
     })
     sv$add_rule("export_epoch", function(value) {
       subject <- component_container$data$subject
-      if(inherits(subject, "RAVESubject")) {
-        if(!isTRUE(value %in% subject$epoch_names)) {
+      if (inherits(subject, "RAVESubject")) {
+        if (!isTRUE(value %in% subject$epoch_names)) {
           return("Please choose a valid epoch")
         }
       }
       return()
     })
     sv$add_rule("export_pre", function(value) {
-      if(!isTRUE(value < 0)) {
+      if (!isTRUE(value < 0)) {
         return("Please choose a negative number")
       }
       return()
     })
     sv$add_rule("export_post", function(value) {
-      if(!isTRUE(value > 0)) {
+      if (!isTRUE(value > 0)) {
         return("Please choose a positive number")
       }
       return()
     })
     sv$add_rule("export_reference", function(value) {
-      if(identical(input$export_type, "raw-voltage")) {
+      if (identical(input$export_type, "raw-voltage")) {
         return()
       }
       subject <- component_container$data$subject
-      if(inherits(subject, "RAVESubject")) {
-        if(!isTRUE(value %in% subject$reference_names)) {
+      if (inherits(subject, "RAVESubject")) {
+        if (!isTRUE(value %in% subject$reference_names)) {
           return("Please choose a valid reference")
         }
       }
@@ -246,12 +246,12 @@ module_server <- function(input, output, session, ...){
     })
     sv$add_rule("export_electrode", function(value) {
       value <- trimws(value)
-      if(nzchar(value)){
+      if (nzchar(value)) {
         value <- dipsaus::parse_svec(value)
         value <- value[value > 0]
         subject <- component_container$data$subject
-        if(inherits(subject, "RAVESubject")) {
-          if(identical(input$export_type, "raw-voltage") ||
+        if (inherits(subject, "RAVESubject")) {
+          if (identical(input$export_type, "raw-voltage") ||
              !length(input$export_reference)) {
             valid_elec <- subject$electrodes
           } else {
@@ -260,7 +260,7 @@ module_server <- function(input, output, session, ...){
           value <- value[value %in% valid_elec]
         }
 
-        if(!length(value)) {
+        if (!length(value)) {
           return("No valid electrode channels chosen")
         }
       }
@@ -274,14 +274,14 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){
+      if (!loaded_flag) {
         export_validator$disable()
         return()
       }
       export_validator$enable()
 
       subject <- component_container$data$subject
-      if(!inherits(subject, "RAVESubject")) {
+      if (!inherits(subject, "RAVESubject")) {
         stop("Subject is invalid. Please validate the subject first")
       }
 
@@ -322,23 +322,23 @@ module_server <- function(input, output, session, ...){
 
   export_repository <- function(zip = FALSE) {
     loaded_flag <- ravedash::watch_data_loaded()
-    if(!loaded_flag){ return() }
+    if (!loaded_flag) { return() }
 
     subject <- component_container$data$subject
-    if(!inherits(subject, "RAVESubject")) {
+    if (!inherits(subject, "RAVESubject")) {
       stop("Subject is invalid. Please reload the subject.")
     }
 
     export_validator$enable()
 
-    if(!export_validator$is_valid()) {
+    if (!export_validator$is_valid()) {
       stop("Please correct the inputs before exporting data")
     }
 
     export_type <- input$export_type
     export_electrode <- dipsaus::parse_svec(input$export_electrode)
     export_electrode <- export_electrode[export_electrode %in% subject$electrodes]
-    if(!length(export_electrode)) {
+    if (!length(export_electrode)) {
       export_electrode <- subject$electrodes
     }
     export_epoch <- input$export_epoch
@@ -395,7 +395,7 @@ module_server <- function(input, output, session, ...){
       )
 
       export_folder <- repository$export_matlab()
-      if(zip) {
+      if (zip) {
         wd <- getwd()
         setwd(dirname(export_folder))
         on.exit({ setwd(wd) }, add = TRUE, after = FALSE)

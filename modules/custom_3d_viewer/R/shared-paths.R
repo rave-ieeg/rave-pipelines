@@ -16,14 +16,14 @@ url_neurosynth <- function(x, y, z) {
 }
 
 has_fsdir <- function(project_name, subject_code) {
-  if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
+  if (length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
     return(FALSE)
   }
-  if(length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
+  if (length(project_name) != 1 || is.na(project_name) || !nzchar(project_name)) {
     native_raw_path <- ravepipeline::raveio_getopt("raw_data_dir")
     raw_fs <- file.path(native_raw_path, subject_code, "rave-imaging", "fs")
-    if(file.exists(raw_fs)) {
-      if(threeBrain::check_freesurfer_path(raw_fs, autoinstall_template = FALSE,
+    if (file.exists(raw_fs)) {
+      if (threeBrain::check_freesurfer_path(raw_fs, autoinstall_template = FALSE,
                                            check_volume = FALSE)) {
         return(raw_fs)
       }
@@ -34,14 +34,14 @@ has_fsdir <- function(project_name, subject_code) {
                                        subject_code = subject_code,
                                        strict = FALSE)
   re <- subject$freesurfer_path
-  if(length(re) != 1 || is.na(re) || !file.exists(re)) {
+  if (length(re) != 1 || is.na(re) || !file.exists(re)) {
     return(FALSE)
   }
   return(TRUE)
 }
 
 get_projects_with_scode <- function(subject_code, refresh = TRUE) {
-  if(length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
+  if (length(subject_code) != 1 || is.na(subject_code) || !nzchar(subject_code)) {
     return(NULL)
   }
   all_projects <- ravecore::get_projects(refresh = refresh)
@@ -59,12 +59,12 @@ get_projects_with_scode <- function(subject_code, refresh = TRUE) {
 }
 
 get_brain_subject <- function(brain, strict = TRUE) {
-  if(length(brain$subject_code) != 1) { return() }
+  if (length(brain$subject_code) != 1) { return() }
 
   subject_code <- brain$subject_code
   project_name <- brain$meta$constructor_params$project_name %||% brain$project_name
 
-  if(length(subject_code) != 1 || length(project_name) != 1) { return() }
+  if (length(subject_code) != 1 || length(project_name) != 1) { return() }
   ravecore::RAVESubject$new(project_name = project_name,
                             subject_code = subject_code,
                             strict = strict)
@@ -83,7 +83,7 @@ get_subject_imaging_datapath <- function(
     "pipeline" = {
       .NotYetImplemented()
       root_path <- subject$pipeline_path
-      if(check && dir.exists(subject$rave_path)) {
+      if (check && dir.exists(subject$rave_path)) {
         # subject must exists, otherwise do not create
         ravepipeline::dir_create2(root_path)
       }
@@ -92,7 +92,7 @@ get_subject_imaging_datapath <- function(
     {
       stopifnot(is.null(raw_path))
       root_path <- file.path(subject$imaging_path, "custom-data")
-      if(check) {
+      if (check) {
         ravepipeline::dir_create2(root_path)
       }
       file.path(root_path, ...)

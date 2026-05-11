@@ -14,7 +14,7 @@ ravepipeline::pipeline_setup_rmd("group_3d_viewer")
 ```{rave ensure_template_brain, language = "R", export = "template_info", cue = "always"}
 template_root <- threeBrain::default_template_directory()
 template_path <- file.path(template_root, template_name)
-if(!dir.exists(template_path)) {
+if (!dir.exists(template_path)) {
   oldopt <- options(timeout = 3600)
   on.exit({ options(oldopt) })
   threeBrain::download_template_subject(subject_code = template_name)
@@ -57,12 +57,12 @@ template_info <- list(
 
 
 ```{rave filter_subject_codes, language = "R", export = "subject_codes_filtered"}
-if(length(project_name) != 1) {
+if (length(project_name) != 1) {
   stop("Invalid RAVE project name. The `project_name` input must have length of one")
 }
 project <- ravecore::as_rave_project(project_name)
 all_subject_codes <- project$subjects()
-if(!length(all_subject_codes)) {
+if (!length(all_subject_codes)) {
   warning(sprintf("No subject found under the project `%s`", project_name))
 }
 subject_codes <- unlist(subject_codes)
@@ -95,7 +95,7 @@ brain_list <- lapply(subject_codes_filtered, function(subject_code) {
       
       raw_table <- brain$electrodes$raw_table
       
-      if(
+      if (
         is.data.frame(raw_table) && nrow(raw_table) > 0 &&
         "LabelPrefix" %in% names(raw_table)) {
         
@@ -117,14 +117,14 @@ brain_list <- brain_list[!vapply(brain_list, is.null, FALSE)]
 
 ```{rave generate_template_brain, language = "R", export = "template", format = "user-defined-r"}
 radius <- electrode_radius
-if(length(radius) != 1 || !is.numeric(radius) || !isTRUE(radius > 0) || !is.finite(radius)) {
+if (length(radius) != 1 || !is.numeric(radius) || !isTRUE(radius > 0) || !is.finite(radius)) {
   radius <- 0
 }
 
-if(radius > 0) {
+if (radius > 0) {
   brain_list2 <- lapply(brain_list, function(brain) {
     raw_table <- brain$electrodes$raw_table
-    if(is.data.frame(raw_table) && nrow(raw_table) > 0) {
+    if (is.data.frame(raw_table) && nrow(raw_table) > 0) {
       raw_table$Radius <- radius
       brain$set_electrodes(raw_table, priority = "sphere")
     }

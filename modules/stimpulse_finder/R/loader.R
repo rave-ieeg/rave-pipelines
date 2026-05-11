@@ -1,10 +1,10 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   ravedash::simple_layout(
     input_width = 4L,
     container_fixed = TRUE,
-    container_style = 'max-width:1444px;',
+    container_style = "max-width:1444px;",
     input_ui = {
       # project & subject
       ravedash::input_card(
@@ -63,7 +63,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
@@ -79,7 +79,7 @@ loader_server <- function(input, output, session, ...){
       )
 
       epoch_name <- input$loader_epoch
-      if(length(epoch_name) == 1 && epoch_name != "[None]") {
+      if (length(epoch_name) == 1 && epoch_name != "[None]") {
         settings$epoch_name <- epoch_name
       } else {
         settings$epoch_name <- NULL
@@ -105,7 +105,7 @@ loader_server <- function(input, output, session, ...){
 
           Sys.sleep(0.5)
           # Let the module know the data has been changed
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
           ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
@@ -140,7 +140,7 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       project_name <- loader_project$current_value
       subject_code <- loader_subject$current_value
-      if(length(project_name) == 1 && length(subject_code) == 1) {
+      if (length(project_name) == 1 && length(subject_code) == 1) {
         subject <- ravecore::new_rave_subject(
           project_name = project_name, subject_code = subject_code, strict = FALSE)
         epoch_names <- c("[None]", subject$epoch_names)

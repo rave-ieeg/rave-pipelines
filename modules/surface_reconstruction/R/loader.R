@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -155,7 +155,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
@@ -172,17 +172,17 @@ loader_server <- function(input, output, session, ...){
     shiny::bindEvent(
       ravedash::safe_observe({
         input_choice <- input[[image_path_inputId]]
-        if(!length(input_choice)) { return() }
-        if( identical(input_choice, "[Upload]")) {
+        if (!length(input_choice)) { return() }
+        if ( identical(input_choice, "[Upload]")) {
 
           subject_code <- loader_subject$get_sub_element_input()
-          if(!length(subject_code)) {
+          if (!length(subject_code)) {
             shiny::updateSelectInput(session = session, inputId = image_path_inputId,
                                      selected = " ")
           }
 
           max_size <- getOption("shiny.maxRequestSize", 300 * 1024^2)
-          if( max_size < 300 * 1024^2) {
+          if ( max_size < 300 * 1024^2) {
             options("shiny.maxRequestSize" = 300 * 1024^2)
           }
 
@@ -217,7 +217,7 @@ loader_server <- function(input, output, session, ...){
     shiny::bindEvent(
       ravedash::safe_observe({
         current_val <- as.character(local_data[[ image_path_inputId ]])
-        if(length(current_val)) {
+        if (length(current_val)) {
           shiny::updateSelectInput(session = session, inputId = image_path_inputId,
                                    selected = current_val)
         } else {
@@ -234,11 +234,11 @@ loader_server <- function(input, output, session, ...){
       ravedash::safe_observe({
         finfo <- input[[ image_path_upload_inputId ]]
 
-        if(nrow( finfo ) != 1) {
+        if (nrow( finfo ) != 1) {
           stop("Please upload a valid NIfTI file.")
         }
         subject_code <- loader_subject$get_sub_element_input()
-        if(!length(subject_code)) {
+        if (!length(subject_code)) {
           shiny::removeModal()
           stop("Invalid subject code. Please choose a valid one before uploading.")
         }
@@ -260,7 +260,7 @@ loader_server <- function(input, output, session, ...){
           choices = c("[Upload]", " ", image_selector_choices)
         )
         shiny::removeModal()
-      }, error_wrapper = 'notification'),
+      }, error_wrapper = "notification"),
       input[[ image_path_upload_inputId ]],
       ignoreNULL = TRUE, ignoreInit = TRUE
     )
@@ -303,14 +303,14 @@ loader_server <- function(input, output, session, ...){
       res$promise$then(
 
         # When data can be imported
-        onFulfilled = function(e){
+        onFulfilled = function(e) {
 
           check_result <- pipeline$read("check_result")
           cmd_tools <- pipeline$read("cmd_tools")
 
           msg_ui <- NULL
           warn_ui <- NULL
-          if(length(check_result$messages)) {
+          if (length(check_result$messages)) {
             msg_ui <- shiny::tagList(
               shiny::p("The following pipeline will run:"),
               shiny::tags$ul(
@@ -319,7 +319,7 @@ loader_server <- function(input, output, session, ...){
             )
           }
 
-          if(length(check_result$warnings)) {
+          if (length(check_result$warnings)) {
             warn_ui <- shiny::tagList(
               shiny::p("Please check the following warnings:"),
               shiny::tags$ul(
@@ -360,7 +360,7 @@ loader_server <- function(input, output, session, ...){
 
 
         # this is what should happen when pipeline fails
-        onRejected = function(e){
+        onRejected = function(e) {
 
           dipsaus::close_alert2()
 
@@ -385,7 +385,7 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       shiny::removeModal()
       # Let the module know the data has been changed
-      ravedash::fire_rave_event('data_changed', Sys.time())
+      ravedash::fire_rave_event("data_changed", Sys.time())
       ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code
@@ -404,9 +404,9 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       project_name <- loader_project$get_sub_element_input()
       subject_code <- loader_subject$get_sub_element_input()
-      if(!length(project_name) || !length(subject_code)) { return() }
+      if (!length(project_name) || !length(subject_code)) { return() }
 
-      if(is.null(local_cache$subject) || !isTRUE(local_cache$subject$subject_id == sprintf("%s/%s", project_name, subject_code))) {
+      if (is.null(local_cache$subject) || !isTRUE(local_cache$subject$subject_id == sprintf("%s/%s", project_name, subject_code))) {
         local_cache$subject <- raveio::RAVESubject$new(
           project_name = project_name,
           subject_code = subject_code,
@@ -414,7 +414,7 @@ loader_server <- function(input, output, session, ...){
       }
       subject <- local_cache$subject
 
-      if(!length(subject)) { return() }
+      if (!length(subject)) { return() }
 
       # paths <- list.dirs(subject$preprocess_settings$raw_path, full.names = FALSE, recursive = TRUE)
       paths <- list.files(subject$preprocess_settings$raw_path, all.files = TRUE, full.names = FALSE, include.dirs = TRUE, no.. = TRUE, recursive = TRUE)
@@ -425,10 +425,10 @@ loader_server <- function(input, output, session, ...){
       local_data$ct_path_choices <- paths
 
       selected <- NULL
-      if(length(paths)) {
+      if (length(paths)) {
         selected <- c(paths[startsWith(paths, file.path("rave-uploads", "MRI", ""))],
                       paths[grepl("MR", paths)])
-        if(length(selected)) {
+        if (length(selected)) {
           selected <- selected[[1]]
         }
       }
@@ -436,18 +436,18 @@ loader_server <- function(input, output, session, ...){
         subject$get_default("raw_mri_path", namespace = pipeline$pipeline_name),
         selected
       )
-      if( identical(pipeline$get_settings("subject_code"), subject_code) ) {
+      if ( identical(pipeline$get_settings("subject_code"), subject_code) ) {
         selected <- c(pipeline$get_settings("path_mri"), selected)
       }
       selected <- selected %OF% paths
-      if(!length(selected)) { selected <- " " }
+      if (!length(selected)) { selected <- " " }
       shiny::updateSelectInput(session = session, inputId = "mri_path", choices = c("[Upload]", " ", paths), selected = selected)
 
       selected <- NULL
-      if(length(paths)) {
+      if (length(paths)) {
         selected <- c(paths[startsWith(paths, file.path("rave-uploads", "CT", ""))],
                       paths[grepl("CT", paths)])
-        if(length(selected)) {
+        if (length(selected)) {
           selected <- selected[[1]]
         }
       }
@@ -455,16 +455,16 @@ loader_server <- function(input, output, session, ...){
         subject$get_default("raw_ct_path", namespace = pipeline$pipeline_name),
         selected
       )
-      if( identical(pipeline$get_settings("subject_code"), subject_code) ) {
+      if ( identical(pipeline$get_settings("subject_code"), subject_code) ) {
         selected <- c(pipeline$get_settings("path_ct"), selected)
       }
       selected <- selected %OF% paths
-      if(!length(selected)) { selected <- " " }
+      if (!length(selected)) { selected <- " " }
       shiny::updateSelectInput(session = session, inputId = "ct_path", choices = c("[Upload]", " ", paths), selected = selected)
 
       fs_reconstructed <- FALSE
       fs_path <- subject$freesurfer_path
-      if(length(fs_path) == 1 && !is.na(fs_path) && isTRUE(dir.exists(fs_path))) {
+      if (length(fs_path) == 1 && !is.na(fs_path) && isTRUE(dir.exists(fs_path))) {
         fs_reconstructed <- threeBrain::check_freesurfer_path(
           fs_path,
           autoinstall_template = FALSE,

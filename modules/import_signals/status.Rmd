@@ -56,7 +56,7 @@ selected_block_str <- paste(sprintf("`%s`", preproc$blocks), collapse = ", ")
 
 excluded_blocks <- preproc$all_blocks
 excluded_blocks <- excluded_blocks[!excluded_blocks %in% preproc$blocks]
-if(!length(excluded_blocks)) {
+if (!length(excluded_blocks)) {
   excluded_blocks_str <- "(none)"
 } else {
   excluded_blocks_str <- paste(sprintf("`%s`", excluded_blocks), 

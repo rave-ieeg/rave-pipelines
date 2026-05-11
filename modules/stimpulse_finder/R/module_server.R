@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -26,7 +26,7 @@ module_server <- function(input, output, session, ...){
 
     quality <- match.arg(quality)
 
-    if(length(start_time) != 1 ||
+    if (length(start_time) != 1 ||
        is.na(start_time)) {
       start_time <- stream_plot_container$start_time
     }
@@ -48,7 +48,7 @@ module_server <- function(input, output, session, ...){
     stream_plot_container$channel_gap <- channel_gap
     stream_plot_container$title <- ""
 
-    switch (
+    switch(
       quality,
       "high-quality" = { stream_plot_container$MAX_POINTS <- 2000000 },
       "performance" = { stream_plot_container$MAX_POINTS <- 100000 },
@@ -61,27 +61,27 @@ module_server <- function(input, output, session, ...){
       current_data_range[[2]] < end_time
 
     # Update stream_plot_container
-    if( data_needs_update ) {
+    if ( data_needs_update ) {
       ravedash::show_notification(title = "Updating figure",
                                   message = "Loading data...",
                                   class = ns("notification"),
                                   autohide = TRUE)
 
-      if( init ) {
+      if ( init ) {
         load_start_time <- start_time
         load_duration <- duration
       } else {
         # preload duration
         total_sample_rates <- sum(stream_plot_container$sample_rates)
         total_timepoints <- duration * total_sample_rates
-        if(total_timepoints <= 1e6) {
+        if (total_timepoints <= 1e6) {
           # 40 MB from disk
           load_duration <- 1e7 / total_sample_rates
           load_start_time <- start_time - ((load_duration - duration) * 0.5)
-          if(load_start_time < 0) {
+          if (load_start_time < 0) {
             load_start_time <- 0
           }
-        } else if(total_timepoints <= 1e7){
+        } else if (total_timepoints <= 1e7) {
           # max 100 MB from disk
           load_start_time <- start_time
           load_duration <- duration + ceiling(duration * 0.75)
@@ -110,13 +110,13 @@ module_server <- function(input, output, session, ...){
     current_block <- local_data$block_filearray$get_header("block")
     current_sample_rate <- local_data$block_filearray$get_header("sample_rate")
     current_pulses <- local_data$pulses[[current_block]]
-    if(length(current_pulses) && current_pulses$n_pulses > 0) {
+    if (length(current_pulses) && current_pulses$n_pulses > 0) {
 
-      if(is.data.frame(current_pulses$annot_table)) {
+      if (is.data.frame(current_pulses$annot_table)) {
         annot_table <- current_pulses$annot_table
       } else {
         .GlobalEnv$current_pulses <- current_pulses
-        if(
+        if (
           is.unsorted(current_pulses$onset_index) &&
           (length(current_pulses$onset_index) == length(current_pulses$offset_index))
         ) {
@@ -150,7 +150,7 @@ module_server <- function(input, output, session, ...){
     }
 
 
-    if(!init) {
+    if (!init) {
       ravedash::show_notification(title = "Updating figure",
                                   message = "Updating plot data...",
                                   class = ns("notification"),
@@ -169,7 +169,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      loaded_signals <- pipeline['loaded_signals']
+      loaded_signals <- pipeline["loaded_signals"]
 
       epoch_tables <- lapply(loaded_signals, function(arr) {
         # arr <- loaded_signals[[1]]
@@ -179,9 +179,9 @@ module_server <- function(input, output, session, ...){
 
         pulse_info <- local_data$pulses[[block]]
 
-        if(!is.list(pulse_info)) { return(NULL) }
+        if (!is.list(pulse_info)) { return(NULL) }
 
-        if(!isTRUE(pulse_info$n_pulses > 0)) { return(NULL) }
+        if (!isTRUE(pulse_info$n_pulses > 0)) { return(NULL) }
 
         onset_time <- (pulse_info$onset_index - 1L) / sample_rate
 
@@ -190,14 +190,14 @@ module_server <- function(input, output, session, ...){
           Time = onset_time,
           Condition = "Stim"
         )
-        if(length(pulse_info$offset_index) == length(onset_time)) {
+        if (length(pulse_info$offset_index) == length(onset_time)) {
           epoch_table$Event_StimOffset <- (pulse_info$offset_index - 1L) / sample_rate
         }
         epoch_table
       })
 
       epoch_tables <- data.table::rbindlist(epoch_tables)
-      if(!nrow(epoch_tables)) {
+      if (!nrow(epoch_tables)) {
         stop("There is no stimulation epoch found/created. Please find/generate them first.")
       }
 
@@ -231,18 +231,18 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       save_name <- input$save_name
-      if(!length(save_name) || is.na(save_name) || !nzchar(trimws(save_name))) {
+      if (!length(save_name) || is.na(save_name) || !nzchar(trimws(save_name))) {
         stop("Invalid epoch name. Please enter a valid non-blank epoch name")
       }
-      if(!grepl("^[a-zA-Z0-9_-]+$", save_name)) {
+      if (!grepl("^[a-zA-Z0-9_-]+$", save_name)) {
         stop("Epoch name must only contain letters (a-z) and digits (0-9)")
       }
       epoch_tables <- local_data$epoch_table_to_save
-      if(!is.data.frame(epoch_tables) || !nrow(epoch_tables)) {
+      if (!is.data.frame(epoch_tables) || !nrow(epoch_tables)) {
         stop("There is no stimulation epoch found/created. Please find/generate them first.")
       }
 
-      subject <- pipeline['subject']
+      subject <- pipeline["subject"]
       fname <- sprintf("epoch_%s.csv", save_name)
       ravecore:::safe_write_csv(x = epoch_tables, file = file.path(subject$meta_path, fname))
 
@@ -264,9 +264,9 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
       new_repository <- pipeline$read("repository")
-      if(!inherits(new_repository, "prepare_subject_raw_voltage_with_blocks")){
+      if (!inherits(new_repository, "prepare_subject_raw_voltage_with_blocks")) {
         ravepipeline::logger("Repository read from the pipeline, but it is not an instance of `prepare_subject_raw_voltage_with_blocks`. Abort initialization", level = "warning")
         return()
       }
@@ -274,10 +274,10 @@ module_server <- function(input, output, session, ...){
 
       # check if the repository has the same subject as current one
       old_repository <- component_container$data$repository
-      if(inherits(old_repository, "prepare_subject_raw_voltage_with_blocks")){
+      if (inherits(old_repository, "prepare_subject_raw_voltage_with_blocks")) {
 
-        if( !attr(loaded_flag, "force") &&
-            identical(old_repository$signature, new_repository$signature) ){
+        if ( !attr(loaded_flag, "force") &&
+            identical(old_repository$signature, new_repository$signature) ) {
           ravepipeline::logger("The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization", level = "debug", use_glue = TRUE)
           return()
         }
@@ -304,14 +304,14 @@ module_server <- function(input, output, session, ...){
 
 
       # get pulses
-      loaded_signals <- pipeline['loaded_signals']
+      loaded_signals <- pipeline["loaded_signals"]
       local_data$pulses <- structure(
         names = all_blocks,
         lapply(all_blocks, function(block) {
           arr <- loaded_signals[[block]]$`@impl`
           sample_rate <- arr$get_header("sample_rate")
           epoch_table <- arr$get_header("epoch_table")
-          if(!is.data.frame(epoch_table) || !nrow(epoch_table)) {
+          if (!is.data.frame(epoch_table) || !nrow(epoch_table)) {
             return(NULL)
           }
 
@@ -333,12 +333,12 @@ module_server <- function(input, output, session, ...){
   )
 
   visualize_block <- function() {
-    if(!ravedash::watch_data_loaded()) { return() }
-    if(ravedash::watch_loader_opened()) { return() }
-    if(length(input$recording_block) != 1) { return() }
+    if (!ravedash::watch_data_loaded()) { return() }
+    if (ravedash::watch_loader_opened()) { return() }
+    if (length(input$recording_block) != 1) { return() }
     recording_block <- input$recording_block
 
-    loaded_signals <- pipeline['loaded_signals']
+    loaded_signals <- pipeline["loaded_signals"]
     arr <- loaded_signals[[recording_block]]$`@impl`
     local_data$block_filearray <- arr
 
@@ -349,7 +349,7 @@ module_server <- function(input, output, session, ...){
 
     rg <- range(arr, na.rm = TRUE)
     rg <- rg[is.finite(rg)]
-    if(length(rg)) {
+    if (length(rg)) {
       channel_gap <- max(abs(rg)) * 2
       shiny::updateNumericInput(
         session = session,
@@ -363,11 +363,11 @@ module_server <- function(input, output, session, ...){
     max_start_time <- floor(max_duration - 0.5)
     shiny::updateNumericInput(
       session = session,
-      inputId = 'start_time',
+      inputId = "start_time",
       max = max_start_time
     )
     start_time <- input$start_time
-    if(!isTRUE(start_time <= max_start_time)) {
+    if (!isTRUE(start_time <= max_start_time)) {
       start_time <- 0
     }
 
@@ -400,10 +400,10 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       # try({
       duration <- input$duration
-      if(length(duration) == 1 && !is.na(duration) && isTRUE(duration > 0)) {
+      if (length(duration) == 1 && !is.na(duration) && isTRUE(duration > 0)) {
         shiny::updateNumericInput(
           session = session,
-          inputId = 'start_time',
+          inputId = "start_time",
           step = max(duration * 0.75, min(1, round(duration, 2)))
         )
       }
@@ -436,16 +436,16 @@ module_server <- function(input, output, session, ...){
       relayout <- as.list(plotly::event_data("plotly_relayout"))
       start_time <- as.numeric(relayout[["xaxis.range[0]"]])
       end_time <- as.numeric(relayout[["xaxis.range[1]"]])
-      if(length(start_time) != 1 || is.na(start_time)) { return() }
+      if (length(start_time) != 1 || is.na(start_time)) { return() }
       # start_time <- floor(start_time)
       shiny::updateNumericInput(session = session,
-                                inputId = 'start_time',
+                                inputId = "start_time",
                                 value = start_time)
 
-      if(length(end_time) != 1 || is.na(end_time)) { return() }
+      if (length(end_time) != 1 || is.na(end_time)) { return() }
       duration <- end_time - start_time
       shiny::updateNumericInput(session = session,
-                                inputId = 'duration',
+                                inputId = "duration",
                                 value = duration)
     }),
     input$sync,
@@ -456,21 +456,21 @@ module_server <- function(input, output, session, ...){
   # ---- Epoch finders --------------------------
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
 
-      if(!isTRUE(local_data$load_block_btn_clicked)) {
+      if (!isTRUE(local_data$load_block_btn_clicked)) {
         visualize_block()
       }
 
       # if(length(input$recording_block) != 1) { return() }
       # recording_block <- input$recording_block
       #
-      # loaded_signals <- pipeline['loaded_signals']
+      # loaded_signals <- pipeline["loaded_signals"]
       # arr <- loaded_signals[[recording_block]]$`@impl`
 
       pulse_duration <- input$pulse_duration
-      if(!isTRUE(pulse_duration > 0)) {
+      if (!isTRUE(pulse_duration > 0)) {
         stop("Invalid pulse duration. Please provide an estimate of the pulse duration in milliseconds. It provides a hint for a single pulse duration and does not need to be accurate.")
       }
       arr <- local_data$block_filearray
@@ -478,8 +478,8 @@ module_server <- function(input, output, session, ...){
 
       pulse_count <- as.integer(input$pulse_count)
       pulse_threshold <- as.double(input$pulse_threshold)
-      if(!isTRUE(pulse_count >= 1)) { pulse_count <- NA_integer_ }
-      if(!isTRUE(pulse_threshold > 0)) { pulse_threshold <- NA_real_ }
+      if (!isTRUE(pulse_count >= 1)) { pulse_count <- NA_integer_ }
+      if (!isTRUE(pulse_threshold > 0)) { pulse_threshold <- NA_real_ }
 
 
       pulse_info <- ravetools::stimpulse_find(
@@ -510,10 +510,10 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
 
-      if(!isTRUE(local_data$load_block_btn_clicked)) {
+      if (!isTRUE(local_data$load_block_btn_clicked)) {
         visualize_block()
       }
 
@@ -540,17 +540,17 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
 
       pulse_duration <- input$pulse_duration
-      if(!isTRUE(pulse_duration > 0)) {
+      if (!isTRUE(pulse_duration > 0)) {
         stop("Invalid pulse duration. Please provide an estimate of the pulse duration in milliseconds. It provides a hint for a single pulse duration and does not need to be accurate.")
       }
 
       start_time <- input$start_time
       end_time <- start_time + input$duration
-      if(length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
+      if (length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
         stop("Invalid start timme and/or duration. Please make sure the figure start time and duration are positive numbers")
       }
 
@@ -562,17 +562,17 @@ module_server <- function(input, output, session, ...){
       start_timepoint <- floor(start_time * sample_rate) + 1
       end_timepoint <- ceiling(end_time * sample_rate) + 1
       total_timepoint <- nrow(arr)
-      if(total_timepoint <= start_timepoint) {
+      if (total_timepoint <= start_timepoint) {
         stop("Starting time exceed the total time of current recording block")
       }
-      if(total_timepoint < end_timepoint) {
+      if (total_timepoint < end_timepoint) {
         end_timepoint <- total_timepoint
       }
 
       pulse_count <- as.integer(input$pulse_count)
       pulse_threshold <- as.double(input$pulse_threshold)
-      if(!isTRUE(pulse_count >= 1)) { pulse_count <- NA_integer_ }
-      if(!isTRUE(pulse_threshold > 0)) { pulse_threshold <- NA_real_ }
+      if (!isTRUE(pulse_count >= 1)) { pulse_count <- NA_integer_ }
+      if (!isTRUE(pulse_threshold > 0)) { pulse_threshold <- NA_real_ }
 
       pulse_info <- ravetools::stimpulse_find(
         arr[seq.int(start_timepoint, end_timepoint, by = 1), 1, drop = TRUE, dimnames = FALSE],
@@ -584,11 +584,11 @@ module_server <- function(input, output, session, ...){
 
       current_info <- local_data$pulses[[current_block]]
 
-      if(length(current_info)) {
+      if (length(current_info)) {
 
         sel <- current_info$onset_index < start_timepoint | current_info$onset_index > end_timepoint
 
-        if(sum(sel)) {
+        if (sum(sel)) {
           current_info$n_pulses <- sum(sel)
           current_info$onset_index <- current_info$onset_index[sel]
           current_info$offset_index <- current_info$offset_index[sel]
@@ -597,11 +597,11 @@ module_server <- function(input, output, session, ...){
         }
       }
 
-      if(pulse_info$n_pulses > 0) {
+      if (pulse_info$n_pulses > 0) {
         pulse_info$onset_index <- pulse_info$onset_index + (start_timepoint - 1)
         pulse_info$offset_index <- pulse_info$offset_index + (start_timepoint - 1)
 
-        if(length(current_info)) {
+        if (length(current_info)) {
           current_info$n_pulses <- current_info$n_pulses + pulse_info$n_pulses
           current_info$onset_index <- c(current_info$onset_index, pulse_info$onset_index)
           current_info$offset_index <- c(current_info$offset_index, pulse_info$offset_index)
@@ -630,24 +630,24 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
 
       arr <- local_data$block_filearray
       current_block <- arr$get_header("block")
       sample_rate <- arr$get_header("sample_rate")
       current_info <- local_data$pulses[[current_block]]
 
-      if(!length(current_info)) { return() }
+      if (!length(current_info)) { return() }
 
       pulse_duration <- input$pulse_duration
-      if(!isTRUE(pulse_duration > 0)) {
+      if (!isTRUE(pulse_duration > 0)) {
         return()
       }
 
       start_time <- input$start_time
       end_time <- start_time + input$duration
-      if(length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
+      if (length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
         return()
       }
 
@@ -655,14 +655,14 @@ module_server <- function(input, output, session, ...){
       start_timepoint <- floor(start_time * sample_rate) + 1
       end_timepoint <- ceiling(end_time * sample_rate) + 1
       total_timepoint <- nrow(arr)
-      if(total_timepoint <= start_timepoint) {
+      if (total_timepoint <= start_timepoint) {
         return()
       }
 
       current_info <- local_data$pulses[[current_block]]
 
       sel <- current_info$onset_index < start_timepoint | current_info$onset_index > end_timepoint
-      if(sum(sel)) {
+      if (sum(sel)) {
         current_info$n_pulses <- sum(sel)
         current_info$onset_index <- current_info$onset_index[sel]
         current_info$offset_index <- current_info$offset_index[sel]
@@ -691,8 +691,8 @@ module_server <- function(input, output, session, ...){
   # ---- Align pulses ------------------------------------------------------
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
 
       ravepipeline::logger("Adjusting stimulation pulses", level = "trace")
 
@@ -709,11 +709,11 @@ module_server <- function(input, output, session, ...){
 
       expand_pre <- -abs(input$expand_pre)
       expand_post <- abs(input$expand_post)
-      if(!is.finite(expand_pre) || !is.finite(expand_post)) {
+      if (!is.finite(expand_pre) || !is.finite(expand_post)) {
         stop("Search time-points before/after stim onset must be an integer (cannot be missing/infinite)")
       }
 
-      if(!length(current_info) || !isTRUE(current_info$n_pulses > 0)) {
+      if (!length(current_info) || !isTRUE(current_info$n_pulses > 0)) {
         stop("No pulses is detected. Please find initial positions for stim onset.")
       }
 
@@ -743,8 +743,8 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!ravedash::watch_data_loaded()) { return() }
-      if(ravedash::watch_loader_opened()) { return() }
+      if (!ravedash::watch_data_loaded()) { return() }
+      if (ravedash::watch_loader_opened()) { return() }
 
       ravepipeline::logger("Adjusting stimulation pulses within selected window", level = "trace")
 
@@ -761,22 +761,22 @@ module_server <- function(input, output, session, ...){
 
       expand_pre <- -abs(input$expand_pre)
       expand_post <- abs(input$expand_post)
-      if(!is.finite(expand_pre) || !is.finite(expand_post)) {
+      if (!is.finite(expand_pre) || !is.finite(expand_post)) {
         stop("Search time-points before/after stim onset must be an integer (cannot be missing/infinite)")
       }
 
-      if(!length(current_info) || !isTRUE(current_info$n_pulses > 0)) {
+      if (!length(current_info) || !isTRUE(current_info$n_pulses > 0)) {
         stop("No pulses is detected. Please find initial positions for stim onset.")
       }
 
       pulse_duration <- input$pulse_duration
-      if(!isTRUE(pulse_duration > 0)) {
+      if (!isTRUE(pulse_duration > 0)) {
         return()
       }
 
       start_time <- input$start_time
       end_time <- start_time + input$duration
-      if(length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
+      if (length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
         return()
       }
 
@@ -785,7 +785,7 @@ module_server <- function(input, output, session, ...){
       end_timepoint <- ceiling(end_time * sample_rate) + 1
 
       sel <- current_info$onset_index >= start_timepoint & current_info$onset_index <= end_timepoint
-      if(sum(sel)) {
+      if (sum(sel)) {
         puase_info <- list(
           n_pulses = sum(sel),
           onset_index = current_info$onset_index[sel],
@@ -826,15 +826,15 @@ module_server <- function(input, output, session, ...){
 
   # shiny::bindEvent(
   #   ravedash::safe_observe({
-  #     if(!ravedash::watch_data_loaded()) { return() }
-  #     if(ravedash::watch_loader_opened()) { return() }
+  #     if (!ravedash::watch_data_loaded()) { return() }
+  #     if (ravedash::watch_loader_opened()) { return() }
   #
   #     arr <- local_data$block_filearray
   #     current_block <- arr$get_header("block")
   #     sample_rate <- arr$get_header("sample_rate")
   #     current_info <- local_data$pulses[[current_block]]
   #
-  #     if(!length(current_info)) { return() }
+  #     if (!length(current_info)) { return() }
   #
   #     pulse_duration <- input$pulse_duration
   #     # if(!isTRUE(pulse_duration > 0)) {
@@ -858,7 +858,7 @@ module_server <- function(input, output, session, ...){
   #     current_info <- local_data$pulses[[current_block]]
   #
   #     sel <- current_info$onset_index < start_timepoint | current_info$onset_index > end_timepoint
-  #     if(sum(sel)) {
+  #     if (sum(sel)) {
   #       current_info$n_pulses <- sum(sel)
   #       current_info$onset_index <- current_info$onset_index[sel]
   #       current_info$offset_index <- current_info$offset_index[sel]
@@ -915,7 +915,7 @@ module_server <- function(input, output, session, ...){
     )
 
     arr <- local_data$block_filearray
-    if(is.null(arr)) { return() }
+    if (is.null(arr)) { return() }
 
     current_block <- arr$get_header("block")
     sample_rate <- arr$get_header("sample_rate")
@@ -927,11 +927,11 @@ module_server <- function(input, output, session, ...){
     expand_pre <- -abs(input$expand_pre)
     expand_post <- abs(input$expand_post)
 
-    if(!isTRUE(expand_pre < -1)) {
+    if (!isTRUE(expand_pre < -1)) {
       expand_pre <- -1
     }
 
-    if(!isTRUE(expand_post > 1)) {
+    if (!isTRUE(expand_post > 1)) {
       expand_post <- 1
     }
     expand_timepoints <- c(expand_pre, expand_post)
@@ -947,10 +947,10 @@ module_server <- function(input, output, session, ...){
       expand_timepoints[[1]], by = 1,
       length.out = nrow(pulses_snippets)) / sample_rate * 1000
 
-    matplot(snippet_time, pulses_snippets, type = 'l', lty = 1, col = 'gray80',
+    matplot(snippet_time, pulses_snippets, type = "l", lty = 1, col = "gray80",
             xlab = "Time (millisecond)", ylab = "uV",
             main = sprintf("Centered pulses (n=%d)", n_pulses))
-    lines(snippet_time, rowMeans(pulses_snippets), col = 'red')
+    lines(snippet_time, rowMeans(pulses_snippets), col = "red")
 
   })
 
@@ -959,7 +959,7 @@ module_server <- function(input, output, session, ...){
 
     start_time <- input$start_time
     end_time <- start_time + input$duration
-    if(length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
+    if (length(start_time) != 1 || is.na(start_time) || is.na(end_time)) {
       return()
     }
 
@@ -980,7 +980,7 @@ module_server <- function(input, output, session, ...){
     )
 
     arr <- local_data$block_filearray
-    if(is.null(arr)) { return() }
+    if (is.null(arr)) { return() }
 
     current_block <- arr$get_header("block")
     sample_rate <- arr$get_header("sample_rate")
@@ -994,7 +994,7 @@ module_server <- function(input, output, session, ...){
     sel <- pulse_info$onset_index >= start_timepoint & pulse_info$onset_index <= end_timepoint
 
     n_pulses <- sum(sel)
-    if(n_pulses == 0) { return() }
+    if (n_pulses == 0) { return() }
 
     pulse_info <- list(
       n_pulses = n_pulses,
@@ -1005,11 +1005,11 @@ module_server <- function(input, output, session, ...){
     expand_pre <- -abs(input$expand_pre)
     expand_post <- abs(input$expand_post)
 
-    if(!isTRUE(expand_pre < -1)) {
+    if (!isTRUE(expand_pre < -1)) {
       expand_pre <- -1
     }
 
-    if(!isTRUE(expand_post > 1)) {
+    if (!isTRUE(expand_post > 1)) {
       expand_post <- 1
     }
     expand_timepoints <- c(expand_pre, expand_post)
@@ -1025,10 +1025,10 @@ module_server <- function(input, output, session, ...){
       expand_timepoints[[1]], by = 1,
       length.out = nrow(pulses_snippets)) / sample_rate * 1000
 
-    matplot(snippet_time, pulses_snippets, type = 'l', lty = 1, col = 'gray80',
+    matplot(snippet_time, pulses_snippets, type = "l", lty = 1, col = "gray80",
             xlab = "Time (millisecond)", ylab = "uV",
             main = sprintf("Centered pulses within the window (n=%d)", n_pulses))
-    lines(snippet_time, rowMeans(pulses_snippets), col = 'red')
+    lines(snippet_time, rowMeans(pulses_snippets), col = "red")
 
   })
 

@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   all_modules <- sort(unique(ravepipeline::pipeline_list()))
 
@@ -28,7 +28,7 @@ module_html <- function(){
               # ),
               shiny::p("Columns must include (case sensitive): SubjectCode, Electrode, Label, x, y, z"),
               shiny::p("Coordinates should be in MNI152 space"),
-              dipsaus::fancyFileInput(multiple=FALSE,
+              dipsaus::fancyFileInput(multiple = FALSE,
                                       inputId = ns("uploaded_electrode_table"),
                                       label = "Upload csv/xlsx table",
                                       width = "100%",
@@ -63,7 +63,7 @@ module_html <- function(){
               #   )
               # ),
               shiny::p("Rectangular, columns are variables, rows are electrodes. Must include a column called 'Electrode'"),
-              dipsaus::fancyFileInput(multiple=FALSE,
+              dipsaus::fancyFileInput(multiple = FALSE,
                                       inputId = ns("uploaded_data_file"),
                                       label = "Upload csv/xlsx table",
                                       width = "100%",
@@ -73,7 +73,7 @@ module_html <- function(){
             ravedash::input_card(
               title = "Upload time series data",
               shiny::p("Rectangular data, # Rows = # Time points x # Electrodes. Must include a column called 'Electrode'"),
-              dipsaus::fancyFileInput(multiple=FALSE,
+              dipsaus::fancyFileInput(multiple = FALSE,
                                       inputId = ns("uploaded_connectivity_matrix"),
                                       label = "Upload csv/xlsx table",
                                       width = "100%",
@@ -83,7 +83,7 @@ module_html <- function(){
             ravedash::input_card(
               title = "Upload connectivity matrix",
               shiny::p("Square matrix, # Rows = # Cols = # Electrodes"),
-              dipsaus::fancyFileInput(multiple=FALSE,
+              dipsaus::fancyFileInput(multiple = FALSE,
                                       inputId = ns("uploaded_connectivity_matrix"),
                                       label = "Upload csv/xlsx table",
                                       width = "100%",
@@ -101,11 +101,11 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              title = 'Viewer',
+              title = "Viewer",
               # class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               class_body = "no-padding min-height-400 height-400 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 # MIGRATED: removed ravedash::output_gadget_container() wrapper
                 # ravedash::output_gadget_container(
                   threeBrain::threejsBrainOutput(
@@ -116,9 +116,9 @@ module_html <- function(){
               )
             ),
             ravedash::output_cardset(
-              inputId = ns('over_time_tabset'),
-              title='Visualize electrode data',
-              class_body="no-padding fill-width",
+              inputId = ns("over_time_tabset"),
+              title = "Visualize electrode data",
+              class_body = "no-padding fill-width",
               append_tools = FALSE,
               tools = list(
                 shidashi::card_tool(
@@ -143,9 +143,9 @@ module_html <- function(){
                       shiny::column(
                         width = 3L,
                         shiny::selectInput(
-                          inputId = ns('by_electrode_variable_selector'),
-                          label='Display Variable', selected = 'N/A',
-                          choices = c('N/A')
+                          inputId = ns("by_electrode_variable_selector"),
+                          label = "Display Variable", selected = "N/A",
+                          choices = c("N/A")
                         ))
                       # ,
                       # shiny::column(offset = 1,
@@ -164,7 +164,7 @@ module_html <- function(){
                   # MIGRATED: removed ravedash::output_gadget_container() wrapper
                   # ravedash::output_gadget_container(
                     ravedash::plotOutput2(
-                      outputId = ns('by_electrode'),
+                      outputId = ns("by_electrode"),
                       min_height = 400)
                   # )
                 )
@@ -175,7 +175,7 @@ module_html <- function(){
                   # MIGRATED: removed ravedash::output_gadget_container() wrapper
                   # ravedash::output_gadget_container(
                     ravedash::plotOutput2(
-                      outputId = ns('aggregate_over_electrode'),
+                      outputId = ns("aggregate_over_electrode"),
                       min_height = 400
                     )
                   # )
@@ -184,10 +184,10 @@ module_html <- function(){
               # `By Trial` = shiny::tagList(
               #   shiny::div(
               #     class = "fill-width no-padding min-height-400 resize-vertical",
-              #     # make_heatmap_control_panel(prefix = 'otbt', config = 'over_time_tabset_config'),
+              #     # make_heatmap_control_panel(prefix = "otbt", config = "over_time_tabset_config"),
               #     ravedash::output_gadget_container(
               #       ravedash::plotOutput2(
-              #         outputId = ns('over_time_by_trial'),
+              #         outputId = ns("over_time_by_trial"),
               #         min_height = 400)
               #     )
               #   )

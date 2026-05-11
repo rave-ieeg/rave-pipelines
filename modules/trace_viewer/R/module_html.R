@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -99,11 +99,11 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'Channel Viewer',
+              "Channel Viewer",
               class_body = "no-padding fill-width height-vh75 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
-                plotly::plotlyOutput(ns("channel_viewer"), width = '100%', height = "100%")
+                class = "position-relative fill",
+                plotly::plotlyOutput(ns("channel_viewer"), width = "100%", height = "100%")
               ),
               footer = shidashi::flex_container(
                 shidashi::flex_item(
@@ -196,7 +196,7 @@ module_html <- function(){
                   )
                 )
               )
-            ) # ravedash::output_card( 'Channel Viewer',
+            ) # ravedash::output_card( "Channel Viewer",
           )
         )
       )

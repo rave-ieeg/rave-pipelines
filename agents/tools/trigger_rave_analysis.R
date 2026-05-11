@@ -14,7 +14,7 @@ trigger_rave_analysis <- shidashi::mcp_wrapper(
     ellmer::tool(
       fun = function() {
         ravedash::fire_rave_event(
-          key = 'run_analysis',
+          key = "run_analysis",
           value = Sys.time(),
           session = session
         )

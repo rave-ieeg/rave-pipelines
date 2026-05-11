@@ -2,9 +2,9 @@ map_to_template <- function(subject, method = c("high-density"), ...) {
 
   method <- match.arg(method)
 
-  re <- switch (
+  re <- switch(
     method,
-    'high-density' = map_to_template_thinfilm(subject = subject, ...)
+    "high-density" = map_to_template_thinfilm(subject = subject, ...)
   )
   return(re)
 }
@@ -43,15 +43,15 @@ map_to_template_thinfilm <- function(subject, template = "fsaverage", volumetric
   electrode_table$Radius <- mapped_table$Radius
   electrode_table$SubjectCode <- subject$subject_code
 
-  if(length(save_to) == 1) {
-    if(isTRUE(save_to)) {
+  if (length(save_to) == 1) {
+    if (isTRUE(save_to)) {
       ravecore::save_meta2(
         meta_type = "electrodes",
         project_name = subject$project_name,
         subject_code = subject$subject_code,
         data = electrode_table
       )
-    } else if(is.character(save_to)) {
+    } else if (is.character(save_to)) {
       ravecore:::safe_write_csv(
         x = sub_table,
         file = file.path(subject$meta_path, save_to),

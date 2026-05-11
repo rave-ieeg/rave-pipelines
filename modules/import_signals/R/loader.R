@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -8,7 +8,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
       shiny::div(
         class = "col-md-12",
         shiny::div(
-          class = 'row',
+          class = "row",
           shiny::column(
             width = 12L,
 
@@ -55,7 +55,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
               # class_header = "",
               class_body = "",
               body_main = shiny::div(
-                class = 'padding-10 min-height-400',
+                class = "padding-10 min-height-400",
                 shiny::fluidRow(
                   shiny::column(
                     width = 6L,
@@ -116,7 +116,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
               inputId = ns("loader_step3_card"),
               class_body = "",
               body_main = shiny::div(
-                class = 'padding-10',
+                class = "padding-10",
 
                 flex_group_box(
                   title = "Header inspector",
@@ -142,7 +142,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   title = "LFP channels",
                   shidashi::flex_item(
                     shiny::textInput(
-                      inputId = ns('loader_lfp_channels'),
+                      inputId = ns("loader_lfp_channels"),
                       label = "Channel numbers",
                       placeholder = "E.g. 1-84, 100"
                     )
@@ -199,20 +199,20 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                   title = "Compose channels",
                   shidashi::flex_item(
                     shiny::p(
-                      class = 'mb-0',
+                      class = "mb-0",
                       'Create a "phantom" (not physically existed) channel from imported channels. You can ',
                       shiny::actionLink(
                         inputId = ns("loader_compose_upload"),
-                        label = 'click here to upload'
+                        label = "click here to upload"
                       ),
-                      ' or enter the configurations directly below by clicking on ',
-                      shiny::span("+", class = "inline code keyword"), 'button. ',
+                      " or enter the configurations directly below by clicking on ",
+                      shiny::span("+", class = "inline code keyword"), "button. ",
                       'Once the channel is set up, you can click on "Validate & import" to import the raw channels and compose the phantom channels. This will begin the pre-process. Alternatively, if the signals have been imported and processed, you can "Compose channels only". Notice this feature has a restriction that only allows you to add phantom channels. Existing channels will not be changed.'
                     ),
                     shiny::tags$details(
                       class = "mb-4",
-                      shiny::tags$summary('Click me to see the explanation'),
-                      'To compose a new channel, at least one existing channel (see entry `Compose from channels`) must be selected. By default, the new signal will be the average of all input signals with equal weights. Please use the entry `Weights` if unequal weights are to be used. ',
+                      shiny::tags$summary("Click me to see the explanation"),
+                      "To compose a new channel, at least one existing channel (see entry `Compose from channels`) must be selected. By default, the new signal will be the average of all input signals with equal weights. Please use the entry `Weights` if unequal weights are to be used. ",
                       "For example, if you enter: ",
                       shiny::span("New channel = '100'", class = "inline code keyword"),
                       ", ",
@@ -221,7 +221,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                       shiny::span("Weights = '3, -1, -2'", class = "inline code keyword"),
                       ", then RAVE will create a new \"phantom\" channel 100. ",
                       "The voltage potential of this new channel will be:",
-                      shiny::tags$code("new channel = 3 x chan_14 - chan_15 - 2 x chan_16.", style = 'text-align: center')
+                      shiny::tags$code("new channel = 3 x chan_14 - chan_15 - 2 x chan_16.", style = "text-align: center")
                     )
                   ),
                   shidashi::flex_break(),
@@ -318,7 +318,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   local_reactives <- shiny::reactiveValues(
     refresh_step1 = NULL,
@@ -337,12 +337,12 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       project_name <- input$loader_project_name
-      if(!length(project_name) || is.na(project_name) || !nzchar(project_name)) { return() }
-      if(!identical(project_name, "[New Project]")) {
+      if (!length(project_name) || is.na(project_name) || !nzchar(project_name)) { return() }
+      if (!identical(project_name, "[New Project]")) {
         local_data$previous_project <- project_name
-        if( grepl("@bids", project_name) ) {
+        if ( grepl("@bids", project_name) ) {
           # This is a bids project
-          # project_name <- 'demo@bids:ds005953'
+          # project_name <- "demo@bids:ds005953"
           project <- ravecore::as_rave_project(project_name, strict = FALSE)
           participants <- bidsr::get_bids_participants(project$`@impl`@parent_path)
           subject_codes <- participants@content$participant_id
@@ -362,7 +362,7 @@ loader_server <- function(input, output, session, ...){
           choices = subject_codes,
           selected = current_subject
         )
-        if(!identical(current_subject, input$loader_subject_code)) {
+        if (!identical(current_subject, input$loader_subject_code)) {
           later::later(delay = 0.5, function() {
             shiny::updateSelectInput(
               session = session,
@@ -380,7 +380,7 @@ loader_server <- function(input, output, session, ...){
         title = "Create new project",
         easyClose = FALSE,
         shiny::div(
-          class = 'fill-width',
+          class = "fill-width",
           shiny::fluidRow(
             shiny::column(
               width = 12L,
@@ -403,11 +403,11 @@ loader_server <- function(input, output, session, ...){
         ),
         footer = shiny::tagList(
           shiny::actionButton(
-            inputId = ns('new_project_name_dismiss'),
+            inputId = ns("new_project_name_dismiss"),
             label = "Dismiss"
           ),
           dipsaus::actionButtonStyled(
-            inputId = ns('new_project_name_confirm'),
+            inputId = ns("new_project_name_confirm"),
             label = "Create"
           )
         )
@@ -426,7 +426,7 @@ loader_server <- function(input, output, session, ...){
       all_projects <- update_projects(refresh = TRUE)
 
       # len = 2 means "" and "[New Project]" options
-      if(length(all_projects) <= 2) {
+      if (length(all_projects) <= 2) {
         ravepipeline::logger("Dismiss button is pressed but there is no project", level = "warning")
         shidashi::show_notification(
           "You haven't created any project yet. Please create one so you can start to import subjects.",
@@ -463,16 +463,16 @@ loader_server <- function(input, output, session, ...){
         )
       }
 
-      if(!length(new_project_name)) {
+      if (!length(new_project_name)) {
         new_project_name <- ""
       }
       new_project_name <- trimws(new_project_name, which = "both")
-      if(new_project_name == ''){
+      if (new_project_name == "") {
         raise_validation_error("The project name cannot be blank")
         return()
       }
 
-      if (!grepl("^[a-zA-Z0-9][a-zA-Z0-9@:_-]{0,}$", new_project_name)){
+      if (!grepl("^[a-zA-Z0-9][a-zA-Z0-9@:_-]{0,}$", new_project_name)) {
         raise_validation_error(c(
           "The subject code is invalid: can only contain letters, digits, dash (-), or underscore (_). ",
           "The first letter should only contain letters and digits."
@@ -482,7 +482,7 @@ loader_server <- function(input, output, session, ...){
 
       all_projects <- update_projects(refresh = TRUE)
 
-      if( tolower(new_project_name) %in% tolower(all_projects) ){
+      if ( tolower(new_project_name) %in% tolower(all_projects) ) {
         raise_validation_error("Project has already existed")
         return()
       }
@@ -526,8 +526,8 @@ loader_server <- function(input, output, session, ...){
       project_name <- trimws(input$loader_project_name)
       subject_code <- trimws(input$loader_subject_code)
       tryCatch({
-        if(!length(project_name) || project_name == "" ||
-           !length(subject_code) || trimws(subject_code) == "" ){
+        if (!length(project_name) || project_name == "" ||
+           !length(subject_code) || trimws(subject_code) == "" ) {
           stop("Blank project/subject found. Please enter the inputs")
         }
         subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
@@ -535,12 +535,12 @@ loader_server <- function(input, output, session, ...){
         has_preprocess_path <- FALSE
         has_raw_path2 <- TRUE
 
-        if(dir.exists(subject$preprocess_path)) {
+        if (dir.exists(subject$preprocess_path)) {
           # raw_path2 might not be needed since the signals might have been imported already
           has_preprocess_path <- TRUE
         }
-        if(!dir.exists(subject$preprocess_settings$raw_path2)) {
-          if(!has_preprocess_path) {
+        if (!dir.exists(subject$preprocess_settings$raw_path2)) {
+          if (!has_preprocess_path) {
             stop(sprintf("Cannot find raw folder for subject `%s`", subject$subject_id))
           }
           has_raw_path2 <- FALSE
@@ -571,24 +571,24 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       validation <- validate_step1()
-      if(!validation$valid){
+      if (!validation$valid) {
         dipsaus::updateActionButtonStyled(
           session = session,
-          inputId = 'loader_step1_btn',
+          inputId = "loader_step1_btn",
           disabled = TRUE,
           label = validation$reason
         )
-      } else if(validation$initialized){
+      } else if (validation$initialized) {
         dipsaus::updateActionButtonStyled(
           session = session,
-          inputId = 'loader_step1_btn',
+          inputId = "loader_step1_btn",
           disabled = TRUE,
           label = "Subject already exists"
         )
       } else {
         dipsaus::updateActionButtonStyled(
           session = session,
-          inputId = 'loader_step1_btn',
+          inputId = "loader_step1_btn",
           disabled = FALSE,
           label = "Create subject"
         )
@@ -602,7 +602,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       validator <- validate_step1()
-      if(!isTRUE(validator$valid) || !isFALSE(validator$initialized)) { return() }
+      if (!isTRUE(validator$valid) || !isFALSE(validator$initialized)) { return() }
       # Create a new subject!
       project_name <- validator$project_name
       subject_code <- validator$subject_code
@@ -620,7 +620,7 @@ loader_server <- function(input, output, session, ...){
 
 
   # ---- Reactive contents for STEP 2 ------------------------------------------
-  disable_step2 <- function(){
+  disable_step2 <- function() {
     dipsaus::updateActionButtonStyled(
       session = session,
       inputId = "loader_step2_btn",
@@ -639,7 +639,7 @@ loader_server <- function(input, output, session, ...){
   }
 
   preproc_from_info <- function(info) {
-    if(!isTRUE(info$valid)) { return() }
+    if (!isTRUE(info$valid)) { return() }
     # enable UI
     project_name <- info$project_name
     subject_code <- info$subject_code
@@ -661,20 +661,20 @@ loader_server <- function(input, output, session, ...){
       # ))
       info <- validate_step1()
       is_valid <- TRUE
-      if(!is.list(info)){
+      if (!is.list(info)) {
         local_reactives$validation_message2 <- "Waiting..."
         is_valid <- FALSE
       }
-      if(!isTRUE(info$valid)){
+      if (!isTRUE(info$valid)) {
         local_reactives$validation_message2 <- "Please select valid project and subject in the previous step."
         is_valid <- FALSE
       }
-      if(!isTRUE(info$initialized)) {
+      if (!isTRUE(info$initialized)) {
         local_reactives$validation_message2 <- "Subject folders have not been created yet. Please create them in the previous step."
         is_valid <- FALSE
       }
 
-      if(!is_valid) {
+      if (!is_valid) {
         disable_step2()
         return()
       }
@@ -691,7 +691,7 @@ loader_server <- function(input, output, session, ...){
         selected = names(all_formats)[[format_selection]]
       )
 
-      if(any(preproc$data_imported)) {
+      if (any(preproc$data_imported)) {
         shiny::updateSelectInput(
           session = session,
           inputId = "loader_session_block",
@@ -728,11 +728,11 @@ loader_server <- function(input, output, session, ...){
     shiny::reactive({
       tryCatch({
         info <- validate_step1()
-        if(!is.list(info) || !isTRUE(info$initialized)) {
+        if (!is.list(info) || !isTRUE(info$initialized)) {
           stop("Waiting for previous steps")
         }
         info$blocks <- input$loader_session_block
-        if(!length(info$blocks)) {
+        if (!length(info$blocks)) {
           stop("No block selected")
         }
         # FIXME
@@ -741,14 +741,14 @@ loader_server <- function(input, output, session, ...){
 
         preproc <- preproc_from_info(info)
 
-        if(any(preproc$data_imported)) {
+        if (any(preproc$data_imported)) {
           info$any_imported <- TRUE
           info$current_blocks <- preproc$blocks
           info$current_format <- preproc$data$format %OF% seq_along(all_formats)
 
         } else {
           info$any_imported <- FALSE
-          if(length(preproc$blocks)) {
+          if (length(preproc$blocks)) {
             info$current_blocks <- preproc$blocks
           } else {
             info$current_blocks <- NULL
@@ -759,7 +759,7 @@ loader_server <- function(input, output, session, ...){
         block_files <- find_block_files(preproc$subject, info$blocks, info$format)
         lapply(info$blocks, function(block) {
           item <- as.list(block_files[[block]])
-          if(!length(item) || !length(item$signal_files)) {
+          if (!length(item) || !length(item$signal_files)) {
             stop(sprintf("Recording block `%s` has no signal files matching the chosen format",
                          block))
           }
@@ -786,7 +786,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       info <- validate_step2()
-      if(!isTRUE(info$valid)) {
+      if (!isTRUE(info$valid)) {
         dipsaus::updateActionButtonStyled(
           session = session,
           inputId = "loader_step2_btn",
@@ -795,7 +795,7 @@ loader_server <- function(input, output, session, ...){
         )
         return()
       }
-      if(setequal(info$current_blocks, info$blocks) &&
+      if (setequal(info$current_blocks, info$blocks) &&
          isTRUE(info$current_format == info$format)) {
 
         dipsaus::updateActionButtonStyled(
@@ -821,7 +821,7 @@ loader_server <- function(input, output, session, ...){
 
   # Outputs for step 2
   output$loader_step2_msg <- shiny::renderText({
-    if(isTRUE(local_reactives$valid_setup2)) {
+    if (isTRUE(local_reactives$valid_setup2)) {
       "Subject folder has been created. Please choose session blocks."
     } else {
       local_reactives$validation_message2
@@ -831,23 +831,23 @@ loader_server <- function(input, output, session, ...){
   output$loader_format_details <- shiny::renderText({
 
     info <- validate_step2()
-    if(!is.list(info) || !isTRUE(info$valid)) { return() }
+    if (!is.list(info) || !isTRUE(info$valid)) { return() }
     fmt_idx <- info$format
-    if(length(fmt_idx) != 1 || !fmt_idx %in% seq_along(ravecore::IMPORT_FORMATS)) {
+    if (length(fmt_idx) != 1 || !fmt_idx %in% seq_along(ravecore::IMPORT_FORMATS)) {
       return()
     }
 
     fmt_str <- ravecore::IMPORT_FORMATS[[fmt_idx]]
 
-    switch (
+    switch(
       as.character(fmt_idx),
-      'native_matlab' = {
+      "native_matlab" = {
         paste0("In each block folder, one Matlab/HDF5 file stands for one electrode. ",
                "File name should match with format XXX1.h5 or xxx2.mat. ",
                "Each file only contains a one-dimensional vector. ",
                "The vector lengths stand for total time points and they must be the same across all electrode files. ")
       },
-      'native_matlab2' = {
+      "native_matlab2" = {
         paste0("A single Matlab/HDF5 file containing all electrode information. ",
                "Data must be a matrix. One of the dimension must be electrodes, ",
                "the other dimension must be time points. ",
@@ -859,16 +859,16 @@ loader_server <- function(input, output, session, ...){
         #            "ALL blocks must share the same file & data name; for example:"),
         #   shiny::tags$pre(
         #     dipsaus::print_directory_tree(
-        #       c('block1', 'block2'),
-        #       root = '<subject folder>',
+        #       c("block1", "block2"),
+        #       root = "<subject folder>",
         #       child = c(
-        #         'datafile.mat <one big matrix>'
+        #         "datafile.mat <one big matrix>"
         #       ),
-        #       collapse = '\n'
+        #       collapse = "\n"
         #     )
         #   ))
       },
-      'native_blackrock' = {
+      "native_blackrock" = {
         paste0("In each block folder, one Neuro-Event file [.nev] and corresponding NSX files [.ns1, .ns2, ..., .ns6] containing electrode data.")
       },
       {
@@ -877,12 +877,12 @@ loader_server <- function(input, output, session, ...){
         #   shiny::p("In each block folder, one EDF(+) file containing all electrode data; for example:"),
         #   shiny::tags$pre(
         #     dipsaus::print_directory_tree(
-        #       c('block1', 'block2'),
-        #       root = '<subject folder>',
+        #       c("block1", "block2"),
+        #       root = "<subject folder>",
         #       child = c(
-        #         'datafile.edf <ONLY one EDF file per block>'
+        #         "datafile.edf <ONLY one EDF file per block>"
         #       ),
-        #       collapse = '\n'
+        #       collapse = "\n"
         #     )
         #   ))
       }
@@ -891,7 +891,7 @@ loader_server <- function(input, output, session, ...){
 
   output$loader_block_preview <- shiny::renderPrint({
     info <- validate_step2()
-    if(!is.list(info) || !isTRUE(info$valid)) {
+    if (!is.list(info) || !isTRUE(info$valid)) {
       return("Please choose valid blocks and format")
     }
     fmt_str <- ravecore::IMPORT_FORMATS[[info$format]]
@@ -899,14 +899,14 @@ loader_server <- function(input, output, session, ...){
 
     subject_code <- info$subject_code
     preproc <- preproc_from_info(info)
-    if(!dir.exists(preproc$raw_path2)) {
+    if (!dir.exists(preproc$raw_path2)) {
       return("Cannot find raw data path")
     }
 
     root_str <- sprintf("%s (subject folder)", subject_code)
     regexp <- native_regexps[[fmt_str]]
 
-    switch (
+    switch(
       preproc$raw_path2_type,
       "bids" = {
         fs <- list.files(
@@ -919,7 +919,7 @@ loader_server <- function(input, output, session, ...){
           no.. = TRUE,
           ignore.case = TRUE
         )
-        if(!length(fs)) {
+        if (!length(fs)) {
           return("No file matching the format")
         }
         fs <- t(sapply(strsplit(fs, "/|\\\\"), function(f) {
@@ -940,7 +940,7 @@ loader_server <- function(input, output, session, ...){
         root_str <- " "
       },
       {
-        for(block in blocks) {
+        for (block in blocks) {
           fs <- list.files(
             file.path(preproc$raw_path2, block),
             pattern = regexp,
@@ -950,7 +950,7 @@ loader_server <- function(input, output, session, ...){
             ignore.case = TRUE
           )
           max_components <- 3
-          if(length(fs) > max_components) {
+          if (length(fs) > max_components) {
             fs <- c(fs[seq_len(max_components - 1)], "...")
           }
           print(dipsaus::print_directory_tree(
@@ -967,16 +967,16 @@ loader_server <- function(input, output, session, ...){
   })
 
   # blocks, format, any_imported
-  set_blocks <- function(preproc, info){
+  set_blocks <- function(preproc, info) {
     ravepipeline::logger("Current subject: ", preproc$subject$subject_id, level = "info")
     new_blocks <- info$blocks
     format <- info$format
 
-    if(any(preproc$data_imported)) {
+    if (any(preproc$data_imported)) {
 
-      if(!isFALSE(preproc$data$stringent)){
+      if (!isFALSE(preproc$data$stringent)) {
 
-        if(!setequal(preproc$blocks, new_blocks)) {
+        if (!setequal(preproc$blocks, new_blocks)) {
           ravepipeline::logger("Subject is set with less stringent validation.", level = "info")
           preproc$data$stringent <- FALSE
         }
@@ -988,7 +988,7 @@ loader_server <- function(input, output, session, ...){
     block_files <- find_block_files(preproc$subject, new_blocks, format)
     lapply(new_blocks, function(block) {
       item <- as.list(block_files[[block]])
-      if(!length(item) || !length(item$signal_files)) {
+      if (!length(item) || !length(item$signal_files)) {
         stop(sprintf("Recording block `%s` has no signal files matching the chosen format",
                      block))
       }
@@ -1061,7 +1061,7 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       info <- validate_step2()
-      if(!is.list(info) || !isTRUE(info$valid)) {
+      if (!is.list(info) || !isTRUE(info$valid)) {
         shidashi::show_notification(
           title = "Error", type = "danger", autohide = FALSE,
           message = paste(c(
@@ -1075,7 +1075,7 @@ loader_server <- function(input, output, session, ...){
 
 
       format_idx <- info$format
-      if(!length(format_idx)){
+      if (!length(format_idx)) {
         shidashi::show_notification(
           title = "Error", type = "danger", autohide = FALSE,
           message = paste(c(
@@ -1090,7 +1090,7 @@ loader_server <- function(input, output, session, ...){
       new_blocks <- info$blocks
       preproc <- preproc_from_info(info)
 
-      if(info$any_imported && !setequal(preproc$blocks, new_blocks)) {
+      if (info$any_imported && !setequal(preproc$blocks, new_blocks)) {
         shidashi::show_notification(
           title = "Block inconsistent", type = "warning",
           autohide = FALSE, close = TRUE,
@@ -1125,7 +1125,7 @@ loader_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       info <- validate_step2()
-      if(!isTRUE(info$valid)) { return() }
+      if (!isTRUE(info$valid)) { return() }
       preproc <- preproc_from_info(info)
       set_blocks(preproc, info)
     }),
@@ -1135,7 +1135,7 @@ loader_server <- function(input, output, session, ...){
 
   # ---- Reactive contents for STEP 3 ----
 
-  disable_step3 <- function(){
+  disable_step3 <- function() {
     dipsaus::updateActionButtonStyled(
       session = session,
       inputId = "loader_step3_btn",
@@ -1153,7 +1153,7 @@ loader_server <- function(input, output, session, ...){
 
   enable_compose_button <- function(enable = TRUE) {
     info <- shiny::isolate({ validate_step2() })
-    if(!is.list(info) || !isTRUE(info$valid)) {
+    if (!is.list(info) || !isTRUE(info$valid)) {
       dipsaus::updateActionButtonStyled(
         session = session,
         inputId = "loader_actions_compose",
@@ -1169,7 +1169,7 @@ loader_server <- function(input, output, session, ...){
   }
 
   output$loader_step3_msg <- shiny::renderText({
-    if(isTRUE(local_reactives$valid_setup3)) {
+    if (isTRUE(local_reactives$valid_setup3)) {
       "Subject folder has been created. Please choose session blocks."
     } else {
       local_reactives$validation_message3
@@ -1193,9 +1193,9 @@ loader_server <- function(input, output, session, ...){
       info <- validate_step2()
       preproc <- preproc_from_info(info)
       tbl <- preproc$get_compose_weights(flat = TRUE)
-      if(!is.data.frame(tbl)) {
+      if (!is.data.frame(tbl)) {
         elec <- preproc$electrodes
-        if(!length(elec)) { elec <- 1:4 }
+        if (!length(elec)) { elec <- 1:4 }
         tbl <- data.frame(
           Source = elec,
           Target = 10^ceiling(log10(max(elec))) + 1,
@@ -1239,24 +1239,24 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     safe_observe({
       finfo <- input$loader_compose_upload_file
-      if(length(finfo$datapath) != 1 || !file.exists(finfo$datapath)) {
+      if (length(finfo$datapath) != 1 || !file.exists(finfo$datapath)) {
         stop("The file upload might have failed/been invalid.")
       }
       tbl <- utils::read.csv(finfo$datapath)
-      if(!nrow(tbl)) {
+      if (!nrow(tbl)) {
         stop("The uploaded table contains no data.")
       }
-      if(!all(c("Source", "Target", "Weight") %in% names(tbl))) {
+      if (!all(c("Source", "Target", "Weight") %in% names(tbl))) {
         stop("The uploaded table column must contains the following columns (case-sensitive): [Source, Target, Weight]; one or more missing...")
       }
       tbl$Source <- as.integer(tbl$Source)
       tbl$Target <- as.integer(tbl$Target)
       tbl$Weight <- as.numeric(tbl$Weight)
-      tbl <- tbl[stats::complete.cases(tbl), ,drop = FALSE]
+      tbl <- tbl[stats::complete.cases(tbl), , drop = FALSE]
       value <- lapply(split(tbl, tbl$Target), function(sub) {
         o <- order(sub$Source)
         w <- sub$Weight[o]
-        if(length(unique(w)) == 1) {
+        if (length(unique(w)) == 1) {
           w <- w[[1]]
         }
         list(
@@ -1283,7 +1283,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       local_reactives$compose_setup <- NULL
-      if(isTRUE(local_reactives$valid_setup3)) {
+      if (isTRUE(local_reactives$valid_setup3)) {
         enable_compose_button(FALSE)
         return()
       }
@@ -1292,7 +1292,7 @@ loader_server <- function(input, output, session, ...){
       auxiliary_channels <- dipsaus::parse_svec(input$loader_auxiliary_channels)
       electrodes <- c(lfp_channels, microwire_channels, auxiliary_channels)
       compose_setup <- input$loader_compose_setup
-      if(!length(compose_setup)) {
+      if (!length(compose_setup)) {
         enable_compose_button(FALSE)
         return()
       }
@@ -1313,47 +1313,47 @@ loader_server <- function(input, output, session, ...){
           )
           return(msg)
         }
-        if( length(item$number) != 1 || is.na(item$number) ) {
+        if ( length(item$number) != 1 || is.na(item$number) ) {
           set_message("")
           return(NULL)
         }
-        if(item$number < 1) {
+        if (item$number < 1) {
           return(set_message("Invalid channel number to compose: ", item$number))
         }
-        if(item$number %in% electrodes) {
+        if (item$number %in% electrodes) {
           return(set_message("Channel number conflicts with existing physical channels", item$number))
         }
-        if(item$number %in% new_channels) {
+        if (item$number %in% new_channels) {
           return(set_message("Channel number already used. Please choose another one.", item$number))
         }
         from <- parse_svec(item$from)
         weights <- unlist(strsplit(item$weights, ","))
         weights <- trimws(weights)
-        weights <- weights[weights != '']
-        if(!length(from)) {
+        weights <- weights[weights != ""]
+        if (!length(from)) {
           return(set_message("Cannot compose signals from empty list of channels: ", item$number))
         }
-        if(!all(from %in% electrodes)) {
+        if (!all(from %in% electrodes)) {
           return(set_message("Cannot compose channel from non-existing channels: ", item$from))
         }
 
-        if(length(weights) > 0) {
-          if(length(weights) > 1 && length(from) != length(weights)) {
+        if (length(weights) > 0) {
+          if (length(weights) > 1 && length(from) != length(weights)) {
             return(set_message("Length of weights must be 0, 1, or equal to the length of composing channels."))
           }
           weights <- as.numeric(weights)
-          if(anyNA(weights) || any(weights == 0)) {
+          if (anyNA(weights) || any(weights == 0)) {
             return(set_message("Weights must be non-zero number."))
           }
         }
-        if(length(weights) == 0) {
+        if (length(weights) == 0) {
           weights <- 1 / length(from)
         }
-        if(length(weights) == 1) {
+        if (length(weights) == 1) {
           weights <- rep(weights, length(from))
         }
 
-        if(identical(item$normalize, "yes")) {
+        if (identical(item$normalize, "yes")) {
           weights2 <- weights / sqrt(sum(weights^2))
           normalize <- TRUE
         } else {
@@ -1381,7 +1381,7 @@ loader_server <- function(input, output, session, ...){
       re <- re[!vapply(re, is.null, FALSE)]
 
 
-      if(!length(re) || any(vapply(re, is.character, FALSE))) {
+      if (!length(re) || any(vapply(re, is.character, FALSE))) {
         enable_compose_button(FALSE)
       } else {
         enable_compose_button(TRUE)
@@ -1410,16 +1410,16 @@ loader_server <- function(input, output, session, ...){
       # ))
       info <- validate_step2()
       is_valid <- TRUE
-      if(!is.list(info)){
+      if (!is.list(info)) {
         local_reactives$validation_message3 <- "Waiting..."
         is_valid <- FALSE
       }
-      if(!isTRUE(info$valid)){
+      if (!isTRUE(info$valid)) {
         local_reactives$validation_message3 <- "Please finish the previous steps."
         is_valid <- FALSE
       }
 
-      if(!is_valid) {
+      if (!is_valid) {
         disable_step3()
         return()
       }
@@ -1469,7 +1469,7 @@ loader_server <- function(input, output, session, ...){
   shiny::bindEvent(
     safe_observe({
       info <- validate_step2()
-      if(!is.list(info) || !isTRUE(info$valid)) { return() }
+      if (!is.list(info) || !isTRUE(info$valid)) { return() }
 
       local_reactives$snapshot <- NULL
 
@@ -1488,17 +1488,17 @@ loader_server <- function(input, output, session, ...){
           block_info$signal_files
         )
       }))
-      if(!length(common_names)) { return() }
+      if (!length(common_names)) { return() }
 
       user_signal_file <- input$loader_electrode_file
-      if(identical(user_signal_file, "auto")) {
+      if (identical(user_signal_file, "auto")) {
         user_signal_file <- common_names[, 1]
       }
 
       sel <- common_names[, 1] %in% user_signal_file
       # get potential electrodes
 
-      switch (
+      switch(
         format_str,
         "native_matlab" = {
           fs <- common_names[sel, 2]
@@ -1516,7 +1516,7 @@ loader_server <- function(input, output, session, ...){
         },
         "native_edf" = {
           edf_path <- common_names[sel, 2]
-          if(length(edf_path) > 1){
+          if (length(edf_path) > 1) {
             edf_path <- edf_path[which.max(file.size(edf_path))]
           }
           tryCatch({
@@ -1556,8 +1556,8 @@ loader_server <- function(input, output, session, ...){
                 )
               )
             )
-          }, error = function(e){
-            if(isTRUE(electrode_file == "auto")) {
+          }, error = function(e) {
+            if (isTRUE(electrode_file == "auto")) {
               local_reactives$snapshot <- shiny::p(
                 "Cannot read the EDF file ", basename(edf_path),
                 " in the first block (",
@@ -1576,7 +1576,7 @@ loader_server <- function(input, output, session, ...){
         "native_brainvis" = {
           brainvis_path <- common_names[sel, 2]
           brainvis_path <- brainvis_path[grepl("\\.vhdr$", brainvis_path, ignore.case = TRUE)]
-          if(!length(brainvis_path)) {
+          if (!length(brainvis_path)) {
             local_reactives$snapshot <- shiny::p(
               "Cannot find any VHDR header file from"
             )
@@ -1600,7 +1600,7 @@ loader_server <- function(input, output, session, ...){
 
                 )
               )
-            }, error = function(e){
+            }, error = function(e) {
               local_reactives$snapshot <- shiny::p(
                 "Cannot read the BrainVision file ",
                 basename(brainvis_path)
@@ -1613,7 +1613,7 @@ loader_server <- function(input, output, session, ...){
           # Ignore electrode_file
           nev_path <- common_names[sel, 2]
           nev_path <- nev_path[grepl("\\.nev$", nev_path, ignore.case = TRUE)]
-          if(!length(nev_path)) {
+          if (!length(nev_path)) {
             local_reactives$snapshot <- shiny::p(
               "Cannot find any NEV file"
             )
@@ -1624,12 +1624,12 @@ loader_server <- function(input, output, session, ...){
               # brpath <- '~/rave_data/raw_dir/PAV058/001/raw/PAV054_Datafile_001.nev'
               header <- readNSx::import_nsp(
                 brpath, prefix = tempfile(),
-                exclude_events = c('spike', 'video_sync', 'digital_inputs',
-                                   'tracking', 'button_trigger', 'comment'),
+                exclude_events = c("spike", "video_sync", "digital_inputs",
+                                   "tracking", "button_trigger", "comment"),
                 exclude_nsx = 1:9, verbose = TRUE)
 
               elec_table <- header$nev$header_extended$NEUEVLBL
-              elec_table$labelprefix <- gsub('[0-9_-]+$', '', elec_table$label)
+              elec_table$labelprefix <- gsub("[0-9_-]+$", "", elec_table$label)
 
               nsinfo <- lapply(split(elec_table, elec_table$labelprefix), function(x) {
                 labelprefix <- x$labelprefix[[1]]
@@ -1656,7 +1656,7 @@ loader_server <- function(input, output, session, ...){
                   unname(nsinfo)
                 )
               )
-            }, error = function(e){
+            }, error = function(e) {
               local_reactives$snapshot <- shiny::p(
                 "Cannot read the BlackRock files ",
                 gsub("\\.nev", ".*", basename(nev_path), ignore.case = TRUE),
@@ -1685,14 +1685,14 @@ loader_server <- function(input, output, session, ...){
 
       # Update LFP inputs
       compose_params <- lapply(lfp_channels, function(e) {
-        if(!isTRUE(preproc$data[[e]]$composed)) {
+        if (!isTRUE(preproc$data[[e]]$composed)) {
           return(NULL)
         }
         tryCatch({
           params <- preproc$data[[e]]$composed_params
           o <- order(params$from)
           weights <- params$original_weights[o]
-          if(length(unique(weights)) == 1) {
+          if (length(unique(weights)) == 1) {
             weights <- weights[[1]]
           }
           list(
@@ -1701,7 +1701,7 @@ loader_server <- function(input, output, session, ...){
             weights = paste(weights, collapse = ","),
             normalize = ifelse(isTRUE(params$normalize_factor == 1), "no", "yes")
           )
-        }, error = function(...){ NULL })
+        }, error = function(...) { NULL })
       })
       compose_params <- compose_params[!vapply(compose_params, is.null, FALSE)]
       electrodes <- lfp_channels[!lfp_channels %in% unlist(lapply(compose_params, "[[", "number"))]
@@ -1714,7 +1714,7 @@ loader_server <- function(input, output, session, ...){
       )
 
       lfp_srate <- preproc$sample_rates[lfp_sel]
-      if(length(lfp_srate)) {
+      if (length(lfp_srate)) {
         shiny::updateNumericInput(
           session = session,
           inputId = "loader_lfp_sample_rate",
@@ -1737,7 +1737,7 @@ loader_server <- function(input, output, session, ...){
       )
 
       spike_srate <- preproc$sample_rates[spike_sel]
-      if(length(spike_srate)) {
+      if (length(spike_srate)) {
         shiny::updateNumericInput(
           session = session,
           inputId = "loader_microwire_sample_rate",
@@ -1753,7 +1753,7 @@ loader_server <- function(input, output, session, ...){
       )
 
       misc_srate <- preproc$sample_rates[misc_sel]
-      if(length(misc_srate)) {
+      if (length(misc_srate)) {
         shiny::updateNumericInput(
           session = session,
           inputId = "loader_auxiliary_sample_rate",
@@ -1775,20 +1775,20 @@ loader_server <- function(input, output, session, ...){
       info <- validate_step2()
       compose_setup <- local_reactives$compose_setup
 
-      if(!is.list(info) || !isTRUE(info$valid)) {
+      if (!is.list(info) || !isTRUE(info$valid)) {
         stop("The inputs are invalid. Please check your inputs.")
       }
       preproc <- preproc_from_info(info)
       compose_setup <- dipsaus::drop_nulls(lapply(compose_setup, function(item) {
-        if(!is.list(item)) {
-          if(is.character(item)) {
+        if (!is.list(item)) {
+          if (is.character(item)) {
             stop(item)
           }
           return(NULL)
         }
         item
       }))
-      if(!length(compose_setup)) {
+      if (!length(compose_setup)) {
         return()
       }
       composing_channels <- unlist(lapply(
@@ -1805,7 +1805,7 @@ loader_server <- function(input, output, session, ...){
           easyClose = FALSE,
           shiny::fluidRow(
             local({
-              if(length(composing_channels)) {
+              if (length(composing_channels)) {
                 shiny::column(
                   width = 12,
                   shiny::p(
@@ -1817,7 +1817,7 @@ loader_server <- function(input, output, session, ...){
               } else { NULL }
             }),
             local({
-              if(length(composed)) {
+              if (length(composed)) {
                 shiny::column(
                   width = 12,
                   shiny::p(
@@ -1834,7 +1834,7 @@ loader_server <- function(input, output, session, ...){
           footer = shiny::tagList(
             shiny::modalButton("Cancel"),
             local({
-              if(length(composing_channels)) {
+              if (length(composing_channels)) {
                 dipsaus::actionButtonStyled(
                   inputId = ns("loader_actions_compose_do"),
                   label = "Let's go"
@@ -1854,13 +1854,13 @@ loader_server <- function(input, output, session, ...){
     safe_observe({
       info <- validate_step2()
       compose_setup <- local_reactives$compose_setup
-      if(!is.list(info) || !isTRUE(info$valid)) {
+      if (!is.list(info) || !isTRUE(info$valid)) {
         stop("The inputs are invalid. Please check your inputs.")
       }
       preproc <- preproc_from_info(info)
       compose_setup <- as.list(drop_nulls(lapply(compose_setup, function(item) {
-        if(!is.list(item)) {
-          if(is.character(item)) {
+        if (!is.list(item)) {
+          if (is.character(item)) {
             stop(item)
           }
           return(NULL)
@@ -1873,7 +1873,7 @@ loader_server <- function(input, output, session, ...){
       sel <- composing_channels %in% preproc$electrodes
       composed <- composing_channels[sel]
       composing_channels <- composing_channels[!sel]
-      if(!length(composing_channels)) {
+      if (!length(composing_channels)) {
         stop("No channel to compose.")
       }
 
@@ -1892,7 +1892,7 @@ loader_server <- function(input, output, session, ...){
       on.exit({
         Sys.sleep(0.5)
         dipsaus::close_alert2()
-        if(finished) {
+        if (finished) {
           shiny::removeModal()
         }
       }, add = TRUE, after = FALSE)
@@ -1927,11 +1927,11 @@ loader_server <- function(input, output, session, ...){
   validate_step3 <- function(skip_validation = TRUE) {
     tryCatch({
       info <- validate_step2()
-      if(!is.list(info) || !isTRUE(info$initialized)) {
+      if (!is.list(info) || !isTRUE(info$initialized)) {
         stop("The inputs are invalid. Please check your inputs.")
       }
       preproc <- preproc_from_info(info)
-      if(is.null(preproc)){
+      if (is.null(preproc)) {
         stop("The inputs are invalid. Please check your inputs.")
       }
       format <- info$current_format
@@ -1949,28 +1949,28 @@ loader_server <- function(input, output, session, ...){
 
       compose_setup <- local_reactives$compose_setup
 
-      if(!isTRUE(format %in% seq_along(all_formats))) {
+      if (!isTRUE(format %in% seq_along(all_formats))) {
         stop("The format is invalid.")
       }
-      if(!length(blocks)) {
+      if (!length(blocks)) {
         stop("The session block has zero length.")
       }
-      if(!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
+      if (!length(c(lfp_channels, microwire_channels, auxiliary_channels))) {
         stop("No channels will be imported.")
       }
-      if(length(lfp_channels) > 0 && !isTRUE(lfp_sample_rate > 1)) {
+      if (length(lfp_channels) > 0 && !isTRUE(lfp_sample_rate > 1)) {
         stop("LFP sample rate must be positive.")
       }
-      if(length(microwire_channels) > 0 && !isTRUE(microwire_sample_rate > 1)) {
+      if (length(microwire_channels) > 0 && !isTRUE(microwire_sample_rate > 1)) {
         stop("Microwire sample rate must be positive.")
       }
-      if(length(auxiliary_channels) > 0 && !isTRUE(auxiliary_sample_rate > 1)) {
+      if (length(auxiliary_channels) > 0 && !isTRUE(auxiliary_sample_rate > 1)) {
         stop("Auxiliary sample rate must be positive.")
       }
 
       compose_setup <- drop_nulls(lapply(compose_setup, function(item) {
-        if(!is.list(item)) {
-          if(is.character(item)) {
+        if (!is.list(item)) {
+          if (is.character(item)) {
             stop(item)
           }
           return(NULL)
@@ -2074,7 +2074,7 @@ loader_server <- function(input, output, session, ...){
               ),
 
               {
-                if(any_imported){
+                if (any_imported) {
                   "* The subject has been imported before. Proceed and you will need to re-process all other modules, including Wavelet."
                 } else {
                   NULL

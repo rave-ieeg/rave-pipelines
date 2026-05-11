@@ -55,7 +55,7 @@ calc_similarity_matrix <- function(
   # duration_per_trial <- rep(1, 10)
   # collapse_frequency <- TRUE
 
-  if(inherits(baseline_power, "RAVEFileArray")) {
+  if (inherits(baseline_power, "RAVEFileArray")) {
     # unwrap the baseline_power to filearray
     baseline_power <- baseline_power$`@impl`
   }
@@ -77,7 +77,7 @@ calc_similarity_matrix <- function(
     dimnames(trial_power) <- NULL
     trial_power[is.na(trial_power)] <- 0
 
-    if( collapse_frequency ) {
+    if ( collapse_frequency ) {
       # if collapse freq
       trial_power <- ravetools::collapse(trial_power, keep = c(2, 4))
     } else {
@@ -102,7 +102,7 @@ calc_similarity_matrix <- function(
 
   # When only one trial is available... This is bad... but we still
   # return a matrix
-  if(length(dm) < 3 || dm[[3]] <= 1) {
+  if (length(dm) < 3 || dm[[3]] <= 1) {
     dim(similarities) <- dm_12
 
     # normalize the similarities matrix
@@ -160,7 +160,7 @@ calc_average_responses <- function(
   # duration_per_trial <- rep(1, 10)
   # collapse_frequency <- TRUE
 
-  if(inherits(baseline_power, "RAVEFileArray")) {
+  if (inherits(baseline_power, "RAVEFileArray")) {
     # unwrap the baseline_power to filearray
     baseline_power <- baseline_power$`@impl`
   }
@@ -193,7 +193,7 @@ calc_average_responses <- function(
     # Time x Channel
     re <- ravetools::collapse(trial_power, keep = c(2, 4))
     ntp <- nrow(re)
-    if(ntp > n_time) {
+    if (ntp > n_time) {
       re <- re[seq_len(n_time), , drop = FALSE]
     } else if (ntp < n_time) {
       re <- cbind(re, array(NA_real_, c(n_time - ntp, ncol(re))))
@@ -243,7 +243,7 @@ prepare_fpca_data <- function(
   # event_start <- "Trial Onset"
   # duration = 0.5
 
-  if(inherits(baseline_power, "RAVEFileArray")) {
+  if (inherits(baseline_power, "RAVEFileArray")) {
     # unwrap the baseline_power to filearray
     baseline_power <- baseline_power$`@impl`
   }
@@ -253,11 +253,11 @@ prepare_fpca_data <- function(
   event_start_cname <- repository$epoch$get_event_colname(
     event = event_start, missing = "error")
 
-  if(is.null(event_end) && is.null(duration)) {
+  if (is.null(event_end) && is.null(duration)) {
     stop("Please specify either `event_end` and/or `duration`")
   }
-  if(length(event_end) > 0) {
-    if(length(duration) == 0 || is.na(duration)) {
+  if (length(event_end) > 0) {
+    if (length(duration) == 0 || is.na(duration)) {
       max_duration <- Inf
     } else {
       max_duration <- rep(duration, ceiling(nrow(epoch_table) / length(duration)))
@@ -276,7 +276,7 @@ prepare_fpca_data <- function(
   epoch_rows <- epoch_table$Condition %in% group_conditions
 
   # If there is no trial, return nothing
-  if(!any(epoch_rows)) { return(NULL) }
+  if (!any(epoch_rows)) { return(NULL) }
 
   trial_numbers <- epoch_table$Trial[epoch_rows]
   trial_start <- (epoch_table[[event_start_cname]] - epoch_table$Time + start_offset)[epoch_rows]
@@ -284,7 +284,7 @@ prepare_fpca_data <- function(
 
   frequency_range <- range(unlist(frequency_range), na.rm = TRUE)
   frequency_selector <- repository$frequency >= frequency_range[[1]] & repository$frequency <= frequency_range[[2]]
-  if(!any(frequency_selector)) {
+  if (!any(frequency_selector)) {
     nearest_idx <- which.min(abs(repository$frequency - mean(frequency_range)))
     frequency_selector[nearest_idx] <- TRUE
   }
@@ -333,7 +333,7 @@ decompose_similarity_matrix <- function(similarity_matrix, initial_q, min_q = 2,
   if (!is.matrix(similarity_matrix)) {
     stop("Input `similarity_matrix` must be a matrix.")
   }
-  if(anyNA(similarity_matrix)) {
+  if (anyNA(similarity_matrix)) {
     stop("Similarity matrix may not contain NA")
   }
   N <- nrow(similarity_matrix)
@@ -380,7 +380,7 @@ decompose_similarity_matrix <- function(similarity_matrix, initial_q, min_q = 2,
       # upper_tri_elements <- HHt[upper.tri(HHt)]
       # zeta <- max(upper_tri_elements, na.rm = TRUE)
 
-      if(!is.finite(zeta)) {
+      if (!is.finite(zeta)) {
         zeta <- -Inf
       }
     } else if (N == 1) { # N=1, H_image is 1xq_current. HHt is 1x1. upper.tri is empty.
@@ -434,7 +434,7 @@ calc_basis <- function(initial_cluster, average_responses) {
 
     # Normalize
     basis_norm <- sqrt(sum(basis^2))
-    if( basis_norm == 0 ) {
+    if ( basis_norm == 0 ) {
       basis_norm <- 1
     }
     basis / basis_norm
@@ -564,9 +564,9 @@ calc_final_cluster_tree <- function(
 calc_final_cut_tree <- function(cluster_result, k, cvi = FALSE) {
   # print(k)
   cls <- stats::cutree(cluster_result$cluster_object, k)
-  if( cvi ) {
+  if ( cvi ) {
     sil <-  cluster::silhouette(cls, cluster_result$distance_matrix)
-    cvi_index <- mean(sil[,'sil_width'])
+    cvi_index <- mean(sil[, "sil_width"])
 
     list(
       k = k,
@@ -584,7 +584,7 @@ calc_final_cut_tree <- function(cluster_result, k, cvi = FALSE) {
 # Silhouette score
 choose_n_clusters <- function(cluster_result, cluster_range = NULL, plot = TRUE) {
 
-  if(length(cluster_range) > 0) {
+  if (length(cluster_range) > 0) {
     cluster_range <- range(cluster_range, na.rm = TRUE)
   } else {
     cluster_range <- cluster_result$cluster_range
@@ -602,12 +602,12 @@ choose_n_clusters <- function(cluster_result, cluster_range = NULL, plot = TRUE)
   # TODO: find the best cluster
   best_k <- k_list[which(cvi_indexes == max(cvi_indexes))]
 
-  if(plot) {
+  if (plot) {
     plot(
       x = k_list,
       y = cvi_indexes,
-      main = 'Clustering index',
-      xlab = 'number of clusters',
+      main = "Clustering index",
+      xlab = "number of clusters",
       ylab = "Silhouette score",
       pch = 16,
       axes = FALSE,

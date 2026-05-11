@@ -14,9 +14,8 @@ ravepipeline::pipeline_setup_rmd("connectivity_viewer")
 ```
 
 ```{rave get_template_details, language = "R", export = "template_details", cue = "always", collapse=FALSE}
-template_details <- list('selected_template' = selected_template,
-                         'selected_surfaces' = surface_types
-                         )
+template_details <- list("selected_template" = selected_template,
+                         "selected_surfaces" = surface_types)
 ```
 
 

@@ -1,12 +1,12 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
   pre_downsample <- pipeline$get_settings("pre_downsample", default = NA)
   repository_datatype <- pipeline$get_settings("repository_datatype", default = "raw-voltage")
 
   ravedash::simple_layout(
     input_width = 4L,
     container_fixed = TRUE,
-    container_style = 'max-width:1444px;',
+    container_style = "max-width:1444px;",
     input_ui = {
       # project & subject
       ravedash::input_card(
@@ -98,7 +98,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   get_subject <- loader_subject$get_tool("get_subject")
 
@@ -120,7 +120,7 @@ loader_server <- function(input, output, session, ...){
         type = subject$electrode_types,
         sample_rate = subject$raw_sample_rates
       )
-      if(!nrow(tbl)) { return() }
+      if (!nrow(tbl)) { return() }
       tbl <- unique(tbl)
 
       local_reactives$sample_rates <- structure(
@@ -135,7 +135,7 @@ loader_server <- function(input, output, session, ...){
 
   output$loader_repository_datatype_info <- shiny::renderText({
     dtype <- paste(input$loader_repository_datatype, collapse = "")
-    switch (
+    switch(
       dtype,
       "voltage" = {
         "Notch filter & re-referenced"
@@ -152,14 +152,14 @@ loader_server <- function(input, output, session, ...){
   output$loader_pre_downsample_info <- shiny::renderText({
 
     sample_rates <- local_reactives$sample_rates
-    if(!length(sample_rates)) { return("This subject has no data imported") }
+    if (!length(sample_rates)) { return("This subject has no data imported") }
 
     srate_info <- paste(
       sprintf("%s (%g Hz)", names(sample_rates), unlist(sample_rates)),
       collapse = ", "
     )
 
-    if(length(sample_rates$LFP)) {
+    if (length(sample_rates$LFP)) {
       srate <- sample_rates$LFP[[1]]
       suggested_dsample <- floor(srate / 400)
       dsample_suggestion <- sprintf("If you want to analyze LFP signals with frequency < 200 Hz, you might want to down-sample the channels to improve speed (for example, by %d). If you don't want to down-sample, leave this field blank.", suggested_dsample)
@@ -187,12 +187,12 @@ loader_server <- function(input, output, session, ...){
       )
       # add your own input values to the settings file
       pre_downsample <- input$loader_pre_downsample
-      if(!is.na(pre_downsample)) {
-        if(pre_downsample < 1 || abs(pre_downsample - round(pre_downsample)) > 0.001) {
+      if (!is.na(pre_downsample)) {
+        if (pre_downsample < 1 || abs(pre_downsample - round(pre_downsample)) > 0.001) {
           stop("Down-sampling rate must be an positive integer")
         }
         pre_downsample <- round(pre_downsample)
-        if(pre_downsample == 1) {
+        if (pre_downsample == 1) {
           pre_downsample <- NA
         }
       }
@@ -233,16 +233,16 @@ loader_server <- function(input, output, session, ...){
       res$promise$then(
 
         # When data can be imported
-        onFulfilled = function(e){
+        onFulfilled = function(e) {
 
           # Set epoch and/or reference as default
           repo <- pipeline$read("repository")
-          if(default_reference) {
+          if (default_reference) {
             repo$subject$set_default("reference_name", repo$reference_name)
           }
 
           # Let the module know the data has been changed
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
           ravepipeline::logger("Data has been loaded loaded")
 
           # Close the alert
@@ -251,7 +251,7 @@ loader_server <- function(input, output, session, ...){
 
 
         # this is what should happen when pipeline fails
-        onRejected = function(e){
+        onRejected = function(e) {
 
           # Close the alert
           Sys.sleep(0.5)

@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -44,7 +44,7 @@ module_html <- function(){
 
                   shiny::p(
                     shiny::actionLink(
-                      inputId = ns('data_uploader_example_btn'),
+                      inputId = ns("data_uploader_example_btn"),
                       label = "Show an example"
                     )
                   ),
@@ -124,10 +124,10 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'RAVE Group 3D viewer',
+              "RAVE Group 3D viewer",
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 # MIGRATED: removed ravedash::output_gadget_container() wrapper
                 threeBrain::threejsBrainOutput(
                     outputId = ns("viewer3d"),

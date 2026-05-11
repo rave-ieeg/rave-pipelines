@@ -25,7 +25,7 @@ ravepipeline::pipeline_run()
 ##' Check pipeline progress to see status (cached/skipped, built, errored...)
 ##' Must run `ravepipeline::pipeline_run()` first, otherwise error will occur
 ##'
-ravepipeline::pipeline_progress(method = 'details')
+ravepipeline::pipeline_progress(method = "details")
 
 
 ##' Get current variable table. Run `ravepipeline::pipeline_run()` first

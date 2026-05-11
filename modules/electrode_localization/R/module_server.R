@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -17,7 +17,7 @@ module_server <- function(input, output, session, ...){
 
 
   error_notification <- function(e) {
-    if(!inherits(e, "condition")) {
+    if (!inherits(e, "condition")) {
       e <- simpleError(message = e$message)
     }
     ravepipeline::logger_error_condition(e)
@@ -34,7 +34,7 @@ module_server <- function(input, output, session, ...){
 
   get_preview <- shiny::reactive({
     table <- local_reactives$table_preview
-    if(!is.data.frame(table)) { return(NULL) }
+    if (!is.data.frame(table)) { return(NULL) }
 
     sel <- table$Coord_x != 0 | table$Coord_y != 0 | table$Coord_z != 0
     tkrRAS <- sprintf("%.0f,%.0f,%.0f", table$Coord_x, table$Coord_y, table$Coord_z)
@@ -42,7 +42,7 @@ module_server <- function(input, output, session, ...){
     mni305 <- sprintf("%.0f,%.0f,%.0f", table$MNI305_x, table$MNI305_y, table$MNI305_z)
     mni152 <- sprintf("%.0f,%.0f,%.0f", table$MNI152_x, table$MNI152_y, table$MNI152_z)
     prototype <- table$Prototype
-    if(!length(prototype)) {
+    if (!length(prototype)) {
       prototype <- ""
     }
 
@@ -144,7 +144,7 @@ module_server <- function(input, output, session, ...){
 
       succeed <- FALSE
       on.exit({
-        if(!succeed) {
+        if (!succeed) {
           Sys.sleep(0.5)
           dipsaus::close_alert2(session = session)
         }
@@ -172,7 +172,7 @@ module_server <- function(input, output, session, ...){
       electrode_table <- result_final$localization_result_final$electrode_table
       needs_update <- FALSE
 
-      if( "nonlinear_surface_mapping" %in% postprocess_opt ) {
+      if ( "nonlinear_surface_mapping" %in% postprocess_opt ) {
         tryCatch(
           {
             surface_mapping <- pipeline$run(
@@ -200,7 +200,7 @@ module_server <- function(input, output, session, ...){
         )
       }
 
-      if( "nonlinear_volumetric_mapping" %in% postprocess_opt ) {
+      if ( "nonlinear_volumetric_mapping" %in% postprocess_opt ) {
         tryCatch(
           {
             volume_mapping <- pipeline$run(
@@ -231,7 +231,7 @@ module_server <- function(input, output, session, ...){
       }
 
       subject <- pipeline$read("subject")
-      if( needs_update ) {
+      if ( needs_update ) {
         brain <- pipeline$read("brain")
         save_electrode_table(
           subject = subject,
@@ -257,7 +257,7 @@ module_server <- function(input, output, session, ...){
 
       dipsaus::shiny_alert2(
         title = "Success!",
-        icon = 'success',
+        icon = "success",
         text = "Electrode table has been exported to subject > rave > meta > electrodes.csv",
         auto_close = TRUE, buttons = list("OK" = TRUE),
         on_close = function(...) {
@@ -277,7 +277,7 @@ module_server <- function(input, output, session, ...){
     )
     DT::datatable(
       data = df,
-      selection ="none",
+      selection = "none",
       rownames = TRUE,
       class = "compact stripe",
       filter = "none",
@@ -302,7 +302,7 @@ module_server <- function(input, output, session, ...){
       # geom_names <- names(brain$electrodes$geometries)
       # geometry_definitions <- structure(names = geom_names, lapply(geom_names, function(gname) {
       #   geometry <- brain$electrodes$geometries[[gname]]
-      #   if(!inherits(geometry, "ElectrodePrototype")) {
+      #   if (!inherits(geometry, "ElectrodePrototype")) {
       #     return(NULL)
       #   }
       #   geometry$as_json(flattern = TRUE)
@@ -310,7 +310,7 @@ module_server <- function(input, output, session, ...){
       localization_list <- lapply(local_data$plan_list, function(group_info) {
         group_table <- group_info$group_table
         prototype <- group_info$prototype
-        if(!is.null(prototype)) {
+        if (!is.null(prototype)) {
           attr(group_table, "prototype") <- prototype$as_list(flattern = TRUE)
         }
         group_table
@@ -328,7 +328,7 @@ module_server <- function(input, output, session, ...){
         names = c("localization_result_initial")
       )
 
-      ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = 'debug')
+      ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = "debug")
 
       morph_mri_exists <- pipeline$read("morph_mri_exists")
       table_preview <- pipeline$read("localization_result_initial")
@@ -391,7 +391,7 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  reload_plan <- function(){
+  reload_plan <- function() {
     # subject <- component_container$data$subject
     # if(is.null(subject)) {
     #   local_data$plan_list <- NULL
@@ -411,32 +411,32 @@ module_server <- function(input, output, session, ...){
     # }
     #
     # plan_list <- split(table, ~ LabelPrefix + Dimension + LocationType)
-    # plan_list <- plan_list[vapply(plan_list, function(x){ nrow(x) > 0 }, FALSE)]
+    # plan_list <- plan_list[vapply(plan_list, function(x) { nrow(x) > 0 }, FALSE)]
     # # calculate layout & add geometries
     # brain <- component_container$data$brain
     # plan_list <- structure(
     #   lapply(plan_list, function(sub) {
-    #     if(!grepl("^[0-9,x. ]+$", sub$Interpolation[[1]])) {
+    #     if (!grepl("^[0-9,x. ]+$", sub$Interpolation[[1]])) {
     #       sub$Interpolation <- as.character(max(tryCatch({
     #         dim <- as.integer(dipsaus::parse_svec(sub$Dimension[[1]], sep = "[,x]", unique = FALSE))
     #         dim <- dim[!is.na(dim)]
-    #         if(length(dim) > 1) {
+    #         if (length(dim) > 1) {
     #           dim[[1]] - 2L
     #         } else {
     #           nrow(sub) - 2L
     #         }
-    #       }, error = function(e){
+    #       }, error = function(e) {
     #         nrow(sub) - 2L
     #       }), 1))
     #     }
     #
-    #     if( nrow(sub) > 0 && !identical(sub$Prototype[[1]], "") ) {
+    #     if ( nrow(sub) > 0 && !identical(sub$Prototype[[1]], "") ) {
     #       # try to load existing geometry
     #       prototype <- brain$electrodes$add_geometry(
     #         label_prefix = sub$LabelPrefix[[1]],
     #         prototype_name = sub$Prototype[[1]]
     #       )
-    #       if(!is.null(prototype)) {
+    #       if (!is.null(prototype)) {
     #         channel_numbers <- table$Electrode[table]
     #         prototype$set_contact_channels(sub$Electrode, sub$ContactOrder)
     #       }
@@ -446,7 +446,7 @@ module_server <- function(input, output, session, ...){
     #   names = names(plan_list)
     # )
     #
-    # local_data$plan_list <- plan_list[order(vapply(plan_list, function(x){ as.integer(min(x$Electrode)) }, FUN.VALUE = 1L))]
+    # local_data$plan_list <- plan_list[order(vapply(plan_list, function(x) { as.integer(min(x$Electrode)) }, FUN.VALUE = 1L))]
     # local_data$plan_list
   }
 
@@ -454,19 +454,19 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       subject <- pipeline$read("subject")
       subject <- ravecore::as_rave_subject(subject$subject_id, strict = FALSE)
       plan_file <- file.path(subject$meta_path, "electrodes_unsaved.csv")
-      if(!file.exists(plan_file)) {
+      if (!file.exists(plan_file)) {
         # stop("Cannot find `electrodes_unsaved.csv`. This file should have been generated by previous pipeline code.")
         return()
       }
 
-      ct_exists <- pipeline$read('ct_exists')
-      brain <- pipeline$read('brain')
-      fslut <- pipeline$read('fslut')
+      ct_exists <- pipeline$read("ct_exists")
+      brain <- pipeline$read("brain")
+      fslut <- pipeline$read("fslut")
 
       ravepipeline::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
@@ -485,7 +485,7 @@ module_server <- function(input, output, session, ...){
       local_data$plan_list <- read_plan_list( plan_file, brain = brain, strict = TRUE, instantiate = TRUE )
       lapply(local_data$plan_list, function(group_info) {
         prototype <- group_info$prototype
-        if(!is.null(prototype)) {
+        if (!is.null(prototype)) {
           proto <- brain$electrodes$add_geometry(
             label_prefix = group_info$label_prefix,
             prototype_name = group_info$prototype_name
@@ -514,14 +514,14 @@ module_server <- function(input, output, session, ...){
   output$label_selectors_wrapper <- shiny::bindEvent(
     shiny::renderUI({
 
-      if(!isTRUE(ravedash::watch_data_loaded())) { return() }
+      if (!isTRUE(ravedash::watch_data_loaded())) { return() }
 
       shiny::validate(shiny::need(length(local_data$plan_list) > 0, message = "Cannot find localization plan list. Please reload this subject."))
 
       local_reactives$active_plan <- NULL
       lapply(seq_along(local_data$plan_list), function(ii) {
         group_info <- local_data$plan_list[[ ii ]]
-        if(!length(group_info)) { return(NULL) }
+        if (!length(group_info)) { return(NULL) }
         blabel <- group_info$button_label
         dipsaus::actionButtonStyled(
           ns(sprintf("switch_plan_btn_%d", ii)),
@@ -535,11 +535,11 @@ module_server <- function(input, output, session, ...){
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  lapply(seq_len(300), function(ii){
+  lapply(seq_len(300), function(ii) {
     shiny::bindEvent(
       ravedash::safe_observe({
         plan_list <- local_data$plan_list
-        if(ii > length(plan_list)) { return() }
+        if (ii > length(plan_list)) { return() }
 
         group_info <- plan_list[[ii]]
         nm <- group_info$button_label
@@ -549,7 +549,7 @@ module_server <- function(input, output, session, ...){
         local_reactives$active_plan <- ii
 
         # update button style
-        if(length(old_plan)) {
+        if (length(old_plan)) {
           dipsaus::updateActionButtonStyled(session, inputId = sprintf("switch_plan_btn_%s", old_plan), type = "default")
         }
 
@@ -611,7 +611,7 @@ module_server <- function(input, output, session, ...){
         dipsaus::close_alert2()
       }, add = TRUE)
 
-      if(!is.null(localize_data$ct_header) && is.list(localize_data$ct_header)) {
+      if (!is.null(localize_data$ct_header) && is.list(localize_data$ct_header)) {
         class(localize_data$ct_header) <- "threeBrain.nii"
       }
 
@@ -638,10 +638,10 @@ module_server <- function(input, output, session, ...){
   })
 
   snapshot_group <- function(group_id) {
-    if(length(group_id) != 1 || !is.numeric(group_id)) { return() }
-    if(group_id < 1 || group_id > length(local_data$plan_list)) { return() }
+    if (length(group_id) != 1 || !is.numeric(group_id)) { return() }
+    if (group_id < 1 || group_id > length(local_data$plan_list)) { return() }
     group_info <- local_data$plan_list[[group_id]]
-    if(!length(group_info)) { return() }
+    if (!length(group_info)) { return() }
 
     # list(
     #   dimension = dimension,
@@ -660,7 +660,7 @@ module_server <- function(input, output, session, ...){
 
     group_info$group_id <- group_id
 
-    if( length(group_info$prototype) ) {
+    if ( length(group_info$prototype) ) {
       group_info$geometry_table <- group_info$prototype$control_points
     } else {
       group_info$geometry_table <- NULL
@@ -671,12 +671,12 @@ module_server <- function(input, output, session, ...){
   }
 
   show_group <- function(group_id, reset_labels = FALSE, reset = FALSE) {
-    if(missing(group_id)) {
+    if (missing(group_id)) {
       group_id <- local_reactives$active_plan
     }
     brain_proxy$clear_localization(update_shiny = reset)
     snapshot <- snapshot_group( group_id )
-    if(!is.list(snapshot)) { return() }
+    if (!is.list(snapshot)) { return() }
 
     group_table <- snapshot$group_table
     geometry_table <- snapshot$geometry_table
@@ -691,8 +691,8 @@ module_server <- function(input, output, session, ...){
     })
 
     ii <- 1L
-    if(!reset) {
-      if( is.data.frame(geometry_table) ) {
+    if (!reset) {
+      if ( is.data.frame(geometry_table) ) {
 
         item <- prototype$as_list(flattern = TRUE)
         item$is_prototype <- TRUE
@@ -700,9 +700,9 @@ module_server <- function(input, output, session, ...){
 
         # visualize prototype table
         has_na <- FALSE
-        for(ii in seq_len(nrow(geometry_table))) {
+        for (ii in seq_len(nrow(geometry_table))) {
           row <- geometry_table[ii, ]
-          if(is.na(row$tkr_R) || is.na(row$tkr_A) || is.na(row$tkr_S)) {
+          if (is.na(row$tkr_R) || is.na(row$tkr_A) || is.na(row$tkr_S)) {
             has_na <- TRUE
             break
           }
@@ -715,16 +715,16 @@ module_server <- function(input, output, session, ...){
           item$Coord_x <- row$tkr_R
           item$Coord_y <- row$tkr_A
           item$Coord_z <- row$tkr_S
-          if( reset_labels ) {
+          if ( reset_labels ) {
             item$FSIndex <- NULL
             item$FSLabel <- NULL
           }
           brain_proxy$add_localization_electrode(item, update_shiny = FALSE)
         }
       } else {
-        for(ii in seq_len(nrow(group_table))) {
+        for (ii in seq_len(nrow(group_table))) {
           row <- group_table[ii, ]
-          if(all(c(row$Coord_x, row$Coord_y, row$Coord_z) == 0)) {
+          if (all(c(row$Coord_x, row$Coord_y, row$Coord_z) == 0)) {
             break
           }
           # Use OrigCoord_xyz if possible
@@ -735,9 +735,9 @@ module_server <- function(input, output, session, ...){
           item$SurfaceType <- NULL
           item$Radius <- NULL
 
-          if(length(item$Hemisphere)) {
+          if (length(item$Hemisphere)) {
             item$Hemisphere <- tolower(item$Hemisphere)
-            if( !item$Hemisphere %in% c("left", "right") ) {
+            if ( !item$Hemisphere %in% c("left", "right") ) {
               item$Hemisphere <- NULL
             }
           }
@@ -748,7 +748,7 @@ module_server <- function(input, output, session, ...){
           item$Coord_x %?<-% row$Coord_x
           item$Coord_y %?<-% row$Coord_y
           item$Coord_z %?<-% row$Coord_z
-          if( reset_labels ) {
+          if ( reset_labels ) {
             item$FSIndex <- NULL
             item$FSLabel <- NULL
           }
@@ -764,12 +764,12 @@ module_server <- function(input, output, session, ...){
       group_table$Coord_z <- 0
       local_data$plan_list[[group_id]]$group_table <- group_table
 
-      if(length(prototype)) {
+      if (length(prototype)) {
         prototype$reset_world_control_points()
 
         # clear_localization() will also reset the prototype on canvas
         # re-add
-        if(is.data.frame(geometry_table)) {
+        if (is.data.frame(geometry_table)) {
           item <- prototype$as_list(flattern = TRUE)
           item$is_prototype <- TRUE
           item$transform <- as.vector(diag(1, 4))
@@ -782,7 +782,7 @@ module_server <- function(input, output, session, ...){
 
     # We want to set `Edit Mode` only when it was "disabled", "refine", do not
     # change "CT/volume" <-> "MRI slice" as users might want that
-    if( isTRUE(shiny::isolate(brain_proxy$controllers[["Edit Mode"]]) %in% c("disabled", "refine")) ||
+    if ( isTRUE(shiny::isolate(brain_proxy$controllers[["Edit Mode"]]) %in% c("disabled", "refine")) ||
         !isTRUE(local_data$edit_mode_initialized) ) {
       brain_proxy$set_controllers(list(
         `Edit Mode` = ifelse(ct_exists, "CT/volume", "MRI slice")
@@ -796,21 +796,21 @@ module_server <- function(input, output, session, ...){
     ))
 
     # check if brain shift is needed
-    if(length( group_table$SurfaceElectrode )) {
+    if (length( group_table$SurfaceElectrode )) {
       group_table$SurfaceElectrode <- as.logical(group_table$SurfaceElectrode)
       has_surface_electrode <- any(group_table$SurfaceElectrode)
       has_depth_electrode <- !all(group_table$SurfaceElectrode)
-    } else if( length(group_table$LocationType) ){
+    } else if ( length(group_table$LocationType) ) {
       has_surface_electrode <- any(group_table$LocationType %in% "ECoG")
       has_depth_electrode <- any(group_table$LocationType %in% c("sEEG", "iEEG"))
     } else {
       has_surface_electrode <- FALSE
       has_depth_electrode <- TRUE
     }
-    if( has_surface_electrode ) {
+    if ( has_surface_electrode ) {
       max_shifted <- max(c(group_table$DistanceShifted, 0))
       shift_mode <- "soft threshold"
-      if( has_depth_electrode ) {
+      if ( has_depth_electrode ) {
         shift_mode <- "hard threshold"
         max_shifted <- ceiling(max_shifted * 10) / 10
       }
@@ -840,8 +840,8 @@ module_server <- function(input, output, session, ...){
     mni152 <- ravecore::MNI305_to_MNI152 %*% rbind(df$MNI305_x, df$MNI305_y, df$MNI305_z, 1)
     sel <- df$Coord_x == 0 & df$Coord_y == 0 & df$Coord_z == 0
     mni152[, sel] <- 0
-    mni152_text <- sprintf("%.0f,%.0f,%.0f", mni152[1,], mni152[2,], mni152[3,])
-    mni152_link <- url_neurosynth(mni152[1,], mni152[2,], mni152[3,])
+    mni152_text <- sprintf("%.0f,%.0f,%.0f", mni152[1, ], mni152[2, ], mni152[3, ])
+    mni152_link <- url_neurosynth(mni152[1, ], mni152[2, ], mni152[3, ])
     mni152_col <- sprintf('<a href="%s" target="_blank">%s</a>', mni152_link, mni152_text)
     mni152_col[sel] <- ""
     table_output <- data.frame(
@@ -856,14 +856,14 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       ginfo <- current_group()
-      if(!(is.list(ginfo) && is.data.frame(ginfo$group_table))) {
+      if (!(is.list(ginfo) && is.data.frame(ginfo$group_table))) {
         local_reactives$table_output <- NULL
       }
 
       group_id <- ginfo$group_id
 
       table_output <- NULL
-      if( is.data.frame(ginfo$geometry_table) ) {
+      if ( is.data.frame(ginfo$geometry_table) ) {
         # TODO: display control points instead of the group table
         geometry_table <- ginfo$geometry_table
 
@@ -878,7 +878,7 @@ module_server <- function(input, output, session, ...){
         chan_str <- sprintf("%.0f", geometry_table$Channel)
         chan_str[ chan_str == "NA" ] <- "non-contact"
 
-        if(is.data.frame(geometry_table)) {
+        if (is.data.frame(geometry_table)) {
           table_output <- data.frame(
             Electrode = chan_str,
             ModelXYZ = sprintf("%.0f,%.0f,%.0f", geometry_table$model_x, geometry_table$model_y, geometry_table$model_z),
@@ -886,11 +886,11 @@ module_server <- function(input, output, session, ...){
           )
         }
       }
-      if(!is.data.frame(table_output)) {
+      if (!is.data.frame(table_output)) {
         table_output <- format_group_table(ginfo$group_table)
       }
 
-      if(identical(local_data$last_group_id, group_id)) {
+      if (identical(local_data$last_group_id, group_id)) {
         DT::replaceData(proxy_table, data = table_output)
       } else {
         local_reactives$table_output <- table_output
@@ -904,15 +904,15 @@ module_server <- function(input, output, session, ...){
 
   group_table_selected <- shiny::reactive({
     ridx <- input$group_table_rows_selected
-    if(length(ridx) != 1 || ridx < 1) { return(FALSE) }
+    if (length(ridx) != 1 || ridx < 1) { return(FALSE) }
     group_id <- local_reactives$active_plan
-    if(length(group_id) != 1 || !is.numeric(group_id)) { return(FALSE) }
-    if(group_id > length(local_data$plan_list)) { return(FALSE) }
+    if (length(group_id) != 1 || !is.numeric(group_id)) { return(FALSE) }
+    if (group_id > length(local_data$plan_list)) { return(FALSE) }
     snapshot <- local_data$plan_list[[group_id]]
-    if(is.data.frame(snapshot$geometry_table)) { return(NA) }
+    if (is.data.frame(snapshot$geometry_table)) { return(NA) }
     group_table <- snapshot$group_table
-    if(!is.data.frame(group_table)) { return(FALSE) }
-    if(nrow(group_table) < ridx) { return(FALSE) }
+    if (!is.data.frame(group_table)) { return(FALSE) }
+    if (nrow(group_table) < ridx) { return(FALSE) }
     return(TRUE)
   })
 
@@ -966,13 +966,13 @@ module_server <- function(input, output, session, ...){
 
   output$fsindex_selector <- shiny::renderUI({
     selected <- group_table_selected()
-    if(length(selected) != 1 || isFALSE(selected)) { return() }
+    if (length(selected) != 1 || isFALSE(selected)) { return() }
     ridx <- shiny::isolate(input$group_table_rows_selected)
 
     labels <- c("[unchanged]", unname(component_container$data$fslut$labels))
     selected <- shiny::isolate(input$fsindex_label) %OF% labels
 
-    if(isTRUE(selected)) {
+    if (isTRUE(selected)) {
       shiny::tagList(
         shiny::div(
           class = "margin-top-5",
@@ -1011,7 +1011,7 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!isTRUE(group_table_selected())) { return() }
+      if (!isTRUE(group_table_selected())) { return() }
 
       ridx <- input$group_table_rows_selected
       # if(length(ridx) != 1 || ridx < 1) { return() }
@@ -1023,7 +1023,7 @@ module_server <- function(input, output, session, ...){
       label <- input$fsindex_label
       group_table <- local_data$plan_list[[group_id]]$group_table
       # if(!is.data.frame(group_table)) { return() }
-      if(isTRUE(label %in% component_container$data$fslut$labels)) {
+      if (isTRUE(label %in% component_container$data$fslut$labels)) {
         # change label
         # if(nrow(group_table) < ridx) { return() }
         group_table$FSIndex[[ridx]] <- component_container$data$fslut$cmap$get_key(label)
@@ -1032,7 +1032,7 @@ module_server <- function(input, output, session, ...){
       }
 
       next_ridx <- ridx + 1L
-      if(next_ridx > nrow(group_table)) {
+      if (next_ridx > nrow(group_table)) {
         next_ridx <- 1L
       }
       DT::replaceData(proxy_table, data = format_group_table(group_table))
@@ -1063,7 +1063,7 @@ module_server <- function(input, output, session, ...){
 
   output$instruction_text <- shiny::renderUI({
     ginfo <- current_group()
-    if(!is.list(ginfo)) { return() }
+    if (!is.list(ginfo)) { return() }
 
     dim <- ginfo$group_table$Dimension[[1]]
     dim <- as.integer(dipsaus::parse_svec(dim, sep = "[,x]"))
@@ -1078,12 +1078,12 @@ module_server <- function(input, output, session, ...){
       shiny::tags$ul(
         shiny::tags$li(
           "Make sure the ",
-          shiny::pre(class="pre-compact no-padding display-inline", "3D Viewer"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Electrode Localization"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Edit Mode"),
+          shiny::pre(class = "pre-compact no-padding display-inline", "3D Viewer"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Electrode Localization"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Edit Mode"),
           " is ",
-          shiny::pre(class="pre-compact no-padding display-inline", "CT/volume"), " (with CT) or ",
-          shiny::pre(class="pre-compact no-padding display-inline", "MRI slice"), " (w/o CT)"
+          shiny::pre(class = "pre-compact no-padding display-inline", "CT/volume"), " (with CT) or ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "MRI slice"), " (w/o CT)"
         ),
         shiny::tags$li(
           sprintf("Double-click on the viewer to mark electrode %s1", label_prefix)
@@ -1093,16 +1093,16 @@ module_server <- function(input, output, session, ...){
         ),
         shiny::tags$li(
           "Set ",
-          shiny::pre(class="pre-compact no-padding display-inline", "3D Viewer"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Electrode Localization"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Interp Size"),
+          shiny::pre(class = "pre-compact no-padding display-inline", "3D Viewer"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Electrode Localization"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Interp Size"),
           " to ", batch_size - 2L, ", or enter the electrode spacing."
         ),
         shiny::tags$li(
           "Click on ",
-          shiny::pre(class="pre-compact no-padding display-inline", "3D Viewer"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Electrode Localization"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Interpolate"),
+          shiny::pre(class = "pre-compact no-padding display-inline", "3D Viewer"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Electrode Localization"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Interpolate"),
           " to automatically register the electrode contacts."
         )
       ),
@@ -1111,17 +1111,17 @@ module_server <- function(input, output, session, ...){
       shiny::tags$ul(
         shiny::tags$li(
           "Make sure the ",
-          shiny::pre(class="pre-compact no-padding display-inline", "3D Viewer"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Electrode Localization"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Edit Mode"),
+          shiny::pre(class = "pre-compact no-padding display-inline", "3D Viewer"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Electrode Localization"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Edit Mode"),
           " is set to ",
-          shiny::pre(class="pre-compact no-padding display-inline", "refine")
+          shiny::pre(class = "pre-compact no-padding display-inline", "refine")
         ),
         shiny::tags$li(
           "Click ",
-          shiny::pre(class="pre-compact no-padding display-inline", "3D Viewer"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Electrode Localization"), " > ",
-          shiny::pre(class="pre-compact no-padding display-inline", "Auto-Adjust All")
+          shiny::pre(class = "pre-compact no-padding display-inline", "3D Viewer"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Electrode Localization"), " > ",
+          shiny::pre(class = "pre-compact no-padding display-inline", "Auto-Adjust All")
         ),
         shiny::tags$li(
           "Alternatively, if you want to adjust single electrode, ",
@@ -1129,13 +1129,13 @@ module_server <- function(input, output, session, ...){
             shiny::tags$li("Double-click an electrode, the highlighted electrode will turn red"),
             shiny::tags$li(
               "Use keyboard ",
-              shiny::pre(class="pre-compact no-padding display-inline", "1"), ",",
-              shiny::pre(class="pre-compact no-padding display-inline", "2"), ",",
-              shiny::pre(class="pre-compact no-padding display-inline", "3"),
+              shiny::pre(class = "pre-compact no-padding display-inline", "1"), ",",
+              shiny::pre(class = "pre-compact no-padding display-inline", "2"), ",",
+              shiny::pre(class = "pre-compact no-padding display-inline", "3"),
               " or ",
-              shiny::pre(class="pre-compact no-padding display-inline", "shift+1"), ",",
-              shiny::pre(class="pre-compact no-padding display-inline", "shift+2"), ",",
-              shiny::pre(class="pre-compact no-padding display-inline", "shift+3"),
+              shiny::pre(class = "pre-compact no-padding display-inline", "shift+1"), ",",
+              shiny::pre(class = "pre-compact no-padding display-inline", "shift+2"), ",",
+              shiny::pre(class = "pre-compact no-padding display-inline", "shift+3"),
               " to move the highlighted electrode around"
             )
           )
@@ -1174,13 +1174,13 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       subject <- component_container$data$subject
       quat <- brain_proxy$localization_add_quaternion
-      if(!length(quat)) { return() }
+      if (!length(quat)) { return() }
       ginfo <- current_group()
-      if(!is.list(ginfo)) { return() }
+      if (!is.list(ginfo)) { return() }
       prototype <- ginfo$prototype
-      if(!inherits(prototype, "ElectrodePrototype")) { return() }
+      if (!inherits(prototype, "ElectrodePrototype")) { return() }
       geometry_table <- ginfo$geometry_table
-      if( !is.data.frame(geometry_table) ) { return() }
+      if ( !is.data.frame(geometry_table) ) { return() }
 
       tryCatch({
         q <- ravetools::new_quaternion()
@@ -1197,7 +1197,7 @@ module_server <- function(input, output, session, ...){
         v$apply_quaternion(q)
         trans <- prototype$transform
         trans[1:3, 1:3] <- v[] %*% trans[1:3, 1:3]
-        prototype$set_transform( trans );
+        prototype$set_transform( trans )
         brain_proxy$set_matrix_world(
           name = sprintf("%s, Prototype - %s", subject$subject_code, prototype$name),
           m44 = prototype$transform
@@ -1215,7 +1215,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
       subject <- component_container$data$subject
       table <- brain_proxy$localization_table
-      if(!is.data.frame(table)) { return() }
+      if (!is.data.frame(table)) { return() }
 
       interpolation <- brain_proxy$controllers[["Interp Size"]]
 
@@ -1224,7 +1224,7 @@ module_server <- function(input, output, session, ...){
       #   which = ridx
       # )
       update_viewer <- FALSE
-      if( is.list(local_data$flag_relocalize) ) {
+      if ( is.list(local_data$flag_relocalize) ) {
         relocalize <- TRUE
         group_id <- local_data$flag_relocalize$group_id
         ginfo <- snapshot_group( group_id )
@@ -1233,13 +1233,13 @@ module_server <- function(input, output, session, ...){
         ginfo <- current_group()
         group_id <- ginfo$group_id
       }
-      if(!is.list(ginfo)) { return() }
+      if (!is.list(ginfo)) { return() }
 
       group_table <- ginfo$group_table
       geometry_table <- ginfo$geometry_table
       prototype <- ginfo$prototype
 
-      if( is.data.frame(geometry_table) ) {
+      if ( is.data.frame(geometry_table) ) {
         has_geometry <- TRUE
         gtable <- geometry_table
       } else {
@@ -1248,9 +1248,9 @@ module_server <- function(input, output, session, ...){
       }
       # local_data$plan_list[[group_id]]
       n <- nrow(table)
-      if(min(nrow(table), nrow(gtable)) <= 0) { return() }
+      if (min(nrow(table), nrow(gtable)) <= 0) { return() }
 
-      if( relocalize ) {
+      if ( relocalize ) {
         # reset flag
         flag_data <- local_data$flag_relocalize
         local_data$flag_relocalize <- NULL
@@ -1264,7 +1264,7 @@ module_server <- function(input, output, session, ...){
         idx2 <- flag_data$which
 
       } else {
-        if( has_geometry ) {
+        if ( has_geometry ) {
           n <- min(nrow(geometry_table), n)
         } else {
           n <- min(nrow(group_table), n)
@@ -1275,7 +1275,7 @@ module_server <- function(input, output, session, ...){
         idx2 <- idx1
       }
 
-      if( has_geometry ) {
+      if ( has_geometry ) {
         geometry_table$tkr_R[idx2] <- table$Coord_x[idx1]
         geometry_table$tkr_A[idx2] <- table$Coord_y[idx1]
         geometry_table$tkr_S[idx2] <- table$Coord_z[idx1]
@@ -1292,26 +1292,26 @@ module_server <- function(input, output, session, ...){
           )
           constact_tkr <- prototype$get_contact_positions( apply_transform = TRUE )
           nn <- min(nrow(group_table), nrow(constact_tkr))
-          if( nn > 0 ) {
+          if ( nn > 0 ) {
             group_table[1:nn, c("Coord_x", "Coord_y", "Coord_z")] <- constact_tkr[, 1:3]
           }
         }, error = function(e) {
           ravepipeline::logger("Geometry {prototype$name} control point is not yet set. Reason: {paste(e$message, collapse = '\n')}",
                            use_glue = TRUE, level = "debug")
         })
-        if("Channel" %in% names(geometry_table)) {
+        if ("Channel" %in% names(geometry_table)) {
           channel_order <- lapply(seq_along(idx2), function( ii ) {
             row_geom_ii <- idx2[[ ii ]]
             row_table_ii <- idx1[[ ii ]]
             chan <- geometry_table$Channel[[ row_geom_ii ]]
-            if( !length(chan) || is.na(chan) ) { return(NULL) }
+            if ( !length(chan) || is.na(chan) ) { return(NULL) }
             jj <- which(group_table$Electrode == chan)
-            if(!length(jj)) { return(NULL) }
+            if (!length(jj)) { return(NULL) }
             # new idx1, idx2
             return(c(row_table_ii, jj))
           })
           channel_order <- do.call("rbind", channel_order)
-          if(length(channel_order)) {
+          if (length(channel_order)) {
             idx1 <- channel_order[, 1]
             idx2 <- channel_order[, 2]
           } else {
@@ -1324,7 +1324,7 @@ module_server <- function(input, output, session, ...){
         }
       }
 
-      if(length(idx1) > 0) {
+      if (length(idx1) > 0) {
         group_table$Coord_x[idx2] <- table$Coord_x[idx1]
         group_table$Coord_y[idx2] <- table$Coord_y[idx1]
         group_table$Coord_z[idx2] <- table$Coord_z[idx1]
@@ -1362,39 +1362,39 @@ module_server <- function(input, output, session, ...){
       }
 
       # update interpolation settings
-      if(length(interpolation) == 1) {
+      if (length(interpolation) == 1) {
         n_interp <- NA
         interpolation <- trimws(interpolation)
-        if( grepl("^[0-9]+$", interpolation) ) {
+        if ( grepl("^[0-9]+$", interpolation) ) {
           n_interp <- as.integer(interpolation)
         } else {
           n_interp <- unlist(lapply(trimws(strsplit(interpolation, ",")[[1]]), function(item) {
-            if(grepl("^[0-9]+$", item)) {
+            if (grepl("^[0-9]+$", item)) {
               return(as.integer(item))
             }
             item <- as.numeric(strsplit(item, "x")[[1]])
-            if( length(item) == 0 || anyNA(item) ) { return(NA) }
-            if( length(item) == 1 ) {
-              if( item <= 0 ) { return(NA) }
+            if ( length(item) == 0 || anyNA(item) ) { return(NA) }
+            if ( length(item) == 1 ) {
+              if ( item <= 0 ) { return(NA) }
               return( 1L )
             }
-            if( item[[2]] < 0 ) { return(NA) }
-            if( item[[2]] < 1 ) { return(0) }
-            if( item[[1]] <= 0 ) { return(NA) }
+            if ( item[[2]] < 0 ) { return(NA) }
+            if ( item[[2]] < 1 ) { return(0) }
+            if ( item[[1]] <= 0 ) { return(NA) }
             return(as.integer(item[[2]]))
           }))
           n_interp <- sum(c(n_interp, 0))
         }
-        if( !is.na(n_interp) && n_interp > 0 ) {
+        if ( !is.na(n_interp) && n_interp > 0 ) {
           group_table$Interpolation <- interpolation
         }
       }
 
-      if(update_viewer) {
+      if (update_viewer) {
         # Make sure the electrode table is updated, otherwise `show_group()`
         # will reset it. For prototypes, the table is updated within the
         # prototype so no need to change here
-        if( !has_geometry ) {
+        if ( !has_geometry ) {
           local_data$plan_list[[group_id]]$group_table <- group_table
         }
         show_group()

@@ -21,13 +21,13 @@ dcm2niix <- tryCatch({
     path = dcm2niix_path, 
     unset = default_dcm2niix_path
   )
-  if(!path_is_valid(dcm2niix)) {
+  if (!path_is_valid(dcm2niix)) {
     dcm2niix <- NULL 
   } else if (!identical(default_dcm2niix_path, dcm2niix)) {
     ravepipeline::raveio_setopt("dcm2niix_path", dcm2niix)
   }
   dcm2niix
-}, error = function(e){ NULL })
+}, error = function(e) { NULL })
 
 default_fs_path <- raveio:::cmd_freesurfer_home(error_on_missing = FALSE)
 freesurfer <- tryCatch({
@@ -36,13 +36,13 @@ freesurfer <- tryCatch({
     unset = default_fs_path,
     type = "freesurfer"
   )
-  if(!path_is_valid(freesurfer, dir_ok = TRUE)) {
+  if (!path_is_valid(freesurfer, dir_ok = TRUE)) {
     freesurfer <- NULL 
-  } else if(!identical(default_fs_path, freesurfer)) {
+  } else if (!identical(default_fs_path, freesurfer)) {
     ravepipeline::raveio_setopt("freesurfer_path", freesurfer)
   }
   freesurfer
-}, error = function(e){ NULL })
+}, error = function(e) { NULL })
 
 
 default_fsl_path <- raveio:::cmd_fsl_home(error_on_missing = FALSE)
@@ -53,14 +53,14 @@ flirt <- tryCatch({
     unset = default_fsl_path
   )
   flirt <- NULL
-  if(path_is_valid(fsl, dir_ok = TRUE)) {
-    if(!identical(default_fsl_path, fsl)) {
-      ravepipeline::raveio_setopt('fsl_path', fsl)
+  if (path_is_valid(fsl, dir_ok = TRUE)) {
+    if (!identical(default_fsl_path, fsl)) {
+      ravepipeline::raveio_setopt("fsl_path", fsl)
     }
     flirt <- file.path(fsl, "bin", "flirt")
   }
   flirt
-}, error = function(e){ NULL })
+}, error = function(e) { NULL })
 
 default_afni_path <- raveio:::cmd_afni_home(error_on_missing = FALSE)
 afni <- tryCatch({
@@ -69,15 +69,15 @@ afni <- tryCatch({
     type = "afni",
     unset = default_afni_path
   )
-  if(path_is_valid(afni, dir_ok = TRUE)) {
-    if(!identical(default_afni_path, afni)) {
-      ravepipeline::raveio_setopt('afni_path', afni)
+  if (path_is_valid(afni, dir_ok = TRUE)) {
+    if (!identical(default_afni_path, afni)) {
+      ravepipeline::raveio_setopt("afni_path", afni)
     }
   } else {
     afni
   }
   afni
-}, error = function(e){ NULL })
+}, error = function(e) { NULL })
 
 cmd_tools <- list(
   dcm2niix = dcm2niix,
@@ -99,7 +99,7 @@ subject <- raveio::RAVESubject$new(
 msgs <- character(0L)
 warns <- character(0L)
 fs_path <- subject$freesurfer_path
-if(!path_is_valid(fs_path, dir_ok = TRUE)) {
+if (!path_is_valid(fs_path, dir_ok = TRUE)) {
   fs_path <- file.path(subject$path, "fs")
   fs_reconstructed <- FALSE
 } else {
@@ -113,27 +113,27 @@ if(!path_is_valid(fs_path, dir_ok = TRUE)) {
 
 mri <- file.path(subject$preprocess_settings$raw_path, path_mri)
 
-if(is.null(cmd_tools$dcm2niix) || is.null(cmd_tools$freesurfer)) {
+if (is.null(cmd_tools$dcm2niix) || is.null(cmd_tools$freesurfer)) {
   warns <- append(warns, "Cannot find command-line `dcm2niix` and/or `FreeSurfer`: the reconstruction will fail. Please make sure these programs paths are entered correctly.")
 } else {
-  if(!path_is_valid(mri, dir_ok = TRUE)) {
+  if (!path_is_valid(mri, dir_ok = TRUE)) {
     warns <- append(warns, "No MRI folder found, the reconstruction will result in errors")
   }
 }
-if(!skip_recon && fs_reconstructed) {
+if (!skip_recon && fs_reconstructed) {
   warns <- append(warns, sprintf("Found existing FreeSurfer reconstructed directory. `recon-all` will ignore the imported T1 images. Instead, FreeSurfer will continue working on this directory unless you manually remove it: %s", fs_path))
 }
 
 ct <- file.path(subject$preprocess_settings$raw_path, path_ct)
-if(!path_is_valid(ct, dir_ok = TRUE)) {
+if (!path_is_valid(ct, dir_ok = TRUE)) {
   warns <- append(warns, "The CT path is invalid: co-registration will result in errors.")
 }
 
-if(!skip_recon) {
+if (!skip_recon) {
   msgs <- append(msgs, sprintf("New FreeSurfer reconstruction will be created from %s", mri))
   msgs <- append(msgs, sprintf("MRI default DICOM folder/Nifti file is set: %s", path_mri))
 }
-if(!skip_coregistration) {
+if (!skip_coregistration) {
   msgs <- append(msgs, sprintf("CT will be co-registered to MRI for electrode localization; CT path: %s", ct))
   msgs <- append(msgs, sprintf("CT default DICOM folder/Nifti file is set: %s", path_ct))
 }
@@ -172,13 +172,13 @@ check_result <- list(
 path_root <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
 mri_path <- file.path(path_root, "inputs", "MRI", acpc_infile)
 
-if( length(mri_path) ) {
+if ( length(mri_path) ) {
   acpc_root <- file.path(path_root, "acpc-alignment")
-  if(!isTRUE(file.exists(mri_path))) {
+  if (!isTRUE(file.exists(mri_path))) {
     stop("Invalid file [", paste(mri_path, collapse = ""), "] for ACPC alignment.")
   }
   acpc_mri_dir <- file.path(acpc_root, "mri")
-  if(file.exists(acpc_mri_dir)) {
+  if (file.exists(acpc_mri_dir)) {
     unlink(acpc_mri_dir, recursive = TRUE)
   }
   raveio::dir_create2(acpc_mri_dir)
@@ -229,8 +229,8 @@ import_T1 <- tryCatch({
 
 <pre class="sh">
 <code class="hljs">
-```{r, results='asis', echo=FALSE}
-if(isTRUE(import_T1$error)) {
+```{r, results="asis", echo=FALSE}
+if (isTRUE(import_T1$error)) {
   cat("Error: ", import_T1$condition$message, "\n")
 } else {
   cat(import_T1$script, sep = "\n")
@@ -266,9 +266,9 @@ import_CT <- tryCatch({
 
 <pre class="sh">
 <code class="hljs">
-```{r, results='asis', echo=FALSE}
+```{r, results="asis", echo=FALSE}
 cmd <- import_CT
-if(isTRUE(cmd$error)) {
+if (isTRUE(cmd$error)) {
   cat("Error: ", cmd$condition$message, "\n")
 } else {
   cat(cmd$script, sep = "\n")
@@ -289,7 +289,7 @@ image_segmentation <- tryCatch({
   mri_path <- params$nii_t1
   mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
   mri_path <- file.path(mri_root, mri_path)
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     stop("Please choose a Nifti file under ", mri_root)
   }
   
@@ -436,9 +436,9 @@ image_segmentation <- tryCatch({
 
 <pre class="sh">
 <code class="hljs">
-```{r, results='asis', echo=FALSE}
+```{r, results="asis", echo=FALSE}
 cmd <- image_segmentation
-if(isTRUE(cmd$error)) {
+if (isTRUE(cmd$error)) {
   cat("Error: ", cmd$condition$message, "\n")
 } else {
   cat(cmd$script, sep = "\n")
@@ -457,19 +457,19 @@ The following bash script uses `flirt` command
 ```{rave CT_MR_coregistration_via_FSL, export = "coreg_flirt", cue = "always", echo=FALSE}
 coreg_flirt <- tryCatch({
   mri_path <- file.path(check_result$path_temp, "derivative", params$flirt$reference)
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     mri_path <- params$nii_t1
     mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
     mri_path <- file.path(mri_root, mri_path)
   }
   
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     stop("Please choose a valid MRI Nifti file")
   }
   ct_path <- params$nii_ct
   ct_root <- file.path(check_result$path_temp, "inputs", "CT")
   ct_path <- file.path(ct_root, ct_path)
-  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
     stop("Please choose a valid CT Nifti file under ", ct_root)
   }
   
@@ -498,19 +498,19 @@ coreg_flirt <- tryCatch({
 ```{rave CT_MR_coregistration_via_nipy, export = "coreg_nipy", cue = "always", echo=FALSE}
 coreg_nipy <- tryCatch({
   mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     mri_path <- params$nii_t1
     mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
     mri_path <- file.path(mri_root, mri_path)
   }
   
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     stop("Please choose a valid MRI Nifti file")
   }
   ct_path <- params$nii_ct
   ct_root <- file.path(check_result$path_temp, "inputs", "CT")
   ct_path <- file.path(ct_root, ct_path)
-  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
     stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
   }
   
@@ -539,19 +539,19 @@ coreg_nipy <- tryCatch({
 ```{rave CT_MR_coregistration_via_NiftyReg, export = "coreg_niftyreg", cue = "always", echo=FALSE}
 coreg_niftyreg <- tryCatch({
   mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     mri_path <- params$nii_t1
     mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
     mri_path <- file.path(mri_root, mri_path)
   }
   
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     stop("Please choose a valid MRI Nifti file")
   }
   ct_path <- params$nii_ct
   ct_root <- file.path(check_result$path_temp, "inputs", "CT")
   ct_path <- file.path(ct_root, ct_path)
-  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
     stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
   }
   
@@ -576,19 +576,19 @@ coreg_niftyreg <- tryCatch({
 ```{rave CT_MR_coregistration_via_ANTs, export = "coreg_ants", cue = "always", echo=FALSE}
 coreg_ants <- tryCatch({
   mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     mri_path <- params$nii_t1
     mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
     mri_path <- file.path(mri_root, mri_path)
   }
   
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     stop("Please choose a valid MRI Nifti file")
   }
   ct_path <- params$nii_ct
   ct_root <- file.path(check_result$path_temp, "inputs", "CT")
   ct_path <- file.path(ct_root, ct_path)
-  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
     stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
   }
   
@@ -613,9 +613,9 @@ coreg_ants <- tryCatch({
 
 <pre class="sh">
 <code class="hljs">
-```{r, results='asis', echo=FALSE}
+```{r, results="asis", echo=FALSE}
 cmd <- coreg_flirt
-if(isTRUE(cmd$error)) {
+if (isTRUE(cmd$error)) {
   cat("Error: ", cmd$condition$message, "\n")
 } else {
   cat(cmd$script, sep = "\n")
@@ -631,13 +631,13 @@ coreg_3dallineate <- tryCatch({
   mri_path <- params$nii_t1
   mri_root <- file.path(check_result$path_temp, "inputs", "MRI")
   mri_path <- file.path(mri_root, mri_path)
-  if(!path_is_valid(mri_path) || dir.exists(mri_path)) {
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
     stop("Please choose a valid MRI Nifti file under ", mri_root)
   }
   ct_path <- params$nii_ct
   ct_root <- file.path(check_result$path_temp, "inputs", "CT")
   ct_path <- file.path(ct_root, ct_path)
-  if(!path_is_valid(ct_path) || dir.exists(ct_path)) {
+  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
     stop("Please choose a valid CT Nifti file under ", ct_root)
   }
   
@@ -664,7 +664,7 @@ coreg_3dallineate <- tryCatch({
 morphmri_ants <- tryCatch({
   
   template_brain <- params$template_brain
-  if(length(template_brain) != 1) {
+  if (length(template_brain) != 1) {
     template_brain <- getOption("threeBrain.template_subject", "fsaverage")
   }
   raveio::cmd_run_ants_mri_to_template(
@@ -683,9 +683,9 @@ morphmri_ants <- tryCatch({
 
 <pre class="sh">
 <code class="hljs">
-```{r, results='asis', echo=FALSE}
+```{r, results="asis", echo=FALSE}
 cmd <- coreg_3dallineate
-if(isTRUE(cmd$error)) {
+if (isTRUE(cmd$error)) {
   cat("Error: ", cmd$condition$message, "\n")
 } else {
   cat(cmd$script, sep = "\n")
@@ -700,7 +700,7 @@ if(isTRUE(cmd$error)) {
 
 Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-surface_reconstruction.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
 
-```{r build, echo=FALSE, results='hide'}
+```{r build, echo=FALSE, results="hide"}
 build_pipeline(make_file = "make-surface_reconstruction.R")
 ```
 

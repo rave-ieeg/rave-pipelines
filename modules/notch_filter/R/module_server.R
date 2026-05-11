@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 
   # Local reactive values, used to store reactive event triggers
@@ -20,8 +20,8 @@ module_server <- function(input, output, session, ...){
   # ---- generate reports ------------------------------------
   report_btn_onclick <- shiny::bindEvent(
     shiny::reactive({
-      if(!ravedash::watch_data_loaded()) { return(FALSE) }
-      if(ravedash::watch_loader_opened()) { return(FALSE) }
+      if (!ravedash::watch_data_loaded()) { return(FALSE) }
+      if (ravedash::watch_loader_opened()) { return(FALSE) }
       res <- ravedash::get_rave_event("message_button_clicked")
       structure(!is.null(res), timestamp = res)
     }),
@@ -32,7 +32,7 @@ module_server <- function(input, output, session, ...){
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      if(!report_btn_onclick()) { return() }
+      if (!report_btn_onclick()) { return() }
       report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
     }),
     report_btn_onclick(),
@@ -44,7 +44,7 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
-      if(!loaded_flag){ return() }
+      if (!loaded_flag) { return() }
 
       data <- pipeline$read(var_names = c("subject", "imported_electrodes"))
 
@@ -57,7 +57,7 @@ module_server <- function(input, output, session, ...){
       local_data$imported_electrodes <- imported_electrodes
 
       notch_filtered <- subject$preprocess_settings$notch_filtered
-      notch_filtered <- sapply(imported_electrodes, function(e){
+      notch_filtered <- sapply(imported_electrodes, function(e) {
         notch_filtered[subject$electrodes == e]
       })
 
@@ -77,7 +77,7 @@ module_server <- function(input, output, session, ...){
       )
 
       try({
-        if(
+        if (
           length(notch_params$notch_filter_lowerbound) == length(notch_params$notch_filter_upperbound) &&
           length(notch_params$notch_filter_upperbound) > 0
         ) {
@@ -85,7 +85,7 @@ module_server <- function(input, output, session, ...){
           filter_bandwidth <- abs(notch_params$notch_filter_upperbound - notch_params$notch_filter_lowerbound)
 
           base_freq <- min(filter_center, na.rm = TRUE)
-          if(is.finite(base_freq) && base_freq > 0) {
+          if (is.finite(base_freq) && base_freq > 0) {
             times <- filter_center / base_freq
             half_bandwidth <- filter_bandwidth / 2
             shiny::updateNumericInput(
@@ -138,7 +138,7 @@ module_server <- function(input, output, session, ...){
         max = floor(current_srate / 2)
       )
 
-      if(isTRUE(all(notch_filtered))) {
+      if (isTRUE(all(notch_filtered))) {
         shidashi::card_operate(title = "Filter settings", method = "collapse")
       } else {
         shidashi::card_operate(title = "Filter settings", method = "expand")
@@ -157,11 +157,11 @@ module_server <- function(input, output, session, ...){
 
   get_electrode <- shiny::bindEvent(
     shiny::reactive({
-      if(!length(local_data$subject)) { return(integer()) }
+      if (!length(local_data$subject)) { return(integer()) }
       electrode <- input$electrode
-      if(!length(electrode)){ return(integer()) }
+      if (!length(electrode)) { return(integer()) }
       electrode <- as.integer(electrode)
-      if(!electrode %in% local_data$imported_electrodes){ return(integer()) }
+      if (!electrode %in% local_data$imported_electrodes) { return(integer()) }
 
       subject <- local_data$subject
       sample_rates <- subject$preprocess_settings$sample_rates
@@ -190,10 +190,10 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       electrode <- get_electrode()
-      if(!length(electrode)){ return() }
+      if (!length(electrode)) { return() }
       imported_electrodes <- local_data$imported_electrodes
       idx <- which(imported_electrodes == electrode) + 1
-      if(idx > length(imported_electrodes)) {
+      if (idx > length(imported_electrodes)) {
         idx <- 1
       }
       shiny::updateSelectInput(
@@ -209,10 +209,10 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
       electrode <- get_electrode()
-      if(!length(electrode)){ return() }
+      if (!length(electrode)) { return() }
       imported_electrodes <- local_data$imported_electrodes
       idx <- which(imported_electrodes == electrode) - 1
-      if(idx <= 0) {
+      if (idx <= 0) {
         idx <- length(imported_electrodes)
       }
       shiny::updateSelectInput(
@@ -230,20 +230,20 @@ module_server <- function(input, output, session, ...){
   parameter_validator <- shinyvalidate::InputValidator$new(session = session)
   parameter_validator$add_rule(
     inputId = "notch_filter_base_freq",
-    rule = function(value){
-      if(is.na(value) || value <= 0) {
+    rule = function(value) {
+      if (is.na(value) || value <= 0) {
         return("Line noise frequency must be positive")
       }
     }
   )
   parameter_validator$add_rule(
     inputId = "notch_filter_times",
-    rule = function(mult_times){
+    rule = function(mult_times) {
       mult_times <- strsplit(mult_times, "[, ]+")[[1]]
-      if(!length(mult_times)){ return() }
+      if (!length(mult_times)) { return() }
       mult_times <- as.numeric(mult_times)
 
-      if(any(is.na(mult_times))){
+      if (any(is.na(mult_times))) {
         return("Contains invalid value, must be numerical values separated by `,`")
       }
       return()
@@ -251,11 +251,11 @@ module_server <- function(input, output, session, ...){
   )
   parameter_validator$add_rule(
     inputId = "notch_filter_bandwidth",
-    rule = function(bandwidths){
+    rule = function(bandwidths) {
       bandwidths <- strsplit(bandwidths, "[, ]+")[[1]]
-      if(!length(bandwidths)){ return() }
+      if (!length(bandwidths)) { return() }
       mult_times <- as.numeric(bandwidths)
-      if(any(is.na(bandwidths))){
+      if (any(is.na(bandwidths))) {
         return("Contains invalid value, must be numerical values separated by comma (,)")
       }
       return()
@@ -263,12 +263,12 @@ module_server <- function(input, output, session, ...){
   )
   parameter_validator$add_rule(
     inputId = "notch_filter_bandwidth",
-    rule = function(bandwidths){
+    rule = function(bandwidths) {
       mult_times <- input$notch_filter_times
       nbands1 <- length(strsplit(mult_times, "[, ]+")[[1]])
       nbands2 <- length(strsplit(bandwidths, "[, ]+")[[1]])
 
-      if(nbands1 != nbands2) {
+      if (nbands1 != nbands2) {
         return("Length mismatch")
       }
       return()
@@ -290,12 +290,12 @@ module_server <- function(input, output, session, ...){
     mult_times <- as.numeric(strsplit(mult_times, "[, ]+")[[1]])
     bandwidths <- as.numeric(strsplit(bandwidths, "[, ]+")[[1]])
 
-    if(!length(mult_times)) {
+    if (!length(mult_times)) {
       return(shiny::p("No notch filter will be applied. Signal will be copied 'as-is'."))
     }
     shiny::tags$ul(
       style = 'font-family: "Lucida Sans Typewriter", "Lucida Typewriter", "monospace", "Courier New", "Courier',
-      lapply(seq_along(mult_times), function(i){
+      lapply(seq_along(mult_times), function(i) {
         center <- base_freq * mult_times[[i]]
         shiny::tags$li(
           shiny::strong(sprintf("Filter %d: ", i)),
@@ -324,7 +324,7 @@ module_server <- function(input, output, session, ...){
     ravedash::safe_observe({
 
       tryCatch({
-        if(!parameter_validator$is_valid()) {
+        if (!parameter_validator$is_valid()) {
           stop("The notch filter parameters are invalid. Please correct them")
         }
         # collect inputs and flush to pipeline settings.yaml
@@ -348,7 +348,7 @@ module_server <- function(input, output, session, ...){
         )
 
         res <- pipeline$run(
-          scheduler = 'none',
+          scheduler = "none",
           type = "vanilla",
           callr_function = NULL,
           names = c("filter_settings", "channels_to_apply_filters"),
@@ -357,7 +357,7 @@ module_server <- function(input, output, session, ...){
         )
 
         res$promise$then(
-          onFulfilled = function(...){
+          onFulfilled = function(...) {
 
             subject <- pipeline$read(var_names = "subject")
             filter_settings <- pipeline$read(var_names = "filter_settings")
@@ -378,7 +378,7 @@ module_server <- function(input, output, session, ...){
                 shiny::tags$li(
                   shiny::strong("Frequencies to remove: "),
                   local({
-                    if(length(filter_settings$lb)) {
+                    if (length(filter_settings$lb)) {
                       shiny::tags$ul(
                         lapply(
                           sprintf("%.1fHz-%.1fHz", filter_settings$lb, filter_settings$ub),
@@ -398,7 +398,7 @@ module_server <- function(input, output, session, ...){
               size = "m", easyClose = FALSE
             ))
           },
-          onRejected = function(e){
+          onRejected = function(e) {
             error_notification(e)
           }
         )
@@ -424,7 +424,7 @@ module_server <- function(input, output, session, ...){
       )
 
       res <- pipeline$run(names = "apply_notch",
-                          scheduler = 'none',
+                          scheduler = "none",
                           type = "smart",
                           callr_function = NULL,
                           async = FALSE,
@@ -513,7 +513,7 @@ module_server <- function(input, output, session, ...){
   )
 
   output$download_as_pdf <- shiny::downloadHandler(
-    filename = function(){
+    filename = function() {
       subject <- local_data$subject
       sprintf("%s-%s-Notch_filter_diagnostic_plots.pdf", subject$project_name, subject$subject_code)
     },
@@ -563,14 +563,14 @@ module_server <- function(input, output, session, ...){
 
       # results$await(names = "diagnostic_plots")
       return(results$promise$then(
-        onFulfilled = function(...){
+        onFulfilled = function(...) {
           dipsaus::close_alert2()
           plot_path <- pipeline$read("diagnostic_plots")
-          if(is.character(plot_path) && file.exists(plot_path)) {
+          if (is.character(plot_path) && file.exists(plot_path)) {
             file.copy(plot_path, conn)
           }
         },
-        onRejected = function(e){
+        onRejected = function(e) {
           dipsaus::close_alert2()
           ravedash::error_notification(e)
         }

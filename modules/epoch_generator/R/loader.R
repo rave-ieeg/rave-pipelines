@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -44,7 +44,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
@@ -61,7 +61,7 @@ loader_server <- function(input, output, session, ...){
       subject <- ravecore::RAVESubject$new(project_name = settings$project_name,
                                          subject_code = settings$subject_code,
                                          strict = FALSE)
-      if(!length(subject$blocks)) {
+      if (!length(subject$blocks)) {
         stop("The subject has no session blocks. Please import signals first")
       }
 
@@ -69,7 +69,7 @@ loader_server <- function(input, output, session, ...){
       pipeline$set_settings(.list = settings)
 
       # Let the module know the data has been changed
-      ravedash::fire_rave_event('data_changed', Sys.time())
+      ravedash::fire_rave_event("data_changed", Sys.time())
       ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code

@@ -34,18 +34,18 @@ mapping_capability <- function(project_name, subject_code) {
   normalization_path <- file.path(subject$imaging_path, "normalization")
   has_normalization <- dir.exists(normalization_path)
 
-  if(has_normalization && has_ants) {
+  if (has_normalization && has_ants) {
     tryCatch(
       {
         yael <- ravecore::as_yael_process(subject)
         mapping <- NULL
-        for(name in c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
+        for (name in c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c")) {
           mapping <- yael$get_template_mapping(name)
-          if(!is.null(mapping)) {
+          if (!is.null(mapping)) {
             break
           }
         }
-        if(is.null(mapping)) {
+        if (is.null(mapping)) {
           has_normalization <- FALSE
         }
       },
@@ -76,9 +76,9 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
   subject <- ravecore::RAVESubject$new(project_name = project_name, subject_code = subject_code, strict = FALSE)
   brain <- ravecore::rave_brain(subject = subject, surfaces = "sphere.reg", include_electrodes = FALSE)
 
-  if(is.null(brain)) { return(NULL) }
+  if (is.null(brain)) { return(NULL) }
 
-  if(!length(capability)) {
+  if (!length(capability)) {
     capability <- mapping_capability(project_name = project_name, subject_code = subject_code)
   }
 
@@ -90,15 +90,15 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
       return(NULL)
     }
   )
-  if(!is.data.frame(electrode_table)) { return(brain) }
+  if (!is.data.frame(electrode_table)) { return(brain) }
   tkr_ras <- as.matrix(electrode_table[, sprintf("Coord_%s", c("x", "y", "z"))])
   has_localization <- rowSums(tkr_ras^2)
   has_localization <- !is.na(has_localization) & has_localization > 0
 
-  if(!any(has_localization)) {
+  if (!any(has_localization)) {
     return(brain)
   }
-  if( mapping_method == "auto" ) {
+  if ( mapping_method == "auto" ) {
     brain$set_electrodes(electrode_table, priority = "sphere")
     return(brain)
   }
@@ -110,17 +110,17 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
     x
   }
 
-  if( mapping_method == "sphere.reg" ) {
+  if ( mapping_method == "sphere.reg" ) {
     # check if spherical normalization is available
     surface_mapped_path <- file.path(meta_root, "electrodes_normalization_spherical.csv")
-    if(file.exists(surface_mapped_path) && !use_cache) {
+    if (file.exists(surface_mapped_path) && !use_cache) {
       ravecore::backup_file(surface_mapped_path, remove = TRUE, quiet = FALSE)
     }
 
-    if(!file.exists(surface_mapped_path)) {
+    if (!file.exists(surface_mapped_path)) {
 
       # needs to calculate the spherical normalization
-      if(capability$surface) {
+      if (capability$surface) {
         # the files are available so generate the electrodes_normalization_spherical.csv on the fly
         mapped_table_spherical <- ravecore::transform_point_to_template(
           subject = subject,
@@ -161,7 +161,7 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
         )
 
         radius <- electrode_table$Radius
-        if(length(radius)) {
+        if (length(radius)) {
           mapped_table$Radius <- radius
         }
 
@@ -177,18 +177,18 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
     return(brain)
   }
 
-  if( mapping_method == "mni152" ) {
+  if ( mapping_method == "mni152" ) {
 
     mni152_mapped_path <- file.path(meta_root, "electrodes_normalization_mni152.csv")
-    if(file.exists(mni152_mapped_path) && !use_cache) {
+    if (file.exists(mni152_mapped_path) && !use_cache) {
       ravecore::backup_file(mni152_mapped_path, remove = TRUE, quiet = FALSE)
     }
 
-    if(!file.exists(mni152_mapped_path)) {
+    if (!file.exists(mni152_mapped_path)) {
 
       # needs to calculate the non-linear MNI152 normalization
 
-      if(capability$mni152) {
+      if (capability$mni152) {
 
         # the files are available so generate the electrodes_normalization_spherical.csv on the fly
         mapped_table_volumetric <- ravecore::transform_point_to_template(
@@ -230,7 +230,7 @@ get_mapped_brain <- function(project_name, subject_code, mapping_method = c("aut
         )
 
         radius <- electrode_table$Radius
-        if(length(radius)) {
+        if (length(radius)) {
           mapped_table$Radius <- radius
         }
 

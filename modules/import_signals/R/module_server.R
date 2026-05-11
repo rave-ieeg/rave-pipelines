@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
 #'
 #'   # Local reactive values, used to store reactive event triggers

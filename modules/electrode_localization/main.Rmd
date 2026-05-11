@@ -171,9 +171,9 @@ ravecore::cmd_run_yael_preprocess(
 
 ```{rave burn_electrodes_to_t1, export = "burn_electrodes_to_t1", cue = "always"}
 electrode_table <- localization_result_final$electrode_table
-if(isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
+if (isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
   localization_path <- file.path(subject$imaging_path, "localization")
-  if(!dir.exists(localization_path)) {
+  if (!dir.exists(localization_path)) {
     dir.create(localization_path, showWarnings = FALSE, recursive = TRUE)
   }
   # Burn T1
@@ -182,7 +182,7 @@ if(isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
   label_prefix <- electrode_table$LabelPrefix
   label_prefix_levels <- unique(label_prefix)
   n_levels <- length(label_prefix_levels)
-  if(length(pal) < n_levels) {
+  if (length(pal) < n_levels) {
     pal <- grDevices::colorRampPalette(colors = pal)(n_levels)
   } else {
     pal <- pal[seq_len(n_levels)]
@@ -190,7 +190,7 @@ if(isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
   col <- as.integer(factor(label_prefix, levels = label_prefix_levels))
   col_str <- pal[col]
   radius <- as.numeric(electrode_table$Radius)
-  if(!length(radius)) {
+  if (!length(radius)) {
     radius <- rep(1, nrow(electrode_table))
   }
   scanner_ras <- as.matrix(electrode_table[, c("T1R", "T1A", "T1S")])
@@ -226,23 +226,23 @@ if(isTRUE(as.list(postprocess_opts)[["burn_electrodes_to_t1"]])) {
 ```
 
 ```{rave nonlinear_volumetric_mapping, export = "nonlinear_volumetric_mapping", cue = "always"}
-if(isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
+if (isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
   # YAEL post process
   electrode_table <- subject$get_electrode_table()
   
   is_debug <- getOption("raveio.debug", FALSE)
   
-  if(!is.data.frame(electrode_table)) {
+  if (!is.data.frame(electrode_table)) {
     stop("Invalid electrode table. Please save the electrode localization results first.")
   }
   
-  if(!rpyANTs::ants_available()) {
+  if (!rpyANTs::ants_available()) {
     stop("ANTs is not configured for RAVE. Python environment must be configured through `ravemanager::configure_python()` first.")
   }
   
-  if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
+  if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
     brain <- ravecore::rave_brain(subject)
-    if(is.null(brain)) {
+    if (is.null(brain)) {
       stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
     }
     
@@ -265,25 +265,25 @@ if(isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
   
   
   
-  if(any(valids)) {
+  if (any(valids)) {
     yael_process <- ravecore::YAELProcess$new(subject = subject)
     # get template mapping
     mapping <- NULL
     mni152 <- NULL
     template_name <- NULL
-    for(template_name in c(
+    for (template_name in c(
       "mni_icbm152_nlin_asym_09b",
       "mni_icbm152_nlin_asym_09a",
       "mni_icbm152_nlin_asym_09c"
     )) {
       mapping <- yael_process$get_template_mapping(template_name = template_name)
-      if(!is.null(mapping)) {
+      if (!is.null(mapping)) {
         break
       }
     }
     
-    if(is.null(mapping)) {
-      if( !is_debug ) {
+    if (is.null(mapping)) {
+      if ( !is_debug ) {
         stop("Unable to find any non-linear mapping files. Please check help documentation of `?ravecore::cmd_run_yael_preprocess` on how to normalize to template in RAVE.")
       }
     } else {
@@ -319,16 +319,16 @@ if(isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
 ### Post-processing by calculating the template mapping via surface registration
 
 ```{rave postprocess_surface_mapping, export = "postprocess_surface_mapping", cue="always"}
-if(isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
+if (isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
   electrode_table <- subject$get_electrode_table()
   
-  if(!is.data.frame(electrode_table)) {
+  if (!is.data.frame(electrode_table)) {
     stop("Invalid electrode table. Please save the electrode localization results first.")
   }
   
-  if(!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
+  if (!all(c("T1R", "T1A", "T1S") %in% names(electrode_table))) {
     brain <- ravecore::rave_brain(subject)
-    if(is.null(brain)) {
+    if (is.null(brain)) {
       stop("The electrode table is missing [`T1R`, `T1A`, `T1S`] columns (they are T1 scanner space in RAS coordinate system.)")
     }
     

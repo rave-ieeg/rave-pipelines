@@ -5,7 +5,7 @@
 # }
 
 
-module_ui_loader <- function(session = shiny::getDefaultReactiveDomain()){
+module_ui_loader <- function(session = shiny::getDefaultReactiveDomain()) {
 
 
   ravedash::simple_layout(
@@ -19,7 +19,7 @@ module_ui_loader <- function(session = shiny::getDefaultReactiveDomain()){
 
 }
 
-server_loader <- function(input, output, session, ...){
+server_loader <- function(input, output, session, ...) {
   # shiny::observe({
   #   print(session$clientData)
   # })

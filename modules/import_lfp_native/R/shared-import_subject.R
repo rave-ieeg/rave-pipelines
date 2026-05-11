@@ -9,7 +9,7 @@
 #' @returns Nothing, the electrode information will be written directly to the
 #' subject's meta directory
 #' @export
-import_electrode_table <- function (path, subject, use_fs = NA,
+import_electrode_table <- function(path, subject, use_fs = NA,
                                     dry_run = FALSE, ...) {
 
   subject <- restore_subject_instance(subject, strict = FALSE)
@@ -19,7 +19,7 @@ import_electrode_table <- function (path, subject, use_fs = NA,
   if (!"Electrode" %in% nms) {
     stop("`import_electrode_table` cannot find column `Electrode` (case-sensitive).")
   }
-  if(length(electrodes)) {
+  if (length(electrodes)) {
     # subject has electrode channels set
     new_tbl <- new_tbl[new_tbl$Electrode %in% electrodes, ]
   }
@@ -44,16 +44,16 @@ import_electrode_table <- function (path, subject, use_fs = NA,
     nms2 <- names(new_tbl)
     nms1 <- nms1[nms1 %in% nms2]
     nms2 <- nms2[!nms2 %in% nms1]
-    for(nm in nms2) {
-      if(is.character(new_tbl[[nm]])) {
+    for (nm in nms2) {
+      if (is.character(new_tbl[[nm]])) {
         new_items[[nm]] <- ""
-      } else if(is.numeric(new_tbl[[nm]])) {
+      } else if (is.numeric(new_tbl[[nm]])) {
         new_items[[nm]] <- 0
       } else {
         new_items[[nm]] <- NA
       }
     }
-    new_items <- new_items[,names(new_tbl)]
+    new_items <- new_items[, names(new_tbl)]
     new_tbl <- rbind(new_tbl, new_items)
   }
   new_tbl <- new_tbl[order(new_tbl$Electrode), ]
@@ -153,7 +153,7 @@ import_electrode_table <- function (path, subject, use_fs = NA,
   brain$set_electrodes(new_tbl)
   new_tbl2 <- tryCatch({
     brain$calculate_template_coordinates()
-  }, error = function(e){
+  }, error = function(e) {
     new_tbl
   })
   # Reorder
@@ -162,7 +162,7 @@ import_electrode_table <- function (path, subject, use_fs = NA,
   nms1 <- nms1[nms1 %in% nms]
   nms2 <- nms[!nms %in% nms1]
   new_tbl2 <- new_tbl2[, c(nms1, nms2)]
-  if( dry_run ) {
+  if ( dry_run ) {
     return(new_tbl2)
   }
   save_meta2(new_tbl2, meta_type = "electrodes",
@@ -171,14 +171,14 @@ import_electrode_table <- function (path, subject, use_fs = NA,
   invisible(new_tbl2)
 }
 
-is_physical_unit <- function(unit, choices){
-  if(is_valid_ish(unit, max_len = 1, mode = 'character') && unit %in% choices){
+is_physical_unit <- function(unit, choices) {
+  if (is_valid_ish(unit, max_len = 1, mode = "character") && unit %in% choices) {
     return(TRUE)
   }
   return(FALSE)
 }
 
-volc_units <- c('V', 'mV', 'uV')
+volc_units <- c("V", "mV", "uV")
 
 #' Returns a list of 'RAVE' directories
 #' @description This function is internally used and should not be called
@@ -189,31 +189,31 @@ volc_units <- c('V', 'mV', 'uV')
 #' @param .force_format format of the data, default is automatically detected.
 #' @returns A list of directories
 #' @export
-rave_directories <- function(subject_code, project_name, blocks = NULL, .force_format = c('', 'native', 'BIDS')){
+rave_directories <- function(subject_code, project_name, blocks = NULL, .force_format = c("", "native", "BIDS")) {
   .force_format <- match.arg(.force_format)
   re <- dipsaus::fastmap2()
 
-  if(startsWith(project_name, "@meta_analysis")) {
+  if (startsWith(project_name, "@meta_analysis")) {
     subject_code <- strsplit(subject_code, "/")[[1]]
     project_name <- subject_code[[1]]
     subject_code <- subject_code[[2]]
   }
 
-  subject_code <- stringr::str_remove(subject_code, '^sub-')
+  subject_code <- stringr::str_remove(subject_code, "^sub-")
 
-  re$root_data <- normalizePath(raveio_getopt('data_dir'), mustWork = FALSE)
+  re$root_data <- normalizePath(raveio_getopt("data_dir"), mustWork = FALSE)
 
   # check file structure mode
-  fstruct <- raveio_getopt('file_structure')
+  fstruct <- raveio_getopt("file_structure")
 
-  bids_raw <- normalizePath(raveio_getopt('bids_data_dir'), mustWork = FALSE)
+  bids_raw <- normalizePath(raveio_getopt("bids_data_dir"), mustWork = FALSE)
   # raw path
-  re$root_raw <- normalizePath(raveio_getopt('raw_data_dir'), mustWork = FALSE)
+  re$root_raw <- normalizePath(raveio_getopt("raw_data_dir"), mustWork = FALSE)
   re$raw_path <- file.path(re$root_raw, subject_code)
   re$.raw_path_type <- "native"
-  if(!dir.exists(re$raw_path)){
-    raw_path <- file.path(bids_raw, project_name, sprintf('sub-%s', subject_code))
-    if(dir.exists(raw_path)){
+  if (!dir.exists(re$raw_path)) {
+    raw_path <- file.path(bids_raw, project_name, sprintf("sub-%s", subject_code))
+    if (dir.exists(raw_path)) {
       re$root_raw <- bids_raw
       re$raw_path <- raw_path
       re$.raw_path_type <- "bids"
@@ -223,23 +223,23 @@ rave_directories <- function(subject_code, project_name, blocks = NULL, .force_f
 
   # TODO: in RAVE 2.0, BIDS should be supported and native path should be
   # supported.
-  if(fstruct == 'BIDS' || .force_format == 'BIDS'){
+  if (fstruct == "BIDS" || .force_format == "BIDS") {
     re$bids_project_path <- file.path(bids_raw, project_name)
-    re$bids_subject_path <- file.path(re$bids_project_path, sprintf('sub-%s', subject_code))
-    re$project_path <- file.path(re$root_data, project_name, 'derivatives', 'rave', project_name)
+    re$bids_subject_path <- file.path(re$bids_project_path, sprintf("sub-%s", subject_code))
+    re$project_path <- file.path(re$root_data, project_name, "derivatives", "rave", project_name)
   } else {
     re$project_path <- file.path(re$root_data, project_name)
   }
-  re$group_data_path <- file.path(re$project_path, '_project_data')
+  re$group_data_path <- file.path(re$project_path, "_project_data")
   re$subject_path <- file.path(re$project_path, subject_code)
-  re$rave_path <- file.path(re$subject_path, 'rave')
-  re$note_path <- file.path(re$subject_path, 'notes', 'rave_notes')
-  re$proprocess_path <- file.path(re$rave_path, 'preprocess')
-  re$meta_path <- file.path(re$rave_path, 'meta')
-  re$data_path <- file.path(re$rave_path, 'data')
-  re$reference_path <- file.path(re$data_path, 'reference')
+  re$rave_path <- file.path(re$subject_path, "rave")
+  re$note_path <- file.path(re$subject_path, "notes", "rave_notes")
+  re$proprocess_path <- file.path(re$rave_path, "preprocess")
+  re$meta_path <- file.path(re$rave_path, "meta")
+  re$data_path <- file.path(re$rave_path, "data")
+  re$reference_path <- file.path(re$data_path, "reference")
 
-  re$pipeline_path <- file.path(re$rave_path, 'pipeline')
+  re$pipeline_path <- file.path(re$rave_path, "pipeline")
 
 
 
@@ -249,21 +249,21 @@ rave_directories <- function(subject_code, project_name, blocks = NULL, .force_f
 rave_import_lfp <- function(
     project_name, subject_code, blocks, electrodes,
     sample_rate, conversion = NA, add = FALSE,
-    data_type = 'LFP', ...
+    data_type = "LFP", ...
 ) {
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
 
-  if(!add && isTRUE(pretools$`@freeze_lfp_ecog`)){
+  if (!add && isTRUE(pretools$`@freeze_lfp_ecog`)) {
     # LFP has been imported, just stop
-    stop(catgl('Subject {project_name}/{subject_code} has been imported previously. Please proceed to next step.'))
+    stop(catgl("Subject {project_name}/{subject_code} has been imported previously. Please proceed to next step."))
   }
 
   method <- class(project_name)[[1]]
 
-  if(!isTRUE(list(...)[["skip_validation"]])){
+  if (!isTRUE(list(...)[["skip_validation"]])) {
     # perform validation
     res <- do.call(
-      sprintf('validate_raw_file_lfp.%s', method), list(
+      sprintf("validate_raw_file_lfp.%s", method), list(
         subject_code = subject_code,
         blocks = blocks,
         electrodes = electrodes,
@@ -272,17 +272,17 @@ rave_import_lfp <- function(
       )
     )
 
-    if(!res){
-      reasons <- attr(res, 'reason')
-      if(!is.list(reasons) || !length(reasons)){ stop('rave_import error: unknown reason.') }
-      msg <- sapply(seq_along(reasons), function(ii){
+    if (!res) {
+      reasons <- attr(res, "reason")
+      if (!is.list(reasons) || !length(reasons)) { stop("rave_import error: unknown reason.") }
+      msg <- sapply(seq_along(reasons), function(ii) {
         nm <- names(reasons)[[ii]]
         items <- reasons[[ii]]
-        paste0(ii, ' - ', nm, '\n', paste0('    ', items, collapse = '\n'))
+        paste0(ii, " - ", nm, "\n", paste0("    ", items, collapse = "\n"))
       })
-      stop('The following issues found when importing subject ',
-           sQuote(subject_code), ' into project ', sQuote(project_name),
-           '.\n', msg, call. = match.call())
+      stop("The following issues found when importing subject ",
+           sQuote(subject_code), " into project ", sQuote(project_name),
+           ".\n", msg, call. = match.call())
     }
   }
 
@@ -297,7 +297,7 @@ rave_import_lfp <- function(
     tryCatch({
       # Save to electrodes.csv
       has_fs <- FALSE
-      if(length(subject$freesurfer_path) == 1 && !is.na(subject$freesurfer_path)) {
+      if (length(subject$freesurfer_path) == 1 && !is.na(subject$freesurfer_path)) {
         has_fs <- threeBrain::check_freesurfer_path(
           fs_subject_folder = subject$freesurfer_path,
           autoinstall_template = FALSE,
@@ -307,15 +307,15 @@ rave_import_lfp <- function(
 
       # check if electrodes.csv exists
       elec_table_path <- file.path(subject$meta_path, "electrodes.csv")
-      if(file.exists(elec_table_path)) {
+      if (file.exists(elec_table_path)) {
 
         catgl("Trying to use existing electrodes.csv", level = "DEFAULT")
 
         # check if electrodes.csv exists
         orig <- subject$get_electrode_table(reference_name = ".fake", simplify = FALSE)
 
-        if(all(electrodes %in% orig$Electrode)) {
-          if(!any(orig$Electrode %in% electrodes)) {
+        if (all(electrodes %in% orig$Electrode)) {
+          if (!any(orig$Electrode %in% electrodes)) {
             orig <- orig[orig$Electrode %in% electrodes, , drop = FALSE]
             orig <- orig[order(orig$Electrode), ]
             save_meta2(
@@ -327,7 +327,7 @@ rave_import_lfp <- function(
           }
 
           # Try to import
-          if( has_fs ) {
+          if ( has_fs ) {
             import_electrode_table(
               path = elec_table_path,
               subject = subject, use_fs = has_fs)
@@ -335,11 +335,11 @@ rave_import_lfp <- function(
           }
         }
       }
-    }, error = function(e){
-      catgl(e$message, level = 'WARNING')
+    }, error = function(e) {
+      catgl(e$message, level = "WARNING")
     })
 
-    if(!saved) {
+    if (!saved) {
       # check if exists any channels.tsv/csv
       channel_files <- list.files(
         subject$preprocess_settings$raw_path,
@@ -351,21 +351,21 @@ rave_import_lfp <- function(
         include.dirs = FALSE
       )
 
-      for(channel_file in channel_files) {
-        if(!saved) {
+      for (channel_file in channel_files) {
+        if (!saved) {
           tryCatch({
 
-            catgl("Trying to obtain electrode groups from {channel_file}", level = 'DEFAULT')
+            catgl("Trying to obtain electrode groups from {channel_file}", level = "DEFAULT")
 
             electrode_table <- NULL
 
-            if(endsWith(tolower(channel_file), "csv")) {
+            if (endsWith(tolower(channel_file), "csv")) {
               tbl <- utils::read.csv(channel_file)
             } else {
               tbl <- utils::read.table(channel_file, sep = "\t", header = TRUE)
             }
 
-            if(
+            if (
               all(c("Electrode", "Label") %in% names(tbl)) &&
               all(electrodes %in% tbl$Electrode)
             ) {
@@ -378,13 +378,13 @@ rave_import_lfp <- function(
               # 4           4 LI04-004       2000    ns3            4         0         1  406.651
 
               tbl <- tbl[tbl$Electrode %in% electrodes, , drop = FALSE]
-              if(!length(tbl$Coord_x) || !length(tbl$Coord_y) || !length(tbl$Coord_z)) {
+              if (!length(tbl$Coord_x) || !length(tbl$Coord_y) || !length(tbl$Coord_z)) {
                 tbl$Coord_x <- 0
                 tbl$Coord_y <- 0
                 tbl$Coord_z <- 0
               }
-              if(!length(tbl$LocationType)) {
-                tbl$LocationType <- 'iEEG'
+              if (!length(tbl$LocationType)) {
+                tbl$LocationType <- "iEEG"
               }
               electrode_table <- data.frame(
                 Electrode = as.integer(tbl$Electrode),
@@ -395,7 +395,7 @@ rave_import_lfp <- function(
                 LocationType = tbl$LocationType,
                 Hemisphere = "auto"
               )
-            } else if(
+            } else if (
               all(c("name", "original_channel") %in% names(tbl)) &&
               all(electrodes %in% tbl$original_channel)
             ) {
@@ -407,13 +407,13 @@ rave_import_lfp <- function(
 
               tbl <- tbl[tbl$original_channel %in% electrodes, , drop = FALSE]
 
-              if(!length(tbl$Coord_x) || !length(tbl$Coord_y) || !length(tbl$Coord_z)) {
+              if (!length(tbl$Coord_x) || !length(tbl$Coord_y) || !length(tbl$Coord_z)) {
                 tbl$Coord_x <- 0
                 tbl$Coord_y <- 0
                 tbl$Coord_z <- 0
               }
-              if(!length(tbl$LocationType)) {
-                tbl$LocationType <- 'iEEG'
+              if (!length(tbl$LocationType)) {
+                tbl$LocationType <- "iEEG"
               }
               electrode_table <- data.frame(
                 Electrode = as.integer(tbl$original_channel),
@@ -439,7 +439,7 @@ rave_import_lfp <- function(
 
 
 
-            if(is.data.frame(electrode_table)) {
+            if (is.data.frame(electrode_table)) {
               electrode_table <- electrode_table[order(electrode_table$Electrode), ]
               electrode_table <- do.call("rbind", lapply(split(electrode_table, electrode_table$LabelPrefix), function(sub) {
                 sub$Dimension <- nrow(sub)
@@ -461,14 +461,14 @@ rave_import_lfp <- function(
             }
 
           }, error = function(e) {
-            catgl(e$message, level = 'WARNING')
+            catgl(e$message, level = "WARNING")
           })
         }
       }
 
     }
 
-    if(!saved) {
+    if (!saved) {
       catgl("Cannot import from existing electrodes.csv, creating a new one", level = "INFO")
       tbl <- data.frame(
         Electrode = subject$electrodes,
@@ -501,14 +501,14 @@ rave_import_lfp <- function(
     data_type = data_type,
     ...
   )
-  # re <- UseMethod('rave_import_lfp')
+  # re <- UseMethod("rave_import_lfp")
   re <- do.call(method_fn, method_args)
   return(re)
 }
 
 rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
                                           electrodes, sample_rate, add = FALSE,
-                                          conversion = NA, data_type = 'LFP', ...){
+                                          conversion = NA, data_type = "LFP", ...) {
   # DIPSAUS DEBUG START
   # project_name <- "devel"
   # subject_code <- "PAV005"
@@ -517,17 +517,17 @@ rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
   # sample_rate <- 2000
   # add = TRUE
   # conversion = NA
-  # data_type = 'LFP'
+  # data_type = "LFP"
 
-  .fs_struct <- raveio_getopt('file_structure')
+  .fs_struct <- raveio_getopt("file_structure")
   on.exit({
-    raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+    raveio_setopt("file_structure", .fs_struct, .save = TRUE)
   }, add = TRUE)
-  raveio_setopt('file_structure', 'native', .save = FALSE)
+  raveio_setopt("file_structure", "native", .save = FALSE)
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
 
-  if(!add){
+  if (!add) {
     pretools$set_blocks(blocks = blocks)
   }
   pretools$set_electrodes(electrodes, type = data_type, add = add)
@@ -544,29 +544,29 @@ rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
     project_name = project_name
   )
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
-  if(isTRUE(conversion %in% volc_units)){
+  if (isTRUE(conversion %in% volc_units)) {
     unit <- volc_units
   } else {
-    unit <- 'NA'
+    unit <- "NA"
   }
 
-  file_info <- attr(res, 'info')
+  file_info <- attr(res, "info")
 
   lapply_async(
     electrodes, function(e) {
       # Allow both ch1.mat and ch001.mat to pass
-      regexp <- stringr::regex(sprintf('(^|[^0-9])[0]{0,}%d\\.(mat|h5)$', e), ignore_case = TRUE)
-      cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
-      for(b in blocks){
+      regexp <- stringr::regex(sprintf("(^|[^0-9])[0]{0,}%d\\.(mat|h5)$", e), ignore_case = TRUE)
+      cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
+      for (b in blocks) {
         info <- file_info[[b]]
         sel <- stringr::str_detect(info$files, regexp)
         src <- file.path(info$path, info$files[sel][[1]])
         dat <- read_mat(src, ram = FALSE)
         nm <- guess_raw_trace(dat, is_vector = TRUE)
-        if(length(nm)) {
+        if (length(nm)) {
           nm <- nm[[1]]
         } else {
           stop("Cannot obtain the data name for electrode ", e)
@@ -574,10 +574,10 @@ rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
         s <- as.numeric(dat[[nm]][])
         s[is.na(s)] <- 0
         # save to HDF5
-        save_h5(x = s, file = cfile, name = sprintf('raw/%s', b),
+        save_h5(x = s, file = cfile, name = sprintf("raw/%s", b),
                 chunk = 1024, replace = TRUE, quiet = TRUE)
-        save_h5(x = unit, file = cfile, name = sprintf('/units/%s', b),
-                chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+        save_h5(x = unit, file = cfile, name = sprintf("/units/%s", b),
+                chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
       }
       invisible()
     }, callback = function(e) {
@@ -587,16 +587,16 @@ rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
 
   # progress <-
   #   dipsaus::progress2(
-  #     catgl('Importing {project_name}/{subject_code}', .capture = TRUE),
+  #     catgl("Importing {project_name}/{subject_code}", .capture = TRUE),
   #     max = length(electrodes),
   #     shiny_auto_close = TRUE
   #   )
   #
-  # lapply(electrodes, function(e){
-  #   progress$inc(sprintf('Importing electrode %d', e))
-  #   regexp <- stringr::regex(sprintf('(^|[^0-9])%d\\.(mat|h5)$', e), ignore_case = TRUE)
-  #   cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
-  #   for(b in blocks){
+  # lapply(electrodes, function(e) {
+  #   progress$inc(sprintf("Importing electrode %d", e))
+  #   regexp <- stringr::regex(sprintf("(^|[^0-9])%d\\.(mat|h5)$", e), ignore_case = TRUE)
+  #   cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
+  #   for(b in blocks) {
   #     info <- file_info[[b]]
   #     sel <- stringr::str_detect(info$files, regexp)
   #     src <- file.path(info$path, info$files[sel][[1]])
@@ -605,16 +605,16 @@ rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
   #     s <- as.numeric(dat[[nm]])
   #     s[is.na(s)] <- 0
   #     # save to HDF5
-  #     save_h5(x = s, file = cfile, name = sprintf('raw/%s', b),
+  #     save_h5(x = s, file = cfile, name = sprintf("raw/%s", b),
   #             chunk = 1024, replace = TRUE, quiet = TRUE)
-  #     save_h5(x = unit, file = cfile, name = sprintf('/units/%s', b),
-  #             chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+  #     save_h5(x = unit, file = cfile, name = sprintf("/units/%s", b),
+  #             chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
   #   }
   #   invisible()
   # })
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "native_matlab")
@@ -624,15 +624,15 @@ rave_import_lfp.native_matlab <- function(project_name, subject_code, blocks,
 
 rave_import_lfp.native_matlab2 <- function(project_name, subject_code, blocks,
                                            electrodes, sample_rate, conversion = NA,
-                                           add = FALSE, data_type = 'LFP', ...){
-  .fs_struct <- raveio_getopt('file_structure')
+                                           add = FALSE, data_type = "LFP", ...) {
+  .fs_struct <- raveio_getopt("file_structure")
   on.exit({
-    raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+    raveio_setopt("file_structure", .fs_struct, .save = TRUE)
   }, add = TRUE)
-  raveio_setopt('file_structure', 'native', .save = FALSE)
+  raveio_setopt("file_structure", "native", .save = FALSE)
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
-  if(!add){
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
+  if (!add) {
     pretools$set_blocks(blocks = blocks)
   }
   pretools$set_electrodes(electrodes, type = data_type, add = add)
@@ -649,51 +649,51 @@ rave_import_lfp.native_matlab2 <- function(project_name, subject_code, blocks,
     project_name = project_name
   )
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
-  if(isTRUE(conversion %in% volc_units)){
+  if (isTRUE(conversion %in% volc_units)) {
     unit <- volc_units
   } else {
-    unit <- 'NA'
+    unit <- "NA"
   }
 
   progress <-
     ravepipeline::rave_progress(
-      catgl('Importing {project_name}/{subject_code}', .capture = TRUE),
+      catgl("Importing {project_name}/{subject_code}", .capture = TRUE),
       max = (length(electrodes) + 1) * length(blocks),
       shiny_auto_close = TRUE
     )
-  file_info <- attr(res, 'info')
-  for(b in blocks){
+  file_info <- attr(res, "info")
+  for (b in blocks) {
     info <- file_info[[b]]
-    progress$inc(paste('Reading block', b))
+    progress$inc(paste("Reading block", b))
     dat <- read_mat(file.path(info$path, info$files))
     nm <- guess_raw_trace(dat, electrodes = electrodes, is_vector = FALSE)
-    if(length(nm)) {
+    if (length(nm)) {
       nm <- nm[[1]]
     } else {
       stop("Cannot obtain the data name for block ", b)
     }
     dat <- dat[[nm]][drop = FALSE]
-    if(which.min(dim(dat)) == 1){
+    if (which.min(dim(dat)) == 1) {
       dat <- t(dat)
     }
-    lapply(electrodes, function(e){
-      progress$inc(paste('Writing', b, '- electrode', e))
-      cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
-      s <- dat[,as.integer(e)]
+    lapply(electrodes, function(e) {
+      progress$inc(paste("Writing", b, "- electrode", e))
+      cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
+      s <- dat[, as.integer(e)]
       s[is.na(s)] <- 0
-      save_h5(x = as.numeric(s), file = cfile, name = sprintf('raw/%s', b),
+      save_h5(x = as.numeric(s), file = cfile, name = sprintf("raw/%s", b),
               chunk = 1024, replace = TRUE, quiet = TRUE)
-      save_h5(x = unit, file = cfile, name = sprintf('/units/%s', b),
-              chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+      save_h5(x = unit, file = cfile, name = sprintf("/units/%s", b),
+              chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
       invisible()
     })
   }
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "native_matlab2")
@@ -703,15 +703,15 @@ rave_import_lfp.native_matlab2 <- function(project_name, subject_code, blocks,
 
 rave_import_lfp.native_edf <- function(project_name, subject_code, blocks,
                                        electrodes, sample_rate, conversion = NA,
-                                       add = FALSE, data_type = 'LFP', ...){
-  .fs_struct <- raveio_getopt('file_structure')
+                                       add = FALSE, data_type = "LFP", ...) {
+  .fs_struct <- raveio_getopt("file_structure")
   on.exit({
-    raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+    raveio_setopt("file_structure", .fs_struct, .save = TRUE)
   }, add = TRUE)
-  raveio_setopt('file_structure', 'native', .save = FALSE)
+  raveio_setopt("file_structure", "native", .save = FALSE)
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
-  if(!add){
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
+  if (!add) {
     pretools$set_blocks(blocks = blocks)
   }
   pretools$set_electrodes(electrodes, type = data_type, add = add)
@@ -728,16 +728,16 @@ rave_import_lfp.native_edf <- function(project_name, subject_code, blocks,
     project_name = project_name
   )
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
   progress <-
     ravepipeline::rave_progress(
-      catgl('Importing {project_name}/{subject_code}', .capture = TRUE),
+      catgl("Importing {project_name}/{subject_code}", .capture = TRUE),
       max = length(blocks),
       shiny_auto_close = TRUE
     )
-  file_info <- attr(res, 'info')
+  file_info <- attr(res, "info")
 
   ncores <- raveio_getopt("max_worker", 1)
   schedule_mat <- matrix(
@@ -747,25 +747,25 @@ rave_import_lfp.native_edf <- function(project_name, subject_code, blocks,
   schedule_mat[seq_along(electrodes)] <- electrodes
 
 
-  for(b in blocks){
+  for (b in blocks) {
     info <- file_info[[b]]
-    progress$inc(paste('Processing block', b))
+    progress$inc(paste("Processing block", b))
     edf_file <- file.path(info$path, info$files)
 
     lapply_async(seq_len(ncores), function(margin) {
       sub_es <- schedule_mat[margin, ]
       sub_es <- sub_es[!is.na(sub_es)]
       dat <- read_edf_signal2(path = edf_file, signal_numbers = sub_es, convert_volt = conversion)
-      lapply(sub_es, function(e){
-        # progress$inc(paste('Writing', b, '- electrode', e))
-        cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
+      lapply(sub_es, function(e) {
+        # progress$inc(paste("Writing", b, "- electrode", e))
+        cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
         signal <- dat$get_signal(number = e)
         s <- as.numeric(signal$signal)
         s[is.na(s)] <- 0
-        save_h5(x = as.vector(s), file = cfile, name = sprintf('raw/%s', b),
+        save_h5(x = as.vector(s), file = cfile, name = sprintf("raw/%s", b),
                 chunk = 1024, replace = TRUE, quiet = TRUE)
-        save_h5(x = signal$unit, file = cfile, name = sprintf('/units/%s', b),
-                chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+        save_h5(x = signal$unit, file = cfile, name = sprintf("/units/%s", b),
+                chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
         invisible()
       })
     }, callback = function(margin) {
@@ -774,22 +774,22 @@ rave_import_lfp.native_edf <- function(project_name, subject_code, blocks,
     })
 
     # dat <- read_edf_signal(path = edf_file, signal_numbers = electrodes, convert_volt = conversion)
-    # lapply(electrodes, function(e){
-    #   progress$inc(paste('Writing', b, '- electrode', e))
-    #   cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
+    # lapply(electrodes, function(e) {
+    #   progress$inc(paste("Writing", b, "- electrode", e))
+    #   cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
     #   signal <- dat$get_signal(number = e)
     #   s <- as.numeric(signal$signal)
     #   s[is.na(s)] <- 0
-    #   save_h5(x = as.vector(s), file = cfile, name = sprintf('raw/%s', b),
+    #   save_h5(x = as.vector(s), file = cfile, name = sprintf("raw/%s", b),
     #           chunk = 1024, replace = TRUE, quiet = TRUE)
-    #   save_h5(x = signal$unit, file = cfile, name = sprintf('/units/%s', b),
-    #           chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+    #   save_h5(x = signal$unit, file = cfile, name = sprintf("/units/%s", b),
+    #           chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
     #   invisible()
     # })
   }
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "native_edf")
@@ -798,15 +798,15 @@ rave_import_lfp.native_edf <- function(project_name, subject_code, blocks,
 
 rave_import_lfp.native_brainvis <- function(project_name, subject_code, blocks,
                                             electrodes, sample_rate, conversion = NA,
-                                            add = FALSE, data_type = 'LFP', ...){
-  .fs_struct <- raveio_getopt('file_structure')
+                                            add = FALSE, data_type = "LFP", ...) {
+  .fs_struct <- raveio_getopt("file_structure")
   on.exit({
-    raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+    raveio_setopt("file_structure", .fs_struct, .save = TRUE)
   }, add = TRUE)
-  raveio_setopt('file_structure', 'native', .save = FALSE)
+  raveio_setopt("file_structure", "native", .save = FALSE)
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
-  if(!add){
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
+  if (!add) {
     pretools$set_blocks(blocks = blocks)
   }
   pretools$set_electrodes(electrodes, type = data_type, add = add)
@@ -823,43 +823,43 @@ rave_import_lfp.native_brainvis <- function(project_name, subject_code, blocks,
     project_name = project_name
   )
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
   progress <-
     ravepipeline::rave_progress(
-      catgl('Importing {project_name}/{subject_code}', .capture = TRUE),
+      catgl("Importing {project_name}/{subject_code}", .capture = TRUE),
       max = (length(electrodes) + 1) * length(blocks),
       shiny_auto_close = TRUE
     )
-  file_info <- attr(res, 'info')
-  for(b in blocks){
+  file_info <- attr(res, "info")
+  for (b in blocks) {
     info <- file_info[[b]]
-    progress$inc(paste('Reading block', b))
+    progress$inc(paste("Reading block", b))
     eeg_file <- file.path(info$path, info$files)
     header <- read_eeg_header(eeg_file)
     eeg_df <- file.path(info$path, header$common$DataFile)
-    if(!file.exists(eeg_df)){
+    if (!file.exists(eeg_df)) {
       # check eeg file
-      df <- list.files(info$path, pattern = '\\.(eeg|dat)$', ignore.case = TRUE)
-      if(length(df)){
+      df <- list.files(info$path, pattern = "\\.(eeg|dat)$", ignore.case = TRUE)
+      if (length(df)) {
         eeg_df <- file.path(info$path, df[[1]])
       }
     }
     dat <- read_eeg_data(header, eeg_df)
     # dim(dat$data)
 
-    volc_units <- c('V', 'mV', 'uV')
+    volc_units <- c("V", "mV", "uV")
     volc_factr <- c(1e6, 1e3, 1)
 
-    lapply(electrodes, function(e){
-      progress$inc(paste('Writing', b, '- electrode', e))
-      cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
+    lapply(electrodes, function(e) {
+      progress$inc(paste("Writing", b, "- electrode", e))
+      cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
       s <- dat$data[e, ]
       s[is.na(s)] <- 0
       # TODO: convert unit
       unit <- header$channels$unit[[e]]
-      if(
+      if (
         is_physical_unit(conversion, volc_units) &&
         is_physical_unit(unit, volc_units)
       ) {
@@ -867,16 +867,16 @@ rave_import_lfp.native_brainvis <- function(project_name, subject_code, blocks,
         s <- s * volc_factr[volc_units == unit] / volc_factr[volc_units == conversion]
         unit <- conversion
       }
-      save_h5(x = as.numeric(s), file = cfile, name = sprintf('raw/%s', b),
+      save_h5(x = as.numeric(s), file = cfile, name = sprintf("raw/%s", b),
               chunk = 1024, replace = TRUE, quiet = TRUE)
-      save_h5(x = unit, file = cfile, name = sprintf('/units/%s', b),
-              chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+      save_h5(x = unit, file = cfile, name = sprintf("/units/%s", b),
+              chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
       invisible()
     })
   }
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "native_brainvis")
@@ -886,33 +886,33 @@ rave_import_lfp.native_brainvis <- function(project_name, subject_code, blocks,
 
 rave_import_lfp.native_blackrock <- function(
     project_name, subject_code, blocks, electrodes, sample_rate, add = FALSE,
-    conversion = NA, data_type = 'LFP', ...){
+    conversion = NA, data_type = "LFP", ...) {
 
   # DIPSAUS DEBUG START
-  # list2env(list(project_name = 'devel', subject_code = "PAV020",
+  # list2env(list(project_name = "devel", subject_code = "PAV020",
   #               blocks = c("BLOCK016_SpeechModalityLocalizer"),
   #               electrodes = "1-7", sample_rate = 2000, add = FALSE,
-  #               conversion = NA, data_type = 'LFP'), envir=.GlobalEnv)
+  #               conversion = NA, data_type = "LFP"), envir=.GlobalEnv)
 
   # DIPSAUS DEBUG START
-  # project_name = 'test'
-  # subject_code = 'YDY'
+  # project_name = "test"
+  # subject_code = "YDY"
   # blocks = "B058"
   # electrodes = 1:7
   # sample_rate = 2000
-  # add = FALSE; data_type = 'LFP'; conversion = NA
+  # add = FALSE; data_type = "LFP"; conversion = NA
 
-  progress <- ravepipeline::rave_progress(title = "Importing NEV/NSx", max = 2 + length(blocks)*2, shiny_auto_close = TRUE)
+  progress <- ravepipeline::rave_progress(title = "Importing NEV/NSx", max = 2 + length(blocks) * 2, shiny_auto_close = TRUE)
 
-  .fs_struct <- raveio_getopt('file_structure')
+  .fs_struct <- raveio_getopt("file_structure")
   on.exit({
-    raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+    raveio_setopt("file_structure", .fs_struct, .save = TRUE)
   }, add = TRUE)
-  raveio_setopt('file_structure', 'native', .save = FALSE)
+  raveio_setopt("file_structure", "native", .save = FALSE)
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
 
-  if(!add){
+  if (!add) {
     pretools$set_blocks(blocks = blocks)
   }
   electrodes <- dipsaus::parse_svec(electrodes)
@@ -931,17 +931,17 @@ rave_import_lfp.native_blackrock <- function(
     project_name = project_name
   )
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
-  if(isTRUE(conversion %in% volc_units)){
+  if (isTRUE(conversion %in% volc_units)) {
     unit <- volc_units
   } else {
-    unit <- 'uV'
+    unit <- "uV"
   }
   factor <- c(1e-6, 1e-3, 1)[c("V", "mV", "uV") == unit]
 
-  file_info <- attr(res, 'info')
+  file_info <- attr(res, "info")
 
 
   block_details <- lapply(blocks, function(b) {
@@ -965,12 +965,12 @@ rave_import_lfp.native_blackrock <- function(
 
     channel_info_path <- file.path(export_path, "channels.rds")
 
-    if(file.exists(channel_info_path)) {
+    if (file.exists(channel_info_path)) {
       channel_info <- readRDS(channel_info_path)
 
       # check sampling frequency
       actual_srates <- unique(channel_info$SampleRate[channel_info$Electrode %in% electrodes])
-      if(any(actual_srates < sample_rate)) {
+      if (any(actual_srates < sample_rate)) {
         actual_srates <- actual_srates[actual_srates < sample_rate]
         stop(sprintf("Cannot import the data: the requested sample rate is %.0f Hz. However, some electrode channels have less sampling frequencies: %s. If you are importing from multiple NSx (e.g. ns3+ns5), it is recommended to choose the least sample rate (e.g. %.0f Hz). Here are default sample rates for BlackRock NSx: ns1 (500 Hz), ns2 (1000 Hz), ns3 (2000 Hz), ns4 (10000 Hz), ns5 (30000 Hz), ns6 (30000 Hz).", sample_rate, paste(actual_srates, collapse = ", "), min(actual_srates)))
       }
@@ -983,11 +983,11 @@ rave_import_lfp.native_blackrock <- function(
       electrodes, function(e) {
 
         channel <- readNSx::get_channel(nsp, e)
-        cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
+        cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
         unit <- channel$channel_info$units
 
         lapply(seq_len(nparts), function(part) {
-          if(nparts > 1) {
+          if (nparts > 1) {
             dir <- sprintf("%s_part%s", export_path, part)
           } else {
             dir <- export_path
@@ -1000,8 +1000,8 @@ rave_import_lfp.native_blackrock <- function(
           sratio <- srate / sample_rate
           factor1 <- factor / c(1e-6, 1e-3, 1)[c("V", "mV", "uV") == unit]
           s <- data[] * factor1
-          if( sratio > 1 ) {
-            if( sratio - floor(sratio) > 0.0001 ) {
+          if ( sratio > 1 ) {
+            if ( sratio - floor(sratio) > 0.0001 ) {
               s <- ravetools::decimate(s, sratio)
             } else {
               sratio <- round(sratio)
@@ -1011,7 +1011,7 @@ rave_import_lfp.native_blackrock <- function(
           }
 
           # read infos
-          if(file.exists(file.path(dir, "channels.rds"))) {
+          if (file.exists(file.path(dir, "channels.rds"))) {
             channel_info <- readRDS(file.path(dir, "channels.rds"))
             channel_info <- channel_info[channel_info$Electrode == e, ]
             channel_info_str <- jsonlite::toJSON(as.list(channel_info), auto_unbox = TRUE)
@@ -1020,7 +1020,7 @@ rave_import_lfp.native_blackrock <- function(
             channel_info_str <- "{}"
           }
 
-          if(file.exists(file.path(dir, "events.rds"))) {
+          if (file.exists(file.path(dir, "events.rds"))) {
             event_info <- readRDS(file.path(dir, "events.rds"))
             event_info_str <- jsonlite::toJSON(event_info, dataframe = "rows")
           } else {
@@ -1029,13 +1029,13 @@ rave_import_lfp.native_blackrock <- function(
           }
 
           # save to HDF5
-          save_h5(x = unit, file = cfile, name = sprintf('/units/%s', actual_block),
-                  chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
-          save_h5(x = channel_info_str, file = cfile, name = sprintf('/channelInfo/%s', actual_block),
-                  chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
-          save_h5(x = event_info_str, file = cfile, name = sprintf('/events/%s', actual_block),
-                  chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
-          save_h5(x = s, file = cfile, name = sprintf('raw/%s', actual_block),
+          save_h5(x = unit, file = cfile, name = sprintf("/units/%s", actual_block),
+                  chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
+          save_h5(x = channel_info_str, file = cfile, name = sprintf("/channelInfo/%s", actual_block),
+                  chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
+          save_h5(x = event_info_str, file = cfile, name = sprintf("/events/%s", actual_block),
+                  chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
+          save_h5(x = s, file = cfile, name = sprintf("raw/%s", actual_block),
                   chunk = 1024, replace = TRUE, quiet = TRUE)
 
           list(
@@ -1053,8 +1053,8 @@ rave_import_lfp.native_blackrock <- function(
     # get channel information
     channel_info <- do.call("rbind", lapply(imported_data, function(data) {
       channel_info <- data[[1]]$channel_info
-      if(!is.data.frame(channel_info)) { return(NULL) }
-      channel_info[,c("Electrode", "Label", "SampleRate", "ChannelOrder", "NSType")]
+      if (!is.data.frame(channel_info)) { return(NULL) }
+      channel_info[, c("Electrode", "Label", "SampleRate", "ChannelOrder", "NSType")]
     }))
 
     # events
@@ -1074,7 +1074,7 @@ rave_import_lfp.native_blackrock <- function(
     ))
   })
 
-  if(!add){
+  if (!add) {
     actual_blocks <- unique(unlist(lapply(block_details, "[[", "actual_blocks")))
     pretools$set_blocks(blocks = actual_blocks)
   }
@@ -1082,7 +1082,7 @@ rave_import_lfp.native_blackrock <- function(
   progress$inc("Generating meta data...")
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "native_blackrock")
@@ -1091,18 +1091,18 @@ rave_import_lfp.native_blackrock <- function(
   # generate epoch files as well
 
   epoch <- do.call("rbind", lapply(block_details, "[[", "event_info"))
-  if(is.data.frame(epoch) && nrow(epoch) > 0) {
+  if (is.data.frame(epoch) && nrow(epoch) > 0) {
     epoch <- epoch[!duplicated(epoch$EventOrder), ]
     epoch <- epoch[order(epoch$AbsoluteTime), ]
     epoch$Trial <- seq_len(nrow(epoch))
-    epoch <- epoch[,c("Block", "Trial", "Time", "Condition", "SourceFile", "Specification", "EventType", "EventOrder", "AbsoluteTime")]
+    epoch <- epoch[, c("Block", "Trial", "Time", "Condition", "SourceFile", "Specification", "EventType", "EventOrder", "AbsoluteTime")]
     path <- file.path(pretools$subject$meta_path, "epoch_nev_exports.csv")
     safe_write_csv(x = epoch, file = path, row.names = FALSE)
   }
 
   # Channel file
   channel_info <- block_details[[1]]$channel_info
-  if(is.data.frame(channel_info) && nrow(channel_info) > 0) {
+  if (is.data.frame(channel_info) && nrow(channel_info) > 0) {
 
     channel_info$Coord_x <- 0
     channel_info$Coord_y <- 0
@@ -1138,21 +1138,21 @@ rave_import_lfp.native_blackrock <- function(
 
 rave_import_lfp.bids_edf <- function(project_name, subject_code, blocks,
                                      electrodes, sample_rate, task_runs, conversion = NA,
-                                     add = FALSE, data_type = 'LFP', ...){
+                                     add = FALSE, data_type = "LFP", ...) {
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
   # file exists?
-  if(!dir.exists(pretools$raw_path)){
+  if (!dir.exists(pretools$raw_path)) {
     # locate in BIDS
-    .fs_struct <- raveio_getopt('file_structure')
+    .fs_struct <- raveio_getopt("file_structure")
     on.exit({
-      raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+      raveio_setopt("file_structure", .fs_struct, .save = TRUE)
     }, add = TRUE)
-    raveio_setopt('file_structure', 'BIDS', .save = FALSE)
+    raveio_setopt("file_structure", "BIDS", .save = FALSE)
 
-    pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
-    if(!dir.exists(pretools$raw_path)){
-      stop('Cannot find subject folder int BIDS directory tree nor rave native raw path. Please make sure the subject files exist')
+    pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
+    if (!dir.exists(pretools$raw_path)) {
+      stop("Cannot find subject folder int BIDS directory tree nor rave native raw path. Please make sure the subject files exist")
     }
   }
 
@@ -1166,12 +1166,12 @@ rave_import_lfp.bids_edf <- function(project_name, subject_code, blocks,
   )
   valid_run_names <- attr(res, "valid_run_names")
   invalid_runs <- task_runs[!task_runs %in% valid_run_names]
-  if(length(invalid_runs)){
-    stop('Invalid task_runs found, possible runs:\n', paste(' ', utils::head(valid_run_names), collapse = '\n'), '\n  ...')
+  if (length(invalid_runs)) {
+    stop("Invalid task_runs found, possible runs:\n", paste(" ", utils::head(valid_run_names), collapse = "\n"), "\n  ...")
   }
 
   # Do not check. block here does not mean session, should be session+task+run
-  if(!add){
+  if (!add) {
     pretools$set_blocks(blocks = task_runs, force = TRUE)
   }
   pretools$set_electrodes(electrodes, type = data_type, add = add)
@@ -1182,37 +1182,37 @@ rave_import_lfp.bids_edf <- function(project_name, subject_code, blocks,
 
 
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
   progress <-
     ravepipeline::rave_progress(
-      catgl('Importing {project_name}/{subject_code}', .capture = TRUE),
+      catgl("Importing {project_name}/{subject_code}", .capture = TRUE),
       max = (length(electrodes) + 1) * length(task_runs),
       shiny_auto_close = TRUE
     )
-  file_info <- attr(res, 'info')
-  for(b in task_runs){
+  file_info <- attr(res, "info")
+  for (b in task_runs) {
     info <- file_info[[b]]
-    progress$inc(paste('Reading:', b))
+    progress$inc(paste("Reading:", b))
     edf_file <- file.path(info$path, info$files)
     dat <- read_edf_signal(path = edf_file, signal_numbers = electrodes, convert_volt = conversion)
-    lapply(electrodes, function(e){
-      progress$inc(paste('Writing', b, '- electrode', e))
-      cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
+    lapply(electrodes, function(e) {
+      progress$inc(paste("Writing", b, "- electrode", e))
+      cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
       signal <- dat$get_signal(number = e)
       s <- signal$signal
       s[is.na(s)] <- 0
-      save_h5(x = as.numeric(s), file = cfile, name = sprintf('raw/%s', b),
+      save_h5(x = as.numeric(s), file = cfile, name = sprintf("raw/%s", b),
               chunk = 1024, replace = TRUE, quiet = TRUE)
-      save_h5(x = signal$unit, file = cfile, name = sprintf('/units/%s', b),
-              chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+      save_h5(x = signal$unit, file = cfile, name = sprintf("/units/%s", b),
+              chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
       invisible()
     })
   }
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "bids_edf")
@@ -1222,24 +1222,24 @@ rave_import_lfp.bids_edf <- function(project_name, subject_code, blocks,
 
 rave_import_lfp.bids_brainvis <- function(project_name, subject_code, blocks,
                                           electrodes, sample_rate, task_runs, conversion = NA,
-                                          add = FALSE, data_type = 'LFP', ...){
+                                          add = FALSE, data_type = "LFP", ...) {
   # direct import data, no check (already checked)
-  pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
+  pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
   # file exists?
-  if(!dir.exists(pretools$raw_path)){
+  if (!dir.exists(pretools$raw_path)) {
     # locate in BIDS
-    .fs_struct <- raveio_getopt('file_structure')
+    .fs_struct <- raveio_getopt("file_structure")
     on.exit({
-      raveio_setopt('file_structure', .fs_struct, .save = TRUE)
+      raveio_setopt("file_structure", .fs_struct, .save = TRUE)
     }, add = TRUE)
-    raveio_setopt('file_structure', 'BIDS', .save = FALSE)
+    raveio_setopt("file_structure", "BIDS", .save = FALSE)
 
-    pretools <- RAVEPreprocessSettings$new(subject = sprintf('%s/%s', project_name, subject_code))
-    if(!dir.exists(pretools$raw_path)){
-      stop('Cannot find subject folder int BIDS directory tree nor rave native raw path. Please make sure the subject files exist')
+    pretools <- RAVEPreprocessSettings$new(subject = sprintf("%s/%s", project_name, subject_code))
+    if (!dir.exists(pretools$raw_path)) {
+      stop("Cannot find subject folder int BIDS directory tree nor rave native raw path. Please make sure the subject files exist")
     }
   }
-  blocks <- sprintf('ses-%s', stringr::str_remove(blocks, 'ses-'))
+  blocks <- sprintf("ses-%s", stringr::str_remove(blocks, "ses-"))
 
   # Now import data
   res <- validate_raw_file_lfp.bids_brainvis(
@@ -1251,12 +1251,12 @@ rave_import_lfp.bids_brainvis <- function(project_name, subject_code, blocks,
   )
   valid_run_names <- attr(res, "valid_run_names")
   invalid_runs <- task_runs[!task_runs %in% valid_run_names]
-  if(length(invalid_runs)){
-    stop('Invalid task_runs found, possible runs:\n', paste(' ', utils::head(valid_run_names), collapse = '\n'), '\n  ...')
+  if (length(invalid_runs)) {
+    stop("Invalid task_runs found, possible runs:\n", paste(" ", utils::head(valid_run_names), collapse = "\n"), "\n  ...")
   }
 
   # Do not check. block here does not mean session, should be session+task+run
-  if(!add){
+  if (!add) {
     pretools$set_blocks(blocks = task_runs, force = TRUE)
   }
   pretools$set_electrodes(electrodes, type = data_type, add = add)
@@ -1265,62 +1265,62 @@ rave_import_lfp.bids_brainvis <- function(project_name, subject_code, blocks,
   pretools$save()
 
   eeg_header <- local({
-    raw_root <- raveio_getopt('bids_data_dir')
-    if(is.na(raw_root) || !dir.exists(raw_root)){
-      raw_root <- raveio_getopt('raw_data_dir')
+    raw_root <- raveio_getopt("bids_data_dir")
+    if (is.na(raw_root) || !dir.exists(raw_root)) {
+      raw_root <- raveio_getopt("raw_data_dir")
     }
     load_bids_ieeg_header(raw_root, project_name, subject_code)
   })
 
 
-  save_path <- file.path(pretools$subject$preprocess_path, 'voltage')
+  save_path <- file.path(pretools$subject$preprocess_path, "voltage")
   save_path <- dir_create2(save_path)
 
   progress <-
     ravepipeline::rave_progress(
-      catgl('Importing {project_name}/{subject_code}', .capture = TRUE),
+      catgl("Importing {project_name}/{subject_code}", .capture = TRUE),
       max = (length(electrodes) + 1) * length(task_runs),
       shiny_auto_close = TRUE
     )
-  file_info <- attr(res, 'info')
-  for(b in task_runs){
+  file_info <- attr(res, "info")
+  for (b in task_runs) {
     info <- file_info[[b]]
-    progress$inc(paste('Reading:', b))
+    progress$inc(paste("Reading:", b))
     eeg_file <- file.path(info$path, info$files)
     header <- read_eeg_header(eeg_file)
     eeg_df <- file.path(info$path, header$common$DataFile)
-    if(!file.exists(eeg_df)){
+    if (!file.exists(eeg_df)) {
       # eeg file might be changed to BIDS file name
-      ext <- stringr::str_extract(header$common$DataFile, '\\.[^.]+$')
-      eeg_df <- stringr::str_replace(eeg_file, '\\.[^.]+$', ext)
+      ext <- stringr::str_extract(header$common$DataFile, "\\.[^.]+$")
+      eeg_df <- stringr::str_replace(eeg_file, "\\.[^.]+$", ext)
     }
     dat <- read_eeg_data(header, eeg_df)
-    volc_units <- c('V', 'mV', 'uV')
+    volc_units <- c("V", "mV", "uV")
     volc_factr <- c(1e6, 1e3, 1)
 
-    sess_name <- stringr::str_extract(b, '^[^-_]+')
+    sess_name <- stringr::str_extract(b, "^[^-_]+")
     channel_table <- eeg_header$sessions[[sess_name]]$tasks[[b]]$channels
     snames <- eeg_header$sessions[[sess_name]]$space_names
-    if(length(snames)){
+    if (length(snames)) {
       electrode_table <- eeg_header$sessions[[sess_name]]$spaces[[snames[[1]]]]$table
       electrode_names <- electrode_table$name[electrodes]
-      channel_idx <- sapply(electrode_names, function(ename){
+      channel_idx <- sapply(electrode_names, function(ename) {
         which(channel_table$name == ename)
       })
     } else {
       channel_idx <- electrodes
     }
 
-    lapply(seq_along(electrodes), function(ii){
+    lapply(seq_along(electrodes), function(ii) {
       e <- electrodes[[ii]]
       chidx <- channel_idx[[ii]]
-      progress$inc(paste('Writing', b, '- electrode', e))
-      cfile <- file.path(save_path, sprintf('electrode_%d.h5', e))
+      progress$inc(paste("Writing", b, "- electrode", e))
+      cfile <- file.path(save_path, sprintf("electrode_%d.h5", e))
       s <- dat$data[chidx, ]
       s[is.na(s)] <- 0
 
       unit <- header$channels$unit[[chidx]]
-      if(
+      if (
         is_physical_unit(conversion, volc_units) &&
         is_physical_unit(unit, volc_units)
       ) {
@@ -1329,16 +1329,16 @@ rave_import_lfp.bids_brainvis <- function(project_name, subject_code, blocks,
         unit <- conversion
       }
 
-      save_h5(x = as.numeric(s), file = cfile, name = sprintf('raw/%s', b),
+      save_h5(x = as.numeric(s), file = cfile, name = sprintf("raw/%s", b),
               chunk = 1024, replace = TRUE, quiet = TRUE)
-      save_h5(x = unit, file = cfile, name = sprintf('/units/%s', b),
-              chunk = 1, replace = TRUE, quiet = TRUE, ctype = 'character')
+      save_h5(x = unit, file = cfile, name = sprintf("/units/%s", b),
+              chunk = 1, replace = TRUE, quiet = TRUE, ctype = "character")
       invisible()
     })
   }
 
   # Now set user conf
-  for(e in electrodes){
+  for (e in electrodes) {
     pretools$data[[e]]$data_imported <- TRUE
   }
   pretools$data$format <- which(unname(IMPORT_FORMATS) == "bids_brainvis")
@@ -1457,8 +1457,8 @@ rave_import_lfp.bids_brainvis <- function(project_name, subject_code, blocks,
 #'
 #' @export
 rave_import <- function(project_name, subject_code, blocks, electrodes, format,
-                        sample_rate, conversion = NA, data_type = 'LFP',
-                        task_runs = NULL, add = FALSE, ...){
+                        sample_rate, conversion = NA, data_type = "LFP",
+                        task_runs = NULL, add = FALSE, ...) {
 
   stopifnot2(isTRUE(data_type %in% SIGNAL_TYPES), msg = paste(
     "Unsupported electrode signal type:", data_type
@@ -1466,19 +1466,19 @@ rave_import <- function(project_name, subject_code, blocks, electrodes, format,
 
   generic_name <- IMPORT_FORMATS[[format]]
 
-  if(!is_valid_ish(generic_name, max_len = 1L, mode = 'character', blank = TRUE)){
-    stop('rave_import: format ', sQuote(format), ' must be integer from 1-',
-         length(IMPORT_FORMATS), ' or the following characters:\n',
-         paste0(seq_along(IMPORT_FORMATS), ': ', sQuote(names(IMPORT_FORMATS)),
-                collapse = ',\n'))
+  if (!is_valid_ish(generic_name, max_len = 1L, mode = "character", blank = TRUE)) {
+    stop("rave_import: format ", sQuote(format), " must be integer from 1-",
+         length(IMPORT_FORMATS), " or the following characters:\n",
+         paste0(seq_along(IMPORT_FORMATS), ": ", sQuote(names(IMPORT_FORMATS)),
+                collapse = ",\n"))
   }
 
-  if(generic_name %in% unlist(IMPORT_FORMATS[c(5,6)])){
+  if (generic_name %in% unlist(IMPORT_FORMATS[c(5, 6)])) {
     # BIDS format, blocks must be ses-xxx
-    blocks <- stringr::str_remove(blocks, '^ses-')
-    blocks <- sprintf('ses-%s', blocks)
-    if(!length(task_runs)){
-      stop('rave_import: BIDS format must specify task_runs as session+task+run')
+    blocks <- stringr::str_remove(blocks, "^ses-")
+    blocks <- sprintf("ses-%s", blocks)
+    if (!length(task_runs)) {
+      stop("rave_import: BIDS format must specify task_runs as session+task+run")
     }
   }
 

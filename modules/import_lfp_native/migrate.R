@@ -4,12 +4,12 @@
 #' @param ... other parameters might be used or ignored
 #' @param overwrite whether to overwrite the pipeline if it exists in the new subject
 #' @param backup whether to backup the existing pipeline; only useful when \code{overwrite=TRUE}
-migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup = TRUE){
+migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup = TRUE) {
 
   source("common.R", local = TRUE)
 
   # migrate to project
-  if(missing(subject_code) || is.null(subject_code)){
+  if (missing(subject_code) || is.null(subject_code)) {
 
     ## BEGIN: customize the code to migrate to project pipeline folder
 
@@ -31,14 +31,14 @@ migrate <- function(project_name, subject_code, ..., overwrite = FALSE, backup =
 
     # this is the path for new pipeline
     pipeline_directory <- file.path(subject$pipeline_path, target_name)
-    if(dir.exists(pipeline_directory)){
+    if (dir.exists(pipeline_directory)) {
       # some files exist, make sure don't overwrite important files
-      if(!overwrite){
+      if (!overwrite) {
         stop("A pipeline already exists. Please use `overwrite=TRUE` to remove the old one")
       }
       # remove the old files, including data to prevent artifacts
       pipeline_directory <- normalizePath(pipeline_directory)
-      if(backup){
+      if (backup) {
         backup_directory <- paste0(
           pipeline_directory,
           strftime(Sys.time(), "_old_%Y%m%d-%H%M%S")

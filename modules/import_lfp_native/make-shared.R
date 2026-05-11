@@ -38,11 +38,11 @@ library(targets)
     save_pipeline_and_export_timestamp = tar_target_raw(
       "save_pipeline_and_export_timestamp",
       bquote({
-        if(.(save_scripts)){
+        if (.(save_scripts)) {
           src <- normalizePath(getwd())
           dst <- file.path(subject$pipeline_path, .(target_name))
           dst <- normalizePath(dst, mustWork = FALSE)
-          if(dst != src){
+          if (dst != src) {
             file.copy(src, subject$pipeline_path,
                       recursive = TRUE, copy.date = TRUE)
           }

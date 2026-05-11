@@ -41,7 +41,7 @@ targets::tar_option_set(
 )
 
 
-SAMPLE_VALUE_CHOICES = c(
+SAMPLE_VALUE_CHOICES <- c(
   "Simple property",
   "Multiple properties",
   "Animation"

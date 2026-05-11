@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -38,7 +38,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
                 inputId = ns("loader_file"),
                 label = "Value file",
                 width = "100%",
-                size = 's'
+                size = "s"
               )
             ),
             shidashi::flex_break(),
@@ -69,7 +69,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   sample_table <- data.frame(
     Subject = c("Subject001", "Subject001", "Subject002", "Subject002", "Subject003", NA),
@@ -90,7 +90,7 @@ loader_server <- function(input, output, session, ...){
       # add the rest input values to the settings file
       settings$template_name <- input$loader_template
 
-      if(length(input$loader_file$datapath) != 1) {
+      if (length(input$loader_file$datapath) != 1) {
         stop("Please provide a value table.")
       }
       settings$value_table <- data.table::fread(input$loader_file$datapath)
@@ -113,7 +113,7 @@ loader_server <- function(input, output, session, ...){
           pipeline$run(names = c("cleaned_inputs"))
           Sys.sleep(0.5)
           dipsaus::close_alert2()
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
           ravepipeline::logger("Data has been loaded loaded")
 
         },
@@ -136,7 +136,7 @@ loader_server <- function(input, output, session, ...){
         easyClose = TRUE,
         shiny::div(
           shiny::p("Please prepare a comma-separated value (csv) table with the following case-sensitive columns: 'Subject', 'Electrode', followed by the atlas name (no space, only text, digits, and unders_cores). For example: "),
-          shiny::tableOutput(ns('loader_file_example_table')),
+          shiny::tableOutput(ns("loader_file_example_table")),
           shiny::p(
             "The new atlases will be created from these columns. ",
             shiny::downloadLink(outputId = ns("loader_file_example_table_download"), label = "Click here to download this example.")

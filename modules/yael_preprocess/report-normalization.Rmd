@@ -59,7 +59,7 @@ normalization_path <- file.path(imaging_path, "normalization")
 
 
 
-if(!dir.exists(normalization_path)) {
+if (!dir.exists(normalization_path)) {
   stop(
     "Unable to find normalization path. ",
     "The MR normalization report is only available after you run ",
@@ -76,7 +76,7 @@ has_mapping <- vapply(available_templates, function(name) {
 }, FUN.VALUE = FALSE)
 available_mapping <- available_templates[has_mapping]
 
-if(!length(available_mapping)) {
+if (!length(available_mapping)) {
   stop(
     "Unable to find valid normalization files. ",
     "The MR normalization report is only available after you run ",

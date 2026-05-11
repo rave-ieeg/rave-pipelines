@@ -1,7 +1,7 @@
-module_html <- function(){}
-module_server <- function(...){}
+module_html <- function() {}
+module_server <- function(...) {}
 
-loader_html <- function(){
+loader_html <- function() {
 
   shiny::fixedPage(
     shiny::fixedRow(
@@ -22,5 +22,5 @@ loader_html <- function(){
   )
 }
 
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 }

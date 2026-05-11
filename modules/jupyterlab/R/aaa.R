@@ -17,13 +17,13 @@ local_data  <- dipsaus::fastmap2()
 #' If \code{FALSE} is returned, \code{open_loader} event will be dispatched,
 #' resulting in calling function \code{module_ui_loader}.
 #' @return Logical variable of length one.
-check_data_loaded <- function(first_time = FALSE){
+check_data_loaded <- function(first_time = FALSE) {
 
-  if(isTRUE(ravepipeline::raveio_getopt("jupyter_disabled"))){
+  if (isTRUE(ravepipeline::raveio_getopt("jupyter_disabled"))) {
     ravepipeline::logger("Jupyter server is disabled", level = "error", use_glue = TRUE)
     return(FALSE)
   }
-  if(!length(local_data$token)) {
+  if (!length(local_data$token)) {
     ravepipeline::logger("Jupyter token not found. Trying to obtain it")
     settings <- yaml::read_yaml("jupyter.yaml")
     local_data$host <- settings$host
@@ -34,7 +34,7 @@ check_data_loaded <- function(first_time = FALSE){
 
   session <- shiny::getDefaultReactiveDomain()
 
-  if(length(local_data$token)) {
+  if (length(local_data$token)) {
     session$sendCustomMessage("shidashi.hide_header", list())
     return(TRUE)
   }
@@ -46,7 +46,7 @@ check_data_loaded <- function(first_time = FALSE){
 # ----------- Some Utility functions for modules -----------
 
 
-if(exists('debug') && isTRUE(get('debug'))){
+if (exists("debug") && isTRUE(get("debug"))) {
   assign(".module_debug", environment(), envir = globalenv())
   ravepipeline::logger_threshold("trace", module_id = module_id)
 } else {

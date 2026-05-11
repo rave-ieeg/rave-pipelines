@@ -14,7 +14,7 @@ component_container <- ravedash::new_rave_shiny_component_container(
 loader_project <- ravedash::presets_loader_project()
 loader_subject <- ravedash::presets_loader_subject(checks = NULL)
 loader_electrodes <- with(asNamespace("ravedash"), {
-  function (id = "loader_electrode_text", varname = "loaded_electrodes",
+  function(id = "loader_electrode_text", varname = "loaded_electrodes",
             label = "Stim Electrode", loader_project_id = "loader_project_name",
             loader_subject_id = "loader_subject_code")
   {

@@ -1,5 +1,5 @@
 
-module_server <- function(input, output, session, ...){
+module_server <- function(input, output, session, ...) {
 
   # Local reactive values
   local_reactives <- shiny::reactiveValues(
@@ -29,7 +29,7 @@ module_server <- function(input, output, session, ...){
         )
       }
       local_data$config_panel_visible <- !local_data$config_panel_visible
-      
+
     }),
     input$output_cardset_config,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -149,7 +149,7 @@ module_server <- function(input, output, session, ...){
       title = "Generating report...",
       text = ravedash::be_patient_text(),
       icon = "info",
-      session = session, 
+      session = session,
       buttons = FALSE
     )
 

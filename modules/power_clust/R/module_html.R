@@ -1,6 +1,6 @@
 
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -88,46 +88,46 @@ module_html <- function(){
               title = "3D Viewer",
               class_body = "no-padding fill-width height-550 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 threeBrain::threejsBrainOutput(outputId = ns("viewer"), height = "100%")
               )
             ),
 
             ravedash::output_cardset(
-              title = ' ',
+              title = " ",
               class_body = "no-padding fill-width min-height-450",
 
               "Channel time-series" = shiny::div(
-                class = 'position-relative fill-width height-vh80 min-height-450 resize-vertical',
-                shiny::plotOutput(ns("channel_cluster_timeseries"), width = '100%', height = "100%")
+                class = "position-relative fill-width height-vh80 min-height-450 resize-vertical",
+                shiny::plotOutput(ns("channel_cluster_timeseries"), width = "100%", height = "100%")
               ),
 
               "Diagnosic plots" = shiny::div(
-                class = 'position-relative fill-width height-800 min-height-600 resize-vertical',
+                class = "position-relative fill-width height-800 min-height-600 resize-vertical",
                 shidashi::flex_container(
                   direction = "row", style = "height: 50%",
 
                   shidashi::flex_item(
                     size = 2,
-                    shiny::plotOutput(ns("cluster_dendrogram_plot"), width = '100%', height = "100%")
+                    shiny::plotOutput(ns("cluster_dendrogram_plot"), width = "100%", height = "100%")
                   ),
 
                   shidashi::flex_item(
                     size = 1,
-                    shiny::plotOutput(ns("cluster_silhouette_plot"), width = '100%', height = "100%", click = shiny::clickOpts(id = ns("cluster_silhouette_plot_click")))
+                    shiny::plotOutput(ns("cluster_silhouette_plot"), width = "100%", height = "100%", click = shiny::clickOpts(id = ns("cluster_silhouette_plot_click")))
                   )
 
                 ),
                 shidashi::flex_container(
                   direction = "row", style = "height: 50%",
                   shidashi::flex_item(
-                    shiny::plotOutput(ns("cluster_mean_plot"), width = '100%', height = "100%")
+                    shiny::plotOutput(ns("cluster_mean_plot"), width = "100%", height = "100%")
                   )
                 )
               ),
 
               "Clustering table" = shiny::div(
-                class = 'position-relative fill-width height-500 resize-vertical',
+                class = "position-relative fill-width height-500 resize-vertical",
                 shiny::tableOutput(outputId = ns("cluster_table"))
               ),
 

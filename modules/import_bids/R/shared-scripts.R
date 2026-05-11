@@ -1,7 +1,7 @@
 `%OF%` <- dipsaus::`%OF%`
 
 find_bids_runs <- function(subject_path, BIDS_subject, BIDS_sessions) {
-  if(missing(BIDS_sessions) || is.null(BIDS_sessions)) {
+  if (missing(BIDS_sessions) || is.null(BIDS_sessions)) {
     candidates <- list.files(
       path = subject_path,
       recursive = TRUE,
@@ -74,7 +74,7 @@ suggust_block_name <- function(path) {
 
   get_value <- function(key) {
     re <- sprintf("%s-[^_/-]+[_/]", key)
-    if(grepl(re, path)) {
+    if (grepl(re, path)) {
       sidx <- gregexpr(re, path)[[1]]
       len <- attr(sidx, "match.length")
       sidx <- sidx[[1]]
@@ -83,7 +83,7 @@ suggust_block_name <- function(path) {
       return(val)
     }
     re <- sprintf("%s-[^_/-]+$", key)
-    if(grepl(re, path)) {
+    if (grepl(re, path)) {
       sidx <- gregexpr(re, path)[[1]]
       len <- attr(sidx, "match.length")
       sidx <- sidx[[1]]
@@ -105,7 +105,7 @@ suggust_block_name <- function(path) {
 
   prefix <- sapply(keys, function(key) {
     val <- get_value(key)
-    if(nzchar(val)) {
+    if (nzchar(val)) {
       val <- sprintf("%s_", val)
     }
     return(val)
@@ -113,12 +113,12 @@ suggust_block_name <- function(path) {
 
   prefix <- paste0(unlist(prefix), collapse = "")
 
-  if(grepl("^[^a-zA-Z]", prefix)) {
+  if (grepl("^[^a-zA-Z]", prefix)) {
     prefix <- sprintf("block_%s", prefix)
   }
 
   run_str <- get_value("run")
-  if(!nzchar(prefix) && nzchar(run_str)) {
+  if (!nzchar(prefix) && nzchar(run_str)) {
     run_str <- sprintf("run%s", run_str)
   }
 

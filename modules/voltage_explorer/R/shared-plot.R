@@ -7,9 +7,9 @@ group_palette <- c("#FFA500", "#1874CD", "#006400", "#FF4500", "#A52A2A", "#7D26
 
 pretty_frequency_range <- function(frequency_range) {
   is_na <- is.na(frequency_range)
-  if(all(is_na)) { return(NULL) }
-  if(any(is_na)) {
-    if(is_na[[1]]) {
+  if (all(is_na)) { return(NULL) }
+  if (any(is_na)) {
+    if (is_na[[1]]) {
       return(sprintf("0~%s Hz", frequency_range[[2]]))
     } else {
       return(sprintf("%s Hz~Nyquist", frequency_range[[1]]))
@@ -33,12 +33,12 @@ collapse_cond <- function(filtered_array, condition_group, analysis_setting) {
   # condition_group = parameter_grid$condition_groups[[1]]
   # analysis_setting = parameter_grid$analysis_settings[[1]]
 
-  if(!length(condition_group$trial_numbers)) { return(NULL) }
+  if (!length(condition_group$trial_numbers)) { return(NULL) }
 
   subarray <- subset_filtered_array(filtered_array, condition_group, analysis_setting)
 
   # collapse
-  data = ravetools::collapse(subarray, keep = c(1L, 3L), average = TRUE)
+  data <- ravetools::collapse(subarray, keep = c(1L, 3L), average = TRUE)
 
   # other information
   filter_configurations <- filtered_array$get_header("filter_configurations")
@@ -47,7 +47,7 @@ collapse_cond <- function(filtered_array, condition_group, analysis_setting) {
 
   time_points <- dimnames(filtered_array)$Time
 
-  if(length(filter_configurations)) {
+  if (length(filter_configurations)) {
     physical_unit <- filter_configurations[[length(filter_configurations)]]$physical_unit
   } else {
     physical_unit <- DEFAULT_VOLTAGE_UNIT
@@ -87,7 +87,7 @@ collapse_cond <- function(filtered_array, condition_group, analysis_setting) {
 }
 
 graphics_title_height <- function(text = "", units = "inches") {
-  graphics::strheight(text, units = units, cex = graphics::par('cex.main'))
+  graphics::strheight(text, units = units, cex = graphics::par("cex.main"))
 }
 
 # DIPSAUS DEBUG START
@@ -101,7 +101,7 @@ plot_voltage_over_time_per_channel <- function(
     data, ncols = 1, new_plot = TRUE, cex = 1, space = 0.999, ylab = NULL,
     ...) {
 
-  if(!length(data)) { return() }
+  if (!length(data)) { return() }
 
   ncols %?<-% 2
   new_plot %?<-% TRUE
@@ -111,7 +111,7 @@ plot_voltage_over_time_per_channel <- function(
 
   # data$condition_group
   physical_unit <- paste(data$physical_unit, collapse = "")
-  if(!nzchar(physical_unit)) {
+  if (!nzchar(physical_unit)) {
     physical_unit <- DEFAULT_VOLTAGE_UNIT
   }
 
@@ -127,7 +127,7 @@ plot_voltage_over_time_per_channel <- function(
   oldpar <- graphics::par(c("mar", "mfrow"))
 
   freq_text <- pretty_frequency_range(data$frequency_range)
-  if(length(freq_text)) {
+  if (length(freq_text)) {
     freq_text <- sprintf("freq=%s, ", freq_text)
   } else {
     freq_text <- ""
@@ -141,7 +141,7 @@ plot_voltage_over_time_per_channel <- function(
     physical_unit
   )
 
-  if( new_plot ) {
+  if ( new_plot ) {
     graphics::layout(
       matrix(c(rep(1, ncols), seq_len(ncols) + 1), nrow = 2, byrow = TRUE),
       heights = c(graphics::lcm(title_height * 5.1), 1)
@@ -154,7 +154,7 @@ plot_voltage_over_time_per_channel <- function(
   }
 
 
-  if( space > 1 ) {
+  if ( space > 1 ) {
     space_abs <- space
   } else {
     space_abs <- quantile(abs(data$data), space) * 2
@@ -163,10 +163,10 @@ plot_voltage_over_time_per_channel <- function(
   time_end <- max(data$time)
 
   # top-to bottom style
-  for(ii in seq_len(ncols)) {
+  for (ii in seq_len(ncols)) {
     idx <- seq_len(nr) + (ii - 1) * nr
     idx <- rev(idx[idx <= nchannels])
-    if(length(idx)) {
+    if (length(idx)) {
       info <- ravetools::plot_signals(
         signals = t(data$data[, idx, drop = FALSE]),
         sample_rate = sample_rate, time_shift = time_start,
@@ -176,7 +176,7 @@ plot_voltage_over_time_per_channel <- function(
       )
       # if( ii == 1 ) {
       #   freq_text <- pretty_frequency_range(data$frequency_range)
-      #   if(length(freq_text)) {
+      #   if (length(freq_text)) {
       #     freq_text <- sprintf("freq=%s, ", freq_text)
       #   } else {
       #     freq_text <- ""
@@ -224,10 +224,10 @@ prepare_voltage_over_time_per_trial <- function(
   # condition_group = parameter_grid$condition_groups[[1]]
   # channels = analysis_channels_clean[[2]]
 
-  if(!length(condition_group$trial_numbers)) { return(NULL) }
+  if (!length(condition_group$trial_numbers)) { return(NULL) }
 
   filter_configurations <- filtered_array$get_header("filter_configurations")
-  if(length(filter_configurations)) {
+  if (length(filter_configurations)) {
     physical_unit <- filter_configurations[[length(filter_configurations)]]$physical_unit
   } else {
     physical_unit <- DEFAULT_VOLTAGE_UNIT
@@ -237,7 +237,7 @@ prepare_voltage_over_time_per_trial <- function(
   channels_ <- channels
   channels <- as.integer(channels)
   channels <- channels[channels %in% filtered_channels]
-  if(!length(channels)) {
+  if (!length(channels)) {
     stop(sprintf("Channel [%s] not loaded or filtered", paste(channels_, collapse = ", ")))
   }
 
@@ -252,7 +252,7 @@ prepare_voltage_over_time_per_trial <- function(
     Electrode ~ Electrode %in% channels,
     drop = FALSE
   )
-  if(length(channels) > 1) {
+  if (length(channels) > 1) {
     subarray <- ravetools::collapse(subarray, keep = c(1L, 2L), average = TRUE)
   }
   dim(subarray) <- c(dim(filtered_array)[1], length(trial_num))
@@ -311,7 +311,7 @@ plot_voltage_over_time_per_trial <- function(
     type = c("heatmap", "line"),
     sort_trial_by = c("condition", "trial_number")) {
 
-  if(!length(data)) { return(invisible()) }
+  if (!length(data)) { return(invisible()) }
   sort_trial_by <- match.arg(sort_trial_by)
   type <- match.arg(type)
 
@@ -321,7 +321,7 @@ plot_voltage_over_time_per_trial <- function(
   clamp %?<-% NA
 
   # sort trials
-  if(sort_trial_by == "condition") {
+  if (sort_trial_by == "condition") {
     o <- order(data$condition_label, -data$trial_number)
     y_ticks <- data$condition_label[o]
   } else {
@@ -332,7 +332,7 @@ plot_voltage_over_time_per_trial <- function(
   signals <- data$data[, o, drop = FALSE]
 
   clamp <- clamp[!is.na(clamp)]
-  if(length(clamp) && is.numeric(clamp)) {
+  if (length(clamp) && is.numeric(clamp)) {
     clamp <- max(abs(clamp))
   } else {
     clamp <- data$data_absmax
@@ -340,7 +340,7 @@ plot_voltage_over_time_per_trial <- function(
 
   start_time <- min(data$time, na.rm = TRUE)
 
-  if( type == "heatmap" ) {
+  if ( type == "heatmap" ) {
     signals[signals < -clamp] <- -clamp
     signals[signals > clamp] <- clamp
 
@@ -354,7 +354,7 @@ plot_voltage_over_time_per_trial <- function(
       )(101)
     )
 
-    graphics::mtext(side = 1, text = 'Time (s)', line = 2)
+    graphics::mtext(side = 1, text = "Time (s)", line = 2)
     graphics::axis(side = 1, at = pretty(data$time))
 
     spacing <- 1
@@ -377,7 +377,7 @@ plot_voltage_over_time_per_trial <- function(
   tck <- -0.005 * (3 + cex)
   par_opt <- graphics::par()
 
-  if(sort_trial_by == "condition") {
+  if (sort_trial_by == "condition") {
     y_tick_counts <- table(y_ticks)
     y_tick_sep <- c(1, cumsum(y_tick_counts)) * spacing
     y_tick_at <- unname(cumsum(y_tick_counts) - y_tick_counts / 2) * spacing
@@ -440,7 +440,7 @@ prepare_voltage_over_time_per_cond_channel <- function(
 
   # other information
   filter_configurations <- filtered_array$get_header("filter_configurations")
-  if(length(filter_configurations)) {
+  if (length(filter_configurations)) {
     physical_unit <- filter_configurations[[length(filter_configurations)]]$physical_unit
     hilbert <- "hilbert" %in% vapply(filter_configurations, "[[", "", "type")
   } else {
@@ -452,7 +452,7 @@ prepare_voltage_over_time_per_cond_channel <- function(
   channels_ <- channels
   channels <- sort(dipsaus::parse_svec(channels))
   channels <- channels[channels %in% filtered_channels]
-  if(!length(channels)) {
+  if (!length(channels)) {
     stop(sprintf("Channel [%s] not loaded or filtered", paste(channels_, collapse = ", ")))
   }
 
@@ -520,7 +520,7 @@ prepare_voltage_over_time_per_cond_channel <- function(
 #   filtered_array = filtered_array,
 #   condition_groups = condition_groups,
 #   channels = analysis_channels_clean,
-#   hilbert = TRUE, baseline_unit  = 'global'
+#   hilbert = TRUE, baseline_unit  = "global"
 # )
 plot_voltage_over_time_per_cond <- function(
     data, channels = NULL, clamp = NA, engine = c("base", "plotly"))
@@ -532,26 +532,26 @@ plot_voltage_over_time_per_cond <- function(
   channels %?<-% NULL
   engine %?<-% "base"
 
-  if(!length(data)) { return(invisible()) }
+  if (!length(data)) { return(invisible()) }
 
-  if(!length(channels)) {
+  if (!length(channels)) {
     channels <- data$channels
   } else {
     channels <- channels[channels %in% data$channels]
   }
-  if(!length(channels)) { stop("No channel selected to collapse.") }
+  if (!length(channels)) { stop("No channel selected to collapse.") }
 
   n_conditions <- length(data$condition_groups$order)
   col <- group_palette[data$condition_groups$order]
 
   idx <- which(data$channels %in% channels)
-  if(length(idx) > 1) {
-    cond_over_time <- ravetools::collapse(data$data[,,idx], keep = c(1, 2), average = TRUE)
+  if (length(idx) > 1) {
+    cond_over_time <- ravetools::collapse(data$data[, , idx], keep = c(1, 2), average = TRUE)
   } else {
-    cond_over_time <- data$data[,,idx, drop = TRUE]
+    cond_over_time <- data$data[, , idx, drop = TRUE]
   }
 
-  if(!isTRUE(is.finite(clamp))) {
+  if (!isTRUE(is.finite(clamp))) {
     clamp <- max(abs(range(cond_over_time, na.rm = TRUE)))
   } else {
     clamp <- max(abs(clamp), na.rm = TRUE)
@@ -577,8 +577,8 @@ plot_voltage_over_time_per_cond <- function(
         p <- plotly::add_trace(
           p,
           y = cond_over_time[, i],
-          type = 'scatter',
-          mode = 'lines',
+          type = "scatter",
+          mode = "lines",
           name = sprintf("%s (N=%d)", data$condition_groups$name[[i]], data$condition_groups$n_trials[[i]]),
           line = list(color = col[i], width = 1),
           hovertemplate = paste0("<b>", data$condition_groups$name[[i]], "</b>: %{y:.1f}<extra></extra>")
@@ -635,14 +635,14 @@ plot_voltage_over_time_per_cond_channel <- function(
   clamp %?<-% NA
   engine %?<-% "base"
 
-  if(!length(data)) { return(invisible()) }
+  if (!length(data)) { return(invisible()) }
 
   n_channels <- length(data$channels)
   n_conditions <- length(data$condition_groups$order)
 
   col <- group_palette[data$condition_groups$order]
 
-  if(!isTRUE(is.finite(clamp))) {
+  if (!isTRUE(is.finite(clamp))) {
     clamp <- data$data_absmax
   } else {
     clamp <- max(abs(clamp), na.rm = TRUE)
@@ -672,8 +672,8 @@ plot_voltage_over_time_per_cond_channel <- function(
           p <- plotly::add_trace(
             p,
             y = channel_data[, i],
-            type = 'scatter',
-            mode = 'lines',
+            type = "scatter",
+            mode = "lines",
             name = sprintf("%s (N=%d)", data$condition_groups$name[[i]], data$condition_groups$n_trials[[i]]),
             line = list(color = col[i], width = 1),
             hovertemplate = paste0("<b>", data$condition_groups$name[[i]], "</b>: %{y:.1f}<extra></extra>"),
@@ -739,7 +739,7 @@ plot_voltage_over_time_per_cond_channel <- function(
       )
       on.exit({ graphics::par(oldpar) })
 
-      for(ii in seq_len(n_channels)) {
+      for (ii in seq_len(n_channels)) {
         channel <- data$channels[[ii]]
         channel_data <- data$data[, , ii, drop = FALSE]
         dim(channel_data) <- dim(channel_data)[c(1, 2)]

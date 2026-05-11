@@ -29,45 +29,45 @@ pipeline_targets$validate_basic_inputs <- tar_target(
     project_name <- settings$project_name
     source_format <- settings$file_format
 
-    if(isFALSE(project_name != "")) {
+    if (isFALSE(project_name != "")) {
       stop("Project name is blank")
     }
-    if(isFALSE(subject_code != "")) {
+    if (isFALSE(subject_code != "")) {
       stop("Subject code is blank")
     }
     regexp <- "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,}$"
-    if(!stringr::str_detect(project_name, regexp)){
+    if (!stringr::str_detect(project_name, regexp)) {
       stop("Invalid project name: must starts with letters and followed by letters, digits, dash (-), and/or underscore (_)")
     }
-    if(!stringr::str_detect(subject_code, regexp)){
+    if (!stringr::str_detect(subject_code, regexp)) {
       stop("Invalid subject code: must starts with letters and followed by letters, digits, dash (-), and/or underscore (_)")
     }
 
-    if(length(source_format) != 1 || !source_format %in% 1:6){
+    if (length(source_format) != 1 || !source_format %in% 1:6) {
       stop("`file_format` is invalid, must be 1-6: \n  ",
            paste0(1:6, ". ", names(IMPORT_FORMATS), collapse = "\n  "))
     }
 
-    if(source_format %in% 1:4){
+    if (source_format %in% 1:4) {
       expected_raw_type <- "native"
       dirs <- rave_directories(
         subject_code = subject_code,
         project_name = project_name,
-        .force_format = 'native'
+        .force_format = "native"
       )
     } else {
       expected_raw_type <- "bids"
       dirs <- rave_directories(
         subject_code = subject_code,
         project_name = project_name,
-        .force_format = 'BIDS'
+        .force_format = "BIDS"
       )
     }
 
-    if(!dir.exists(dirs$raw_path)) {
+    if (!dir.exists(dirs$raw_path)) {
       stop(glue::glue("Cannot find subject directory (raw)"))
-    } else if(dirs$.raw_path_type != expected_raw_type){
-      if( expected_raw_type == "bids" ){
+    } else if (dirs$.raw_path_type != expected_raw_type) {
+      if ( expected_raw_type == "bids" ) {
         stop(glue::glue("A BIDS format is specified, but the raw subject directory ({dirs$raw_path}) is {dirs$.raw_path_type}?"))
       } else {
         stop(glue::glue("A RAVE native format is specified, but the raw subject directory ({dirs$raw_path}) is {dirs$.raw_path_type}?"))
@@ -77,14 +77,14 @@ pipeline_targets$validate_basic_inputs <- tar_target(
     preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", project_name, subject_code), read_only = FALSE)
 
-    # if(file.exists(preproc$path) || any(preproc$data_imported)){
+    # if(file.exists(preproc$path) || any(preproc$data_imported)) {
     #   return(list(
     #     pass = FALSE,
     #     message = glue::glue("Subject is found.")
     #   ))
     # }
 
-    if(!length(preproc$all_blocks)){
+    if (!length(preproc$all_blocks)) {
       stop(glue::glue("Subject directory (raw) is found at {dirs$raw_path}, but there is no session/block in it."))
     }
     preproc
@@ -96,7 +96,7 @@ pipeline_targets$ensure_subject <- tar_target(
   name = ensure_subject,
   command = {
     # preprocess_settings <- preproc
-    if(!file.exists(preprocess_settings$path)){
+    if (!file.exists(preprocess_settings$path)) {
       preprocess_settings$subject$initialize_paths(include_freesurfer = FALSE)
       preprocess_settings$save()
     }
@@ -109,19 +109,19 @@ pipeline_targets$ensure_subject <- tar_target(
 pipeline_targets$set_blocks <- tar_target(
   name = blocks,
   command = {
-    if(!ensure_subject){ stop("Subject not created") }
+    if (!ensure_subject) { stop("Subject not created") }
 
     # # Do not use on old RAVEPreprocessSettings as it might be out-dated
     preproc <- RAVEPreprocessSettings$new(
       sprintf("%s/%s", settings$project_name, settings$subject_code), read_only = FALSE)
 
     sel <- settings$blocks %in% preproc$all_blocks
-    if(!all(sel)){
+    if (!all(sel)) {
       stop("Some block folders are missing: ", paste(settings$blocks[!sel], collapse = ", "))
     }
-    sel <- preproc$electrodes %in% unlist(lapply(settings$channels, '[[', 'number'))
-    if(length(sel) && any(preproc$data_imported[sel])){
-      if(!setequal(settings$blocks, preproc$blocks)){
+    sel <- preproc$electrodes %in% unlist(lapply(settings$channels, "[[", "number"))
+    if (length(sel) && any(preproc$data_imported[sel])) {
+      if (!setequal(settings$blocks, preproc$blocks)) {
         stop("The subject has been imported before. The block was ",
              paste(preproc$blocks, collapse = ", "),
              ". However, block ",
@@ -148,33 +148,33 @@ pipeline_targets$set_electrodes <- tar_target(
     # set electrodes
     # TODO: set other types
     changed <- FALSE
-    electrode_number <- sapply(settings$channels, function(channel){ as.integer(channel$number) })
-    electrode_type <- sapply(settings$channels, function(channel){ c(channel$type, "LFP")[[1]] })
-    electrode_srate <- sapply(settings$channels, function(channel){ channel$sample_rate })
+    electrode_number <- sapply(settings$channels, function(channel) { as.integer(channel$number) })
+    electrode_type <- sapply(settings$channels, function(channel) { c(channel$type, "LFP")[[1]] })
+    electrode_srate <- sapply(settings$channels, function(channel) { channel$sample_rate })
 
     imported_electrodes <- preproc$electrodes
     imported_srates <- preproc$sample_rates
     imported_types <- preproc$electrode_types
-    if(length(imported_electrodes)){
+    if (length(imported_electrodes)) {
       imported_electrodes <- imported_electrodes[preproc$data_imported]
     }
 
-    # for(type in unique(electrode_type)){
+    # for(type in unique(electrode_type)) {
     #   elec <- electrode_number[electrode_type == type]
     #   srate <- electrode_srate[electrode_type == type][[1]]
     #   elec <- elec[!elec %in% imported_electrodes]
-    #   if(length(elec)){
+    #   if (length(elec)) {
     #     preproc$set_electrodes(electrodes = elec, type = type, add = TRUE)
     #     changed <- TRUE
     #   }
-    #   if(!isTRUE(any(imported_types %in% type)) || is.na(imported_srates[imported_types %in% type][[1]])){
+    #   if (!isTRUE(any(imported_types %in% type)) || is.na(imported_srates[imported_types %in% type][[1]])) {
     #     preproc$set_sample_rates(srate, type = type)
     #     changed <- TRUE
     #   }
     # }
-    for(channel in settings$channels) {
+    for (channel in settings$channels) {
       num <- as.integer(channel$number)
-      if(!num %in% imported_electrodes) {
+      if (!num %in% imported_electrodes) {
         preproc$set_electrodes(electrodes = num, type = channel$type, add = TRUE)
         preproc$set_sample_rates(channel$sample_rate, type = channel$type)
         new_electrodes <- TRUE
@@ -185,7 +185,7 @@ pipeline_targets$set_electrodes <- tar_target(
     not_imported <- preproc$electrodes
     not_imported <- not_imported[!not_imported %in% imported_electrodes]
     not_imported <- not_imported[!not_imported %in% electrode_number]
-    if(length(not_imported)){
+    if (length(not_imported)) {
       not_imported <- as.character(as.integer(not_imported))
       preproc$data$`@remove`(not_imported)
       es <- preproc$data$electrodes
@@ -237,10 +237,10 @@ pipeline_targets$validate_configuration_before_importing <- tar_target(
       project_name = preproc$subject$project_name,
       format = as.integer(settings$file_format)
     )
-    if(isFALSE(check_results)){
+    if (isFALSE(check_results)) {
       reason <- attr(check_results, "reason")
       names <- names(reason)
-      msg <- lapply(seq_along(names), function(ii){
+      msg <- lapply(seq_along(names), function(ii) {
         glue::glue("{ii}. {names[[ii]]} ({paste(reason[[ii]], collapse = ', ')})")
       })
       stop(paste(unlist(msg), collapse = "\n"))
@@ -260,10 +260,10 @@ pipeline_targets$import_to_RAVE <- tar_target(
     etypes <- preproc$electrode_types
     etypes_unique <- unique(etypes)
     conversion <- settings$physical_unit
-    if(!isTRUE(conversion %in% c("uV", "mV", "V"))){
+    if (!isTRUE(conversion %in% c("uV", "mV", "V"))) {
       conversion <- NA
     }
-    for(et in etypes_unique){
+    for (et in etypes_unique) {
       elecs <- preproc$electrodes[etypes %in% et & !preproc$data_imported]
       rave_import(
         project_name = preproc$subject$project_name,
@@ -294,7 +294,7 @@ pipeline_targets$generate_electrode_file <- tar_target(
 
     etable <- subject$meta_data("electrodes", strict = FALSE)
 
-    if(is.null(etable)){
+    if (is.null(etable)) {
       etable <- data.frame(
         Electrode = subject$electrodes,
         Coord_x = 0,
@@ -304,9 +304,9 @@ pipeline_targets$generate_electrode_file <- tar_target(
       )
     } else {
       es <- subject$electrodes[!subject$electrodes %in% etable$Electrode]
-      row <- etable[1,]
+      row <- etable[1, ]
       row[] <- NA
-      row <- do.call(rbind, lapply(es, function(e){
+      row <- do.call(rbind, lapply(es, function(e) {
         row$Electrode <- e
         row$Coord_x <- 0
         row$Coord_y <- 0
@@ -316,9 +316,9 @@ pipeline_targets$generate_electrode_file <- tar_target(
       }))
       etable <- rbind(etable, row)
     }
-    etable <- etable[order(etable$Electrode),]
+    etable <- etable[order(etable$Electrode), ]
     etable <- etable[!duplicated(etable$Electrode), ]
-    if(!dir.exists(subject$meta_path)){
+    if (!dir.exists(subject$meta_path)) {
       ravepipeline::dir_create2(subject$meta_path)
     }
     csv <- file.path(subject$meta_path, "electrodes.csv")
@@ -343,11 +343,11 @@ pipeline_targets
 #     save_pipeline_and_export_timestamp = tar_target_raw(
 #       "save_pipeline_and_export_timestamp",
 #       bquote({
-#         if(.(save_scripts)){
+#         if (.(save_scripts)) {
 #           src <- normalizePath(getwd())
 #           dst <- file.path(subject$pipeline_path, .(target_name))
 #           dst <- normalizePath(dst, mustWork = FALSE)
-#           if(dst != src){
+#           if (dst != src) {
 #             file.copy(src, subject$pipeline_path,
 #                       recursive = TRUE, copy.date = TRUE)
 #           }
@@ -380,7 +380,7 @@ pipeline_targets
 #
 #       etable <- subject$meta_data("electrodes")
 #
-#       if(is.null(etable)){
+#       if (is.null(etable)) {
 #         etable <- data.frame(
 #           Electrode = subject$electrodes,
 #           Coord_x = 0,
@@ -392,7 +392,7 @@ pipeline_targets
 #         es <- subject$electrodes[!subject$electrodes %in% etable$Electrode]
 #         row <- etable[1,]
 #         row[] <- NA
-#         row <- do.call(rbind, lapply(es, function(e){
+#         row <- do.call(rbind, lapply(es, function(e) {
 #           row$Electrode <- e
 #           row$Coord_x <- 0
 #           row$Coord_y <- 0

@@ -34,7 +34,7 @@ repository <- ravecore::prepare_subject_power_with_epochs(
 
 
 ```{rave calculate_baseline, language = "R", export = "baseline_power"}
-units <- switch (
+units <- switch(
   baseline__global_baseline_choice,
   # case = action,
   "Across electrode" = c("Trial", "Frequency"),
@@ -46,13 +46,13 @@ units <- switch (
   }
 )
 
-method <- switch (
+method <- switch(
   baseline__unit_of_analysis,
-  '% Change Power' = "percentage",
-  '% Change Amplitude' = "sqrt_percentage",
-  'z-score Power' = "zscore",
-  'z-score Amplitude' = "sqrt_zscore",
-  'z-score Decibel' = "db_zscore",
+  "% Change Power" = "percentage",
+  "% Change Amplitude" = "sqrt_percentage",
+  "z-score Power" = "zscore",
+  "z-score Amplitude" = "sqrt_zscore",
+  "z-score Decibel" = "db_zscore",
   {
     # c("percentage", "sqrt_percentage", "decibel", "zscore", "sqrt_zscore", "db_zscore")
     "decibel"
@@ -75,12 +75,12 @@ analysis_window_clean <- range(unlist(analysis_window))
 default_duration <- max(analysis_window_clean[[2]], 0)
 start_offset <- analysis_window_clean[[1]]
 
-if(default_duration < 2 / sample_rate) {
+if (default_duration < 2 / sample_rate) {
   stop("Analysis time duration is too narrow. Please choose a larger time window")
 }
 
 default_zeta_threshold <- as.numeric(zeta_threshold)
-if(
+if (
   length(default_zeta_threshold) != 1 ||
   is.na(default_zeta_threshold) ||
   default_zeta_threshold <= 0 || default_zeta_threshold >= 1
@@ -93,30 +93,30 @@ group_data <- unname(lapply(seq_along(condition_groups), function(group_ii) {
   # group_ii <- 1
   group <- condition_groups[[group_ii]]
   label <- trimws(paste(group$group_name, collapse = ""))
-  if(is.na(label) || !nzchar(label)) {
+  if (is.na(label) || !nzchar(label)) {
     label <- sprintf("group%02d", group_ii)
   }
   
   conditions <- group$group_conditions
   conditions <- conditions[conditions %in% repository$epoch_table$Condition]
-  if(!length(conditions)) { return(NULL) }
+  if (!length(conditions)) { return(NULL) }
   
   initial_rank <- group$initial_rank
-  if(length(initial_rank) != 1 || is.na(initial_rank)) {
+  if (length(initial_rank) != 1 || is.na(initial_rank)) {
     initial_rank <- min(length(conditions), length(electrode_list))
   }
   zeta_threshold <- group$zeta_threshold %||% default_zeta_threshold
   
   event_start <- group$group_start_event %||% ""
-  if(tolower(event_start) %in% c("trial onset", "trial_onset")) {
+  if (tolower(event_start) %in% c("trial onset", "trial_onset")) {
     event_start <- ""
   }
   event_end <- group$group_finish_event
-  if(length(event_end) == 1 && startsWith(event_end, "[")) {
+  if (length(event_end) == 1 && startsWith(event_end, "[")) {
     event_end <- NULL
   }
   duration <- group$duration
-  if(length(duration) == 0 || is.na(duration)) {
+  if (length(duration) == 0 || is.na(duration)) {
     duration <- default_duration
   }
   group_fpca_data <- prepare_fpca_data(
@@ -205,7 +205,7 @@ diagnose_cluster(cluster_result = clustering_tree,
 
 Please make sure the following code block is at the end of your pipeline file. This block will build the pipeline and generate a `make-power_clust.R` script with your pipeline markdown file. `RAVE` will use the generated pipeline script to execute the pipeline in the dashboard application, or in massive production mode.
 
-```{r build, echo=FALSE, results='hide'}
+```{r build, echo=FALSE, results="hide"}
 build_pipeline(make_file = "make-power_clust.R")
 ```
 

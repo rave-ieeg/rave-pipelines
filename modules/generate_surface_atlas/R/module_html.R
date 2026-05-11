@@ -9,7 +9,7 @@
 # from the electrode
 mapping_threshold <- 1
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::fluidPage(
     shiny::fluidRow(
@@ -32,7 +32,7 @@ module_html <- function(){
                     label = "Subject selector",
                     multiple = TRUE,
                     choices = "",
-                    selected = '',
+                    selected = "",
                     width = "100%"
                   )
                 ), # col-12
@@ -49,7 +49,7 @@ module_html <- function(){
                   ),
 
                   # shiny::conditionalPanel(
-                    condition = sprintf('input["%s"] === "high-density micro-ECoG"', ns('mapping_method')),
+                    condition = sprintf('input["%s"] === "high-density micro-ECoG"', ns("mapping_method")),
                     shiny::fluidRow(
                       shiny::column(
                         width = 6,
@@ -108,7 +108,7 @@ module_html <- function(){
 
                     ), #.row
 
-                  # ), # condition === 'high-density ECoG'
+                  # ), # condition === "high-density ECoG"
 
                   dipsaus::actionButtonStyled(
                     inputId = ns("map_to_template"),
@@ -169,10 +169,10 @@ module_html <- function(){
           shiny::column(
             width = 12L,
             ravedash::output_card(
-              'RAVE Template Brain',
+              "RAVE Template Brain",
               class_body = "no-padding fill-width height-vh80 min-height-450 resize-vertical",
               shiny::div(
-                class = 'position-relative fill',
+                class = "position-relative fill",
                 # MIGRATED: removed ravedash::output_gadget_container() wrapper
                 threeBrain::threejsBrainOutput(
                     outputId = ns("viewer3d"),

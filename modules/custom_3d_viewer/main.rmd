@@ -87,18 +87,18 @@ controllers <- as.list(controllers)
 main_camera <- as.list(main_camera)
 
 background <- controllers[["Background Color"]]
-if(length(background) != 1) {
+if (length(background) != 1) {
   background <- "#FFFFFF"
 }
 
 zoom_level <- main_camera$zoom
-if(length(zoom_level) != 1 || zoom_level <= 0) {
+if (length(zoom_level) != 1 || zoom_level <= 0) {
   zoom_level <- 1
 }
 
 position <- as.numeric(unname(unlist(main_camera$position)))
 up <- as.numeric(unname(unlist(main_camera$up)))
-if(length(position) != 3 || length(up) != 3 ||
+if (length(position) != 3 || length(up) != 3 ||
    all(position == 0) || all(up == 0) ||
    any(is.na(position)) || any(is.na(up))) {
   position <- c(0, 0, 500)
@@ -108,7 +108,7 @@ if(length(position) != 3 || length(up) != 3 ||
   up <- up / sqrt(sum(up^2))
 }
 
-if(!isTRUE(controllers[["Show Panels"]])) {
+if (!isTRUE(controllers[["Show Panels"]])) {
   controllers[["Show Panels"]] <- FALSE
 }
     
@@ -121,7 +121,7 @@ initial_brain_widget <- loaded_brain$brain$plot(
   custom_javascript = glue::glue(
     '
     // Remove the focus box
-    if( canvas.focus_box ) {
+    if ( canvas.focus_box ) {
       canvas.focus_box.visible = false;
     }
     
@@ -139,7 +139,7 @@ initial_brain_widget <- loaded_brain$brain$plot(
     canvas.mainCamera.updateProjectionMatrix();
 
     // Let shiny know the viewer is ready
-    if( window.Shiny ) {
+    if ( window.Shiny ) {
       window.Shiny.setInputValue("{{ shiny_outputId }}", "{{Sys.time()}}");
     }
 
@@ -188,7 +188,7 @@ The detailed implementations are folded (too much coding)
 #| code-fold: true
 #| code-summary: "Show the implementation (how to find data path)"
 
-if(!length(data_source)) { data_source <- "None" }
+if (!length(data_source)) { data_source <- "None" }
 path_datatable <- switch(
   data_source,
   "Uploads" = {
@@ -205,10 +205,10 @@ path_datatable <- switch(
     saved_pipeline <- data_source_pipeline
     saved_target <- data_source_pipeline_target
     
-    if(!length(project_name)) {
+    if (!length(project_name)) {
       stop("Trying to get saved pipeline, but no project name has been given. Please assign a valid [data_source_project] variable. If you are running in RAVE's web interface, make sure the project name is set correctly")
     }
-    if(!length(saved_pipeline) || !length(saved_target)) {
+    if (!length(saved_pipeline) || !length(saved_target)) {
       stop("Trying to get saved pipeline, but no pipeline name nor target has been given. Please assign a valid [data_source_pipeline] & [data_source_pipeline_target] variable. If you are running in RAVE's web interface, make sure the pipeline is set with no errors.")
     }
     
@@ -216,7 +216,7 @@ path_datatable <- switch(
       saved_pipeline, subject_code = loaded_brain$subject_code,
       project_name = project_name, type = "pipeline"
     )
-    if(!length(pipepath) || is.na(pipepath) || !dir.exists(pipepath)) {
+    if (!length(pipepath) || is.na(pipepath) || !dir.exists(pipepath)) {
       stop("Cannot find saved pipeline under the subject [",
            project_name, "/", loaded_brain$subject_code, "]: ",
            saved_pipeline)
@@ -245,14 +245,14 @@ path_datatable <- switch(
 
 loaded_datatable <- NULL
 
-if(length(path_datatable) == 1) {
-  if(!length(data_source) || is.na(path_datatable) || !file.exists(path_datatable)) {
+if (length(path_datatable) == 1) {
+  if (!length(data_source) || is.na(path_datatable) || !file.exists(path_datatable)) {
     data_source <- "None"
   }
   switch(
     data_source,
     "Uploads" = {
-      if(grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
+      if (grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
         loaded_datatable <- ieegio::io_read_fst(path_datatable, method = "data_table")
       }
     },
@@ -264,12 +264,12 @@ if(length(path_datatable) == 1) {
         ifnotfound = NULL
       )
       
-      if(length(var)) {
+      if (length(var)) {
         try({
           
-          if("Electrode" %in% names(var)) {
+          if ("Electrode" %in% names(var)) {
             
-            if(!is.data.frame(var)) {
+            if (!is.data.frame(var)) {
               var <- as.data.frame(var)
             }
             loaded_datatable <- var
@@ -289,30 +289,30 @@ if(length(path_datatable) == 1) {
 
 nms <- names(loaded_datatable)
 
-if(!"Electrode" %in% nms && length(path_datatable)) {
-  if(isTRUE(data_source %in% c("Uploads", "Saved pipelines/modules"))) {
+if (!"Electrode" %in% nms && length(path_datatable)) {
+  if (isTRUE(data_source %in% c("Uploads", "Saved pipelines/modules"))) {
     stop("Cannot set electrode values. Please make sure the data is a named table, and one of the table names must be [Electrode] (case-sensitive).")
   }
 } 
   
 
-if(is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
+if (is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
   
-  if(!data.table::is.data.table(loaded_datatable)) {
+  if (!data.table::is.data.table(loaded_datatable)) {
     loaded_datatable <- data.table::as.data.table(loaded_datatable)
   }
   
   # subset if Subject is contained
-  if("Subject" %in% nms) {
+  if ("Subject" %in% nms) {
     template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", default = "N27")
     
-    if(!identical(loaded_brain$brain$subject_code, 
+    if (!identical(loaded_brain$brain$subject_code, 
                   template_subject)) {
       loaded_datatable <- loaded_datatable[loaded_datatable$Subject %in% loaded_brain$brain$subject_code, ]
     }
   }
   
-  if("Time" %in% names(loaded_datatable)) {
+  if ("Time" %in% names(loaded_datatable)) {
     
     # Need to make sure each time-component has only one value
     fct <- sprintf(
@@ -331,21 +331,21 @@ if(is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
     
     new_table <- lapply(split(loaded_datatable, fct), function(sub) {
       sub <- as.data.frame(sub)
-      if(nrow(sub) == 1) {
+      if (nrow(sub) == 1) {
         return(sub[, c(nms, "Electrode", "Time"), drop = FALSE])
       }
-      re <- sapply(nms, function(nm){
+      re <- sapply(nms, function(nm) {
         v <- sub[[nm]]
-        if(coltypes[[nm]]) {
+        if (coltypes[[nm]]) {
           v <- v[!is.na(v)]
-          if(!length(v)) { return(NA_real_) }
+          if (!length(v)) { return(NA_real_) }
           return(mean(v))
         } else {
           v <- table(v)
           v <- v[!is.na(v)]
-          if(!length(v)) { return(NA) }
+          if (!length(v)) { return(NA) }
           v <- names(v)[v == max(v)]
-          if(length(v) > 1) { return(NA) }
+          if (length(v) > 1) { return(NA) }
           return(v)
         }
       }, simplify = FALSE, USE.NAMES = TRUE)
@@ -363,7 +363,7 @@ if(is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
   nms <- nms[!invalids]
   # loaded_datatable <- loaded_datatable[, !invalids, with = FALSE]
   
-  if(nrow(loaded_datatable)) {
+  if (nrow(loaded_datatable)) {
     loaded_brain$brain$set_electrode_values(loaded_datatable)
   } else {
     nms <- NULL
@@ -380,10 +380,10 @@ Here is a preview of value table (max 1000 rows) if you choose `Uploads`. This t
 
 ```{r, echo = FALSE, collapse=TRUE}
 loaded_datatable <- NULL
-if(identical(data_source, "Uploads")) {
-  if(grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
+if (identical(data_source, "Uploads")) {
+  if (grepl("\\.fst$", path_datatable, ignore.case = TRUE)) {
     tbl <- fst::fst(path_datatable)
-    if( nrow(tbl) > 1000 ) {
+    if ( nrow(tbl) > 1000 ) {
       loaded_datatable <- tbl[1:1000, ]
     } else {
       loaded_datatable <- tbl[]
@@ -391,7 +391,7 @@ if(identical(data_source, "Uploads")) {
   }
 }
 
-if(is.data.frame(loaded_datatable)) {
+if (is.data.frame(loaded_datatable)) {
   DT::datatable(loaded_datatable)
 }
 ```
@@ -407,18 +407,18 @@ controllers <- as.list(controllers)
 main_camera <- as.list(main_camera)
 
 background <- controllers[["Background Color"]]
-if(length(background) != 1) {
+if (length(background) != 1) {
   background <- "#FFFFFF"
 }
 
 zoom_level <- main_camera$zoom
-if(length(zoom_level) != 1 || zoom_level <= 0) {
+if (length(zoom_level) != 1 || zoom_level <= 0) {
   zoom_level <- 1
 }
 
 position <- as.numeric(unname(unlist(main_camera$position)))
 up <- as.numeric(unname(unlist(main_camera$up)))
-if(length(position) != 3 || length(up) != 3 ||
+if (length(position) != 3 || length(up) != 3 ||
    all(position == 0) || all(up == 0) ||
    any(is.na(position)) || any(is.na(up))) {
   position <- c(0, 0, 500)
@@ -434,12 +434,12 @@ dnames <- dnames[!dnames %in% c("Project", "Subject", "Electrode", "Time", "Labe
 
 dname <- controllers[["Display Data"]] %OF% dnames
 
-if(!identical(controllers[["Display Data"]], dname) && length(dname)) {
+if (!identical(controllers[["Display Data"]], dname) && length(dname)) {
   controllers[["Display Data"]] <- dname
   controllers[["Display Range"]] <- ""
 }
 
-if(!isTRUE(controllers[["Show Panels"]])) {
+if (!isTRUE(controllers[["Show Panels"]])) {
   controllers[["Show Panels"]] <- FALSE
 }
     
@@ -452,7 +452,7 @@ brain_widget <- brain_with_data$brain$plot(
   custom_javascript = glue::glue(
     '
     // Remove the focus box
-    if( canvas.focus_box ) {
+    if ( canvas.focus_box ) {
       canvas.focus_box.visible = false;
     }
     
@@ -470,7 +470,7 @@ brain_widget <- brain_with_data$brain$plot(
     canvas.mainCamera.updateProjectionMatrix();
 
     // Let shiny know the viewer is ready
-    if( window.Shiny ) {
+    if ( window.Shiny ) {
        window.Shiny.setInputValue("{{ shiny_outputId }}", "{{Sys.time()}}");
     }
 

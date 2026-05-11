@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   shiny::div(
     class = "container",
@@ -44,7 +44,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Triggers the event when `input$loader_ready_btn` is changed
   # i.e. loader button is pressed
@@ -72,7 +72,7 @@ loader_server <- function(input, output, session, ...){
       dipsaus::close_alert2()
 
       # Let the module know the data has been changed
-      ravedash::fire_rave_event('data_changed', Sys.time())
+      ravedash::fire_rave_event("data_changed", Sys.time())
       ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code

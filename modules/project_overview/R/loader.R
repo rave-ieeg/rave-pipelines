@@ -1,5 +1,5 @@
 # UI components for loader
-loader_html <- function(session = shiny::getDefaultReactiveDomain()){
+loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
   all_projects <- ravecore::get_projects(refresh = FALSE)
   saved_project <- pipeline$get_settings("project_name", default = "")
@@ -49,7 +49,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()){
 
 
 # Server functions for loader
-loader_server <- function(input, output, session, ...){
+loader_server <- function(input, output, session, ...) {
 
   # Show basic project info in the output panel
   output$loader_project_info <- shiny::renderUI({
@@ -106,7 +106,7 @@ loader_server <- function(input, output, session, ...){
       res$promise$then(
         onFulfilled = function(e) {
           dipsaus::close_alert2()
-          ravedash::fire_rave_event('data_changed', Sys.time())
+          ravedash::fire_rave_event("data_changed", Sys.time())
           ravepipeline::logger("Project data has been loaded")
           ravedash::session_setopt(project_name = project_name)
         },

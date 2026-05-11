@@ -6,7 +6,7 @@
 # 4. CT co-registration
 dry_run <- isTRUE(ravepipeline::raveio_getopt("cmd_dry_run", default = FALSE))
 
-module_html <- function(){
+module_html <- function() {
 
   shiny::div(
     class = "container",

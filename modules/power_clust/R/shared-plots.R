@@ -89,7 +89,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
 
   channel_y_at <- seq_along(channels)
   channel_y_label <- channels_reordered
-  for(cls in unique(channels_reordered)) {
+  for (cls in unique(channels_reordered)) {
     sel <- channel_y_label == cls
     axis(
       2L,
@@ -119,7 +119,7 @@ diagnose_cluster <- function(cluster_result, k, combined_group_results, col_labe
 }
 
 
-rect_hclust2 <- function (tree, k = NULL, which = NULL, x = NULL, h = NULL, border = threeBrain:::DEFAULT_COLOR_DISCRETE,  cluster = NULL)
+rect_hclust2 <- function(tree, k = NULL, which = NULL, x = NULL, h = NULL, border = threeBrain:::DEFAULT_COLOR_DISCRETE,  cluster = NULL)
 {
   if (length(h) > 1L || length(k) > 1L)
     stop("'k' and 'h' must be a scalar")
@@ -128,9 +128,10 @@ rect_hclust2 <- function (tree, k = NULL, which = NULL, x = NULL, h = NULL, bord
       stop("specify exactly one of 'k' and 'h'")
     k <- min(which(rev(tree$height) < h))
     k <- max(k, 2)
-  }
-  else if (is.null(k))
+  } else if (is.null(k)) {
     stop("specify exactly one of 'k' and 'h'")
+  }
+
   if (k < 2 || k > length(tree$height))
     stop(gettextf("k must be between 2 and %d", length(tree$height)),
          domain = NA)
@@ -163,7 +164,7 @@ rect_hclust2 <- function (tree, k = NULL, which = NULL, x = NULL, h = NULL, bord
     rect(
       xleft = m[which[n]] + 0.66,
       ybottom = par("usr")[3L],
-      xright = m[which[n] +1] + 0.33,
+      xright = m[which[n] + 1] + 0.33,
       ytop = mean(rev(tree$height)[(k - 1):k]),
       border = color,
       col = adjustcolor(color, alpha.f = 0.3),

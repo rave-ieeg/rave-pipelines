@@ -31,7 +31,7 @@ ravepipeline::pipeline_visualize()
 ```{r execute}
 Sys.setenv("RAVE_PIPELINE" = normalizePath("."))
 ravepipeline::pipeline_run(type = "vanilla")
-ravepipeline::pipeline_progress(method = 'details')
+ravepipeline::pipeline_progress(method = "details")
 ```
 
 
