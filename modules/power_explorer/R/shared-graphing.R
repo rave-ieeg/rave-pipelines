@@ -2985,7 +2985,8 @@ if(ravepipeline::pipeline_get_preferences("power_explorer.graphics.reset_on_load
   # chdir = TRUE, current working directory is this folder
   # pipeline <- ravepipeline::pipeline(pipeline_name = "power_explorer", paths = "../..")
 
-  pe_graphics_settings_cache <- dipsaus::rds_map(file.path('..', 'preferences', "graphics"))
+  # pe_graphics_settings_cache <- dipsaus::rds_map(file.path('..', 'preferences', "graphics"))
+  pe_graphics_settings_cache <- dipsaus::rds_map(file.path(pipeline$preference_path, "graphics"))
 
   default_pegs <- {list(
     rave_cex.main = 1.5,
