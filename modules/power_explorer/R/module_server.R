@@ -351,7 +351,7 @@ module_server <- function(input, output, session, ...){
       # )
 
     } else {
-      target_names <- unique(c(normal_names, #extra_names,
+      target_names <- unique(c(normal_names, extra_names,
                                eval_names))
 
       results <- pipeline$run(
@@ -2445,22 +2445,32 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      dipsaus::shiny_alert2(title = "Preparing for exporting",
+      ravedash::shiny_alert2(title = "Preparing for exporting",
                             text = "...", icon = "info",
                             danger_mode = FALSE, auto_close = FALSE, buttons = FALSE)
+
+      alert_needs_close <- TRUE
+
+      on.exit({
+        if (alert_needs_close) {
+          Sys.sleep(0.5)
+          ravedash::close_alert2()
+        }
+      })
 
       # make sure we have something to export
       els <- dipsaus::parse_svec(input$electrodes_to_export)
       avail = els[els %in% local_data$electrode_meta_data$Electrode]
 
       if(length(avail) < 1) {
-        dipsaus::close_alert2()
-        dipsaus::shiny_alert2(text="No electrodes selected for export",
-                              title='Export not started',
-                              auto_close = TRUE, buttons = list('OK'=TRUE))
+        Sys.sleep(0.5)
+        ravedash::close_alert2()
 
-        # clean out the exit expression
-        on.exit({})
+        alert_needs_close <- FALSE
+        ravedash::shiny_alert2(text="No electrodes selected for export",
+                              title='Export not started',
+                              auto_close = TRUE, buttons = list('OK' = TRUE))
+
         return()
       }
 
@@ -2482,17 +2492,13 @@ module_server <- function(input, output, session, ...){
       )
 
       # close the previous alert
-      dipsaus::close_alert2()
-
-      dipsaus::shiny_alert2(title = "Done with exporting!",
+      alert_needs_close <- FALSE
+      ravedash::close_alert2()
+      Sys.sleep(0.5)
+      ravedash::shiny_alert2(title = "Done with exporting!",
                             text = sprintf('Check %s for your files. Remember to remove unused exports as they can quickly take up disk space!', local_data$results$data_for_export),
                             icon = "info",
-                            danger_mode = FALSE, auto_close = FALSE, buttons = TRUE)
-
-
-      # clear out the previous on.exit if we've made it this far
-      on.exit({}, add = FALSE)
-
+                            danger_mode = FALSE, auto_close = FALSE, buttons = list(OK=TRUE))
 
       # make sure this is available for export later
       #   env <- pipeline$eval('data_for_export', shortcut=TRUE)

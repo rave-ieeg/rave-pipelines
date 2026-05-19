@@ -135,8 +135,8 @@ loader_server <- function(input, output, session, ...){
           dipsaus::close_alert2()
         },
         onRejected = function(e){
-          dipsaus::close_alert2()
-          dipsaus::shiny_alert2(
+          ravedash::close_alert2()
+          ravedash::shiny_alert2(
             title = "Errors",
             text = paste(
               "Found an error while loading the power data:\n\n",
