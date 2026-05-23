@@ -2,4 +2,9 @@
   label: Anatomical Slices with Electrodes
   entry: report-electrodeview.Rmd
   fork_policy: default
-  embed_targets: ["settings"]
+  embed_targets:
+  - settings
+  - subject
+  - localization_result_final
+  - nonlinear_volumetric_mapping
+  - postprocess_surface_mapping
