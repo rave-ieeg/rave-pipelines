@@ -2,7 +2,9 @@
   label: Coregistration Quality Report
   entry: report-coregistration.Rmd
   fork_policy: default
+  embed_targets: settings
 - name: normalization
   label: Normalization Quality Report
   entry: report-normalization.Rmd
   fork_policy: default
+  embed_targets: settings

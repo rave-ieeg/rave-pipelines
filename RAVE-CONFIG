@@ -52,6 +52,7 @@ SubPipelines:
     modules/reference_module,
     modules/surface_reconstruction,
     modules/yael_preprocess,
+    modules/electrode_localization,
     modules/custom_3d_viewer,
     modules/import_bids,
     modules/power_explorer,
