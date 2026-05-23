@@ -1,7 +1,7 @@
 - name: electrodeview
   label: Anatomical Slices with Electrodes
   entry: report-electrodeview.Rmd
-  fork_policy: default
+  fork_policy: report
   embed_targets:
   - settings
   - subject
