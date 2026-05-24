@@ -1,0 +1,85 @@
+try(silent = TRUE, {
+
+  # Export settings yaml to power explorer
+  ravepipeline::pipeline_export_wizard(
+    pipeline_name = "power_explorer",
+    fun = function(settings) {
+
+      # settings <- yaml::read_yaml("./modules/power_clust/settings.yaml")
+      # translate to
+      # new_settings = yaml::read_yaml("./modules/power_explorer/settings.yaml")
+
+      settings <- as.list(settings)
+
+      new_settings <- list(
+        project_name = settings$project_name,
+        subject_code = settings$subject_code,
+        loaded_electrodes = settings$loaded_electrodes,
+
+        baseline_settings = list(
+          window = list(range(unlist(settings$baseline__windows), na.rm = TRUE)),
+          scope = settings$baseline__global_baseline_choice,
+          unit_of_analysis = settings$baseline__unit_of_analysis
+        ),
+
+        analysis_settings = list(
+          label = "TrialStart",
+          event = "Trial Onset",
+          time = list(range(unlist(settings$analysis_window), na.rm = TRUE)),
+          frequency_dd = "Select one",
+          frequency = range(settings$frequency_range, na.rm = TRUE)
+        ),
+
+        reference_name = settings$reference_name,
+
+        epoch_choice = settings$epoch_choice,
+        epoch_choice__trial_starts = settings$epoch_choice__trial_starts,
+        epoch_choice__trial_ends = settings$epoch_choice__trial_ends,
+        epoch_choice__trial_starts_rel_to_event = settings$epoch_choice__trial_starts_rel_to_event,
+        epoch_choice__trial_ends_rel_to_event = settings$epoch_choice__trial_ends_rel_to_event,
+
+        first_condition_groupings = unname(lapply(settings$condition_groups, function(group) {
+          list(label = group$group_name, conditions = group$group_conditions)
+        }))
+      )
+
+      new_settings <- new_settings[!vapply(new_settings, is.null, FUN.VALUE = FALSE)]
+
+      new_settings
+
+    }
+  )
+
+  # Import settings yaml from power explorer
+  ravepipeline::pipeline_import_wizard(
+    pipeline = "power_explorer",
+    fun = function(settings) {
+      # settings = yaml::read_yaml("./modules/power_explorer/settings.yaml")
+      new_settings <- list(
+        project_name = settings$project_name,
+        subject_code = settings$subject_code,
+        loaded_electrodes = settings$loaded_electrodes,
+
+        baseline__windows = list(range(unlist(settings$baseline_settings$window), na.rm = TRUE)),
+        baseline__global_baseline_choice = settings$baseline_settings$scope,
+        baseline__unit_of_analysis = settings$baseline_settings$unit_of_analysis,
+
+        analysis_window = list(range(unlist(settings$analysis_settings$time), na.rm = TRUE)),
+        frequency_range = list(range(unlist(settings$analysis_settings$frequency), na.rm = TRUE)),
+
+        reference_name = settings$reference_name,
+
+        epoch_choice = settings$epoch_choice,
+        epoch_choice__trial_starts = settings$epoch_choice__trial_starts,
+        epoch_choice__trial_ends = settings$epoch_choice__trial_ends,
+        epoch_choice__trial_starts_rel_to_event = settings$epoch_choice__trial_starts_rel_to_event,
+        epoch_choice__trial_ends_rel_to_event = settings$epoch_choice__trial_ends_rel_to_event,
+
+        condition_groups = unname(lapply(settings$first_condition_groupings, function(group) {
+          list(group_name = group$label, group_conditions = group$conditions)
+        }))
+      )
+    }
+  )
+
+})
