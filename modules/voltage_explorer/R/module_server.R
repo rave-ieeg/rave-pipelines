@@ -65,7 +65,7 @@ module_server <- function(input, output, session, ...) {
           }
         }
         pipeline$set_settings(
-          condition_groupings = input$condition_groupings,
+          condition_groups = input$condition_groups,
           filter_configurations = unname(fc)
         )
       }
@@ -175,9 +175,9 @@ module_server <- function(input, output, session, ...) {
       component_container$data$repository <- new_repository
       component_container$initialize_with_new_data()
 
-      # Restore condition_groupings, validated against available epoch conditions
+      # Restore condition_groups, validated against available epoch conditions
       all_conditions <- sort(unique(new_repository$epoch$table$Condition))
-      saved_groups   <- pipeline$get_settings("condition_groupings")
+      saved_groups   <- pipeline$get_settings("condition_groups")
       valid_groups   <- NULL
       if (is.list(saved_groups) && length(saved_groups)) {
         valid_groups <- lapply(saved_groups, function(grp) {
@@ -191,7 +191,7 @@ module_server <- function(input, output, session, ...) {
       }
       dipsaus::updateCompoundInput2(
         session = session,
-        inputId = "condition_groupings",
+        inputId = "condition_groups",
         initialization = list(conditions = list(choices = all_conditions)),
         value = valid_groups,
         ncomp = length(valid_groups)

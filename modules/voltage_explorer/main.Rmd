@@ -33,26 +33,30 @@ repository <- ravecore::prepare_subject_voltage_with_epochs(
   electrodes = loaded_electrodes,
   epoch_name = epoch_choice,
   time_windows = c(epoch_choice__trial_starts, epoch_choice__trial_ends),
-  reference_name = reference_name
+  reference_name = reference_name,
+  stitch_events = c(
+    epoch_choice__trial_starts_rel_to_event,
+    epoch_choice__trial_ends_rel_to_event
+  )
 )
 ```
 
-`analysis_channels_clean` is the cleaned analysis channels. Compared to the input `analysis_channels`, the cleaned version
+`analysis_electrodes_clean` is the cleaned analysis channels. Compared to the input `analysis_electrodes`, the cleaned version
 
 * Not empty
 * Electrode channel data must be loaded
 * Sorted integer, from smallest to largest
 
 
-```{rave clean_analysis_channels, language = "R", export = "analysis_channels_clean"}
+```{rave clean_analysis_electrodes, language = "R", export = "analysis_electrodes_clean"}
 available_channels <- repository$electrode_list
-analysis_channels_clean <- dipsaus::parse_svec(unlist(analysis_channels))
-analysis_channels_clean <- analysis_channels_clean[analysis_channels_clean %in% available_channels]
-if (!length(analysis_channels_clean)) {
+analysis_electrodes_clean <- dipsaus::parse_svec(unlist(analysis_electrodes))
+analysis_electrodes_clean <- analysis_electrodes_clean[analysis_electrodes_clean %in% available_channels]
+if (!length(analysis_electrodes_clean)) {
   stop("No channels selected for analysis. Please specify the electrode channels from the following loaded: ",
        dipsaus::deparse_svec(available_channels))
 }
-analysis_channels_clean <- as.integer(sort(analysis_channels_clean))
+analysis_electrodes_clean <- as.integer(sort(analysis_electrodes_clean))
 ```
 
 ```{rave prepare_pre_analysis_filters, language = "R", export = "filtered_array"}
@@ -63,7 +67,7 @@ filtered_array <- prepare_filtered_data(
 )
 
 # Electrodes to be filtered
-# lapply(analysis_channels_clean, function(ch) {
+# lapply(analysis_electrodes_clean, function(ch) {
 #   sel <- repository$electrode_list %in% ch
 #   source_array <- repository$voltage$data_list[[which(sel)]]
 #   signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
@@ -78,7 +82,7 @@ filtered_array <- prepare_filtered_data(
 filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
 
 ravepipeline::with_rave_parallel({
-  ravepipeline::lapply_jobs(analysis_channels_clean, function(ch) {
+  ravepipeline::lapply_jobs(analysis_electrodes_clean, function(ch) {
     sel <- repository$electrode_list %in% ch
     source_array <- repository$voltage$data_list[[which(sel)]]
     signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
@@ -113,7 +117,7 @@ filtered_array$`@impl`
 
 ```{rave get_electrode_coordinate_table, export = "analysis_electrode_coordinates"}
 analysis_electrode_coordinates <- subject$get_electrode_table(
-  electrodes = analysis_channels_clean,
+  electrodes = analysis_electrodes_clean,
   reference_name = repository$reference_name,
   subset = TRUE
 )
@@ -134,7 +138,7 @@ analysis_electrode_coordinates$LeadChannel <- is_lead_channel
 
 ## Clean condition groups
 
-`condition_groupings_clean` is a list with two elements:
+`condition_groups_clean` is a list with two elements:
 
 * `n`: number of valid condition groups after cleaning;
 * `groups`: unnamed list of cleaned group items, each containing `label`
@@ -144,21 +148,21 @@ analysis_electrode_coordinates$LeadChannel <- is_lead_channel
 Groups with empty labels are auto-named (`Group<index>`); groups whose
 conditions are empty or do not appear in the epoch are dropped.
 
-```{rave clean_condition_groupings, language = "R", export = "condition_groupings_clean"}
-condition_groupings_clean <- ravecore::validate_condition_groupings(
-  condition_groupings = condition_groupings,
+```{rave clean_condition_groups, language = "R", export = "condition_groups_clean"}
+condition_groups_clean <- ravecore::validate_condition_groupings(
+  condition_groups,
   epoch = repository$epoch
 )
-if (!isTRUE(condition_groupings_clean$n > 0)) {
+if (!isTRUE(condition_groups_clean$n > 0)) {
   stop("No valid condition group specified. Please check the condition groupings input.")
 }
 ```
 
 
-Combine `condition_groupings_clean` and `filtered_array` to prepare plot data
+Combine `condition_groups_clean` and `filtered_array` to prepare plot data
 
 ```{rave prepare_plot_data_placeholder, export = "data_placeholder"}
-data_placeholder <- condition_groupings_clean
+data_placeholder <- condition_groups_clean
 
 if (inherits(filtered_array, "RAVEFileArray")) {
   # unwrap the filtered_array
@@ -209,7 +213,7 @@ group_data <- lapply(data_placeholder$groups, function(group) {
   # group <- data_placeholder$groups[[1]]
   sub_array <- subset(
     filtered_array_impl,
-    Electrode ~ Electrode %in% analysis_channels_clean,
+    Electrode ~ Electrode %in% analysis_electrodes_clean,
     Trial ~ Trial %in% group$trials_included,
     drop = FALSE
   )
@@ -279,7 +283,7 @@ group_data <- lapply(data_placeholder$groups, function(group) {
   # group <- data_placeholder$groups[[1]]
   sub_array <- subset(
     filtered_array_impl,
-    Electrode ~ Electrode %in% analysis_channels_clean,
+    Electrode ~ Electrode %in% analysis_electrodes_clean,
     Trial ~ match(group$trials_included, trial_numbers),
     drop = FALSE
   )
@@ -393,8 +397,8 @@ I decide to hide this part. Users can still use the `ravepipeline` infrastructur
 env <- pipeline$shared_env()
 spectrogram <- env$calculate_spectrogram(
   repository = repository,
-  condition_groupings = condition_groupings,
-  channel = analysis_channels_clean[[1]]
+  condition_groups = condition_groups,
+  channel = analysis_electrodes_clean[[1]]
 )
 
 # ITPC

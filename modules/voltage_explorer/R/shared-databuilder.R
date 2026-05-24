@@ -33,13 +33,13 @@ build_analysis_ranges <- function(repository, analysis_settings) {
   }))
 }
 
-build_condition_groups <- function(repository, condition_groupings) {
+build_condition_groups <- function(repository, condition_groups) {
 
   epoch <- repository$epoch
 
-  groups <- unname(lapply(seq_along(condition_groupings), function( group_order ) {
+  groups <- unname(lapply(seq_along(condition_groups), function( group_order ) {
     # group_order=1
-    condition_group <- condition_groupings[[group_order]]
+    condition_group <- condition_groups[[group_order]]
     checkmate::assert_names(names(condition_group), must.include = c("label", "conditions"))
 
     group <- new_trial_group(epoch = epoch, name = condition_group$label, order = group_order)

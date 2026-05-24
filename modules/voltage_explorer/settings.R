@@ -13,8 +13,8 @@ settings <- list(
   epoch_choice__trial_starts = -1L,
   epoch_choice__trial_ends = 3L,
 
-  # analysis_channels
-  analysis_channels = "13-16",
+  # analysis_electrodes
+  analysis_electrodes = "13-16",
 
   # Pre-baseline filters
   # list of filters, potentially one of
@@ -52,7 +52,7 @@ settings <- list(
   ),
 
   # trial groups
-  condition_groupings = list(
+  condition_groups = list(
     `1` = list(
       label = "AOnly",
       conditions = c("drive_a",

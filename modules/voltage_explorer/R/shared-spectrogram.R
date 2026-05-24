@@ -1,5 +1,5 @@
 calculate_spectrogram <- function(
-    repository, channel, condition_groupings,
+    repository, channel, condition_groups,
     baseline_window = c(-0.5, 0),
     frequencies = exp(seq(0, log(200), length.out = 50)),
     cycles = NULL,
@@ -26,12 +26,12 @@ calculate_spectrogram <- function(
     )
   ))
 
-  if (is.list(condition_groupings$groups)) {
-    condition_groupings_clean <- ravecore::validate_condition_groupings(
-      condition_groupings = condition_groupings$groups, epoch = repository$epoch)
+  if (is.list(condition_groups$groups)) {
+    condition_groups_clean <- ravecore::validate_condition_groupings(
+      condition_groups$groups, epoch = repository$epoch)
   } else {
-    condition_groupings_clean <- ravecore::validate_condition_groupings(
-      condition_groupings = condition_groupings, epoch = repository$epoch)
+    condition_groups_clean <- ravecore::validate_condition_groupings(
+      condition_groups, epoch = repository$epoch)
   }
 
   # Hard-coded for now
@@ -101,8 +101,8 @@ calculate_spectrogram <- function(
 
   channel_data <- container$data_list[[sprintf("e_%d", channel)]]
 
-  group_data <- lapply(condition_groupings_clean$groups, function(group) {
-    # group <- condition_groupings$groups[[1]]
+  group_data <- lapply(condition_groups_clean$groups, function(group) {
+    # group <- condition_groups$groups[[1]]
     sub_array <- subset(
       channel_data,
       Trial ~ Trial %in% group$trials_included,
@@ -187,7 +187,7 @@ calculate_spectrogram <- function(
   })
 
 
-  ret <- condition_groupings_clean
+  ret <- condition_groups_clean
 
   # Sample rate
   ret$sample_rate <- spectrogram_sample_rate

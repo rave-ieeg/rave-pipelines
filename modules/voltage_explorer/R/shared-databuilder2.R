@@ -1,4 +1,4 @@
-build_parameter_grid <- function(repository, condition_groupings, analysis_settings) {
+build_parameter_grid <- function(repository, condition_groups, analysis_settings) {
   `%?<-%` <- dipsaus::`%?<-%`
   epoch <- repository$epoch
   epoch_table <- epoch$table
@@ -68,9 +68,9 @@ build_parameter_grid <- function(repository, condition_groupings, analysis_setti
     )
   }))
 
-  condition_groups <- unname(lapply(seq_along(condition_groupings), function(group_order) {
+  condition_groups <- unname(lapply(seq_along(condition_groups), function(group_order) {
     # group_order=1
-    condition_group <- condition_groupings[[group_order]]
+    condition_group <- condition_groups[[group_order]]
     label <- condition_group$label
     label %?<-% sprintf("Group%d", group_order)
 

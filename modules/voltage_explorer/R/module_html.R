@@ -218,7 +218,7 @@ module_html <- function() {
 
               shidashi::register_input(
                 dipsaus::compoundInput2(
-                  inputId = ns("condition_groupings"),
+                  inputId = ns("condition_groups"),
                   label = "Group",
                   initial_ncomp = 2L, min_ncomp = 1L, max_ncomp = 15L,
                   components = shiny::div(
@@ -234,7 +234,7 @@ module_html <- function() {
                     )
                   )
                 ),
-                inputId = "condition_groupings",
+                inputId = "condition_groups",
                 update = "dipsaus::updateCompoundInput2",
                 description = "Condition groupings used for trial averaging and contrast"
               )

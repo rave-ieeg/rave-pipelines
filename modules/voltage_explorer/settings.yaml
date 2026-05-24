@@ -1,11 +1,5 @@
 analysis_electrodes: '14 '
-analysis_electrodes__category: FSLabel
-analysis_ranges: ~
-analysis_ranges__lock: ~
-baseline__global_baseline_choice: ~
-baseline__unit_of_analysis: ~
-baseline__windows: ~
-condition_groupings:
+condition_groups:
   '1':
     label: AOnly
     conditions:
@@ -20,7 +14,6 @@ condition_groupings:
     - drive_av
     - known_av
     - meant_av
-condition_groups: ~
 epoch_choice: auditory_onset
 epoch_choice__trial_ends: 3
 epoch_choice__trial_ends_rel_to_event: ~

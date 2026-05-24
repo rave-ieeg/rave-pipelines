@@ -94,7 +94,7 @@ graphics_title_height <- function(text = "", units = "inches") {
 # data <- prepare_voltage_over_time_per_channel(
 #   filtered_array = filtered_array,
 #   condition_group = condition_groups[[1]],
-#   channels = analysis_channels_clean
+#   channels = analysis_electrodes_clean
 # )
 
 plot_voltage_over_time_per_channel <- function(
@@ -222,7 +222,7 @@ prepare_voltage_over_time_per_trial <- function(
 
   # DIPSAUS DEBUG START
   # condition_group = parameter_grid$condition_groups[[1]]
-  # channels = analysis_channels_clean[[2]]
+  # channels = analysis_electrodes_clean[[2]]
 
   if (!length(condition_group$trial_numbers)) { return(NULL) }
 
@@ -304,7 +304,7 @@ prepare_voltage_over_time_per_trial <- function(
 # data <- prepare_voltage_over_time_per_trial(
 #   filtered_array = filtered_array,
 #   condition_group = condition_groups[[1]],
-#   channels = analysis_channels_clean
+#   channels = analysis_electrodes_clean
 # )
 plot_voltage_over_time_per_trial <- function(
     data, clamp = NA,
@@ -434,7 +434,7 @@ prepare_voltage_over_time_per_cond_channel <- function(
     filtered_array, condition_groups, channels) {
   # DIPSAUS DEBUG START
   # condition_groups = parameter_grid$condition_groups
-  # channels = analysis_channels_clean
+  # channels = analysis_electrodes_clean
 
   # if(!condition_group$has_trials) { return(NULL) }
 
@@ -519,7 +519,7 @@ prepare_voltage_over_time_per_cond_channel <- function(
 # data <- prepare_voltage_over_time_per_cond_channel(
 #   filtered_array = filtered_array,
 #   condition_groups = condition_groups,
-#   channels = analysis_channels_clean,
+#   channels = analysis_electrodes_clean,
 #   hilbert = TRUE, baseline_unit  = "global"
 # )
 plot_voltage_over_time_per_cond <- function(
