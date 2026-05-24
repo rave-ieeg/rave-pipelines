@@ -23,11 +23,13 @@ try(silent = TRUE, {
         ),
 
         analysis_settings = list(
-          label = "TrialStart",
-          event = "Trial Onset",
-          time = list(range(unlist(settings$analysis_window), na.rm = TRUE)),
-          frequency_dd = "Select one",
-          frequency = range(settings$frequency_range, na.rm = TRUE)
+          list(
+            label = "TrialStart",
+            event = "Trial Onset",
+            time = as.list(range(unlist(settings$analysis_window), na.rm = TRUE)),
+            frequency_dd = "Select one",
+            frequency = range(settings$frequency_range, na.rm = TRUE)
+          )
         ),
 
         reference_name = settings$reference_name,
@@ -54,7 +56,25 @@ try(silent = TRUE, {
   ravepipeline::pipeline_import_wizard(
     pipeline = "power_explorer",
     fun = function(settings) {
-      # settings = yaml::read_yaml("./modules/power_explorer/settings.yaml")
+      # p1 <- ravepipeline::pipeline("power_explorer", paths = "modules", temporary = TRUE)
+      # settings = p1$get_settings()
+
+      analysis_settings <- settings$analysis_settings
+      if (length(analysis_settings) > 0) {
+        analysis_settings <- as.list(analysis_settings[[1]])
+        analysis_window <- list(range(unlist(analysis_settings$time), na.rm = TRUE)),
+        frequency_range <- list(range(unlist(analysis_settings$frequency), na.rm = TRUE))
+      } else {
+        analysis_window <- NULL
+        frequency_range <- NULL
+      }
+      condition_groups <- unname(lapply(settings$first_condition_groupings, function(group) {
+        list(group_name = group$label, group_conditions = group$conditions)
+      }))
+      if (!length(condition_groups)) {
+        condition_groups <- NULL
+      }
+
       new_settings <- list(
         project_name = settings$project_name,
         subject_code = settings$subject_code,
@@ -64,8 +84,8 @@ try(silent = TRUE, {
         baseline__global_baseline_choice = settings$baseline_settings$scope,
         baseline__unit_of_analysis = settings$baseline_settings$unit_of_analysis,
 
-        analysis_window = list(range(unlist(settings$analysis_settings$time), na.rm = TRUE)),
-        frequency_range = list(range(unlist(settings$analysis_settings$frequency), na.rm = TRUE)),
+        analysis_window = analysis_window,
+        frequency_range = frequency_range,
 
         reference_name = settings$reference_name,
 
@@ -75,10 +95,12 @@ try(silent = TRUE, {
         epoch_choice__trial_starts_rel_to_event = settings$epoch_choice__trial_starts_rel_to_event,
         epoch_choice__trial_ends_rel_to_event = settings$epoch_choice__trial_ends_rel_to_event,
 
-        condition_groups = unname(lapply(settings$first_condition_groupings, function(group) {
-          list(group_name = group$label, group_conditions = group$conditions)
-        }))
+        condition_groups = condition_groups
       )
+
+      new_settings <- new_settings[!vapply(new_settings, is.null, FUN.VALUE = FALSE)]
+
+      new_settings
     }
   )
 
