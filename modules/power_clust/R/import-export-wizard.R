@@ -62,7 +62,7 @@ try(silent = TRUE, {
       analysis_settings <- settings$analysis_settings
       if (length(analysis_settings) > 0) {
         analysis_settings <- as.list(analysis_settings[[1]])
-        analysis_window <- list(range(unlist(analysis_settings$time), na.rm = TRUE)),
+        analysis_window <- list(range(unlist(analysis_settings$time), na.rm = TRUE))
         frequency_range <- list(range(unlist(analysis_settings$frequency), na.rm = TRUE))
       } else {
         analysis_window <- NULL
