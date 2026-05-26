@@ -285,7 +285,7 @@ module_html <- function() {
                   shiny::numericInput(
                     inputId = ns("plot_cex"),
                     label = "Text size (cex)",
-                    value = 1.6, min = 0.5, max = 3, step = 0.1
+                    value = use_cex(), min = 0.5, max = 3, step = 0.1
                   )
                 )
               ),
@@ -303,15 +303,7 @@ module_html <- function() {
                       inputId = ns("channel_annotation"),
                       label = "Channel label style",
                       choices = c("number", "short", "label", "full"),
-                      selected = "number"
-                    )
-                  ),
-                  shiny::column(
-                    width = 6L,
-                    shiny::numericInput(
-                      inputId = ns("erp_ncols"),
-                      label = "Number of columns",
-                      value = 2L, min = 1L, max = 8L, step = 1L
+                      selected = use_channel_annotation_style()
                     )
                   )
                 ),
@@ -326,7 +318,7 @@ module_html <- function() {
                       inputId = ns("trial_sort_by"),
                       label = "Sort trials by",
                       choices = c("stimuli", "trial"),
-                      selected = "stimuli"
+                      selected = use_trial_sort_by()
                     )
                   )
                 ),

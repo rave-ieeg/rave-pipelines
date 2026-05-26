@@ -282,8 +282,51 @@ module_server <- function(input, output, session, ...) {
   )
 
 
+  # ---- Graphics options ---------------
+  get_cex <- shiny::reactive({
+    if (isTRUE(input$plot_cex > 0)) {
+      cex <- use_cex(input$plot_cex)
+    } else {
+      cex <- use_cex()
+    }
+    cex
+  })
 
+  get_channel_annotation_style <- shiny::reactive({
+    if (length(input$channel_annotation) > 0) {
+      cex <- use_channel_annotation_style(input$channel_annotation)
+    } else {
+      cex <- use_channel_annotation_style()
+    }
+    cex
+  })
 
+  get_trial_sort_by <- shiny::reactive({
+    if (length(input$trial_sort_by) > 0) {
+      trial_sort_by <- use_trial_sort_by(input$trial_sort_by)
+    } else {
+      trial_sort_by <- use_trial_sort_by()
+    }
+    trial_sort_by
+  })
+
+  get_flipped_y <- shiny::reactive({
+    if (length(input$mean_erp_flip_y) > 0) {
+      flip_y <- use_flipped_y(input$mean_erp_flip_y)
+    } else {
+      flip_y <- use_flipped_y()
+    }
+    flip_y
+  })
+
+  get_show_crp_decoration <- shiny::reactive({
+    if (length(input$mean_erp_crp) > 0) {
+      show_crp <- use_show_crp_decoration(input$mean_erp_crp)
+    } else {
+      show_crp <- use_show_crp_decoration()
+    }
+    show_crp
+  })
 
   # ---- Nyquist info label (reactive to downsample inputs) ---------------
   output$ui_nyquist_info <- shiny::renderUI({
@@ -345,7 +388,7 @@ module_server <- function(input, output, session, ...) {
       flip_y         = isTRUE(input$mean_erp_flip_y),
       vertical_marks = input$plot_onset_mark %||% 0,
       time_range     = time_range,
-      cex            = input$plot_cex %||% 1
+      cex            = get_cex()
     )
   })
 
@@ -365,8 +408,8 @@ module_server <- function(input, output, session, ...) {
     plot_by_channel_condition(
       data_by_channel_condition,
       group_by           = "condition",
-      channel_annotation = input$channel_annotation %||% "number",
-      cex                = input$plot_cex %||% 1,
+      channel_annotation = get_channel_annotation_style(),
+      cex                = get_cex(),
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
       space              = 1,
@@ -387,13 +430,11 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
-    ncols <- input$erp_ncols
-    if (!isTRUE(is.numeric(ncols) && ncols >= 1)) { ncols <- NULL }
     plot_by_channel_condition(
       data_by_channel_condition,
       group_by           = "channel",
-      channel_annotation = input$channel_annotation %||% "number",
-      cex                = input$plot_cex %||% 1,
+      channel_annotation = get_channel_annotation_style(),
+      cex                = get_cex(),
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
       space              = 1,
@@ -414,12 +455,10 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
-    sort_by <- input$trial_sort_by %OF% c("stimuli", "trial")
-    cex <- input$plot_cex %||% 1
     plot_by_trial_per_condition(
       data_by_trial_per_condition,
-      sort_by        = sort_by,
-      cex            = cex,
+      sort_by        = get_trial_sort_by(),
+      cex            = get_cex(),
       vertical_marks = input$plot_onset_mark %||% 0,
       time_range     = time_range
     )

@@ -82,6 +82,7 @@ InteractiveModules:
     modules/import_bids,
     modules/configure_rave,
     modules/power_explorer,
+    modules/voltage_explorer,
     modules/generate_surface_atlas,
     modules/group_3d_viewer,
     modules/trace_viewer,

@@ -1,6 +1,4 @@
 
-`%OF%` <- dipsaus::`%OF%`
-
 # Plot collapse trials (by condition or channels)
 plot_by_channel_condition <- function(
     data_by_channel_condition, group_by = c("condition", "channel"),
@@ -40,7 +38,7 @@ plot_by_channel_condition <- function(
   n_groups <- data_by_channel_condition$n
 
   if (!length(col)) {
-    pal <- get_discrete_palette()
+    pal <- use_discrete_palette()
     col <- pal$colors
   }
   max_group <- max(group_indexes)
@@ -148,11 +146,32 @@ plot_by_channel_condition <- function(
         # if (ii == 1) {
           graphics::arrows(time_range[[2]], 0.5 * space, time_range[[2]], 1.5 * space,
                            code = 3L, angle = 20, length = 0.05, col = "#808080", lwd = 2)
-          graphics::text(
-            time_range[[2]], space * 1.5,
-            cex = cex * 0.8, offset = 0.2, adj = c(1.2, 1.5),
-            labels = bquote(.(sprintf("\u00B1%.0f", space / 2)) ~ mu * V)
-          )
+
+          if (flip_y) {
+            graphics::text(
+              time_range[[2]], space * 1.5,
+              cex = cex * 0.8, offset = 0.2, adj = c(1.2, 1.5),
+              labels = bquote(.(sprintf("%.0f", - space / 2)) ~ mu * V)
+            )
+
+            graphics::text(
+              time_range[[2]], space * 0.5,
+              cex = cex * 0.8, offset = 0.2, adj = c(1.2, - 0.5),
+              labels = bquote(.(sprintf("%.0f", space / 2)) ~ mu * V)
+            )
+          } else {
+            graphics::text(
+              time_range[[2]], space * 1.5,
+              cex = cex * 0.8, offset = 0.2, adj = c(1.2, 1.5),
+              labels = bquote(.(sprintf("%.0f", space / 2)) ~ mu * V)
+            )
+
+            graphics::text(
+              time_range[[2]], space * 0.5,
+              cex = cex * 0.8, offset = 0.2, adj = c(1.2, - 0.5),
+              labels = bquote(.(sprintf("%.0f", - space / 2)) ~ mu * V)
+            )
+          }
         # }
       }
     },
@@ -458,7 +477,7 @@ plot_collapse_by_condition <- function(
   max_group_idx <- max(group_indexes)
 
   if (!length(col)) {
-    pal <- get_discrete_palette()
+    pal <- use_discrete_palette()
     col <- pal$colors
   }
   if (length(col) < max_group_idx) {
