@@ -99,7 +99,7 @@ plot_by_channel_condition <- function(
       }
 
       oldpar <- graphics::par(mar = c(3.1, 2.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1,
-                              mfrow = mfrow)
+                              mfrow = mfrow, cex = 1)
       on.exit({
         graphics::par(oldpar)
       })
@@ -164,7 +164,7 @@ plot_by_channel_condition <- function(
 
       oldpar <- graphics::par(mar = c(3.1, 3.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1,
                               mgp = cex * c(2, 0.5, 0),
-                              cex.lab = 1,
+                              cex.lab = 1, cex = 1,
                               mfrow = mfrow)
       on.exit({
         graphics::par(oldpar)
@@ -313,7 +313,8 @@ plot_by_trial_per_condition <- function(
 
   oldpar <- graphics::par(mar = mar,
                           mgp = cex * c(2, 0.5, 0),
-                          cex.lab = 1)
+                          cex.lab = 1,
+                          cex = 1)
   oldpar$mfrow <- graphics::par("mfrow")
 
   lmat <- matrix(seq_len(prod(mfrow)), nrow = mfrow[[1]], byrow = TRUE)
@@ -330,12 +331,12 @@ plot_by_trial_per_condition <- function(
   tck <- -0.005 * (3 + cex)
   par_opt$cex.lab <- 1
 
-  graphics::layout(lmat, widths = c(rep(1, mfrow[[2]]), graphics::lcm(2.5)))
+  graphics::layout(lmat, widths = c(rep(1, mfrow[[2]]), graphics::lcm(3)))
   on.exit({
     graphics::par(oldpar)
   })
 
-  graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]))
+  graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]), cex = 1)
   legend_z <- seq(-space, space, length.out = length(col))
   for (ii in seq_len(mfrow[[1]])) {
     graphics::image(
@@ -357,7 +358,7 @@ plot_by_trial_per_condition <- function(
     )
   }
 
-  graphics::par(mar = mar)
+  graphics::par(mar = mar, cex = 1)
 
   for (ii in seq_along(group_indexes)) {
     data_time_by_trial <- data_by_trial_per_condition$data[[ii]]
@@ -440,6 +441,9 @@ plot_collapse_by_condition <- function(
     data_collapse_by_condition, crp_decoration = TRUE, col = NULL, flip_y = FALSE,
     vertical_marks = 0, time_range = c(NA, NA), cex = 1) {
 
+  oldpar <- graphics::par("mar" = c(5.1, 4.1, 2.1, 2.1), mfrow = c(1, 1), cex = 1)
+  on.exit({ graphics::par(oldpar) })
+
   groups <- data_collapse_by_condition$groups
   group_indexes <- data_collapse_by_condition$group_indexes
   time_points <- data_collapse_by_condition$time_points
@@ -472,7 +476,7 @@ plot_collapse_by_condition <- function(
   graphics::matplot(
     x = time_points, y = mean_erp, type = "l", lty = 1, col = col, xaxs = "i",
     ylim = ylim, xlab = "", ylab = "", xlim = time_range,
-    main = "Mean voltage collapse over trials & channels", adj = 0, axes = FALSE, cex = cex, cex.main = cex * 1.2)
+    main = "", adj = 0, axes = FALSE, cex = cex, cex.main = cex * 1.2)
 
   graphics::mtext(side = 1L, "Time (s)", line = 1.5 + 0.5 * cex, cex = cex)
   graphics::mtext(

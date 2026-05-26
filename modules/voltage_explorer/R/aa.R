@@ -19,9 +19,27 @@ debug <- TRUE
 #' resulting in calling function \code{loader_html}.
 #' @returns Logical variable of length one.
 check_data_loaded <- function(first_time = FALSE) {
-  # Always use loading screen
-  TRUE
+  if (first_time) {
+    ravedash::fire_rave_event("loader_message", NULL)
+    return(FALSE)
+  }
+
+  re <- tryCatch({
+    repo <- pipeline$read("repository")
+    if (!inherits(repo, "rave_prepare_subject_voltage_with_epochs")) {
+      stop("No repository found")
+    }
+    short_msg <- sprintf("%s [%s, %s]", repo$subject$subject_id, repo$epoch_name, repo$reference_name)
+    ravedash::fire_rave_event("loader_message", short_msg)
+    TRUE
+  }, error = function(e) {
+    ravedash::fire_rave_event("loader_message", NULL)
+    FALSE
+  })
+
+  re
 }
+
 
 
 
