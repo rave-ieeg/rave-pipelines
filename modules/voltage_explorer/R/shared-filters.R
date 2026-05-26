@@ -176,10 +176,10 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
     {
       checkmate::assert_numeric(config$sample_rate, lower = 0.1, any.missing = FALSE, len = 1L,
                                 null.ok = FALSE, .var.name = "filter$sample_rate")
-      high_pass_freq %?<-% c(config$high_pass_freq, NA)[[1]]
-      high_pass_trans_freq %?<-% c(config$high_pass_trans_freq, NA)[[1]]
-      low_pass_freq %?<-% c(config$low_pass_freq, NA)[[1]]
-      low_pass_trans_freq %?<-% c(config$low_pass_trans_freq, NA)[[1]]
+      high_pass_freq <- c(config$high_pass_freq, NA)[[1]]
+      high_pass_trans_freq <- c(config$high_pass_trans_freq, NA)[[1]]
+      low_pass_freq <- c(config$low_pass_freq, NA)[[1]]
+      low_pass_trans_freq <- c(config$low_pass_trans_freq, NA)[[1]]
       # passband_ripple %?<-% 0.1
       # stopband_attenuation %?<-% 40
 
@@ -239,7 +239,7 @@ apply_filters_to_signals <- function(signals, filter_configs) {
 }
 
 
-prepare_filtered_data <- function(data_path, repository, filter_configurations) {
+prepare_filtered_data <- function(array_type, repository, filter_configurations) {
   sample_rate <- repository$sample_rate
   time_points <- repository$voltage$dimnames$Time
 
@@ -303,9 +303,9 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
   # globally)
   # no data is written during this process
 
-  array_type <- "pre_analysis_filtered_voltage"
+  # array_type <- "pre_analysis_filtered_voltage"
 
-  new_sig <- structure(
+  new_sig <- ravepipeline::digest(
     list(
       array_type,
       repository$signature,
@@ -314,7 +314,8 @@ prepare_filtered_data <- function(data_path, repository, filter_configurations) 
   )
 
   pre_analysis_filter_array <- filearray::filearray_load_or_create(
-    filebase = file.path("data", array_type, fsep = "/"),
+    filebase = file.path(pipeline$pipeline_path, "data",
+                         array_type, fsep = "/"),
     mode = "readonly",
     type = "float",
     symlink_ok = FALSE,

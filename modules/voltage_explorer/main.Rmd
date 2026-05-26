@@ -27,7 +27,7 @@ subject$electrodes
 ```
 
 
-```{rave prepare_data_repository, language = "R", export = "repository", cue = "always", format = "rave_prepare_subject_voltage_with_epoch"}
+```{rave prepare_data_repository, language = "R", export = "repository", cue = "always"}
 repository <- ravecore::prepare_subject_voltage_with_epochs(
   subject = subject,
   electrodes = loaded_electrodes,
@@ -61,7 +61,7 @@ analysis_electrodes_clean <- as.integer(sort(analysis_electrodes_clean))
 
 ```{rave prepare_pre_analysis_filters, language = "R", export = "filtered_array"}
 filtered_array <- prepare_filtered_data(
-  data_path = "data/filtered_voltage",
+  array_type = "filtered_voltage",
   repository = repository,
   filter_configurations = filter_configurations
 )
@@ -161,7 +161,7 @@ if (!isTRUE(condition_groups_clean$n > 0)) {
 
 Combine `condition_groups_clean` and `filtered_array` to prepare plot data
 
-```{rave prepare_plot_data_placeholder, export = "data_placeholder"}
+```{rave prepare_plot_data_placeholder, export = "data_placeholder", cue = "always"}
 data_placeholder <- condition_groups_clean
 
 if (inherits(filtered_array, "RAVEFileArray")) {
@@ -180,6 +180,9 @@ data_placeholder$coord_table <- analysis_electrode_coordinates
 
 # time points
 data_placeholder$time_points <- dnames$Time
+
+# Force the data to update if the array changes
+attr(data_placeholder, "signature") <- filtered_array_impl$get_header("signature_filters")
 ```
 
 
@@ -229,9 +232,10 @@ group_data <- lapply(data_placeholder$groups, function(group) {
 # Time x Channel x Group
 group_data <- simplify2array(group_data)
 
-data_by_channel_condition <- data_placeholder
+data_by_channel_condition <- ravepipeline::pipeline_plot_data(
+  x = data_placeholder, name = "data_by_channel_condition"
+)
 data_by_channel_condition$data <- group_data
-class(data_by_channel_condition) <- "data_by_channel_condition"
 ```
 
 Visualization:
@@ -297,9 +301,11 @@ group_data <- lapply(data_placeholder$groups, function(group) {
   return(voltage_by_trial)
 })
 
-data_by_trial_per_condition <- data_placeholder
+data_by_trial_per_condition <- ravepipeline::pipeline_plot_data(
+  x = data_placeholder, name = "data_by_trial_per_condition"
+)
+
 data_by_trial_per_condition$data <- group_data
-class(data_by_trial_per_condition) <- "data_by_trial_per_condition"
 ```
 
 ```{r}
@@ -312,7 +318,10 @@ plot_by_trial_per_condition(
   - collapse channel - each cond. group is a line
 
 ```{rave prepare_collapsed_voltage_per_condition, export = "data_collapse_by_condition"}
-data_collapse_by_condition <- data_by_trial_per_condition
+data_collapse_by_condition <- ravepipeline::pipeline_plot_data(
+  x = data_by_trial_per_condition, 
+  name = "data_collapse_by_condition"
+)
 
 time_points <- data_collapse_by_condition$time_points
 sample_rate <- data_collapse_by_condition$sample_rate 
@@ -381,7 +390,6 @@ data_collapse_by_condition$data <- list(
   crp_time_range = c(crp_time_begin, crp_time_end),
   crp_tau = crp_tau
 )
-class(data_collapse_by_condition) <- "data_collapse_by_condition"
 ```
 
 ```{r}

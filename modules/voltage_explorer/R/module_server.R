@@ -17,7 +17,7 @@ module_server <- function(input, output, session, ...) {
   # This is used by auto-recalculation feature
   server_tools$run_analysis_onchange(
     component_container$get_input_ids(c(
-      "electrode_text", "baseline_choices",
+      "electrode_text",
       "analysis_ranges", "condition_groups"
     ))
   )
@@ -26,103 +26,101 @@ module_server <- function(input, output, session, ...) {
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      # Invalidate previous results (stop them because they are no longer needed)
-      if (!is.null(local_data$results)) {
-        local_data$results$invalidate()
-        ravepipeline::logger("Invalidating previous run", level = "trace")
-      }
-
-
       # Collect input data
       settings <- component_container$collect_settings(ids = c(
-        "electrode_text", "baseline_choices", "condition_groups", "analysis_ranges"
+        "electrode_text", "condition_groups", "analysis_ranges"
       ))
 
-      pipeline$set_settings(.list = settings)
-
       # Save custom UI inputs so they can be restored on next session load
-      {
-        fc <- list()
-        if (isTRUE(input$downsample_enabled)) {
-          dec_by <- max(1L, as.integer(input$downsample_factor %||% 4L))
-          fc <- c(fc, list(list(type = "decimate", by = dec_by)))
-        }
-        sig_fcs <- input$signal_filter_configurations
-        if (is.list(sig_fcs) && length(sig_fcs)) {
-          fc <- c(fc, sig_fcs)
-        }
-        bl_method <- input$baseline_method %||% "none"
-        if (grepl("detrend", bl_method, fixed = TRUE)) {
-          fc <- c(fc, list(list(type = "detrend")))
-        }
-        if (grepl("demean", bl_method, fixed = TRUE)) {
-          fc <- c(fc, list(list(type = "demean")))
-        }
-        if (!identical(bl_method, "none")) {
-          bl_win <- input$baseline_window
-          if (length(bl_win) == 2L && is.numeric(bl_win)) {
-            fc <- c(fc, list(list(type = "baseline", windows = as.numeric(bl_win))))
-          }
-        }
-        pipeline$set_settings(
-          condition_groups = input$condition_groups,
-          filter_configurations = unname(fc)
-        )
+      fc <- list()
+      if (isTRUE(input$downsample_enabled)) {
+        dec_by <- max(1L, as.integer(input$downsample_factor %||% 4L))
+        fc <- c(fc, list(list(type = "decimate", by = dec_by)))
       }
-      stop("DEBUG")
+      sig_fcs <- input$signal_filter_configurations
+      if (is.list(sig_fcs) && length(sig_fcs)) {
+        fc <- c(fc, sig_fcs)
+      }
+      bl_method <- input$baseline_method %||% "none"
+      if (grepl("detrend", bl_method, fixed = TRUE)) {
+        fc <- c(fc, list(list(type = "detrend")))
+      }
+      if (grepl("demean", bl_method, fixed = TRUE)) {
+        fc <- c(fc, list(list(type = "demean")))
+      }
+      if (!identical(bl_method, "none")) {
+        bl_win <- input$baseline_window
+        if (length(bl_win) == 2L && is.numeric(bl_win)) {
+          fc <- c(fc, list(list(type = "baseline", windows = as.numeric(bl_win))))
+        }
+      }
 
-      #' Run pipeline without blocking the main session
-      #' The trick to speed up is to set
-      #' `async=TRUE` will run the pipeline in the background
-      #' `shortcut=TRUE` will ignore the dependencies and directly run `names`
-      #' `names` are the target nodes to run
-      #' `scheduler="none"` will try to avoid starting any schedulers and
-      #' run targets sequentially. Combined with `callr_function=NULL`,
-      #' scheduler's overhead can be removed.
-      #' `type="smart"` will start `future` plan in the background, allowing
-      #' multicore calculation
-      results <- pipeline$run(
-        as_promise = TRUE,
-        scheduler = "none",
-        type = "smart",
-        callr_function = NULL,
-        progress_title = "Calculating in progress",
-        async = TRUE,
-        check_interval = 0.1,
-        shortcut = TRUE,
-        names = c(
-          "settings",
-          names(settings),
-          "requested_electrodes", "analysis_ranges_index", "cond_groups",
-          "bl_power", "collapsed_data"
-        )
+      pipeline$set_settings(
+        condition_groups = input$condition_groups,
+        filter_configurations = unname(fc),
+        analysis_ranges = settings$analysis_ranges,
+        analysis_electrodes = settings$analysis_electrodes
       )
 
+      dipsaus::shiny_alert2(
+        title = "Running Pipeline...",
+        text = ravedash::be_patient_text(),
+        auto_close = FALSE,
+        buttons = FALSE,
+        icon = "info",
+        session = session
+      )
 
-      local_data$results <- results
-      ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
-                       level = "debug", reset_timer = TRUE)
+      on.exit({
+        Sys.sleep(0.5)
+        dipsaus::close_alert2(session = session)
+      })
 
-      results$promise$then(
-        onFulfilled = function(...) {
+      tryCatch(
+        {
+          ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
+                               level = "debug", reset_timer = TRUE)
+
+          pipeline$run(
+            scheduler = "none",
+            type = "smart",
+            shortcut = TRUE,
+            names = c(
+              "settings_path",
+              "filter_configurations",
+              "condition_groups",
+              "analysis_electrodes",
+
+              "settings",
+              "condition_groups_clean",
+              "analysis_electrodes_clean",
+              "analysis_electrode_coordinates",
+
+              "filtered_array",
+              "data_placeholder",
+
+              "data_by_channel_condition",
+              "data_by_trial_per_condition",
+              "data_collapse_by_condition"
+            ),
+            return_values = FALSE
+          )
+
           ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name,
-                           level = "debug")
-          shidashi::clear_notifications(class = "pipeline-error")
+                               level = "debug")
+          shidashi::clear_notifications(
+            class = ns("pipeline-error"), session = session)
           local_reactives$update_outputs <- Sys.time()
-          return(TRUE)
         },
-        onRejected = function(e, ...) {
-          msg <- paste(e$message, collapse = "\n")
-          if (inherits(e, "error")) {
-            ravepipeline::logger(msg, level = "error")
-            ravepipeline::logger(traceback(e), level = "error", .sep = "\n")
-            shidashi::show_notification(
-              message = msg,
-              title = "Error while running pipeline", type = "danger",
-              autohide = FALSE, close = TRUE, class = "pipeline-error"
-            )
-          }
-          return(msg)
+        error = function(e) {
+
+          ravepipeline::logger_error_condition(e)
+          ravedash::error_notification(
+            cond = e,
+            autohide = FALSE,
+            class = "pipeline-error",
+            session = session
+          )
         }
       )
 
@@ -324,12 +322,6 @@ module_server <- function(input, output, session, ...) {
         message = "Please run the module first"
       )
     )
-    shiny::validate(
-      shiny::need(
-        isTRUE(local_data$results$valid),
-        message = "One or more errors while executing pipeline. Please check the notification."
-      )
-    )
   }
 
 
@@ -352,7 +344,8 @@ module_server <- function(input, output, session, ...) {
       crp_decoration = isTRUE(input$mean_erp_crp),
       flip_y         = isTRUE(input$mean_erp_flip_y),
       vertical_marks = input$plot_onset_mark %||% 0,
-      time_range     = time_range
+      time_range     = time_range,
+      cex            = input$plot_cex %||% 1
     )
   })
 
@@ -375,7 +368,9 @@ module_server <- function(input, output, session, ...) {
       channel_annotation = input$channel_annotation %||% "number",
       cex                = input$plot_cex %||% 1,
       vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range
+      time_range         = time_range,
+      space              = 1,
+      flip_y             = isTRUE(input$mean_erp_flip_y)
     )
   })
 
@@ -399,9 +394,10 @@ module_server <- function(input, output, session, ...) {
       group_by           = "channel",
       channel_annotation = input$channel_annotation %||% "number",
       cex                = input$plot_cex %||% 1,
-      mfrow              = if (length(ncols)) c(ceiling(data_by_channel_condition$n / ncols), ncols) else NULL,
       vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range
+      time_range         = time_range,
+      space              = 1,
+      flip_y             = isTRUE(input$mean_erp_flip_y)
     )
   })
 
@@ -418,12 +414,12 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
-    sort_by <- input$trial_sort_by %||% "stimuli"
-    if (!sort_by %in% c("stimuli", "channel")) { sort_by <- "stimuli" }
+    sort_by <- input$trial_sort_by %OF% c("stimuli", "trial")
+    cex <- input$plot_cex %||% 1
     plot_by_trial_per_condition(
       data_by_trial_per_condition,
       sort_by        = sort_by,
-      cex            = input$plot_cex %||% 1,
+      cex            = cex,
       vertical_marks = input$plot_onset_mark %||% 0,
       time_range     = time_range
     )

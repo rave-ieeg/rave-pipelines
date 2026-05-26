@@ -5,6 +5,24 @@ group_palette <- c("#FFA500", "#1874CD", "#006400", "#FF4500", "#A52A2A", "#7D26
                    "#BDCDFF", "#822E1C", "#B5EFB5", "#7ED7D1", "#1C7F93", "#3B00FB"
 )
 
+if (!pipeline$has_preferences("voltage_explorer.graphics.discrete_palette")) {
+  pipeline$set_preferences("voltage_explorer.graphics.discrete_palette" = list(
+    name = "Default",
+    colors = group_palette
+  ))
+}
+
+get_discrete_palette <- function() {
+  pal <- pipeline$get_preferences("voltage_explorer.graphics.discrete_palette")
+  if (!is.list(pal) || !all(c("name", "colors") %in% pal)) {
+    pal <- list(
+      name = "Default",
+      colors = group_palette
+    )
+  }
+  pal
+}
+
 pretty_frequency_range <- function(frequency_range) {
   is_na <- is.na(frequency_range)
   if (all(is_na)) { return(NULL) }

@@ -1,19 +1,27 @@
-analysis_electrodes: '14 '
+analysis_electrodes: '15 '
+analysis_ranges: ~
 condition_groups:
   '1':
     label: AOnly
     conditions:
-    - drive_a
     - known_a
     - last_a
+    - drive_a
     - meant_a
   '2':
     label: AV
     conditions:
+    - known_av
     - last_av
     - drive_av
-    - known_av
     - meant_av
+  '3':
+    label: V
+    conditions:
+    - last_v
+    - drive_v
+    - known_v
+    - meant_v
 epoch_choice: auditory_onset
 epoch_choice__trial_ends: 3
 epoch_choice__trial_ends_rel_to_event: ~
@@ -21,14 +29,13 @@ epoch_choice__trial_starts: -1
 epoch_choice__trial_starts_rel_to_event: ~
 filter_configurations:
 - type: decimate
-  by: 4
-- type: fir
+  by: 20
+- type: firls
   high_pass_freq: ~
   low_pass_freq: 30
   high_pass_trans_freq: ~
   low_pass_trans_freq: ~
   stopband_attenuation: 40
-- type: detrend
 - type: demean
 - type: baseline
   windows:

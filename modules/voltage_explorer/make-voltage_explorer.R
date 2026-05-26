@@ -50,6 +50,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_condition_groups = targets::tar_target_raw("condition_groups", 
         quote({
             settings[["condition_groups"]]
+        }), deps = "settings"), input_analysis_ranges = targets::tar_target_raw("analysis_ranges", 
+        quote({
+            settings[["analysis_ranges"]]
         }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
         quote({
             settings[["analysis_electrodes"]]
@@ -102,7 +105,7 @@ rm(._._env_._.)
                 asNamespace("ravepipeline")$resolve_pipeline_error(name = "repository", 
                   condition = e, expr = .__target_expr__.)
             })
-        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = "rave_prepare_subject_voltage_with_epoch", 
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "repository", target_expr = quote({
                 {
                   repository <- ravecore::prepare_subject_voltage_with_epochs(subject = subject, 
@@ -160,7 +163,7 @@ rm(._._env_._.)
     prepare_pre_analysis_filters = targets::tar_target_raw(name = "filtered_array", 
         command = quote({
             .__target_expr__. <- quote({
-                filtered_array <- prepare_filtered_data(data_path = "data/filtered_voltage", 
+                filtered_array <- prepare_filtered_data(array_type = "filtered_voltage", 
                   repository = repository, filter_configurations = filter_configurations)
                 filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
                 ravepipeline::with_rave_parallel({
@@ -196,7 +199,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "filtered_array", target_expr = quote({
                 {
-                  filtered_array <- prepare_filtered_data(data_path = "data/filtered_voltage", 
+                  filtered_array <- prepare_filtered_data(array_type = "filtered_voltage", 
                     repository = repository, filter_configurations = filter_configurations)
                   filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
                   ravepipeline::with_rave_parallel({
@@ -317,6 +320,7 @@ rm(._._env_._.)
                 data_placeholder$sample_rate <- filtered_array_impl$get_header("sample_rate")
                 data_placeholder$coord_table <- analysis_electrode_coordinates
                 data_placeholder$time_points <- dnames$Time
+                attr(data_placeholder, "signature") <- filtered_array_impl$get_header("signature_filters")
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -338,12 +342,13 @@ rm(._._env_._.)
                   data_placeholder$sample_rate <- filtered_array_impl$get_header("sample_rate")
                   data_placeholder$coord_table <- analysis_electrode_coordinates
                   data_placeholder$time_points <- dnames$Time
+                  attr(data_placeholder, "signature") <- filtered_array_impl$get_header("signature_filters")
                 }
                 data_placeholder
             }), target_depends = c("condition_groups_clean", 
             "filtered_array", "analysis_electrode_coordinates"
             )), deps = c("condition_groups_clean", "filtered_array", 
-        "analysis_electrode_coordinates"), cue = targets::tar_cue("thorough"), 
+        "analysis_electrode_coordinates"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({
@@ -363,9 +368,9 @@ rm(._._env_._.)
                       3L), average = TRUE)
                   })
                 group_data <- simplify2array(group_data)
-                data_by_channel_condition <- data_placeholder
+                data_by_channel_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                  name = "data_by_channel_condition")
                 data_by_channel_condition$data <- group_data
-                class(data_by_channel_condition) <- "data_by_channel_condition"
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -393,9 +398,9 @@ rm(._._env_._.)
                         3L), average = TRUE)
                     })
                   group_data <- simplify2array(group_data)
-                  data_by_channel_condition <- data_placeholder
+                  data_by_channel_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                    name = "data_by_channel_condition")
                   data_by_channel_condition$data <- group_data
-                  class(data_by_channel_condition) <- "data_by_channel_condition"
                 }
                 data_by_channel_condition
             }), target_depends = c("filtered_array", "data_placeholder", 
@@ -422,9 +427,9 @@ rm(._._env_._.)
                       keep = c(1L, 2L), average = TRUE)
                     return(voltage_by_trial)
                   })
-                data_by_trial_per_condition <- data_placeholder
+                data_by_trial_per_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                  name = "data_by_trial_per_condition")
                 data_by_trial_per_condition$data <- group_data
-                class(data_by_trial_per_condition) <- "data_by_trial_per_condition"
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -454,9 +459,9 @@ rm(._._env_._.)
                         keep = c(1L, 2L), average = TRUE)
                       return(voltage_by_trial)
                     })
-                  data_by_trial_per_condition <- data_placeholder
+                  data_by_trial_per_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                    name = "data_by_trial_per_condition")
                   data_by_trial_per_condition$data <- group_data
-                  class(data_by_trial_per_condition) <- "data_by_trial_per_condition"
                 }
                 data_by_trial_per_condition
             }), target_depends = c("filtered_array", "data_placeholder", 
@@ -465,7 +470,8 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), prepare_collapsed_voltage_per_condition = targets::tar_target_raw(name = "data_collapse_by_condition", 
         command = quote({
             .__target_expr__. <- quote({
-                data_collapse_by_condition <- data_by_trial_per_condition
+                data_collapse_by_condition <- ravepipeline::pipeline_plot_data(x = data_by_trial_per_condition, 
+                  name = "data_collapse_by_condition")
                 time_points <- data_collapse_by_condition$time_points
                 sample_rate <- data_collapse_by_condition$sample_rate
                 time_range <- range(time_points)
@@ -512,7 +518,6 @@ rm(._._env_._.)
                   bad_trials = bad_trials, crp_enabled = crp_enabled, 
                   crp_time_range = c(crp_time_begin, crp_time_end), 
                   crp_tau = crp_tau)
-                class(data_collapse_by_condition) <- "data_collapse_by_condition"
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -524,7 +529,8 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_collapse_by_condition", target_expr = quote({
                 {
-                  data_collapse_by_condition <- data_by_trial_per_condition
+                  data_collapse_by_condition <- ravepipeline::pipeline_plot_data(x = data_by_trial_per_condition, 
+                    name = "data_collapse_by_condition")
                   time_points <- data_collapse_by_condition$time_points
                   sample_rate <- data_collapse_by_condition$sample_rate
                   time_range <- range(time_points)
@@ -572,7 +578,6 @@ rm(._._env_._.)
                     bad_trials = bad_trials, crp_enabled = crp_enabled, 
                     crp_time_range = c(crp_time_begin, crp_time_end), 
                     crp_tau = crp_tau)
-                  class(data_collapse_by_condition) <- "data_collapse_by_condition"
                 }
                 data_collapse_by_condition
             }), target_depends = "data_by_trial_per_condition"), 

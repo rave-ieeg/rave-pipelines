@@ -1,11 +1,12 @@
 
 `%OF%` <- dipsaus::`%OF%`
 
+# Plot collapse trials (by condition or channels)
 plot_by_channel_condition <- function(
     data_by_channel_condition, group_by = c("condition", "channel"),
     space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
     channel_annotation = c("number", "short", "label", "full"), cex = 1,
-    mfrow = NULL, vertical_marks = 0) {
+    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE) {
   group_by <- match.arg(group_by)
   space_mode <- match.arg(space_mode)
   channel_annotation <- match.arg(channel_annotation)
@@ -21,12 +22,12 @@ plot_by_channel_condition <- function(
     if (!isTRUE(space > 0 && space < 1)) {
       space <- 1.0
     }
-    space <- stats::quantile(data_by_channel_condition$data, probs = space, na.rm = TRUE) * 2
+    space <- stats::quantile(abs(unlist(data_by_channel_condition$data)), probs = space, na.rm = TRUE) * 2
     space_mode <- "absolute"
   } else {
     space <- abs(space)
     if (!isTRUE(space > 0)) {
-      space <- max(data_by_channel_condition$data, na.rm = TRUE) * 2
+      space <- max(abs(unlist(data_by_channel_condition$data)), na.rm = TRUE) * 2
     }
   }
   space <- unname(space)
@@ -37,6 +38,16 @@ plot_by_channel_condition <- function(
   coord_table <- data_by_channel_condition$coord_table
   group_labels <- data_by_channel_condition$group_labels
   n_groups <- data_by_channel_condition$n
+
+  if (!length(col)) {
+    pal <- get_discrete_palette()
+    col <- pal$colors
+  }
+  max_group <- max(group_indexes)
+  if (length(col) < max_group) {
+    col <- rep(col, ceiling(max_group / length(col)))
+  }
+  col <- col[group_indexes]
 
   time_shift <- min(time_points, na.rm = TRUE)
   start_time <- time_range[[1]] - time_shift
@@ -80,7 +91,11 @@ plot_by_channel_condition <- function(
 
 
       if (length(mfrow) != 2) {
-        mfrow <- c(1, n_groups)
+        if (n_groups > 4) {
+          mfrow <- n2mfrow(n_groups, asp = 4)
+        } else {
+          mfrow <- c(1, n_groups)
+        }
       }
 
       oldpar <- graphics::par(mar = c(3.1, 2.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1,
@@ -97,7 +112,11 @@ plot_by_channel_condition <- function(
         ylim <- range(data_time_by_channel, na.rm = TRUE)
 
         ravetools::plot_signals(
-          t(data_time_by_channel),
+          if (flip_y) {
+            - t(data_time_by_channel)
+          } else {
+            t(data_time_by_channel)
+          },
           sample_rate = sample_rate,
           space = space,
           space_mode = space_mode,
@@ -106,17 +125,17 @@ plot_by_channel_condition <- function(
           duration = duration,
           ylab = "",
           channel_names = channel_names,
-          main = bquote(
-            .(group$label) ~ scriptstyle(
-              "(" *
-                .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu * V ~
-                ", n =" ~ .(group$n_trials) *
-              ")"
-            )
-          ),
+          main = "",
           adj = 0,
           cex = cex
         )
+
+        graphics::title(main = bquote(.(group$label) ~ scriptstyle(
+          "(" *
+            .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu * V ~
+            ", n =" ~ .(group$n_trials) *
+            ")"
+        )), adj = 0, cex.main = par("cex.main") * cex, col.main = col[[ii]])
 
         if (length(vertical_marks)) {
           graphics::abline(v = vertical_marks, col = "#80808040", lty = 2)
@@ -126,15 +145,15 @@ plot_by_channel_condition <- function(
           graphics::abline(h = hlines_chs * space, col = "#80808040", lty = 3)
         }
 
-        if (ii == 1) {
+        # if (ii == 1) {
           graphics::arrows(time_range[[2]], 0.5 * space, time_range[[2]], 1.5 * space,
                            code = 3L, angle = 20, length = 0.05, col = "#808080", lwd = 2)
           graphics::text(
             time_range[[2]], space * 1.5,
-            cex = cex * 0.8, pos = 2L, offset = 0.2,
+            cex = cex * 0.8, offset = 0.2, adj = c(1.2, 1.5),
             labels = bquote(.(sprintf("\u00B1%.0f", space / 2)) ~ mu * V)
           )
-        }
+        # }
       }
     },
     "channel" = {
@@ -143,7 +162,7 @@ plot_by_channel_condition <- function(
         mfrow <- n2mfrow(n_channels, asp = 2)
       }
 
-      oldpar <- graphics::par(mar = c(3.1, 2.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1,
+      oldpar <- graphics::par(mar = c(3.1, 3.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1,
                               mgp = cex * c(2, 0.5, 0),
                               cex.lab = 1,
                               mfrow = mfrow)
@@ -161,10 +180,14 @@ plot_by_channel_condition <- function(
         graphics::matplot(
           x = time_points, y = data_time_by_group, lty = 1, type = "l", lwd = 1,
           xlab = "", ylab = "", axes = FALSE, xaxs = "i",
-          xlim = time_range, ylim = c(-0.5, 0.5) * space,
+          xlim = time_range, ylim = if (flip_y) {
+            c(0.5, -0.5) * space
+          } else {
+            c(-0.5, 0.5) * space
+          },
           cex = cex, cex.main = par_opt$cex.main * cex,
           cex.lab = par_opt$cex.lab *  cex, cex.axis = par_opt$cex.axis * cex,
-          tck = tck, adj = 0,
+          tck = tck, adj = 0, col = col,
           main = bquote(
             .(sprintf("Ch %s", channel_names[[ii]])) ~
               scriptstyle(
@@ -180,6 +203,8 @@ plot_by_channel_condition <- function(
         graphics::axis(side = 1L, at = pretty(time_range),
                        las = 1, tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
                        cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
+        graphics::mtext(side = 2, text = bquote("Voltage (" * mu * "V)"), line = yline,
+                        cex = par_opt$cex.lab * cex)
 
         graphics::axis(
           side = 2L, at = c(-0.5, 0, 0.5) * space, las = 1,
@@ -191,17 +216,17 @@ plot_by_channel_condition <- function(
         graphics::abline(v = vertical_marks, col = "#80808040", lty = 2)
         graphics::abline(h = 0, col = "#80808040", lty = 2)
 
-        if (ii %% mfrow[[2]] == 0) {
+        # if (ii %% mfrow[[2]] == 0) {
           # legend
           graphics::legend(
             "topright",
             sprintf("%s, n=%d", group_labels, data_by_channel_condition$n_trials),
             lty = 1,
-            col = seq_along(group_labels),
+            col = col,
             bty = "n",
             cex = cex * 0.8
           )
-        }
+        # }
       }
     }
   )
@@ -212,7 +237,7 @@ plot_by_channel_condition <- function(
 
 
 plot_by_trial_per_condition <- function(
-    data_by_trial_per_condition, sort_by = c("stimli", "channel"),
+    data_by_trial_per_condition, sort_by = c("stimuli", "trial"),
     space = 0.995, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
     cex = 1, mfrow = NULL, vertical_marks = 0, col = NULL) {
 
@@ -220,7 +245,7 @@ plot_by_trial_per_condition <- function(
   space_mode <- match.arg(space_mode)
 
   # DIPSAUS DEBUG START
-  # sort_by <- "stimli"
+  # sort_by <- "trial"
   # group <- data_by_trial_per_condition$groups[[1]]
   # ii <- 1
   # space_mode <- "quantile"
@@ -240,13 +265,13 @@ plot_by_trial_per_condition <- function(
     if (!isTRUE(space > 0 && space < 1)) {
       space <- 1.0
     }
-    space <- stats::quantile(unlist(data_by_trial_per_condition$data),
-                             probs = space, na.rm = TRUE) * 2
+    space <- stats::quantile(abs(unlist(data_by_trial_per_condition$data)),
+                             probs = space, na.rm = TRUE)
     space_mode <- "absolute"
   } else {
     space <- abs(space)
     if (!isTRUE(space > 0)) {
-      space <- max(unlist(data_by_trial_per_condition$data), na.rm = TRUE) * 2
+      space <- max(abs(unlist(data_by_trial_per_condition$data)), na.rm = TRUE)
     }
   }
   space <- unname(space)
@@ -274,7 +299,11 @@ plot_by_trial_per_condition <- function(
 
   # Plot options
   if (length(mfrow) != 2) {
-    mfrow <- n2mfrow(n_groups, asp = 3)
+    if (n_groups > 4) {
+      mfrow <- n2mfrow(n_groups, asp = 3)
+    } else {
+      mfrow <- c(1, n_groups)
+    }
   }
 
   max_left_margin <- max(strwidth(data_by_trial_per_condition$unique_conditions,
@@ -284,32 +313,62 @@ plot_by_trial_per_condition <- function(
 
   oldpar <- graphics::par(mar = mar,
                           mgp = cex * c(2, 0.5, 0),
-                          cex.lab = 1,
-                          mfrow = mfrow)
+                          cex.lab = 1)
+  oldpar$mfrow <- graphics::par("mfrow")
+
+  lmat <- matrix(seq_len(prod(mfrow)), nrow = mfrow[[1]], byrow = TRUE)
+  lmat <- cbind(lmat + mfrow[[1]], seq_len(mfrow[[1]]))
 
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
 
   if (par_opt$mai[[2]] < max_left_margin) {
     mar[[2]] <- mar[[2]] / par_opt$mai[[2]] * max_left_margin + 0.1
-    graphics::par(mar = mar)
   }
   xline <- 1.5 * cex
   yline <- 1 * cex
   tck <- -0.005 * (3 + cex)
   par_opt$cex.lab <- 1
 
+  graphics::layout(lmat, widths = c(rep(1, mfrow[[2]]), graphics::lcm(2.5)))
   on.exit({
     graphics::par(oldpar)
   })
 
+  graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]))
+  legend_z <- seq(-space, space, length.out = length(col))
+  for (ii in seq_len(mfrow[[1]])) {
+    graphics::image(
+      x = 1,
+      y = legend_z,
+      z = matrix(legend_z, nrow = 1),
+      axes = FALSE,
+      xlab = "",
+      ylab = "",
+      main = bquote(mu * "V"),
+      col = col
+    )
+    graphics::axis(
+      side = 2L,
+      at = c(-space, space, 0),
+      labels = c(sprintf("%.0f", c(-space, space)), "0"),
+      las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
+      cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
+    )
+  }
+
+  graphics::par(mar = mar)
 
   for (ii in seq_along(group_indexes)) {
     data_time_by_trial <- data_by_trial_per_condition$data[[ii]]
     group <- data_by_trial_per_condition$groups[[ii]]
 
-    data_time_by_trial[data_time_by_trial < -space / 2] <- -space / 2
-    data_time_by_trial[data_time_by_trial > space / 2] <- space / 2
+    data_time_by_trial[data_time_by_trial < -space] <- -space
+    data_time_by_trial[data_time_by_trial > space] <- space
+
+    if (sort_by == "trial") {
+      data_time_by_trial <- data_time_by_trial[, order(group$trials_included), drop = FALSE]
+    }
 
     graphics::image(
       x = time_points,
@@ -317,10 +376,14 @@ plot_by_trial_per_condition <- function(
       z = data_time_by_trial,
       axes = FALSE,
       xlab = "",
-      ylab = "",
+      ylab = if (sort_by == "trial") "Trial Number" else "",
       xlim = time_range, cex = cex,
       zlim = c(-space, space),
-      col = col
+      main = group_labels[[ii]],
+      cex.main = cex * par_opt$cex.main,
+      adj = 0,
+      col = col,
+      cex.lab = cex * par_opt$cex.lab
     )
 
     graphics::mtext(side = 1, text = "Time (s)", line = xline,
@@ -330,34 +393,52 @@ plot_by_trial_per_condition <- function(
                    las = 1, tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
                    cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
 
-    separators <- cumsum(c(0, group$trial_count)) + 0.5
-    graphics::axis(
-      side = 2L, at = separators, las = 1,
-      labels = rep("", length(group$trial_count) + 1),
-      tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
-      cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
+    if (sort_by == "trial") {
 
-    graphics::axis(
-      side = 2L, at = cumsum(group$trial_count) + 0.5 - group$trial_count / 2,
-      las = 1, labels = group$conditions,
-      tck = 0, cex = cex, cex.axis = 0.85)
+      graphics::axis(
+        side = 2L, at = seq(0, by = 5, length.out = ceiling(group$n_trials / 5) + 1), las = 1,
+        tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
+        cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
+
+    } else {
+      separators <- cumsum(c(0, group$trial_count)) + 0.5
+      graphics::axis(
+        side = 2L, at = separators, las = 1,
+        labels = rep("", length(group$trial_count) + 1),
+        tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
+        cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
+
+      # graphics::axis(
+      #   side = 2L, at = cumsum(group$trial_count) + 0.5 - group$trial_count / 2,
+      #   las = 1, labels = group$conditions, srt = 45,
+      #   tck = 0, cex = cex, cex.axis = 0.85 * cex)
+
+      graphics::text(
+        x = par("usr")[[1]],
+        y = cumsum(group$trial_count) + 0.5 - group$trial_count / 2,
+        labels = sprintf("%s  ", group$conditions),
+        srt = 45, adj = c(1, 0.5),
+        cex = 0.85 * cex, xpd = NA)
+
+      if (length(separators) > 1) {
+        graphics::abline(h = separators[- c(1)],
+                         col = "#808080", lty = 1)
+      }
+    }
 
 
     if (length(vertical_marks)) {
       graphics::abline(v = vertical_marks, col = "#808080", lty = 3)
     }
 
-    if (length(separators) > 1) {
-      graphics::abline(h = separators[- c(1)],
-                       col = "#808080", lty = 1)
-    }
   }
 
 }
 
+# Overall plot: (collapse condition AND channels)
 plot_collapse_by_condition <- function(
     data_collapse_by_condition, crp_decoration = TRUE, col = NULL, flip_y = FALSE,
-    vertical_marks = 0, time_range = c(NA, NA)) {
+    vertical_marks = 0, time_range = c(NA, NA), cex = 1) {
 
   groups <- data_collapse_by_condition$groups
   group_indexes <- data_collapse_by_condition$group_indexes
@@ -372,9 +453,11 @@ plot_collapse_by_condition <- function(
 
   max_group_idx <- max(group_indexes)
 
-  if (is.null(col)) {
-    col <- seq_len(max_group_idx)
-  } else if (length(col) < max_group_idx) {
+  if (!length(col)) {
+    pal <- get_discrete_palette()
+    col <- pal$colors
+  }
+  if (length(col) < max_group_idx) {
     col <- rep(col, ceiling(max_group_idx / length(col)))
   }
   col <- col[group_indexes]
@@ -389,13 +472,18 @@ plot_collapse_by_condition <- function(
   graphics::matplot(
     x = time_points, y = mean_erp, type = "l", lty = 1, col = col, xaxs = "i",
     ylim = ylim, xlab = "", ylab = "", xlim = time_range,
-    main = "Mean response by condition", adj = 0, axes = FALSE)
+    main = "Mean voltage collapse over trials & channels", adj = 0, axes = FALSE, cex = cex, cex.main = cex * 1.2)
 
-  graphics::mtext(side = 1L, "Time (s)", line = 2)
-  graphics::mtext(side = 2L, bquote("Voltage" ~ (mu * V)), line = 2)
+  graphics::mtext(side = 1L, "Time (s)", line = 1.5 + 0.5 * cex, cex = cex)
+  graphics::mtext(
+    side = 2L,
+    bquote("Voltage" ~ (mu * V)),
+    line = 2,
+    cex = cex
+  )
 
-  graphics::axis(1L, pretty(time_range))
-  graphics::axis(2L, c(data_range, 0), labels = c(sprintf("%.0f", data_range), "0"), las = 1)
+  graphics::axis(1L, pretty(time_range), cex.axis = cex)
+  graphics::axis(2L, c(data_range, 0), labels = c(sprintf("%.0f", data_range), "0"), las = 1, cex.axis = cex)
 
   graphics::abline(v = vertical_marks, h = 0, col = "#80808080", lty = 2)
 
@@ -410,11 +498,11 @@ plot_collapse_by_condition <- function(
       graphics::points(x = tau, y = val, col = col[[ii]], pch = 16)
       segments(x0 = tau, y0 = ylim[[1]], x1 = tau, y1 = val, col = adjustcolor(col[[ii]], alpha.f = 0.5), lty = 3)
       graphics::text(x = tau, y = ylim[[1]] + (ii %% 2) * ifelse(flip_y, -10, 10), col = col[[ii]],
-                     labels = bquote(tau[CRP] * "=" * .(sprintf("%.2f", tau)) ~ "s"), cex = 0.8, adj = c(0.5, 0))
+                     labels = bquote(tau[CRP] * "=" * .(sprintf("%.2f", tau)) ~ "s"), cex = 0.8 * cex, adj = c(0.5, 0))
     })
   }
 
-  graphics::legend("topright", data_collapse_by_condition$group_labels, lty = 1, col = col, bty = "n", cex = 0.9, ncol = 2L)
+  graphics::legend("topright", data_collapse_by_condition$group_labels, lty = 1, col = col, bty = "n", cex = 0.9 * cex, ncol = 2L)
 
 
 }

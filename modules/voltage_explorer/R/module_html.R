@@ -285,7 +285,7 @@ module_html <- function() {
                   shiny::numericInput(
                     inputId = ns("plot_cex"),
                     label = "Text size (cex)",
-                    value = 1, min = 0.5, max = 3, step = 0.1
+                    value = 1.6, min = 0.5, max = 3, step = 0.1
                   )
                 )
               ),
@@ -325,7 +325,7 @@ module_html <- function() {
                     shiny::selectInput(
                       inputId = ns("trial_sort_by"),
                       label = "Sort trials by",
-                      choices = c("stimuli", "channel"),
+                      choices = c("stimuli", "trial"),
                       selected = "stimuli"
                     )
                   )
@@ -376,71 +376,48 @@ module_html <- function() {
             #   - ERP by Condition: figure_by_channel_condition_cond
             #   - Trial Overview : figure_by_trial_per_condition
 
-            ravedash::output_cardset(
-              inputId = ns("cardset_by_condition"),
-              title = "By Condition",
+            ravedash::output_card(
+              title = "Overall plot (collapse trials and channels)",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
-              tools = list(
-                shidashi::card_tool(
-                  widget = "custom",
-                  icon = ravedash::shiny_icons$camera,
-                  inputId = ns("cardset_by_condition_camera")
-                )
-              ),
+              shiny::plotOutput(
+                outputId = ns("figure_collapse_by_condition"),
+                width = "100%", height = "100%"
+              )
+            ),
 
-              # Mean ERP collapsed over channels; one line per condition group
-              `Mean Response` = shiny::div(
-                class = "position-relative fill",
-                shiny::plotOutput(
-                  outputId = ns("figure_collapse_by_condition"),
-                  width = "100%", height = "100%"
-                )
-              ),
+            # ERP traces stacked by electrode; one panel per condition group
+            ravedash::output_cardset(
+              title = "Collapse trials",
+              class_body = "no-padding fill-width min-height-450",
+              append_tools = FALSE,
 
-              # ERP traces stacked by electrode; one panel per condition group
-              `ERP by Condition` = shiny::div(
-                class = "position-relative fill",
+              "By Condition" = div(
+                class = "position-relative min-height-450 height-450 resize-vertical",
                 shiny::plotOutput(
                   outputId = ns("figure_by_channel_condition_cond"),
                   width = "100%", height = "100%"
                 )
               ),
 
-              # Time x trial heatmap; one panel per condition group
-              `Trial Overview` = shiny::div(
-                class = "position-relative fill",
-                shiny::plotOutput(
-                  outputId = ns("figure_by_trial_per_condition"),
-                  width = "100%", height = "100%"
-                )
-              )
-            ),
-
-            # ---- Output cardset: By Group over Time ---------------------------
-            # Plots organized by electrode; condition groups overlaid per panel
-            #   - ERP by Channel: figure_by_channel_condition_ch
-
-            ravedash::output_cardset(
-              inputId = ns("cardset_by_group"),
-              title = "By Group over Time",
-              class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
-              append_tools = FALSE,
-              tools = list(
-                shidashi::card_tool(
-                  widget = "custom",
-                  icon = ravedash::shiny_icons$camera,
-                  inputId = ns("cardset_by_group_camera")
-                )
-              ),
-
-              # One panel per electrode; condition groups as overlaid lines
-              `ERP by Channel` = shiny::div(
-                class = "position-relative fill",
+              "By Channel" = div(
+                class = "position-relative min-height-450 height-900 resize-vertical",
                 shiny::plotOutput(
                   outputId = ns("figure_by_channel_condition_ch"),
                   width = "100%", height = "100%"
                 )
+              )
+
+            ),
+
+            # Time x trial heatmap; one panel per condition group
+            ravedash::output_card(
+              title = "Per-trial voltage response",
+              class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
+              append_tools = FALSE,
+              shiny::plotOutput(
+                outputId = ns("figure_by_trial_per_condition"),
+                width = "100%", height = "100%"
               )
             )
 
