@@ -832,7 +832,8 @@ module_server <- function(input, output, session, ...) {
         # print(sprintf("Setting decor L828: %s", label_prefix))
         brain_proxy$set_text_decoration(id = label_prefix,
                                         text = label_prefix,
-                                        position = label_position)
+                                        position = label_position,
+                                        font_size = 3)
       }
     }
 
@@ -1495,7 +1496,8 @@ module_server <- function(input, output, session, ...) {
           # print(sprintf("Setting decor: %s", label_prefix))
           brain_proxy$set_text_decoration(id = label_prefix,
                                           text = label_prefix,
-                                          position = label_position)
+                                          position = label_position,
+                                          font_size = 3)
         }
       }
     }),
