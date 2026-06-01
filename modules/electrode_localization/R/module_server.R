@@ -684,6 +684,7 @@ module_server <- function(input, output, session, ...) {
     prototype_name <- snapshot$prototype_name
     hemisphere <- snapshot$hemisphere
     label_prefix <- snapshot$label_prefix
+    label_position <- c(NA, NA, NA)
 
     try({
       # Old threeBrain might not have this method
@@ -720,6 +721,22 @@ module_server <- function(input, output, session, ...) {
             item$FSLabel <- NULL
           }
           brain_proxy$add_localization_electrode(item, update_shiny = FALSE)
+
+          if (ii == 2) {
+            contact1_position <- c(geometry_table$tkr_R[[1]],
+                                   geometry_table$tkr_A[[1]],
+                                   geometry_table$tkr_S[[1]])
+            contact2_position <- c(row$tkr_R, row$tkr_A, row$tkr_S)
+
+            tmp <- contact1_position - contact2_position
+            tmp_length <- sqrt(sum(tmp^2))
+            if (tmp_length > 0) {
+              # normalize length
+              tmp <- tmp / tmp_length
+            }
+            # 6 mm
+            label_position <- contact1_position + tmp * 6
+          }
         }
       } else {
         for (ii in seq_len(nrow(group_table))) {
@@ -753,8 +770,33 @@ module_server <- function(input, output, session, ...) {
             item$FSLabel <- NULL
           }
           brain_proxy$add_localization_electrode(item, update_shiny = FALSE)
+
+          if (ii == 2) {
+            row1 <- group_table[1, ]
+            # Use OrigCoord_xyz for direction if available, consistent with displayed positions
+            c1x <- row1$OrigCoord_x %||% row1$Coord_x
+            c1y <- row1$OrigCoord_y %||% row1$Coord_y
+            c1z <- row1$OrigCoord_z %||% row1$Coord_z
+            contact1_position <- c(c1x, c1y, c1z)
+
+            c2x <- row$OrigCoord_x %||% row$Coord_x
+            c2y <- row$OrigCoord_y %||% row$Coord_y
+            c2z <- row$OrigCoord_z %||% row$Coord_z
+            contact2_position <- c(c2x, c2y, c2z)
+
+            tmp <- contact1_position - contact2_position
+            tmp_length <- sqrt(sum(tmp^2))
+            if (isTRUE(tmp_length > 0)) {
+              # normalize length
+              tmp <- tmp / tmp_length
+            }
+            # 6 mm
+            label_position <- contact1_position + tmp * 6
+          }
         }
       }
+
+      # Force updating the canvas
       brain_proxy$set_localization_electrode(
         which = -1, update_shiny = TRUE,
         list(Coord_x = 0, Coord_y = 0, Coord_z = 0))
@@ -777,6 +819,23 @@ module_server <- function(input, output, session, ...) {
         }
       }
     }
+
+    # update label decoration
+    # Use is.function(brain_proxy$set_text_decoration) for backward
+    # compatibility support in case user has not yet upgraded to
+    # the latest threeBrain package
+    if (is.function(brain_proxy$set_text_decoration)) {
+      if (anyNA(label_position)) {
+        # print(sprintf("Deleting decor L825: %s", label_prefix))
+        brain_proxy$delete_text_decoration(id = label_prefix)
+      } else {
+        # print(sprintf("Setting decor L828: %s", label_prefix))
+        brain_proxy$set_text_decoration(id = label_prefix,
+                                        text = label_prefix,
+                                        position = label_position)
+      }
+    }
+
 
     ct_exists <- isTRUE(component_container$data$ct_exists)
 
@@ -1401,6 +1460,43 @@ module_server <- function(input, output, session, ...) {
       } else {
         local_data$plan_list[[group_id]]$group_table <- group_table
         local_reactives$refresh_table <- Sys.time()
+
+        # Manually update surgical label position
+        label_prefix <- paste(ginfo$label_prefix, collapse = "")
+
+        c1 <- c(NA_real_, NA_real_, NA_real_)
+        c2 <- c(NA_real_, NA_real_, NA_real_)
+        if ( has_geometry ) {
+          if (is.data.frame(geometry_table) && nrow(geometry_table) >= 2) {
+            c1 <- c(geometry_table$tkr_R[[1]], geometry_table$tkr_A[[1]], geometry_table$tkr_S[[1]])
+            c2 <- c(geometry_table$tkr_R[[2]], geometry_table$tkr_A[[2]], geometry_table$tkr_S[[2]])
+          }
+        } else {
+          if (is.data.frame(group_table) && nrow(group_table) >= 2) {
+            c1 <- c(group_table$Coord_x[[1]], group_table$Coord_y[[1]], group_table$Coord_z[[1]])
+            c2 <- c(group_table$Coord_x[[2]], group_table$Coord_y[[2]], group_table$Coord_z[[2]])
+          }
+        }
+
+        tmp <- c1 - c2
+        tmp_length <- sqrt(sum(tmp^2))
+        if (isTRUE(tmp_length > 0)) {
+          tmp <- tmp / tmp_length
+        }
+        # Offset 6 mm; do not remove decoration because remove action
+        # happens with clear electrodes, requiring update_viewer=TRUE
+        # hence this is branch always add electrodes
+        #
+        # Also use is.function(brain_proxy$set_text_decoration) for backward
+        # compatibility support in case user has not yet upgraded to
+        # the latest threeBrain package
+        label_position <- c1 + tmp * 6
+        if (!anyNA(label_position) && is.function(brain_proxy$set_text_decoration)) {
+          # print(sprintf("Setting decor: %s", label_prefix))
+          brain_proxy$set_text_decoration(id = label_prefix,
+                                          text = label_prefix,
+                                          position = label_position)
+        }
       }
     }),
     brain_proxy$localization_table,
