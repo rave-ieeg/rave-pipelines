@@ -7,6 +7,13 @@ group_palette <- c("#FFA500", "#1874CD", "#006400", "#FF4500", "#A52A2A", "#7D26
                    "#85660D", "#B10DA1", "#1CBE4F", "#F7E1A0", "#C075A6", "#AAF400",
                    "#BDCDFF", "#822E1C", "#B5EFB5", "#7ED7D1", "#1C7F93", "#3B00FB"
 )
+DEFAULT_CEX <- 1.2
+
+OPTIONS_CHAN_ANNOT <- c("number", "short", "label", "full")
+DEFAULT_CHAN_ANNOT <- "number"
+
+OPTIONS_TRIAL_SORT <- c("stimuli", "trial")
+DEFAULT_TRIAL_SORT <- "stimuli"
 
 if (!pipeline$has_preferences("voltage_explorer.graphics.discrete_palette")) {
   pipeline$set_preferences("voltage_explorer.graphics.discrete_palette" = list(
@@ -45,20 +52,20 @@ use_discrete_palette <- function(name, colors) {
 use_cex <- function(cex) {
   if (!missing(cex)) {
     if (!isTRUE(cex > 0)) {
-      cex <- 1.4
+      cex <- DEFAULT_CEX
     }
     pipeline$set_preferences("voltage_explorer.graphics.cex" = cex)
   } else {
-    cex <- pipeline$get_preferences("voltage_explorer.graphics.cex", modes = "numeric", ifnotfound = 1.4)
+    cex <- pipeline$get_preferences("voltage_explorer.graphics.cex", modes = "numeric", ifnotfound = DEFAULT_CEX)
     if (!isTRUE(cex > 0)) {
-      cex <- 1.4
+      cex <- DEFAULT_CEX
       pipeline$set_preferences("voltage_explorer.graphics.cex" = cex)
     }
   }
   cex
 }
 
-use_channel_annotation_style <- function(style = c("number", "short", "label", "full")) {
+use_channel_annotation_style <- function(style = OPTIONS_CHAN_ANNOT) {
   if (!missing(style)) {
     style <- match.arg(style)
     pipeline$set_preferences("voltage_explorer.graphics.channel_annotation_style" = style)
@@ -66,13 +73,13 @@ use_channel_annotation_style <- function(style = c("number", "short", "label", "
     style <- pipeline$get_preferences(
       "voltage_explorer.graphics.channel_annotation_style",
       modes = "character",
-      ifnotfound = "number"
-    ) %OF% c("number", "short", "label", "full")
+      ifnotfound = DEFAULT_CHAN_ANNOT
+    ) %OF% OPTIONS_CHAN_ANNOT
   }
   style
 }
 
-use_trial_sort_by <- function(trial_sort_by = c("stimuli", "trial")) {
+use_trial_sort_by <- function(trial_sort_by = OPTIONS_TRIAL_SORT) {
   if (!missing(trial_sort_by)) {
     trial_sort_by <- match.arg(trial_sort_by)
     pipeline$set_preferences("voltage_explorer.graphics.trial_sort_by" = trial_sort_by)
@@ -80,7 +87,7 @@ use_trial_sort_by <- function(trial_sort_by = c("stimuli", "trial")) {
     trial_sort_by <- pipeline$get_preferences(
       "voltage_explorer.graphics.trial_sort_by",
       modes = "character"
-    ) %OF% c("stimuli", "trial")
+    ) %OF% OPTIONS_TRIAL_SORT
   }
   trial_sort_by
 }
@@ -117,9 +124,9 @@ reset_graphics_preferences <- function() {
       name = "Default",
       colors = group_palette
     ),
-    "voltage_explorer.graphics.cex" = 1.4,
-    "voltage_explorer.graphics.channel_annotation_style" = "number",
-    "voltage_explorer.graphics.trial_sort_by" = "stimuli",
+    "voltage_explorer.graphics.cex" = DEFAULT_CEX,
+    "voltage_explorer.graphics.channel_annotation_style" = DEFAULT_CHAN_ANNOT,
+    "voltage_explorer.graphics.trial_sort_by" = DEFAULT_TRIAL_SORT,
     "voltage_explorer.graphics.flipped_y" = FALSE,
     "voltage_explorer.graphics.show_crp_decoration" = TRUE
   )

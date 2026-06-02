@@ -1,20 +1,20 @@
-analysis_electrodes: '15 '
+analysis_electrodes: '15'
 analysis_ranges: ~
 condition_groups:
   '1':
-    label: AOnly
-    conditions:
-    - known_a
-    - last_a
-    - drive_a
-    - meant_a
-  '2':
     label: AV
     conditions:
-    - known_av
     - last_av
     - drive_av
+    - known_av
     - meant_av
+  '2':
+    label: A
+    conditions:
+    - last_a
+    - drive_a
+    - known_a
+    - meant_a
   '3':
     label: V
     conditions:
@@ -23,24 +23,24 @@ condition_groups:
     - known_v
     - meant_v
 epoch_choice: auditory_onset
-epoch_choice__trial_ends: 3
+epoch_choice__trial_ends: 2
 epoch_choice__trial_ends_rel_to_event: ~
 epoch_choice__trial_starts: -1
 epoch_choice__trial_starts_rel_to_event: ~
 filter_configurations:
 - type: decimate
-  by: 20
+  by: 2.0
+  auto: yes
 - type: firls
-  high_pass_freq: ~
+  high_pass_freq: 1
   low_pass_freq: 30
-  high_pass_trans_freq: ~
-  low_pass_trans_freq: ~
-  stopband_attenuation: 40
-- type: demean
+- type: decimate
+  by: 1
+  auto: no
 - type: baseline
   windows:
-  - -1.0
-  - -0.5
+  - -0.67
+  - -0.51
 loaded_electrodes: 13-16,24
 project_name: demo
 reference_name: default

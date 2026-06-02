@@ -12,7 +12,7 @@ ravepipeline::pipeline_setup_rmd("voltage_explorer")
 ```
 
 
-```{rave load_subject, language = "R", export = "subject"}
+```{r load_subject, engine='rave', language = "R", export = "subject"}
 subject <- ravecore::new_rave_subject(
   project_name = project_name, 
   subject_code = subject_code
@@ -27,7 +27,7 @@ subject$electrodes
 ```
 
 
-```{rave prepare_data_repository, language = "R", export = "repository", cue = "always"}
+```{r prepare_data_repository, engine='rave', language = "R", export = "repository", cue = "always"}
 repository <- ravecore::prepare_subject_voltage_with_epochs(
   subject = subject,
   electrodes = loaded_electrodes,
@@ -48,7 +48,7 @@ repository <- ravecore::prepare_subject_voltage_with_epochs(
 * Sorted integer, from smallest to largest
 
 
-```{rave clean_analysis_electrodes, language = "R", export = "analysis_electrodes_clean"}
+```{r clean_analysis_electrodes, engine='rave', language = "R", export = "analysis_electrodes_clean"}
 available_channels <- repository$electrode_list
 analysis_electrodes_clean <- dipsaus::parse_svec(unlist(analysis_electrodes))
 analysis_electrodes_clean <- analysis_electrodes_clean[analysis_electrodes_clean %in% available_channels]
@@ -59,7 +59,141 @@ if (!length(analysis_electrodes_clean)) {
 analysis_electrodes_clean <- as.integer(sort(analysis_electrodes_clean))
 ```
 
-```{rave prepare_pre_analysis_filters, language = "R", export = "filtered_array"}
+```{r diagnose_filters, engine='rave', language="R", export = "filter_freqz"}
+# Pre-calculate each frequency filter so its frequency response can be plotted.
+# Meta steps (detrend, demean, decimate, baseline) are not filter objects but
+# advance the tracked effective sample rate / timepoint count accordingly.
+sample_rate <- repository$sample_rate
+time_points <- repository$voltage$dimnames$Time
+
+start_time <- min(time_points, na.rm = TRUE)
+n_timepoints <- length(time_points)
+new_srate <- sample_rate
+
+configs <- as.list(filter_configurations)
+
+filter <- list()
+pre_filter_decimate <- 1L
+post_filter_decimate <- 1L
+found_frequency_filter <- FALSE
+freqz_n <- 2^(floor(log2(n_timepoints / 2)) + 1)
+
+xlim <- NULL
+
+for (cfg in configs) {
+  type <- cfg$type %||% ""
+
+  # -- Meta steps: update tracked state but produce no filter object ----------
+  if (type %in% c("detrend", "demean", "baseline")) {
+    next
+  }
+
+  if (type == "decimate") {
+    by <- max(1L, as.integer(cfg$by %||% 1L))
+    if (!found_frequency_filter) {
+      # Pre-filter decimation: accumulate before first frequency filter
+      pre_filter_decimate <- pre_filter_decimate * by
+      new_srate <- new_srate / by
+      n_timepoints <- ceiling(n_timepoints / by)
+    } else {
+      # Post-filter decimation: accumulate after frequency filters
+      post_filter_decimate <- post_filter_decimate * by
+    }
+    next
+  }
+
+  # -- Normalize type aliases -------------------------------------------------
+  if (type == "fir") { type <- "fir_kaiser" }
+  if (type == "iir") { type <- "butter" }
+
+  # -- Design the filter and capture coefficients for plotting ----------------
+  f <- tryCatch({
+    ravetools::design_filter(
+      sample_rate          = new_srate,
+      filter_order         = NA,
+      data_size            = n_timepoints,
+      high_pass_freq       = cfg$high_pass_freq       %||% NA,
+      high_pass_trans_freq = cfg$high_pass_trans_freq %||% NA,
+      low_pass_freq        = cfg$low_pass_freq        %||% NA,
+      low_pass_trans_freq  = cfg$low_pass_trans_freq  %||% NA,
+      passband_ripple      = cfg$passband_ripple      %||% 0.1,
+      stopband_attenuation = cfg$stopband_attenuation %||% 40,
+      scale                = TRUE,
+      method               = type
+    )
+  }, error = function(e) {
+    stop("Could not design filter (type=",
+         type,
+         "): ",
+         conditionMessage(e))
+    NULL
+  })
+
+  if (!is.null(f)) {
+    found_frequency_filter <- TRUE
+    freqz <- ravetools::freqz2(
+      b = f$b,
+      a = f$a,
+      fs = new_srate,
+      n = freqz_n,
+      whole = FALSE
+    )
+
+    filter[[length(filter) + 1L]] <- list(
+      config      = cfg,
+      type        = type,
+      sample_rate = new_srate,
+      b           = f$b,
+      a           = f$a,
+      frequency   = freqz$w,
+      response    = freqz$h
+    )
+    
+    xlim <- range(c(xlim, f$parameters$stopband * new_srate / 2), na.rm = TRUE)
+  }
+}
+
+# -- Combined frequency response on the pre-decimated sample-rate axis --
+if (length(filter)) {
+  # All FIR/IIR filters see the same sample_rate (new_srate), so they're all
+  # on the same frequency grid. Multiply responses directly.
+  combined_freq <- seq(0, new_srate / 2, length.out = freqz_n)
+  combined_response <- rep(1 + 0i, length(combined_freq))
+  
+  for (item in filter) {
+    # All filters are at the same sample rate, so responses align on same grid.
+    # Just multiply the complex responses directly.
+    combined_response <- combined_response * item$response
+  }
+  
+  filter_freqz <- structure(
+    class = c("ravetools-freqz2", "ravetools-printable"),
+    list(
+      w = combined_freq, # Hz, on the pre-decimated sample rate
+      h = combined_response, # complex; Mod() = amplitude, Arg() = phase
+      f = combined_freq, # Hz, redundant with w, but more intuitive to associate with h
+      u = "Hz",
+      srate = new_srate, # sample rate at the input to the FIR/IIR filters
+      pre_filter_decimate = pre_filter_decimate,
+      post_filter_decimate = post_filter_decimate,
+      original_srate = sample_rate,
+      n = freqz_n,
+      xlim = xlim
+    )
+  )
+} else {
+  filter_freqz <- NULL
+}
+# plot(filter_freqz, xlim = xlim)
+```
+
+```{r}
+if (!is.null(filter_freqz)) {
+  plot(filter_freqz, xlim = filter_freqz$xlim)
+}
+```
+
+```{r prepare_pre_analysis_filters, engine='rave', language = "R", export = "filtered_array"}
 filtered_array <- prepare_filtered_data(
   array_type = "filtered_voltage",
   repository = repository,
@@ -115,7 +249,7 @@ ravepipeline::with_rave_parallel({
 filtered_array$`@impl`
 ```
 
-```{rave get_electrode_coordinate_table, export = "analysis_electrode_coordinates"}
+```{r get_electrode_coordinate_table, engine='rave', export = "analysis_electrode_coordinates"}
 analysis_electrode_coordinates <- subject$get_electrode_table(
   electrodes = analysis_electrodes_clean,
   reference_name = repository$reference_name,
@@ -148,7 +282,7 @@ analysis_electrode_coordinates$LeadChannel <- is_lead_channel
 Groups with empty labels are auto-named (`Group<index>`); groups whose
 conditions are empty or do not appear in the epoch are dropped.
 
-```{rave clean_condition_groups, language = "R", export = "condition_groups_clean"}
+```{r clean_condition_groups, engine='rave', language = "R", export = "condition_groups_clean"}
 condition_groups_clean <- ravecore::validate_condition_groupings(
   condition_groups,
   epoch = repository$epoch
@@ -161,7 +295,7 @@ if (!isTRUE(condition_groups_clean$n > 0)) {
 
 Combine `condition_groups_clean` and `filtered_array` to prepare plot data
 
-```{rave prepare_plot_data_placeholder, export = "data_placeholder", cue = "always"}
+```{r prepare_plot_data_placeholder, engine='rave', export = "data_placeholder", cue = "always"}
 data_placeholder <- condition_groups_clean
 
 if (inherits(filtered_array, "RAVEFileArray")) {
@@ -204,7 +338,7 @@ Visualizations
 
 For each channel, condition group, collapse over trials
 
-```{rave prepare_voltage_over_channel_and_condition_by_collapsing_trials, language = "R", export = "data_by_channel_condition"}
+```{r prepare_voltage_over_channel_and_condition_by_collapsing_trials, engine='rave', language = "R", export = "data_by_channel_condition"}
 if (inherits(filtered_array, "RAVEFileArray")) {
   # unwrap the filtered_array
   filtered_array_impl <- filtered_array$`@impl`
@@ -223,7 +357,7 @@ group_data <- lapply(data_placeholder$groups, function(group) {
   # Drop dimnames to speed up
   dimnames(sub_array) <- NULL
   
-  # Collapse over trial
+  # # Collapse over trial
   ravetools::collapse(x = sub_array,
                       keep = c(1L, 3L),
                       average = TRUE)
@@ -240,16 +374,18 @@ data_by_channel_condition$data <- group_data
 
 Visualization:
 
-- By-channel plot
-  - plot ERP for each condition group
-- By-condition plot
-  - plot each channel (collapse trials)
+- ERP collapsed over trials & channels, by condition
+- ERP collapsed over trials by channels, per condition
+
+Here "by" means each plot has lines by the variable, and per means different variable are in the different sub-figures. For example, "ERP collapsed over trials by channels, per condition" means the plot is ERP collapsed over trials for each combination of channels and conditions. The number of sub-figures equal to the number of conditions, and each sub-figure has numbers of lines that each line is a channel.
 
 ```{r}
+# Plot data collapsed over trials & channels, by condition
 plot(data_by_channel_condition,
      group_by = "channel",
      channel_annotation = "full")
 
+# Plot data collapsed over trials by channels, per condition
 plot(data_by_channel_condition,
      group_by = "condition",
      channel_annotation = "short")
@@ -272,7 +408,7 @@ plot(data_by_channel_condition,
 - By-condition plot
   - plot each trial - collapse channels
 
-```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_per_condition"}
+```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_channel_condition"}
 if (inherits(filtered_array, "RAVEFileArray")) {
   # unwrap the filtered_array
   filtered_array_impl <- filtered_array$`@impl`
@@ -283,48 +419,8 @@ if (inherits(filtered_array, "RAVEFileArray")) {
 dnames <- dimnames(filtered_array_impl)
 trial_numbers <- dnames$Trial
 
-group_data <- lapply(data_placeholder$groups, function(group) {
-  # group <- data_placeholder$groups[[1]]
-  sub_array <- subset(
-    filtered_array_impl,
-    Electrode ~ Electrode %in% analysis_electrodes_clean,
-    Trial ~ match(group$trials_included, trial_numbers),
-    drop = FALSE
-  )
-  # Drop dimnames to speed up
-  dimnames(sub_array) <- NULL
-  
-  # Collapse over trial (the trial is sorted by stimuli names)
-  voltage_by_trial <- ravetools::collapse(x = sub_array,
-                                          keep = c(1L, 2L),
-                                          average = TRUE)
-  return(voltage_by_trial)
-})
-
-data_by_trial_per_condition <- ravepipeline::pipeline_plot_data(
-  x = data_placeholder, name = "data_by_trial_per_condition"
-)
-
-data_by_trial_per_condition$data <- group_data
-```
-
-```{r}
-# or plot(...)
-plot_by_trial_per_condition(
-  data_by_trial_per_condition, space = 0.9)
-```
-
-- By-condition plot
-  - collapse channel - each cond. group is a line
-
-```{rave prepare_collapsed_voltage_per_condition, export = "data_collapse_by_condition"}
-data_collapse_by_condition <- ravepipeline::pipeline_plot_data(
-  x = data_by_trial_per_condition, 
-  name = "data_collapse_by_condition"
-)
-
-time_points <- data_collapse_by_condition$time_points
-sample_rate <- data_collapse_by_condition$sample_rate 
+time_points <- data_placeholder$time_points
+sample_rate <- data_placeholder$sample_rate 
 
 time_range <- range(time_points)
 crp_time_begin <- 0.01
@@ -341,11 +437,21 @@ if ((crp_time_end - crp_time_begin) * sample_rate <= 10) {
   crp_enabled <- TRUE
 }
 
-
-group_data <- lapply(seq_along(data_collapse_by_condition$groups), function(ii) {
-  # ii = 2
-  group <- data_collapse_by_condition$groups[[ii]]
-  voltage_by_trial <- data_collapse_by_condition$data[[ii]]
+group_data <- lapply(data_placeholder$groups, function(group) {
+  # group <- data_placeholder$groups[[1]]
+  sub_array <- subset(
+    filtered_array_impl,
+    Electrode ~ Electrode %in% analysis_electrodes_clean,
+    Trial ~ match(group$trials_included, trial_numbers),
+    drop = FALSE
+  )
+  # Drop dimnames to speed up
+  dimnames(sub_array) <- NULL
+  
+  # Collapse over trial (the trial is sorted by stimuli names)
+  voltage_by_trial <- ravetools::collapse(x = sub_array,
+                                          keep = c(1L, 2L),
+                                          average = TRUE)
   
   if (crp_enabled) {
     crp_result <- ravetools::crp(
@@ -356,7 +462,7 @@ group_data <- lapply(seq_along(data_collapse_by_condition$groups), function(ii) 
       time_step = crp_time_step,
       threshold_quantile = 0.98,
       artifact_interval = "tR",
-      remove_artifacts = FALSE
+      remove_artifacts = TRUE
     )
   } else {
     crp_result <- NULL
@@ -364,38 +470,38 @@ group_data <- lapply(seq_along(data_collapse_by_condition$groups), function(ii) 
   
   # Mean and se of mean
   if (length(crp_result$bad_trials)) {
-    voltage_by_trial <- voltage_by_trial[, - crp_result$bad_trials, drop = FALSE]
+    bad_trials_index <- crp_result$bad_trials
+    bad_trials <- as.integer(group$trials_included[bad_trials_index])
+    mean_erp <- rowMeans(voltage_by_trial[, - bad_trials_index, drop = FALSE])
+  } else {
+    bad_trials <- integer(0L)
+    mean_erp <- rowMeans(voltage_by_trial)
   }
   
-  n_samples <- ncol(voltage_by_trial)
-  
-  mean_erp <- rowMeans(voltage_by_trial)
-  
   return(list(
+    voltage = voltage_by_trial,
     mean = mean_erp,
-    bad_trials = group$trials_included[crp_result$bad_trials], 
-    tau_r = c(crp_result$tau_R_lower, crp_result$tau_R, crp_result$tau_R_upper)
+    bad_trials = bad_trials, 
+    crp_result = crp_result
   ))
+  # return(voltage_by_trial)
 })
 
-mean_erp <- simplify2array(lapply(group_data, "[[", "mean"))
-bad_trials <- lapply(group_data, "[[", "bad_trials")
-crp_tau <- lapply(group_data, "[[", "tau_r")
-
-
-data_collapse_by_condition$data <- list(
-  mean_erp = mean_erp,
-  bad_trials = bad_trials,
-  crp_enabled = crp_enabled,
-  crp_time_range = c(crp_time_begin, crp_time_end),
-  crp_tau = crp_tau
+data_by_trial_channel_condition <- ravepipeline::pipeline_plot_data(
+  x = data_placeholder, name = "data_by_trial_channel_condition"
 )
+
+data_by_trial_channel_condition$crp_enabled <- crp_enabled
+data_by_trial_channel_condition$data <- group_data
 ```
 
 ```{r}
 # or plot(...)
-plot_collapse_by_condition(data_collapse_by_condition, time_range = c(-0.5, 1), flip_y = TRUE)
+plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "by_trial_line", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "by_trial_heatmap", cex = 0.9)
 ```
+
 
 ### Spectrogram analyses
 

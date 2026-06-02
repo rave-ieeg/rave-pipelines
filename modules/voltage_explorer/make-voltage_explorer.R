@@ -160,7 +160,186 @@ rm(._._env_._.)
             }), target_depends = c("repository", "analysis_electrodes"
             )), deps = c("repository", "analysis_electrodes"), 
         cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
-    prepare_pre_analysis_filters = targets::tar_target_raw(name = "filtered_array", 
+    diagnose_filters = targets::tar_target_raw(name = "filter_freqz", 
+        command = quote({
+            .__target_expr__. <- quote({
+                sample_rate <- repository$sample_rate
+                time_points <- repository$voltage$dimnames$Time
+                start_time <- min(time_points, na.rm = TRUE)
+                n_timepoints <- length(time_points)
+                new_srate <- sample_rate
+                configs <- as.list(filter_configurations)
+                filter <- list()
+                pre_filter_decimate <- 1L
+                post_filter_decimate <- 1L
+                found_frequency_filter <- FALSE
+                freqz_n <- 2^(floor(log2(n_timepoints/2)) + 1)
+                xlim <- NULL
+                for (cfg in configs) {
+                  type <- cfg$type %||% ""
+                  if (type %in% c("detrend", "demean", "baseline")) {
+                    next
+                  }
+                  if (type == "decimate") {
+                    by <- max(1L, as.integer(cfg$by %||% 1L))
+                    if (!found_frequency_filter) {
+                      pre_filter_decimate <- pre_filter_decimate * 
+                        by
+                      new_srate <- new_srate/by
+                      n_timepoints <- ceiling(n_timepoints/by)
+                    } else {
+                      post_filter_decimate <- post_filter_decimate * 
+                        by
+                    }
+                    next
+                  }
+                  if (type == "fir") {
+                    type <- "fir_kaiser"
+                  }
+                  if (type == "iir") {
+                    type <- "butter"
+                  }
+                  f <- tryCatch({
+                    ravetools::design_filter(sample_rate = new_srate, 
+                      filter_order = NA, data_size = n_timepoints, 
+                      high_pass_freq = cfg$high_pass_freq %||% 
+                        NA, high_pass_trans_freq = cfg$high_pass_trans_freq %||% 
+                        NA, low_pass_freq = cfg$low_pass_freq %||% 
+                        NA, low_pass_trans_freq = cfg$low_pass_trans_freq %||% 
+                        NA, passband_ripple = cfg$passband_ripple %||% 
+                        0.1, stopband_attenuation = cfg$stopband_attenuation %||% 
+                        40, scale = TRUE, method = type)
+                  }, error = function(e) {
+                    stop("Could not design filter (type=", type, 
+                      "): ", conditionMessage(e))
+                    NULL
+                  })
+                  if (!is.null(f)) {
+                    found_frequency_filter <- TRUE
+                    freqz <- ravetools::freqz2(b = f$b, a = f$a, 
+                      fs = new_srate, n = freqz_n, whole = FALSE)
+                    filter[[length(filter) + 1L]] <- list(config = cfg, 
+                      type = type, sample_rate = new_srate, b = f$b, 
+                      a = f$a, frequency = freqz$w, response = freqz$h)
+                    xlim <- range(c(xlim, f$parameters$stopband * 
+                      new_srate/2), na.rm = TRUE)
+                  }
+                }
+                if (length(filter)) {
+                  combined_freq <- seq(0, new_srate/2, length.out = freqz_n)
+                  combined_response <- rep(1 + (0+0i), length(combined_freq))
+                  for (item in filter) {
+                    combined_response <- combined_response * 
+                      item$response
+                  }
+                  filter_freqz <- structure(class = c("ravetools-freqz2", 
+                    "ravetools-printable"), list(w = combined_freq, 
+                    h = combined_response, f = combined_freq, 
+                    u = "Hz", srate = new_srate, pre_filter_decimate = pre_filter_decimate, 
+                    post_filter_decimate = post_filter_decimate, 
+                    original_srate = sample_rate, n = freqz_n, 
+                    xlim = xlim))
+                } else {
+                  filter_freqz <- NULL
+                }
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(filter_freqz)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "filter_freqz", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "filter_freqz", target_expr = quote({
+                {
+                  sample_rate <- repository$sample_rate
+                  time_points <- repository$voltage$dimnames$Time
+                  start_time <- min(time_points, na.rm = TRUE)
+                  n_timepoints <- length(time_points)
+                  new_srate <- sample_rate
+                  configs <- as.list(filter_configurations)
+                  filter <- list()
+                  pre_filter_decimate <- 1L
+                  post_filter_decimate <- 1L
+                  found_frequency_filter <- FALSE
+                  freqz_n <- 2^(floor(log2(n_timepoints/2)) + 
+                    1)
+                  xlim <- NULL
+                  for (cfg in configs) {
+                    type <- cfg$type %||% ""
+                    if (type %in% c("detrend", "demean", "baseline")) {
+                      next
+                    }
+                    if (type == "decimate") {
+                      by <- max(1L, as.integer(cfg$by %||% 1L))
+                      if (!found_frequency_filter) {
+                        pre_filter_decimate <- pre_filter_decimate * 
+                          by
+                        new_srate <- new_srate/by
+                        n_timepoints <- ceiling(n_timepoints/by)
+                      } else {
+                        post_filter_decimate <- post_filter_decimate * 
+                          by
+                      }
+                      next
+                    }
+                    if (type == "fir") {
+                      type <- "fir_kaiser"
+                    }
+                    if (type == "iir") {
+                      type <- "butter"
+                    }
+                    f <- tryCatch({
+                      ravetools::design_filter(sample_rate = new_srate, 
+                        filter_order = NA, data_size = n_timepoints, 
+                        high_pass_freq = cfg$high_pass_freq %||% 
+                          NA, high_pass_trans_freq = cfg$high_pass_trans_freq %||% 
+                          NA, low_pass_freq = cfg$low_pass_freq %||% 
+                          NA, low_pass_trans_freq = cfg$low_pass_trans_freq %||% 
+                          NA, passband_ripple = cfg$passband_ripple %||% 
+                          0.1, stopband_attenuation = cfg$stopband_attenuation %||% 
+                          40, scale = TRUE, method = type)
+                    }, error = function(e) {
+                      stop("Could not design filter (type=", 
+                        type, "): ", conditionMessage(e))
+                      NULL
+                    })
+                    if (!is.null(f)) {
+                      found_frequency_filter <- TRUE
+                      freqz <- ravetools::freqz2(b = f$b, a = f$a, 
+                        fs = new_srate, n = freqz_n, whole = FALSE)
+                      filter[[length(filter) + 1L]] <- list(config = cfg, 
+                        type = type, sample_rate = new_srate, 
+                        b = f$b, a = f$a, frequency = freqz$w, 
+                        response = freqz$h)
+                      xlim <- range(c(xlim, f$parameters$stopband * 
+                        new_srate/2), na.rm = TRUE)
+                    }
+                  }
+                  if (length(filter)) {
+                    combined_freq <- seq(0, new_srate/2, length.out = freqz_n)
+                    combined_response <- rep(1 + (0+0i), length(combined_freq))
+                    for (item in filter) {
+                      combined_response <- combined_response * 
+                        item$response
+                    }
+                    filter_freqz <- structure(class = c("ravetools-freqz2", 
+                      "ravetools-printable"), list(w = combined_freq, 
+                      h = combined_response, f = combined_freq, 
+                      u = "Hz", srate = new_srate, pre_filter_decimate = pre_filter_decimate, 
+                      post_filter_decimate = post_filter_decimate, 
+                      original_srate = sample_rate, n = freqz_n, 
+                      xlim = xlim))
+                  } else {
+                    filter_freqz <- NULL
+                  }
+                }
+                filter_freqz
+            }), target_depends = c("repository", "filter_configurations"
+            )), deps = c("repository", "filter_configurations"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), prepare_pre_analysis_filters = targets::tar_target_raw(name = "filtered_array", 
         command = quote({
             .__target_expr__. <- quote({
                 filtered_array <- prepare_filtered_data(array_type = "filtered_voltage", 
@@ -406,7 +585,7 @@ rm(._._env_._.)
             }), target_depends = c("filtered_array", "data_placeholder", 
             "analysis_electrodes_clean")), deps = c("filtered_array", 
         "data_placeholder", "analysis_electrodes_clean"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), prepare_voltage_collapsed_over_channels_per_condition = targets::tar_target_raw(name = "data_by_trial_per_condition", 
+        pattern = NULL, iteration = "list"), prepare_voltage_collapsed_over_channels_per_condition = targets::tar_target_raw(name = "data_by_trial_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({
                 if (inherits(filtered_array, "RAVEFileArray")) {
@@ -416,64 +595,8 @@ rm(._._env_._.)
                 }
                 dnames <- dimnames(filtered_array_impl)
                 trial_numbers <- dnames$Trial
-                group_data <- lapply(data_placeholder$groups, 
-                  function(group) {
-                    sub_array <- subset(filtered_array_impl, 
-                      Electrode ~ Electrode %in% analysis_electrodes_clean, 
-                      Trial ~ match(group$trials_included, trial_numbers), 
-                      drop = FALSE)
-                    dimnames(sub_array) <- NULL
-                    voltage_by_trial <- ravetools::collapse(x = sub_array, 
-                      keep = c(1L, 2L), average = TRUE)
-                    return(voltage_by_trial)
-                  })
-                data_by_trial_per_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
-                  name = "data_by_trial_per_condition")
-                data_by_trial_per_condition$data <- group_data
-            })
-            tryCatch({
-                eval(.__target_expr__.)
-                return(data_by_trial_per_condition)
-            }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_by_trial_per_condition", 
-                  condition = e, expr = .__target_expr__.)
-            })
-        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "data_by_trial_per_condition", target_expr = quote({
-                {
-                  if (inherits(filtered_array, "RAVEFileArray")) {
-                    filtered_array_impl <- filtered_array$`@impl`
-                  } else {
-                    filtered_array_impl <- filtered_array
-                  }
-                  dnames <- dimnames(filtered_array_impl)
-                  trial_numbers <- dnames$Trial
-                  group_data <- lapply(data_placeholder$groups, 
-                    function(group) {
-                      sub_array <- subset(filtered_array_impl, 
-                        Electrode ~ Electrode %in% analysis_electrodes_clean, 
-                        Trial ~ match(group$trials_included, 
-                          trial_numbers), drop = FALSE)
-                      dimnames(sub_array) <- NULL
-                      voltage_by_trial <- ravetools::collapse(x = sub_array, 
-                        keep = c(1L, 2L), average = TRUE)
-                      return(voltage_by_trial)
-                    })
-                  data_by_trial_per_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
-                    name = "data_by_trial_per_condition")
-                  data_by_trial_per_condition$data <- group_data
-                }
-                data_by_trial_per_condition
-            }), target_depends = c("filtered_array", "data_placeholder", 
-            "analysis_electrodes_clean")), deps = c("filtered_array", 
-        "data_placeholder", "analysis_electrodes_clean"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), prepare_collapsed_voltage_per_condition = targets::tar_target_raw(name = "data_collapse_by_condition", 
-        command = quote({
-            .__target_expr__. <- quote({
-                data_collapse_by_condition <- ravepipeline::pipeline_plot_data(x = data_by_trial_per_condition, 
-                  name = "data_collapse_by_condition")
-                time_points <- data_collapse_by_condition$time_points
-                sample_rate <- data_collapse_by_condition$sample_rate
+                time_points <- data_placeholder$time_points
+                sample_rate <- data_placeholder$sample_rate
                 time_range <- range(time_points)
                 crp_time_begin <- 0.01
                 if (crp_time_begin > time_range[[2]]) {
@@ -487,52 +610,61 @@ rm(._._env_._.)
                 } else {
                   crp_enabled <- TRUE
                 }
-                group_data <- lapply(seq_along(data_collapse_by_condition$groups), 
-                  function(ii) {
-                    group <- data_collapse_by_condition$groups[[ii]]
-                    voltage_by_trial <- data_collapse_by_condition$data[[ii]]
+                group_data <- lapply(data_placeholder$groups, 
+                  function(group) {
+                    sub_array <- subset(filtered_array_impl, 
+                      Electrode ~ Electrode %in% analysis_electrodes_clean, 
+                      Trial ~ match(group$trials_included, trial_numbers), 
+                      drop = FALSE)
+                    dimnames(sub_array) <- NULL
+                    voltage_by_trial <- ravetools::collapse(x = sub_array, 
+                      keep = c(1L, 2L), average = TRUE)
                     if (crp_enabled) {
                       crp_result <- ravetools::crp(voltage_by_trial, 
                         time = time_points, t_start = crp_time_begin, 
                         t_end = crp_time_end, time_step = crp_time_step, 
                         threshold_quantile = 0.98, artifact_interval = "tR", 
-                        remove_artifacts = FALSE)
+                        remove_artifacts = TRUE)
                     } else {
                       crp_result <- NULL
                     }
                     if (length(crp_result$bad_trials)) {
-                      voltage_by_trial <- voltage_by_trial[, 
-                        -crp_result$bad_trials, drop = FALSE]
+                      bad_trials_index <- crp_result$bad_trials
+                      bad_trials <- as.integer(group$trials_included[bad_trials_index])
+                      mean_erp <- rowMeans(voltage_by_trial[, 
+                        -bad_trials_index, drop = FALSE])
+                    } else {
+                      bad_trials <- integer(0L)
+                      mean_erp <- rowMeans(voltage_by_trial)
                     }
-                    n_samples <- ncol(voltage_by_trial)
-                    mean_erp <- rowMeans(voltage_by_trial)
-                    return(list(mean = mean_erp, bad_trials = group$trials_included[crp_result$bad_trials], 
-                      tau_r = c(crp_result$tau_R_lower, crp_result$tau_R, 
-                        crp_result$tau_R_upper)))
+                    return(list(voltage = voltage_by_trial, mean = mean_erp, 
+                      bad_trials = bad_trials, crp_result = crp_result))
                   })
-                mean_erp <- simplify2array(lapply(group_data, 
-                  "[[", "mean"))
-                bad_trials <- lapply(group_data, "[[", "bad_trials")
-                crp_tau <- lapply(group_data, "[[", "tau_r")
-                data_collapse_by_condition$data <- list(mean_erp = mean_erp, 
-                  bad_trials = bad_trials, crp_enabled = crp_enabled, 
-                  crp_time_range = c(crp_time_begin, crp_time_end), 
-                  crp_tau = crp_tau)
+                data_by_trial_channel_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                  name = "data_by_trial_channel_condition")
+                data_by_trial_channel_condition$crp_enabled <- crp_enabled
+                data_by_trial_channel_condition$data <- group_data
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(data_collapse_by_condition)
+                return(data_by_trial_channel_condition)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_collapse_by_condition", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_by_trial_channel_condition", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "data_collapse_by_condition", target_expr = quote({
+            target_export = "data_by_trial_channel_condition", 
+            target_expr = quote({
                 {
-                  data_collapse_by_condition <- ravepipeline::pipeline_plot_data(x = data_by_trial_per_condition, 
-                    name = "data_collapse_by_condition")
-                  time_points <- data_collapse_by_condition$time_points
-                  sample_rate <- data_collapse_by_condition$sample_rate
+                  if (inherits(filtered_array, "RAVEFileArray")) {
+                    filtered_array_impl <- filtered_array$`@impl`
+                  } else {
+                    filtered_array_impl <- filtered_array
+                  }
+                  dnames <- dimnames(filtered_array_impl)
+                  trial_numbers <- dnames$Trial
+                  time_points <- data_placeholder$time_points
+                  sample_rate <- data_placeholder$sample_rate
                   time_range <- range(time_points)
                   crp_time_begin <- 0.01
                   if (crp_time_begin > time_range[[2]]) {
@@ -547,39 +679,44 @@ rm(._._env_._.)
                   } else {
                     crp_enabled <- TRUE
                   }
-                  group_data <- lapply(seq_along(data_collapse_by_condition$groups), 
-                    function(ii) {
-                      group <- data_collapse_by_condition$groups[[ii]]
-                      voltage_by_trial <- data_collapse_by_condition$data[[ii]]
+                  group_data <- lapply(data_placeholder$groups, 
+                    function(group) {
+                      sub_array <- subset(filtered_array_impl, 
+                        Electrode ~ Electrode %in% analysis_electrodes_clean, 
+                        Trial ~ match(group$trials_included, 
+                          trial_numbers), drop = FALSE)
+                      dimnames(sub_array) <- NULL
+                      voltage_by_trial <- ravetools::collapse(x = sub_array, 
+                        keep = c(1L, 2L), average = TRUE)
                       if (crp_enabled) {
                         crp_result <- ravetools::crp(voltage_by_trial, 
                           time = time_points, t_start = crp_time_begin, 
                           t_end = crp_time_end, time_step = crp_time_step, 
                           threshold_quantile = 0.98, artifact_interval = "tR", 
-                          remove_artifacts = FALSE)
+                          remove_artifacts = TRUE)
                       } else {
                         crp_result <- NULL
                       }
                       if (length(crp_result$bad_trials)) {
-                        voltage_by_trial <- voltage_by_trial[, 
-                          -crp_result$bad_trials, drop = FALSE]
+                        bad_trials_index <- crp_result$bad_trials
+                        bad_trials <- as.integer(group$trials_included[bad_trials_index])
+                        mean_erp <- rowMeans(voltage_by_trial[, 
+                          -bad_trials_index, drop = FALSE])
+                      } else {
+                        bad_trials <- integer(0L)
+                        mean_erp <- rowMeans(voltage_by_trial)
                       }
-                      n_samples <- ncol(voltage_by_trial)
-                      mean_erp <- rowMeans(voltage_by_trial)
-                      return(list(mean = mean_erp, bad_trials = group$trials_included[crp_result$bad_trials], 
-                        tau_r = c(crp_result$tau_R_lower, crp_result$tau_R, 
-                          crp_result$tau_R_upper)))
+                      return(list(voltage = voltage_by_trial, 
+                        mean = mean_erp, bad_trials = bad_trials, 
+                        crp_result = crp_result))
                     })
-                  mean_erp <- simplify2array(lapply(group_data, 
-                    "[[", "mean"))
-                  bad_trials <- lapply(group_data, "[[", "bad_trials")
-                  crp_tau <- lapply(group_data, "[[", "tau_r")
-                  data_collapse_by_condition$data <- list(mean_erp = mean_erp, 
-                    bad_trials = bad_trials, crp_enabled = crp_enabled, 
-                    crp_time_range = c(crp_time_begin, crp_time_end), 
-                    crp_tau = crp_tau)
+                  data_by_trial_channel_condition <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                    name = "data_by_trial_channel_condition")
+                  data_by_trial_channel_condition$crp_enabled <- crp_enabled
+                  data_by_trial_channel_condition$data <- group_data
                 }
-                data_collapse_by_condition
-            }), target_depends = "data_by_trial_per_condition"), 
-        deps = "data_by_trial_per_condition", cue = targets::tar_cue("thorough"), 
+                data_by_trial_channel_condition
+            }), target_depends = c("filtered_array", "data_placeholder", 
+            "analysis_electrodes_clean")), deps = c("filtered_array", 
+        "data_placeholder", "analysis_electrodes_clean"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"))

@@ -19,174 +19,182 @@ module_html <- function() {
             electrode_selector$ui_func(),
 
             # ---- Signal Filters card ------------------------------------------
-            # Enforced order: Downsample -> FIR/IIR filters -> Baseline
+            # Enforced order: Detrend -> pre-Downsample -> FIR/IIR filters -> post-Downsample -> Baseline
 
             ravedash::input_card(
-              title = "Signal Filters",
+              title = "Signal Configurations",
               class_header = "shidashi-anchor",
+              toggle_advanced = TRUE,
 
-              # -- 1. Downsample -----------------------------------------------
+
+              # -- 3. FIR / IIR filters ----------------------------------------
 
               ravedash::group_box(
-                title = "1. Downsample",
+                title = "Frequency Filters",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("passing_filter_enabled"),
+                      label = "Enable low/high/band-pass filter",
+                      value = FALSE
+                    ),
+                    inputId = "passing_filter_enabled",
+                    update = "shiny::updateCheckboxInput",
+                    description = "Enable one passing filter (low-pass, high-pass, or band-pass)."
+                  ),
+
+                  shiny::conditionalPanel(
+                    condition = sprintf("input['%s'] === true", ns("passing_filter_enabled")),
+
+                    shiny::fluidRow(
+                      shiny::column(
+                        width = 12L,
+                        shidashi::register_input(
+                          shiny::selectInput(
+                            inputId = ns("passing_filter_type"),
+                            label = "Type",
+                            choices = c(
+                              "Low-pass" = "low_pass",
+                              "High-pass" = "high_pass",
+                              "Band-pass" = "band_pass"
+                            ),
+                            selected = "low_pass"
+                          ),
+                          inputId = "passing_filter_type",
+                          update = "shiny::updateSelectInput(value=selected)",
+                          description = "Passing filter type."
+                        )
+                      )
+                    ),
+                    shiny::div(
+                      class = "row rave-optional soft-hidden",
+                      shiny::column(
+                        width = 12L,
+                        shidashi::register_input(
+                          shiny::selectInput(
+                            inputId = ns("passing_filter_method"),
+                            label = "Method",
+                            choices = c(
+                              "FIR (least squares)"   = "firls",
+                              "FIR (Kaiser)"          = "fir",
+                              "FIR (Parks-McClellan)" = "fir_remez",
+                              "IIR (Butterworth)"     = "iir",
+                              "Chebyshev I"           = "cheby1",
+                              "Chebyshev II"          = "cheby2",
+                              "Elliptic"              = "ellip"
+                            ),
+                            selected = "firls"
+                          ),
+                          inputId = "passing_filter_method",
+                          update = "shiny::updateSelectInput(value=selected)",
+                          description = "Passing filter design method."
+                        )
+                      )
+                    ),
+
+                    shiny::fluidRow(
+                      shiny::column(
+                        width = 6L,
+                        shidashi::register_input(
+                          shiny::numericInput(
+                            inputId = ns("passing_freq1"),
+                            label = "Cutoff freq (Hz)",
+                            value = NA, min = 0
+                          ),
+                          inputId = "passing_freq1",
+                          update = "shiny::updateNumericInput",
+                          description = "For low/high-pass filter, this is the cutoff frequency; for band-pass filter, this is the high-pass cutoff."
+                        )
+                      ),
+                      shiny::column(
+                        width = 6L,
+                        shiny::conditionalPanel(
+                          condition = sprintf(
+                            "input['%s'] === 'band_pass'",
+                            ns("passing_filter_type")
+                          ),
+                          shidashi::register_input(
+                            shiny::numericInput(
+                              inputId = ns("passing_freq2"),
+                              label = "",
+                              value = NA, min = 0
+                            ),
+                            inputId = "passing_freq2",
+                            update = "shiny::updateNumericInput",
+                            description = "For low/high-pass filter, this is the cutoff frequency; for band-pass filter, this is the low-pass cutoff."
+                          )
+                        )
+                      )
+                    )
+                  ),
+
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("bandstop_filter_enabled"),
+                      label = "Enable band-stop filter",
+                      value = FALSE
+                    ),
+                    inputId = "bandstop_filter_enabled",
+                    update = "shiny::updateCheckboxInput",
+                    description = "Enable one band-stop (notch-like) filter."
+                  ),
+
+                  shiny::conditionalPanel(
+                    condition = sprintf("input['%s'] === true", ns("bandstop_filter_enabled")),
+                    shidashi::register_input(
+                      shiny::textInput(
+                        inputId = ns("bandstop_filter_ranges"),
+                        label = "Stopband frequencies (Hz)",
+                        value = "59-61, 119-121, 179-181",
+                        placeholder = "59-61, 119-121, 179-181"
+                      ),
+                      inputId = "bandstop_filter_ranges",
+                      update = "shiny::updateTextInput(value=value)",
+                      description = "Comma-separated stopband ranges, e.g. 59-61, 119-121, 179-181."
+                    )
+                  ),
+
+                  shiny::fluidRow(
+                    shiny::column(
+                      width = 12L,
+                      shiny::actionButton(
+                        inputId = ns("filter_inspector_btn"),
+                        label = "Inspect combined filter",
+                        width = "100%"
+                      )
+                    )
+                  )
+                )
+              ),
+
+              # -- 5. Baseline -------------------------------------------------
+
+              ravedash::group_box(
+                title = "Baseline",
                 class = "row",
 
                 shiny::column(
                   width = 12L,
                   shidashi::register_input(
                     shiny::checkboxInput(
-                      inputId = ns("downsample_enabled"),
-                      label = "Enable downsampling",
-                      value = FALSE
+                      inputId = ns("enable_baseline_method"),
+                      label = "Enable baseline correction",
+                      value = TRUE
                     ),
-                    inputId = "downsample_enabled",
-                    update = "shiny::updateCheckboxInput",
-                    description = "Whether to decimate the signal before filtering"
+                    inputId = "enable_baseline_method",
+                    update = "shiny::updateCheckboxInput(value=value)",
+                    description = "Enable/Disable baseline correction after down-sampling signals"
                   )
                 ),
 
                 shiny::column(
                   width = 12L,
                   shiny::conditionalPanel(
-                    condition = sprintf("input['%s'] == true", ns("downsample_enabled")),
-                    shiny::fluidRow(
-                      shiny::column(
-                        width = 6L,
-                        shidashi::register_input(
-                          shiny::numericInput(
-                            inputId = ns("downsample_factor"),
-                            label = "Decimation factor",
-                            value = 4L, min = 1L, step = 1L
-                          ),
-                          inputId = "downsample_factor",
-                          update = "shiny::updateNumericInput",
-                          description = "Integer factor by which the signal is downsampled (e.g. 4 reduces 2000 Hz to 500 Hz)"
-                        )
-                      ),
-                      shiny::column(
-                        width = 6L,
-                        shiny::uiOutput(ns("ui_nyquist_info"))
-                      )
-                    )
-                  )
-                )
-              ),
-
-              # -- 2. FIR / IIR filters ----------------------------------------
-
-              ravedash::group_box(
-                title = "2. Frequency Filters",
-                class = "row",
-
-                shiny::column(
-                  width = 12L,
-                  shiny::p(
-                    shiny::em(
-                      "Leave high-pass or low-pass blank to apply a one-sided filter.",
-                      "Nyquist limit is updated automatically based on downsample factor."
-                    )
-                  ),
-                  shidashi::register_input(
-                    dipsaus::compoundInput2(
-                      inputId = ns("signal_filter_configurations"),
-                      label = "Filter",
-                      initial_ncomp = 1L, min_ncomp = 0L, max_ncomp = 8L,
-                      components = shiny::div(
-                        shiny::selectInput(
-                          inputId = "type",
-                          label = "Method",
-                          choices = c(
-                            "FIR (Kaiser)"          = "fir",
-                            "FIR (least squares)"   = "firls",
-                            "FIR (Parks-McClellan)" = "fir_remez",
-                            "IIR (Butterworth)"     = "iir",
-                            "Chebyshev I"           = "cheby1",
-                            "Chebyshev II"          = "cheby2",
-                            "Elliptic"              = "ellip",
-                            "Hilbert (amplitude)"   = "hilbert"
-                          ),
-                          selected = "fir"
-                        ),
-                        shiny::fluidRow(
-                          shiny::column(
-                            width = 6L,
-                            shiny::numericInput(
-                              inputId = "high_pass_freq",
-                              label = "High-pass (Hz)",
-                              value = NA, min = 0
-                            )
-                          ),
-                          shiny::column(
-                            width = 6L,
-                            shiny::numericInput(
-                              inputId = "low_pass_freq",
-                              label = "Low-pass (Hz)",
-                              value = NA, min = 0
-                            )
-                          )
-                        ),
-                        shiny::fluidRow(
-                          shiny::column(
-                            width = 6L,
-                            shiny::numericInput(
-                              inputId = "high_pass_trans_freq",
-                              label = "HP transition (Hz)",
-                              value = NA, min = 0
-                            )
-                          ),
-                          shiny::column(
-                            width = 6L,
-                            shiny::numericInput(
-                              inputId = "low_pass_trans_freq",
-                              label = "LP transition (Hz)",
-                              value = NA, min = 0
-                            )
-                          )
-                        ),
-                        shiny::numericInput(
-                          inputId = "stopband_attenuation",
-                          label = "Stopband attenuation (dB)",
-                          value = 40, min = 1
-                        )
-                      )
-                    ),
-                    inputId = "signal_filter_configurations",
-                    update = "dipsaus::updateCompoundInput2",
-                    description = "FIR/IIR frequency filters applied after downsampling"
-                  )
-                )
-              ),
-
-              # -- 3. Baseline -------------------------------------------------
-
-              ravedash::group_box(
-                title = "3. Baseline",
-                class = "row",
-
-                shiny::column(
-                  width = 12L,
-                  shidashi::register_input(
-                    shiny::selectInput(
-                      inputId = ns("baseline_method"),
-                      label = "Method",
-                      choices = c(
-                        "None"            = "none",
-                        "Detrend"         = "detrend",
-                        "Center (demean)" = "demean",
-                        "Detrend + Center" = "detrend+demean"
-                      ),
-                      selected = "detrend+demean"
-                    ),
-                    inputId = "baseline_method",
-                    update = "shiny::updateSelectInput(value=selected)",
-                    description = "Baseline correction applied after filtering: detrend removes linear trend, center removes mean computed in the baseline window"
-                  )
-                ),
-
-                shiny::column(
-                  width = 12L,
-                  shiny::conditionalPanel(
-                    condition = sprintf("input['%s'] != 'none'", ns("baseline_method")),
+                    condition = sprintf("input['%s'] === true", ns("enable_baseline_method")),
                     shidashi::register_input(
                       shiny::sliderInput(
                         inputId = ns("baseline_window"),
@@ -201,7 +209,153 @@ module_html <- function() {
                     )
                   )
                 )
+              ),
+
+              # -- 1. Detrend -----------------------------------------------
+
+              ravedash::group_box(
+                title = "Detrend",
+                class = "row rave-optional soft-hidden",
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("remove_drift_method"),
+                      label = "Remove drifts",
+                      choices = c(
+                        "None"            = "none",
+                        "Detrend"         = "detrend",
+                        "Center (demean)" = "demean",
+                        "Detrend + Center" = "detrend+demean"
+                      ),
+                      selected = "none"
+                    ),
+                    inputId = "detrend_method",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = "Remove linear drifting before filtering."
+                  )
+                )
+
+              ),
+
+              # -- 2. Pre-downsample -----------------------------------------------
+
+              ravedash::group_box(
+                title = "Pre-filtering down-sample",
+                class = "row rave-optional soft-hidden",
+                shiny::column(
+                  width = 12L,
+
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("pre_downsample_factor_auto"),
+                      label = "Automatic down-sample",
+                      value = TRUE
+                    ),
+                    inputId = "pre_downsample_factor_auto",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Whether to automatically decimate the signals before",
+                      "filters. Disable it to override."
+                    )
+                  ),
+
+                  shiny::conditionalPanel(
+                    condition = sprintf("input['%s'] === false", ns("pre_downsample_factor_auto")),
+
+                    shidashi::register_input(
+                      shiny::numericInput(
+                        inputId = ns("pre_downsample_factor"),
+                        label = "Pre-filtering decimation factor",
+                        value = 1L, min = 1L, step = 1L
+                      ),
+                      inputId = "pre_downsample_factor",
+                      update = "shiny::updateNumericInput",
+                      description = paste(
+                        "Integer factor by which the signal is downsampled",
+                        "before signal filtering (e.g. 15 reduces 30000 Hz to",
+                        "2000 Hz); set to 1 to disable."
+                      )
+                    )
+                  ),
+
+                  shiny::textOutput(
+                    outputId = ns("pre_ui_nyquist_info"),
+                    container = function(...) {
+                      shiny::span(shiny::tags$small(...))
+                    }
+                  )
+                )
+              ),
+
+
+              # -- 4. Post-downsample -----------------------------------------------
+
+              ravedash::group_box(
+                title = "Post-filtering down-sample",
+                class = "row rave-optional soft-hidden",
+                shiny::column(
+                  width = 12L,
+
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("post_downsample_factor_auto"),
+                      label = "Automatic down-sample",
+                      value = TRUE
+                    ),
+                    inputId = "post_downsample_factor_auto",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Whether to automatically decimate the signals after",
+                      "filters. Disable it to override."
+                    )
+                  ),
+
+
+                  shiny::conditionalPanel(
+                    condition = sprintf("input['%s'] === false", ns("post_downsample_factor_auto")),
+
+                    shidashi::register_input(
+                      shiny::numericInput(
+                        inputId = ns("post_downsample_factor"),
+                        label = "Decimation factor",
+                        value = 1L, min = 1L, step = 1L
+                      ),
+                      inputId = "post_downsample_factor",
+                      update = "shiny::updateNumericInput",
+                      description = paste(
+                        "Integer factor by which the signal is downsampled",
+                        "after signal filtering (e.g. 4 reduces 2000 Hz to 500",
+                        "Hz); set to 1 to disable."
+                      )
+                    )
+                  ),
+
+                  shiny::textOutput(
+                    outputId = ns("post_ui_nyquist_info"),
+                    container = function(...) {
+                      shiny::span(shiny::tags$small(...))
+                    }
+                  )
+                )
+              ),
+
+
+              footer = shiny::div(
+                class = "row rave-optional soft-hidden",
+
+                shiny::column(
+                  width = 12L,
+                  shiny::p(shiny::em(shiny::tags$small(
+                    "Signal process includes the following steps in sequential ",
+                    "order: linear drift removal, pre-filtering down-sample, ",
+                    "FIR/IIR filters, post-filtering down-sample, baseline. "
+                  )))
+                )
               )
+
+
 
             ), # end Signal Filters card
 
@@ -265,6 +419,15 @@ module_html <- function() {
                     label = "End (s)",
                     value = NA, step = 0.1
                   )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shiny::checkboxInput(
+                    inputId = ns("mean_erp_flip_y"),
+                    label = "Flip y-axis",
+                    value = FALSE
+                  )
                 )
               ),
 
@@ -275,77 +438,51 @@ module_html <- function() {
                 shiny::column(
                   width = 6L,
                   shiny::numericInput(
+                    inputId = ns("plot_cex"),
+                    label = "Text size (cex)",
+                    value = use_cex(), min = 0.5, max = 3, step = 0.1
+                  )
+                ),
+
+                shiny::column(
+                  width = 6L,
+                  shiny::selectInput(
+                    inputId = ns("channel_annotation"),
+                    label = "Channel label style",
+                    choices = OPTIONS_CHAN_ANNOT,
+                    selected = use_channel_annotation_style()
+                  )
+                ),
+
+                shiny::column(
+                  width = 6L,
+                  shiny::selectInput(
+                    inputId = ns("trial_sort_by"),
+                    label = "Sort trials by",
+                    choices = OPTIONS_TRIAL_SORT,
+                    selected = use_trial_sort_by()
+                  )
+                ),
+
+                shiny::column(
+                  width = 6L,
+                  shiny::numericInput(
                     inputId = ns("plot_onset_mark"),
                     label = "Onset mark (s)",
                     value = 0, step = 0.1
                   )
                 ),
+
                 shiny::column(
-                  width = 6L,
-                  shiny::numericInput(
-                    inputId = ns("plot_cex"),
-                    label = "Text size (cex)",
-                    value = use_cex(), min = 0.5, max = 3, step = 0.1
-                  )
-                )
-              ),
-
-              shiny::div(
-                class = "rave-optional",
-
-                ravedash::group_box(
-                  title = "ERP by channel",
-                  class = "row",
-
-                  shiny::column(
-                    width = 6L,
-                    shiny::selectInput(
-                      inputId = ns("channel_annotation"),
-                      label = "Channel label style",
-                      choices = c("number", "short", "label", "full"),
-                      selected = use_channel_annotation_style()
-                    )
-                  )
-                ),
-
-                ravedash::group_box(
-                  title = "Trial heatmap",
-                  class = "row",
-
-                  shiny::column(
-                    width = 12L,
-                    shiny::selectInput(
-                      inputId = ns("trial_sort_by"),
-                      label = "Sort trials by",
-                      choices = c("stimuli", "trial"),
-                      selected = use_trial_sort_by()
-                    )
-                  )
-                ),
-
-                ravedash::group_box(
-                  title = "Mean response",
-                  class = "row",
-
-                  shiny::column(
-                    width = 6L,
-                    shiny::checkboxInput(
-                      inputId = ns("mean_erp_flip_y"),
-                      label = "Flip y-axis",
-                      value = FALSE
-                    )
-                  ),
-                  shiny::column(
-                    width = 6L,
-                    shiny::checkboxInput(
-                      inputId = ns("mean_erp_crp"),
-                      label = "Show CRP decoration",
-                      value = TRUE
-                    )
+                  width = 12L,
+                  shiny::checkboxInput(
+                    inputId = ns("mean_erp_crp"),
+                    label = "Show CRP decoration",
+                    value = TRUE
                   )
                 )
 
-              ) # end rave-optional
+              )
 
             ) # end Plot Options card
 
@@ -368,23 +505,13 @@ module_html <- function() {
             #   - ERP by Condition: figure_by_channel_condition_cond
             #   - Trial Overview : figure_by_trial_per_condition
 
-            ravedash::output_card(
-              title = "Overall plot (collapse trials and channels)",
-              class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
-              append_tools = FALSE,
-              shiny::plotOutput(
-                outputId = ns("figure_collapse_by_condition"),
-                width = "100%", height = "100%"
-              )
-            ),
-
-            # ERP traces stacked by electrode; one panel per condition group
+            # ERP traces stacked by electrode
             ravedash::output_cardset(
-              title = "Collapse trials",
+              title = "By Electrode",
               class_body = "no-padding fill-width min-height-450",
               append_tools = FALSE,
 
-              "By Condition" = div(
+              "Per Condition" = div(
                 class = "position-relative min-height-450 height-450 resize-vertical",
                 shiny::plotOutput(
                   outputId = ns("figure_by_channel_condition_cond"),
@@ -392,7 +519,7 @@ module_html <- function() {
                 )
               ),
 
-              "By Channel" = div(
+              "Over Time Comparison" = div(
                 class = "position-relative min-height-450 height-900 resize-vertical",
                 shiny::plotOutput(
                   outputId = ns("figure_by_channel_condition_ch"),
@@ -402,15 +529,27 @@ module_html <- function() {
 
             ),
 
-            # Time x trial heatmap; one panel per condition group
-            ravedash::output_card(
-              title = "Per-trial voltage response",
+
+            ravedash::output_cardset(
+              title = "By Condition",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
-              shiny::plotOutput(
-                outputId = ns("figure_by_trial_per_condition"),
-                width = "100%", height = "100%"
+
+              "Over Time" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_by_condition_over_time"),
+                  width = "100%", height = "100%"
+                )
+              ),
+              "By Trial" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_by_trial_per_condition"),
+                  width = "100%", height = "100%"
+                )
               )
+
             )
 
           )

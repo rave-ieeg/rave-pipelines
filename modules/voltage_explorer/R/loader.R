@@ -108,11 +108,7 @@ loader_server <- function(input, output, session, ...) {
       res <- pipeline$run(
         as_promise = TRUE,
         names = "repository",
-        scheduler = "none",
-        type = "smart",  # parallel
-        # async = TRUE,
-        callr_function = NULL,
-        progress_quiet = TRUE
+        async = FALSE
       )
 
       # The `res` contains a promise that might not have finished yet,
