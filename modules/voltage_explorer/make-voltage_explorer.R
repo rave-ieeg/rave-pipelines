@@ -665,22 +665,25 @@ rm(._._env_._.)
             .__target_expr__. <- quote({
                 erp_results_for_viewer <- crp_results
                 if (length(crp_results)) {
-                  label_lut <- data.table::data.table(index = condition_groups_clean$group_indexes, 
-                    label = condition_groups_clean$group_labels)
+                  group_indexes <- condition_groups_clean$group_indexes
+                  group_labels <- condition_groups_clean$group_labels
                   crp_tbl <- lapply(crp_results, function(group_results) {
                     group_tbl <- lapply(group_results, function(group_result) {
-                      data.frame(index = group_result$group_index, 
-                        Electrode = group_result$electrode, Time = group_result$parameters$params_times, 
-                        C = group_result$parameters$C)
+                      label <- group_labels[group_indexes == 
+                        group_result$group_index]
+                      data.frame(Electrode = group_result$electrode, 
+                        vname = sprintf("%s (%s)", c("t_val", 
+                          "resp_strength", "var_explain", "tau"), 
+                          label), value = c(group_result$projections$t_value_tR, 
+                          mean(abs(group_result$parameters$al_p)), 
+                          mean(group_result$parameters$expl_var), 
+                          group_result$tau_R))
                     })
                     data.table::rbindlist(group_tbl)
                   })
                   crp_tbl <- data.table::rbindlist(crp_tbl)
-                  combined_table <- merge(label_lut, crp_tbl, 
-                    by = "index")
-                  erp_results_for_viewer <- data.table::dcast(combined_table, 
-                    Electrode + Time ~ label, value.var = "C", 
-                    fill = 0)
+                  erp_results_for_viewer <- data.table::dcast(crp_tbl, 
+                    Electrode ~ vname, value.var = "value")
                 }
             })
             tryCatch({
@@ -695,23 +698,25 @@ rm(._._env_._.)
                 {
                   erp_results_for_viewer <- crp_results
                   if (length(crp_results)) {
-                    label_lut <- data.table::data.table(index = condition_groups_clean$group_indexes, 
-                      label = condition_groups_clean$group_labels)
+                    group_indexes <- condition_groups_clean$group_indexes
+                    group_labels <- condition_groups_clean$group_labels
                     crp_tbl <- lapply(crp_results, function(group_results) {
                       group_tbl <- lapply(group_results, function(group_result) {
-                        data.frame(index = group_result$group_index, 
-                          Electrode = group_result$electrode, 
-                          Time = group_result$parameters$params_times, 
-                          C = group_result$parameters$C)
+                        label <- group_labels[group_indexes == 
+                          group_result$group_index]
+                        data.frame(Electrode = group_result$electrode, 
+                          vname = sprintf("%s (%s)", c("t_val", 
+                            "resp_strength", "var_explain", "tau"), 
+                            label), value = c(group_result$projections$t_value_tR, 
+                            mean(abs(group_result$parameters$al_p)), 
+                            mean(group_result$parameters$expl_var), 
+                            group_result$tau_R))
                       })
                       data.table::rbindlist(group_tbl)
                     })
                     crp_tbl <- data.table::rbindlist(crp_tbl)
-                    combined_table <- merge(label_lut, crp_tbl, 
-                      by = "index")
-                    erp_results_for_viewer <- data.table::dcast(combined_table, 
-                      Electrode + Time ~ label, value.var = "C", 
-                      fill = 0)
+                    erp_results_for_viewer <- data.table::dcast(crp_tbl, 
+                      Electrode ~ vname, value.var = "value")
                   }
                 }
                 erp_results_for_viewer

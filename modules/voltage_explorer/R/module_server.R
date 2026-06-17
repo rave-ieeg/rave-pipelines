@@ -102,10 +102,10 @@ module_server <- function(input, output, session, ...) {
         if (trigger_3dviewer) {
           local_reactives$update_3dviewer <- Sys.time()
         } else {
-          erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
-          if (is.data.frame(erp_results_for_viewer)) {
-            brain_proxy$set_electrode_data(data = erp_results_for_viewer, clear_first = FALSE)
-          }
+          # erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+          # if (is.data.frame(erp_results_for_viewer)) {
+          #   brain_proxy$set_electrode_data(data = erp_results_for_viewer, clear_first = FALSE)
+          # }
         }
       },
       error = function(e) {
@@ -1046,13 +1046,25 @@ module_server <- function(input, output, session, ...) {
     if (is.null(brain)) { return() }
 
     erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+
+    controllers <- list()
+
     if (is.data.frame(erp_results_for_viewer)) {
       erp_results_for_viewer$Subject <- brain$subject_code
       brain$set_electrode_values(erp_results_for_viewer)
+
+      nms <- names(erp_results_for_viewer)
+      nms <- nms[startsWith(nms, "t_val")]
+      if (length(nms)) {
+        controllers[["Display Data"]] <- nms[[1]]
+      }
     }
-    brain$render(outputId = "brain_viewer",
-                 session = session,
-                 show_modal = FALSE)
+    brain$render(
+      outputId = "brain_viewer",
+      session = session,
+      show_modal = FALSE,
+      controllers = controllers
+    )
   })
 
   # Mean ERP: one line per condition group, collapsed over channels
