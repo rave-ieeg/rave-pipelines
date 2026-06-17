@@ -1,4 +1,4 @@
-analysis_electrodes: '15'
+analysis_electrodes: '14'
 analysis_ranges: ~
 condition_groups:
   '1':
@@ -33,14 +33,14 @@ filter_configurations:
   auto: yes
 - type: firls
   high_pass_freq: 1
-  low_pass_freq: 30
+  low_pass_freq: 80
 - type: decimate
   by: 1
   auto: no
 - type: baseline
   windows:
-  - -0.67
-  - -0.51
+  - -1
+  - 0
 loaded_electrodes: 13-16,24
 project_name: demo
 reference_name: default

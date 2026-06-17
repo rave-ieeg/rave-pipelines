@@ -440,6 +440,7 @@ if (length(crp_results)) {
   crp_tbl <- data.table::rbindlist(crp_tbl)
   
   erp_results_for_viewer <- data.table::dcast(crp_tbl, Electrode ~ vname, value.var = "value")
+  erp_results_for_viewer$Subject <- subject$subject_code
 }
 ```
 

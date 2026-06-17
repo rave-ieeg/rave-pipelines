@@ -684,6 +684,7 @@ rm(._._env_._.)
                   crp_tbl <- data.table::rbindlist(crp_tbl)
                   erp_results_for_viewer <- data.table::dcast(crp_tbl, 
                     Electrode ~ vname, value.var = "value")
+                  erp_results_for_viewer$Subject <- subject$subject_code
                 }
             })
             tryCatch({
@@ -717,12 +718,13 @@ rm(._._env_._.)
                     crp_tbl <- data.table::rbindlist(crp_tbl)
                     erp_results_for_viewer <- data.table::dcast(crp_tbl, 
                       Electrode ~ vname, value.var = "value")
+                    erp_results_for_viewer$Subject <- subject$subject_code
                   }
                 }
                 erp_results_for_viewer
-            }), target_depends = c("crp_results", "condition_groups_clean"
-            )), deps = c("crp_results", "condition_groups_clean"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+            }), target_depends = c("crp_results", "condition_groups_clean", 
+            "subject")), deps = c("crp_results", "condition_groups_clean", 
+        "subject"), cue = targets::tar_cue("thorough"), pattern = NULL, 
         iteration = "list"), prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({

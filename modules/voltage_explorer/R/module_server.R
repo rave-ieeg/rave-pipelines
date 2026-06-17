@@ -1050,7 +1050,6 @@ module_server <- function(input, output, session, ...) {
     controllers <- list()
 
     if (is.data.frame(erp_results_for_viewer)) {
-      erp_results_for_viewer$Subject <- brain$subject_code
       brain$set_electrode_values(erp_results_for_viewer)
 
       nms <- names(erp_results_for_viewer)
