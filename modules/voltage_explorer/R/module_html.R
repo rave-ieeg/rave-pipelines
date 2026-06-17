@@ -342,16 +342,29 @@ module_html <- function() {
               ),
 
 
-              footer = shiny::div(
-                class = "row rave-optional soft-hidden",
+              footer = shiny::fluidRow(
+                shiny::column(
+                  width = 12L,
+                  shiny::div(
+                    class = "row rave-optional soft-hidden",
+
+                    shiny::column(
+                      width = 12L,
+                      shiny::p(shiny::em(shiny::tags$small(
+                        "Signal process includes the following steps in sequential ",
+                        "order: linear drift removal, pre-filtering down-sample, ",
+                        "FIR/IIR filters, post-filtering down-sample, baseline. "
+                      )))
+                    )
+                  )
+                ),
 
                 shiny::column(
                   width = 12L,
-                  shiny::p(shiny::em(shiny::tags$small(
-                    "Signal process includes the following steps in sequential ",
-                    "order: linear drift removal, pre-filtering down-sample, ",
-                    "FIR/IIR filters, post-filtering down-sample, baseline. "
-                  )))
+                  shiny::actionLink(
+                    inputId = ns("signal_config_reset"),
+                    label = "Reset to defaults"
+                  )
                 )
               )
 
@@ -419,14 +432,37 @@ module_html <- function() {
                     label = "End (s)",
                     value = NA, step = 0.1
                   )
-                ),
+                )
+
+                # shiny::column(
+                #   width = 12L,
+                #   shiny::checkboxInput(
+                #     inputId = ns("mean_erp_flip_y"),
+                #     label = "Flip y-axis",
+                #     value = FALSE
+                #   )
+                # )
+              ),
+
+              ravedash::group_box(
+                title = "Plot max / spacing",
+                class = "row",
 
                 shiny::column(
-                  width = 12L,
+                  width = 6L,
+                  shiny::numericInput(
+                    inputId = ns("plot_space_value"),
+                    label = "Max",
+                    value = use_plot_space(), min = 0, step = 1
+                  )
+                ),
+                shiny::column(
+                  width = 6L,
+                  style = "margin-top: 37px;",
                   shiny::checkboxInput(
-                    inputId = ns("mean_erp_flip_y"),
-                    label = "Flip y-axis",
-                    value = FALSE
+                    inputId = ns("plot_space_is_percentile"),
+                    label = "Max is %",
+                    value = use_plot_space_is_percentile()
                   )
                 )
               ),
@@ -448,7 +484,7 @@ module_html <- function() {
                   width = 6L,
                   shiny::selectInput(
                     inputId = ns("channel_annotation"),
-                    label = "Channel label style",
+                    label = "Channel",
                     choices = OPTIONS_CHAN_ANNOT,
                     selected = use_channel_annotation_style()
                   )
@@ -469,7 +505,7 @@ module_html <- function() {
                   shiny::numericInput(
                     inputId = ns("plot_onset_mark"),
                     label = "Onset mark (s)",
-                    value = 0, step = 0.1
+                    value = 0, step = 0.01
                   )
                 ),
 
@@ -482,6 +518,13 @@ module_html <- function() {
                   )
                 )
 
+              ),
+
+              footer = shiny::div(
+                shiny::actionLink(
+                  inputId = ns("plot_options_reset"),
+                  label = "Reset to defaults"
+                )
               )
 
             ) # end Plot Options card
@@ -499,30 +542,39 @@ module_html <- function() {
           shiny::column(
             width = 12L,
 
-            # ---- Output cardset: By Condition ---------------------------------
-            # Plots organized by condition group
-            #   - Mean Response  : figure_collapse_by_condition
-            #   - ERP by Condition: figure_by_channel_condition_cond
-            #   - Trial Overview : figure_by_trial_per_condition
+            ravedash::output_cardset(
+              title = "Brain Viewers",
+              class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
+              append_tools = FALSE,
+
+              "Results Viewer" = div(
+                class = "position-relative fill",
+                threeBrain::threejsBrainOutput(
+                  outputId = ns("brain_viewer"),
+                  width = "100%", height = "100%"
+                )
+              )
+
+            ),
 
             # ERP traces stacked by electrode
             ravedash::output_cardset(
               title = "By Electrode",
-              class_body = "no-padding fill-width min-height-450",
+              class_body = "no-padding fill-width min-height-450 height-550 resize-vertical",
               append_tools = FALSE,
 
-              "Per Condition" = div(
-                class = "position-relative min-height-450 height-450 resize-vertical",
+              "Over Time" = div(
+                class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_cond"),
+                  outputId = ns("figure_by_channel_condition_ch"),
                   width = "100%", height = "100%"
                 )
               ),
 
-              "Over Time Comparison" = div(
-                class = "position-relative min-height-450 height-900 resize-vertical",
+              "Per Condition" = div(
+                class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_ch"),
+                  outputId = ns("figure_by_channel_condition_cond"),
                   width = "100%", height = "100%"
                 )
               )
@@ -531,7 +583,7 @@ module_html <- function() {
 
 
             ravedash::output_cardset(
-              title = "By Condition",
+              title = "By Condition (Collapse Channels)",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
 
@@ -542,10 +594,17 @@ module_html <- function() {
                   width = "100%", height = "100%"
                 )
               ),
-              "By Trial" = div(
+              "By Trial (Lines)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
                   outputId = ns("figure_by_trial_per_condition"),
+                  width = "100%", height = "100%"
+                )
+              ),
+              "By Trial (Heatmap)" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_by_trial_per_condition_heatmap"),
                   width = "100%", height = "100%"
                 )
               )

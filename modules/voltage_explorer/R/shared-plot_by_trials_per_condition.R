@@ -113,9 +113,9 @@ plot_by_trials_per_condition_heatmap <- function(
 
     }
 
-    add_vertical_marks(vertical_marks)
+    add_vertical_marks(vertical_marks, col = "black", lty = 1)
     if (crp_enabled) {
-      add_vertical_marks(group_data$crp_result$tau_R)
+      add_vertical_marks(group_data$crp_result$tau_R, lty = 1)
     }
 
     graphics::title(

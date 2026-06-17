@@ -8,6 +8,7 @@ group_palette <- c("#FFA500", "#1874CD", "#006400", "#FF4500", "#A52A2A", "#7D26
                    "#BDCDFF", "#822E1C", "#B5EFB5", "#7ED7D1", "#1C7F93", "#3B00FB"
 )
 DEFAULT_CEX <- 1.2
+DEFAULT_PLOT_SPACE <- 99
 
 OPTIONS_CHAN_ANNOT <- c("number", "short", "label", "full")
 DEFAULT_CHAN_ANNOT <- "number"
@@ -118,6 +119,44 @@ use_show_crp_decoration <- function(show) {
   show
 }
 
+use_plot_space <- function(value) {
+  if (!missing(value)) {
+    value <- as.numeric(value)
+    if (!isTRUE(value > 0)) {
+      value <- DEFAULT_PLOT_SPACE
+    }
+    pipeline$set_preferences("voltage_explorer.graphics.plot_space" = value)
+  } else {
+    value <- pipeline$get_preferences(
+      "voltage_explorer.graphics.plot_space",
+      modes = "numeric",
+      ifnotfound = DEFAULT_PLOT_SPACE
+    )
+    if (!isTRUE(value > 0)) {
+      value <- DEFAULT_PLOT_SPACE
+      pipeline$set_preferences("voltage_explorer.graphics.plot_space" = value)
+    }
+  }
+  value
+}
+
+use_plot_space_is_percentile <- function(is_pct) {
+  if (!missing(is_pct)) {
+    is_pct <- isTRUE(as.logical(is_pct))
+    pipeline$set_preferences("voltage_explorer.graphics.plot_space_is_percentile" = is_pct)
+  } else {
+    is_pct <- pipeline$get_preferences(
+      "voltage_explorer.graphics.plot_space_is_percentile",
+      modes = "logical",
+      ifnotfound = TRUE
+    )
+    if (!is.logical(is_pct) || length(is_pct) != 1) {
+      is_pct <- TRUE
+    }
+  }
+  isTRUE(is_pct)
+}
+
 reset_graphics_preferences <- function() {
   pipeline$set_preferences(
     "voltage_explorer.graphics.discrete_palette" = list(
@@ -128,6 +167,8 @@ reset_graphics_preferences <- function() {
     "voltage_explorer.graphics.channel_annotation_style" = DEFAULT_CHAN_ANNOT,
     "voltage_explorer.graphics.trial_sort_by" = DEFAULT_TRIAL_SORT,
     "voltage_explorer.graphics.flipped_y" = FALSE,
-    "voltage_explorer.graphics.show_crp_decoration" = TRUE
+    "voltage_explorer.graphics.show_crp_decoration" = TRUE,
+    "voltage_explorer.graphics.plot_space" = DEFAULT_PLOT_SPACE,
+    "voltage_explorer.graphics.plot_space_is_percentile" = TRUE
   )
 }

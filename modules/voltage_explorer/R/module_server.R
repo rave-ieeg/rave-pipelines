@@ -22,90 +22,113 @@ module_server <- function(input, output, session, ...) {
     ))
   )
 
+  brain_proxy <- threeBrain::brain_proxy(outputId = "brain_viewer", session = session)
+
+  run_analysis <- function(trigger_3dviewer = TRUE, force_settings=list()) {
+    if (!ravedash::watch_data_loaded()) { return() }
+
+    # Collect input data
+    settings <- component_container$collect_settings(ids = c(
+      "electrode_text", "condition_groups", "analysis_ranges"
+    ))
+    # Save custom UI inputs so they can be restored on next session load
+    # Enforced order: Detrend -> pre-Downsample -> FIR/IIR filters -> post-Downsample -> Baseline
+    fc <- get_filter_configurations()
+
+    settings2 <- list(
+      condition_groups = input$condition_groups,
+      filter_configurations = unname(fc),
+      analysis_ranges = settings$analysis_ranges,
+      analysis_electrodes = settings$analysis_electrodes
+    )
+
+    if (length(force_settings)) {
+      settings2[names(force_settings)] <- force_settings
+    }
+    pipeline$set_settings(.list = settings2)
+
+    dipsaus::shiny_alert2(
+      title = "Running Pipeline...",
+      text = ravedash::be_patient_text(),
+      auto_close = FALSE,
+      buttons = FALSE,
+      icon = "info",
+      session = session
+    )
+
+    on.exit({
+      Sys.sleep(0.5)
+      dipsaus::close_alert2(session = session)
+    })
+
+
+    tryCatch(
+      {
+        ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
+                             level = "debug", reset_timer = TRUE)
+
+        pipeline$run(
+          scheduler = "none",
+          type = "smart",
+          shortcut = TRUE,
+          names = c(
+            "settings_path",
+            "filter_configurations",
+            "condition_groups",
+            "analysis_electrodes",
+
+            "settings",
+            "condition_groups_clean",
+            "analysis_electrodes_clean",
+            "analysis_electrode_coordinates",
+
+            "filtered_array",
+            "crp_results",
+            "erp_results_for_viewer",
+            "data_placeholder",
+
+            "data_by_channel_condition",
+            "data_by_trial_channel_condition"
+          ),
+          return_values = FALSE
+        )
+
+        ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name,
+                             level = "debug")
+        shidashi::clear_notifications(
+          class = ns("pipeline-error"), session = session)
+        local_reactives$update_outputs <- Sys.time()
+
+        if (trigger_3dviewer) {
+          local_reactives$update_3dviewer <- Sys.time()
+        } else {
+          erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+          if (is.data.frame(erp_results_for_viewer)) {
+            brain_proxy$set_electrode_data(data = erp_results_for_viewer, clear_first = FALSE)
+          }
+        }
+      },
+      error = function(e) {
+
+        ravepipeline::logger_error_condition(e)
+        ravedash::error_notification(
+          cond = e,
+          autohide = FALSE,
+          class = "pipeline-error",
+          session = session
+        )
+      }
+    )
+
+    return()
+
+  }
+
   # Register event: main pipeline need to run
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      if (!ravedash::watch_data_loaded()) { return() }
-
-      # Collect input data
-      settings <- component_container$collect_settings(ids = c(
-        "electrode_text", "condition_groups", "analysis_ranges"
-      ))
-
-      # Save custom UI inputs so they can be restored on next session load
-      # Enforced order: Detrend -> pre-Downsample -> FIR/IIR filters -> post-Downsample -> Baseline
-      fc <- get_filter_configurations()
-
-      pipeline$set_settings(
-        condition_groups = input$condition_groups,
-        filter_configurations = unname(fc),
-        analysis_ranges = settings$analysis_ranges,
-        analysis_electrodes = settings$analysis_electrodes
-      )
-
-      dipsaus::shiny_alert2(
-        title = "Running Pipeline...",
-        text = ravedash::be_patient_text(),
-        auto_close = FALSE,
-        buttons = FALSE,
-        icon = "info",
-        session = session
-      )
-
-      on.exit({
-        Sys.sleep(0.5)
-        dipsaus::close_alert2(session = session)
-      })
-
-      tryCatch(
-        {
-          ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
-                               level = "debug", reset_timer = TRUE)
-
-          pipeline$run(
-            scheduler = "none",
-            type = "smart",
-            shortcut = TRUE,
-            names = c(
-              "settings_path",
-              "filter_configurations",
-              "condition_groups",
-              "analysis_electrodes",
-
-              "settings",
-              "condition_groups_clean",
-              "analysis_electrodes_clean",
-              "analysis_electrode_coordinates",
-
-              "filtered_array",
-              "data_placeholder",
-
-              "data_by_channel_condition",
-              "data_by_trial_channel_condition"
-            ),
-            return_values = FALSE
-          )
-
-          ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name,
-                               level = "debug")
-          shidashi::clear_notifications(
-            class = ns("pipeline-error"), session = session)
-          local_reactives$update_outputs <- Sys.time()
-        },
-        error = function(e) {
-
-          ravepipeline::logger_error_condition(e)
-          ravedash::error_notification(
-            cond = e,
-            autohide = FALSE,
-            class = "pipeline-error",
-            session = session
-          )
-        }
-      )
-
-      return()
+      run_analysis()
 
     }),
     server_tools$run_analysis_flag(),
@@ -267,6 +290,7 @@ module_server <- function(input, output, session, ...) {
       shidashi::reset_output("figure_by_channel_condition_cond")
       shidashi::reset_output("figure_by_channel_condition_ch")
       shidashi::reset_output("figure_by_trial_per_condition")
+      shidashi::reset_output("figure_by_trial_per_condition_heatmap")
 
     }, priority = 1001),
     ravedash::watch_data_loaded(),
@@ -275,6 +299,55 @@ module_server <- function(input, output, session, ...) {
   )
 
 
+  # ---- Viewer events ----------------------------------
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if (!isTRUE(ravedash::watch_data_loaded())) { return() }
+      if (isTRUE(ravedash::watch_loader_opened())) { return() }
+      info <- brain_proxy$mouse_event_double_click
+      if (!length(info)) { return() }
+
+      if (!isTRUE(info$is_electrode)) { return() }
+      electrode <- as.integer(info$electrode_number)
+      if (is.na(electrode)) { return() }
+
+      repository <- component_container$data$repository
+      if (is.null(repository)) { return() }
+
+      if (!isTRUE(electrode %in% repository$electrode_list)) {
+        ravedash::show_notification(
+          sprintf("Selected electrode (%s) not loaded", electrode),
+          title = '3dViewer Info',
+          type = 'warning',
+          class = ns('threedviewer_no'),
+          delay = 2000
+        )
+        return()
+      }
+
+      ravedash::clear_notifications(class = ns('threedviewer_no'), session = session)
+      ravedash::show_notification(
+        paste0("Trying to load data for electrode: ", electrode),
+        class = ns('threedviewer_yes'),
+        title = '3dViewer Info',
+        delay = 2000,
+        type = 'info'
+      )
+
+      # ravepipeline::logger(str(info))
+      id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
+
+      shiny::updateTextInput(inputId = id, value = dipsaus::deparse_svec(electrode))
+
+      run_analysis(
+        trigger_3dviewer = FALSE,
+        force_settings = list(analysis_electrodes = electrode)
+      )
+
+    }),
+    brain_proxy$mouse_event_double_click,
+    ignoreNULL = TRUE, ignoreInit = FALSE
+  )
   # ---- Graphics options ---------------
   get_cex <- shiny::reactive({
     if (isTRUE(input$plot_cex > 0)) {
@@ -320,6 +393,74 @@ module_server <- function(input, output, session, ...) {
     }
     show_crp
   })
+
+  get_plot_space <- shiny::reactive({
+    value <- input$plot_space_value
+    is_pct <- input$plot_space_is_percentile
+    if (isTRUE(is.numeric(value) && value > 0)) {
+      use_plot_space(value)
+    } else {
+      value <- use_plot_space()
+    }
+    if (length(is_pct) > 0) {
+      use_plot_space_is_percentile(is_pct)
+    } else {
+      is_pct <- use_plot_space_is_percentile()
+    }
+    if (isTRUE(is_pct)) {
+      list(space = value / 100, space_mode = "quantile")
+    } else {
+      list(space = value, space_mode = "absolute")
+    }
+  })
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      reset_graphics_preferences()
+      defaults <- list(
+        cex          = use_cex(),
+        channel_annot = use_channel_annotation_style(),
+        trial_sort_by = use_trial_sort_by(),
+        space_value   = use_plot_space(),
+        space_is_pct  = use_plot_space_is_percentile()
+      )
+      shiny::updateNumericInput(session,  "plot_cex",                 value = defaults$cex)
+      shiny::updateSelectInput(session,   "channel_annotation",       selected = defaults$channel_annot)
+      shiny::updateSelectInput(session,   "trial_sort_by",            selected = defaults$trial_sort_by)
+      shiny::updateNumericInput(session,  "plot_space_value",         value = defaults$space_value)
+      shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
+    }),
+    input$plot_options_reset,
+    ignoreInit = TRUE,
+    ignoreNULL = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      # Passing filter
+      shiny::updateCheckboxInput(session, "passing_filter_enabled",    value = TRUE)
+      shiny::updateSelectInput(session,   "passing_filter_type",       selected = "band_pass")
+      shiny::updateSelectInput(session,   "passing_filter_method",     selected = "firls")
+      shiny::updateNumericInput(session,  "passing_freq1",             value = 1)
+      shiny::updateNumericInput(session,  "passing_freq2",             value = 30)
+      # Band-stop filter
+      shiny::updateCheckboxInput(session, "bandstop_filter_enabled",   value = FALSE)
+      shiny::updateTextInput(session,     "bandstop_filter_ranges",    value = "59-61, 119-121, 179-181")
+      # Baseline
+      shiny::updateCheckboxInput(session, "enable_baseline_method",    value = TRUE)
+      # Detrend (hidden)
+      shiny::updateSelectInput(session,   "remove_drift_method",       selected = "detrend+demean")
+      # Pre-downsample (hidden)
+      shiny::updateCheckboxInput(session, "pre_downsample_factor_auto", value = TRUE)
+      shiny::updateNumericInput(session,  "pre_downsample_factor",     value = 1L)
+      # Post-downsample (hidden)
+      shiny::updateCheckboxInput(session, "post_downsample_factor_auto", value = TRUE)
+      shiny::updateNumericInput(session,  "post_downsample_factor",    value = 1L)
+    }),
+    input$signal_config_reset,
+    ignoreInit = TRUE,
+    ignoreNULL = TRUE
+  )
 
   # ---- Nyquist info label (reactive to downsample inputs) ---------------
 
@@ -379,20 +520,21 @@ module_server <- function(input, output, session, ...) {
 
     # If the passing band is not enabled, down-sample to 100
     if (!isTRUE(input$passing_filter_enabled)) {
-      return(max(floor(sr / 100), 1L))
+      return(max(floor(sr / 200), 1L))
     }
 
     if (isTRUE(input$passing_filter_type %in% c("high_pass"))) {
       return(1L)
     }
 
-    # Say low-pass 100Hz, then down-sample to around 300~600Hz
+    # Say low-pass 100Hz, then down-sample to around 400Hz, then nyquist is
+    # 200 Hz, way enough for most ERP
     cutoff_freq <- input$passing_freq1
     if (isTRUE(input$passing_filter_type %in% c("band_pass"))) {
       cutoff_freq <- c(input$passing_freq1, input$passing_freq2)
     }
-    cutoff_freq <- max(c(cutoff_freq, 33), na.rm = TRUE)
-    max_freq <- ceiling(cutoff_freq * 3)
+    cutoff_freq <- max(c(cutoff_freq, 50), na.rm = TRUE)
+    max_freq <- ceiling(cutoff_freq * 4)
 
     return(max(floor(sr / max_freq), 1L))
   })
@@ -811,7 +953,17 @@ module_server <- function(input, output, session, ...) {
 
       pipeline$set_settings(filter_configurations = get_filter_configurations())
 
-      filter_freqz <- pipeline$run("filter_freqz")
+      pipeline$run(
+        names = c(
+          "filter_configurations",
+          "settings",
+          "filter_freqz"
+        ),
+        shortcut = TRUE,
+        return_values = FALSE
+      )
+
+      filter_freqz <- pipeline$read("filter_freqz")
 
       if (is.null(filter_freqz)) {
         stop("Filter inspector will not launch because user did not enter/enable any filters.")
@@ -853,10 +1005,10 @@ module_server <- function(input, output, session, ...) {
         !isFALSE(ravedash::watch_data_loaded()),
         message = "Data is not loaded"
       ),
-      shiny::need(
-        !isTRUE(ravedash::watch_loader_opened()),
-        message = "Loading screen is on"
-      ),
+      # shiny::need(
+      #   !isTRUE(ravedash::watch_loader_opened()),
+      #   message = "Loading screen is on"
+      # ),
       shiny::need(
         length(local_reactives$update_outputs) &&
           !isFALSE(local_reactives$update_outputs),
@@ -864,9 +1016,44 @@ module_server <- function(input, output, session, ...) {
       )
     )
   }
+  .viewer_ready <- function() {
+    shiny::validate(
+      shiny::need(
+        !isFALSE(ravedash::watch_data_loaded()),
+        message = "Data is not loaded"
+      ),
+      # shiny::need(
+      #   !isTRUE(ravedash::watch_loader_opened()),
+      #   message = "Loading screen is on"
+      # ),
+      shiny::need(
+        length(local_reactives$update_3dviewer) &&
+          !isFALSE(local_reactives$update_3dviewer),
+        message = "Please run the module first"
+      )
+    )
+  }
 
 
   # ---- Register outputs ---------------------------------------------------
+
+  output$brain_viewer <- threeBrain::renderBrain({
+    .viewer_ready()
+
+    repository <- component_container$data$repository
+    brain <- ravecore::rave_brain(repository$subject)
+
+    if (is.null(brain)) { return() }
+
+    erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+    if (is.data.frame(erp_results_for_viewer)) {
+      erp_results_for_viewer$Subject <- brain$subject_code
+      brain$set_electrode_values(erp_results_for_viewer)
+    }
+    brain$render(outputId = "brain_viewer",
+                 session = session,
+                 show_modal = FALSE)
+  })
 
   # Mean ERP: one line per condition group, collapsed over channels
   output$figure_by_condition_over_time <- shiny::renderPlot({
@@ -880,13 +1067,16 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
+    plot_space <- get_plot_space()
     plot_trials_per_condition(
       data_by_trial_channel_condition = data_by_trial_channel_condition,
       # type = "collapse_trial",
       vertical_marks = input$plot_onset_mark %||% 0,
       crp = isTRUE(input$mean_erp_crp),
       time_range = time_range,
-      cex = get_cex()
+      cex = get_cex(),
+      space = plot_space$space,
+      space_mode = plot_space$space_mode
     )
   })
 
@@ -903,6 +1093,16 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
+    # For By Electrode: when mode is quantile, always use the full data range
+    # (ignore the user-specified percentile); only apply space when mode is absolute
+    plot_space <- get_plot_space()
+    if (plot_space$space_mode == "quantile") {
+      by_elec_space      <- 1
+      by_elec_space_mode <- "quantile"
+    } else {
+      by_elec_space      <- plot_space$space
+      by_elec_space_mode <- "absolute"
+    }
     plot_by_channel_condition(
       data_by_channel_condition,
       group_by           = "condition",
@@ -910,7 +1110,8 @@ module_server <- function(input, output, session, ...) {
       cex                = get_cex(),
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
-      space              = 1,
+      space              = by_elec_space,
+      space_mode         = by_elec_space_mode,
       flip_y             = isTRUE(input$mean_erp_flip_y)
     )
   })
@@ -928,6 +1129,16 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
+    # For By Electrode: when mode is quantile, always use the full data range
+    # (ignore the user-specified percentile); only apply space when mode is absolute
+    plot_space <- get_plot_space()
+    if (plot_space$space_mode == "quantile") {
+      by_elec_space      <- 1
+      by_elec_space_mode <- "quantile"
+    } else {
+      by_elec_space      <- plot_space$space
+      by_elec_space_mode <- "absolute"
+    }
     plot_by_channel_condition(
       data_by_channel_condition,
       group_by           = "channel",
@@ -935,7 +1146,8 @@ module_server <- function(input, output, session, ...) {
       cex                = get_cex(),
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
-      space              = 1,
+      space              = by_elec_space,
+      space_mode         = by_elec_space_mode,
       flip_y             = isTRUE(input$mean_erp_flip_y)
     )
   })
@@ -953,13 +1165,40 @@ module_server <- function(input, output, session, ...) {
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
     }
+    plot_space <- get_plot_space()
     plot_by_trials_per_condition_multilines(
       data_by_trial_channel_condition = data_by_trial_channel_condition,
       sort_by        = get_trial_sort_by(),
       cex            = get_cex(),
       crp            = isTRUE(input$mean_erp_crp),
       vertical_marks = input$plot_onset_mark %||% 0,
-      time_range     = time_range
+      time_range     = time_range,
+      space          = plot_space$space,
+      space_mode     = plot_space$space_mode
+    )
+
+  })
+  output$figure_by_trial_per_condition_heatmap <- shiny::renderPlot({
+    .output_ready()
+    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
+    shiny::validate(shiny::need(
+      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
+      message = "No data available"
+    ))
+    time_range <- c(input$plot_time_start, input$plot_time_end)
+    if (!length(time_range) || all(is.na(time_range))) {
+      time_range <- c(NA, NA)
+    }
+    plot_space <- get_plot_space()
+    plot_by_trials_per_condition_heatmap(
+      data_by_trial_channel_condition = data_by_trial_channel_condition,
+      sort_by        = get_trial_sort_by(),
+      space          = plot_space$space,
+      space_mode     = plot_space$space_mode,
+      time_range     = time_range,
+      cex            = get_cex(),
+      crp            = isTRUE(input$mean_erp_crp),
+      vertical_marks = input$plot_onset_mark %||% 0
     )
   })
 
