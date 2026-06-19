@@ -39,7 +39,8 @@ module_server <- function(input, output, session, ...) {
       condition_groups = input$condition_groups,
       filter_configurations = unname(fc),
       analysis_ranges = settings$analysis_ranges,
-      analysis_electrodes = settings$analysis_electrodes
+      analysis_electrodes = settings$analysis_electrodes,
+      analysis_event = input$analysis_event
     )
 
     if (length(force_settings)) {
@@ -70,18 +71,7 @@ module_server <- function(input, output, session, ...) {
         pipeline$run(
           scheduler = "none",
           type = "smart",
-          shortcut = TRUE,
           names = c(
-            "settings_path",
-            "filter_configurations",
-            "condition_groups",
-            "analysis_electrodes",
-
-            "settings",
-            "condition_groups_clean",
-            "analysis_electrodes_clean",
-            "analysis_electrode_coordinates",
-
             "filtered_array",
             "crp_results",
             "erp_results_for_viewer",
@@ -198,6 +188,23 @@ module_server <- function(input, output, session, ...) {
         value = valid_groups,
         ncomp = length(valid_groups)
       )
+
+      # Check events
+      available_events <- new_repository$epoch$available_events
+      # Trial-onset will be "", so use more human readable choice here
+      available_events <- c("Trial Onset", available_events[available_events != ""])
+      analysis_event <- pipeline$get_settings("analysis_event", constraint = available_events)
+      shiny::updateSelectInput(session = session,
+                               inputId = "analysis_event",
+                               choices = available_events,
+                               selected = analysis_event)
+
+      later::later(function() {
+        # ensure the input selected value is correct
+        shiny::updateSelectInput(session = session,
+                                 inputId = "analysis_event",
+                                 selected = analysis_event)
+      }, delay = 0.5)
 
 
       # # Compute epoch time range (used for slider bounds and clamping)

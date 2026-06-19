@@ -15,7 +15,7 @@ modules_\[backup_*\].yaml
 modules/*/main.html
 README.html
 adhoc
-data
+modules/*/data
 /app.R
 unused
 .vscode

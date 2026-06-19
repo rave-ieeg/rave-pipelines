@@ -353,6 +353,8 @@ prepare_filtered_data <- function(array_type, repository, filter_configurations)
       # expected frequency range
       arr$set_header(key = "frequency_range", value = as.double(c(high_pass, low_pass)), save = FALSE)
 
+      arr$set_header(key = "valid_time_range", value = as.double(range(new_time_points, na.rm = TRUE)), save = FALSE)
+
       # this will save the header in bulk
       dimnames(arr) <- new_dnames
       arr
@@ -360,4 +362,82 @@ prepare_filtered_data <- function(array_type, repository, filter_configurations)
   )
 
   pre_analysis_filter_array
+}
+
+
+align_trials <- function(filtered_array, analysis_event_colname) {
+
+  if (inherits(filtered_array, "RAVEFileArray")) {
+    # unwrap the filtered_array
+    filtered_array_impl <- filtered_array$`@impl`
+  } else {
+    filtered_array_impl <- filtered_array
+  }
+
+  epoch_table <- filtered_array_impl$get_header("epoch_table")
+  event_time <- epoch_table[[analysis_event_colname]]
+  onset_time <- epoch_table$Time
+
+  delta <- event_time - onset_time
+  delta[is.na(delta)] <- 0
+
+  if (all(delta == 0)) {
+    # No need to shift array, return filtered array
+    return(ravepipeline::RAVEFileArray$new(filtered_array_impl))
+  }
+
+  sample_rate <- filtered_array_impl$get_header("sample_rate")
+  shift_amount <- round(sample_rate * delta)
+
+  # No need to cache this file because the repository, analysis event, and filters
+  # together determines the cache key from the pipeline level
+  filebase <- file.path(pipeline$pipeline_path, "data", "trials_aligned", fsep = "/")
+  if (file.exists(filebase)) {
+    unlink(filebase, recursive = TRUE)
+  }
+
+  # Float to save disk space
+  dm <- dim(filtered_array_impl)
+  aligned_array_impl <- filearray::filearray_create(
+    filebase,
+    dimension = dm,
+    type = "float",
+    partition_size = 1L
+  )
+
+  pdm <- dm[-length(dm)]
+  filearray::fmap(
+    x = list(filtered_array_impl),
+    .y = aligned_array_impl,
+    .buffer_count = dm[[length(dm)]],
+    fun = function(input) {
+      slice <- array(input[[1]], pdm)
+      ravetools::shift_array(
+        x = slice,
+        along_margin = 1L, # shift along time
+        shift_amount = shift_amount,
+        unit_margin = 2L   # per trial
+      )
+    }
+  )
+
+  extra_headers <- filtered_array_impl$.header
+  extra_headers <- extra_headers[!names(extra_headers) %in% c(names(aligned_array_impl$.header), "dimnames")]
+  for (nm in names(extra_headers)) {
+    aligned_array_impl$set_header(nm, extra_headers[[nm]], save = FALSE)
+  }
+
+  signature_shift_mount <- ravepipeline::digest(as.integer(shift_amount))
+  aligned_array_impl$set_header("signature_shift_mount", signature_shift_mount, save = FALSE)
+
+  dnames <- dimnames(filtered_array_impl)
+  time_range <- range(dnames$Time)
+  shift_range <- range(delta, na.rm = TRUE)
+  valid_time_range <- c(time_range[[1]] + shift_range[[2]], time_range[[2]] + shift_range[[1]])
+  aligned_array_impl$set_header("valid_time_range", valid_time_range, save = FALSE)
+  dimnames(aligned_array_impl) <- dnames
+
+  aligned_array_impl$.mode <- "readonly"
+  ravepipeline::RAVEFileArray$new(aligned_array_impl)
+
 }

@@ -60,6 +60,11 @@ if (!length(analysis_electrodes_clean)) {
 analysis_electrodes_clean <- as.integer(sort(analysis_electrodes_clean))
 ```
 
+```{r clean_analysis_event, engine='rave', language = "R", export = "analysis_event_colname"}
+analysis_event_colname <- repository$epoch$get_event_colname(
+  event = analysis_event, missing = "warning")
+```
+
 ```{r diagnose_filters, engine='rave', language="R", export = "filter_freqz"}
 # Pre-calculate each frequency filter so its frequency response can be plotted.
 # Meta steps (detrend, demean, decimate, baseline) are not filter objects but
@@ -244,6 +249,10 @@ invisible(
 filtered_array$`@impl`
 ```
 
+```{r align_to_analysis_event, engine='rave', language = "R", export = "aligned_array"}
+aligned_array <- align_trials(filtered_array, analysis_event_colname)
+```
+
 ```{r get_electrode_coordinate_table, engine='rave', export = "analysis_electrode_coordinates"}
 analysis_electrode_coordinates <- subject$get_electrode_table(
   electrodes = analysis_electrodes_clean,
@@ -288,21 +297,17 @@ if (!isTRUE(condition_groups_clean$n > 0)) {
 ```
 
 
-Combine `condition_groups_clean` and `filtered_array` to prepare plot data
+Combine `condition_groups_clean` and `aligned_array` to prepare plot data
 
 ```{r prepare_plot_data_placeholder, engine='rave', export = "data_placeholder", cue = "always"}
 data_placeholder <- condition_groups_clean
 
-if (inherits(filtered_array, "RAVEFileArray")) {
-  # unwrap the filtered_array
-  filtered_array_impl <- filtered_array$`@impl`
-} else {
-  filtered_array_impl <- filtered_array
-}
-dnames <- dimnames(filtered_array_impl)
+# unwrap the aligned_array
+aligned_array_impl <- aligned_array$`@impl`
+dnames <- dimnames(aligned_array_impl)
 
 # Sample rate
-data_placeholder$sample_rate <- filtered_array_impl$get_header("sample_rate")
+data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
 
 # electrode coordinate table
 data_placeholder$coord_table <- analysis_electrode_coordinates
@@ -311,21 +316,17 @@ data_placeholder$coord_table <- analysis_electrode_coordinates
 data_placeholder$time_points <- dnames$Time
 
 # Force the data to update if the array changes
-attr(data_placeholder, "signature") <- filtered_array_impl$get_header("signature_filters")
+attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
 ```
 
 
-```{r calculating_erp_durations, engine='rave', language = "R", export = "crp_results"}
-if (inherits(filtered_array, "RAVEFileArray")) {
-  # unwrap the filtered_array
-  filtered_array_impl <- filtered_array$`@impl`
-} else {
-  filtered_array_impl <- filtered_array
-}
 
-sample_rate <- filtered_array_impl$get_header("sample_rate")
-dnames <- dimnames(filtered_array_impl)
-time_range <- range(dnames$Time)
+```{r calculating_erp_durations, engine='rave', language = "R", export = "crp_results"}
+aligned_array_impl <- aligned_array$`@impl`
+
+sample_rate <- aligned_array_impl$get_header("sample_rate")
+dnames <- dimnames(aligned_array_impl)
+time_range <- aligned_array_impl$get_header("valid_time_range")
 crp_time_begin <- 0.01
 if (crp_time_begin > time_range[[2]]) {
   crp_time_begin <- 0
@@ -347,12 +348,12 @@ if (crp_enabled) {
   # ravepipeline::with_rave_parallel({
     crp_results <- ravepipeline::lapply_jobs(dnames$Electrode, function(electrode) {
       
-      filtered_array_impl <- filtered_array$`@impl`
+      aligned_array_impl <- aligned_array$`@impl`
       
       group_data <- lapply(cond_groups, function(group) {
         # group <- cond_groups[[1]]
         # electrode <- dnames$Electrode[[1]]
-        sub_array <- filtered_array_impl[, match(group$trials_included, dnames$Trial), 
+        sub_array <- aligned_array_impl[, match(group$trials_included, dnames$Trial), 
                                          dnames$Electrode == electrode, 
                                          dimnames = NULL, drop = FALSE]
         dim(sub_array) <- dim(sub_array)[c(1, 2)]
@@ -393,7 +394,7 @@ if (crp_enabled) {
       return(group_data)
     }, .globals = list(
       cond_groups = cond_groups,
-      filtered_array = ravepipeline::RAVEFileArray$new(filtered_array_impl),
+      aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl),
       dnames = dnames,
       crp_time_begin = crp_time_begin,
       crp_time_end = crp_time_end,
@@ -463,17 +464,13 @@ Visualizations
 For each channel, condition group, collapse over trials
 
 ```{r prepare_voltage_over_channel_and_condition_by_collapsing_trials, engine='rave', language = "R", export = "data_by_channel_condition"}
-if (inherits(filtered_array, "RAVEFileArray")) {
-  # unwrap the filtered_array
-  filtered_array_impl <- filtered_array$`@impl`
-} else {
-  filtered_array_impl <- filtered_array
-}
+# unwrap the aligned_array
+aligned_array_impl <- aligned_array$`@impl`
 
 group_data <- lapply(data_placeholder$groups, function(group) {
   # group <- data_placeholder$groups[[1]]
   sub_array <- subset(
-    filtered_array_impl,
+    aligned_array_impl,
     Electrode ~ Electrode %in% analysis_electrodes_clean,
     Trial ~ Trial %in% group$trials_included,
     drop = FALSE
@@ -533,20 +530,16 @@ plot(data_by_channel_condition,
   - plot each trial - collapse channels
 
 ```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_channel_condition"}
-if (inherits(filtered_array, "RAVEFileArray")) {
-  # unwrap the filtered_array
-  filtered_array_impl <- filtered_array$`@impl`
-} else {
-  filtered_array_impl <- filtered_array
-}
+# unwrap the aligned_array
+aligned_array_impl <- aligned_array$`@impl`
 
-dnames <- dimnames(filtered_array_impl)
+dnames <- dimnames(aligned_array_impl)
 trial_numbers <- dnames$Trial
 
 time_points <- data_placeholder$time_points
 sample_rate <- data_placeholder$sample_rate 
 
-time_range <- range(time_points)
+time_range <- aligned_array_impl$get_header("valid_time_range")
 crp_time_begin <- 0.01
 if (crp_time_begin > time_range[[2]]) {
   crp_time_begin <- 0
@@ -564,7 +557,7 @@ if ((crp_time_end - crp_time_begin) * sample_rate <= 10) {
 group_data <- lapply(data_placeholder$groups, function(group) {
   # group <- data_placeholder$groups[[1]]
   sub_array <- subset(
-    filtered_array_impl,
+    aligned_array_impl,
     Electrode ~ Electrode %in% analysis_electrodes_clean,
     Trial ~ match(group$trials_included, trial_numbers),
     drop = FALSE

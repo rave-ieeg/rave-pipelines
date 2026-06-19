@@ -53,6 +53,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_analysis_ranges = targets::tar_target_raw("analysis_ranges", 
         quote({
             settings[["analysis_ranges"]]
+        }), deps = "settings"), input_analysis_event = targets::tar_target_raw("analysis_event", 
+        quote({
+            settings[["analysis_event"]]
         }), deps = "settings"), input_analysis_electrodes = targets::tar_target_raw("analysis_electrodes", 
         quote({
             settings[["analysis_electrodes"]]
@@ -161,7 +164,29 @@ rm(._._env_._.)
             }), target_depends = c("repository", "analysis_electrodes"
             )), deps = c("repository", "analysis_electrodes"), 
         cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
-    diagnose_filters = targets::tar_target_raw(name = "filter_freqz", 
+    clean_analysis_event = targets::tar_target_raw(name = "analysis_event_colname", 
+        command = quote({
+            .__target_expr__. <- quote({
+                analysis_event_colname <- repository$epoch$get_event_colname(event = analysis_event, 
+                  missing = "warning")
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(analysis_event_colname)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_event_colname", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "analysis_event_colname", target_expr = quote({
+                {
+                  analysis_event_colname <- repository$epoch$get_event_colname(event = analysis_event, 
+                    missing = "warning")
+                }
+                analysis_event_colname
+            }), target_depends = c("repository", "analysis_event"
+            )), deps = c("repository", "analysis_event"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), diagnose_filters = targets::tar_target_raw(name = "filter_freqz", 
         command = quote({
             .__target_expr__. <- quote({
                 sample_rate <- repository$sample_rate
@@ -409,6 +434,29 @@ rm(._._env_._.)
             }), target_depends = c("repository", "filter_configurations"
             )), deps = c("repository", "filter_configurations"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), align_to_analysis_event = targets::tar_target_raw(name = "aligned_array", 
+        command = quote({
+            .__target_expr__. <- quote({
+                aligned_array <- align_trials(filtered_array, 
+                  analysis_event_colname)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(aligned_array)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "aligned_array", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "aligned_array", target_expr = quote({
+                {
+                  aligned_array <- align_trials(filtered_array, 
+                    analysis_event_colname)
+                }
+                aligned_array
+            }), target_depends = c("filtered_array", "analysis_event_colname"
+            )), deps = c("filtered_array", "analysis_event_colname"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
         iteration = "list"), get_electrode_coordinate_table = targets::tar_target_raw(name = "analysis_electrode_coordinates", 
         command = quote({
             .__target_expr__. <- quote({
@@ -489,16 +537,12 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 data_placeholder <- condition_groups_clean
-                if (inherits(filtered_array, "RAVEFileArray")) {
-                  filtered_array_impl <- filtered_array$`@impl`
-                } else {
-                  filtered_array_impl <- filtered_array
-                }
-                dnames <- dimnames(filtered_array_impl)
-                data_placeholder$sample_rate <- filtered_array_impl$get_header("sample_rate")
+                aligned_array_impl <- aligned_array$`@impl`
+                dnames <- dimnames(aligned_array_impl)
+                data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
                 data_placeholder$coord_table <- analysis_electrode_coordinates
                 data_placeholder$time_points <- dnames$Time
-                attr(data_placeholder, "signature") <- filtered_array_impl$get_header("signature_filters")
+                attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -511,33 +555,25 @@ rm(._._env_._.)
             target_export = "data_placeholder", target_expr = quote({
                 {
                   data_placeholder <- condition_groups_clean
-                  if (inherits(filtered_array, "RAVEFileArray")) {
-                    filtered_array_impl <- filtered_array$`@impl`
-                  } else {
-                    filtered_array_impl <- filtered_array
-                  }
-                  dnames <- dimnames(filtered_array_impl)
-                  data_placeholder$sample_rate <- filtered_array_impl$get_header("sample_rate")
+                  aligned_array_impl <- aligned_array$`@impl`
+                  dnames <- dimnames(aligned_array_impl)
+                  data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
                   data_placeholder$coord_table <- analysis_electrode_coordinates
                   data_placeholder$time_points <- dnames$Time
-                  attr(data_placeholder, "signature") <- filtered_array_impl$get_header("signature_filters")
+                  attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
                 }
                 data_placeholder
             }), target_depends = c("condition_groups_clean", 
-            "filtered_array", "analysis_electrode_coordinates"
-            )), deps = c("condition_groups_clean", "filtered_array", 
+            "aligned_array", "analysis_electrode_coordinates"
+            )), deps = c("condition_groups_clean", "aligned_array", 
         "analysis_electrode_coordinates"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), calculating_erp_durations = targets::tar_target_raw(name = "crp_results", 
         command = quote({
             .__target_expr__. <- quote({
-                if (inherits(filtered_array, "RAVEFileArray")) {
-                  filtered_array_impl <- filtered_array$`@impl`
-                } else {
-                  filtered_array_impl <- filtered_array
-                }
-                sample_rate <- filtered_array_impl$get_header("sample_rate")
-                dnames <- dimnames(filtered_array_impl)
-                time_range <- range(dnames$Time)
+                aligned_array_impl <- aligned_array$`@impl`
+                sample_rate <- aligned_array_impl$get_header("sample_rate")
+                dnames <- dimnames(aligned_array_impl)
+                time_range <- aligned_array_impl$get_header("valid_time_range")
                 crp_time_begin <- 0.01
                 if (crp_time_begin > time_range[[2]]) {
                   crp_time_begin <- 0
@@ -554,9 +590,9 @@ rm(._._env_._.)
                   cond_groups <- condition_groups_clean$groups
                   crp_results <- ravepipeline::lapply_jobs(dnames$Electrode, 
                     function(electrode) {
-                      filtered_array_impl <- filtered_array$`@impl`
+                      aligned_array_impl <- aligned_array$`@impl`
                       group_data <- lapply(cond_groups, function(group) {
-                        sub_array <- filtered_array_impl[, match(group$trials_included, 
+                        sub_array <- aligned_array_impl[, match(group$trials_included, 
                           dnames$Trial), dnames$Electrode == 
                           electrode, dimnames = NULL, drop = FALSE]
                         dim(sub_array) <- dim(sub_array)[c(1, 
@@ -576,7 +612,7 @@ rm(._._env_._.)
                       })
                       return(group_data)
                     }, .globals = list(cond_groups = cond_groups, 
-                      filtered_array = ravepipeline::RAVEFileArray$new(filtered_array_impl), 
+                      aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl), 
                       dnames = dnames, crp_time_begin = crp_time_begin, 
                       crp_time_end = crp_time_end, crp_time_step = crp_time_step), 
                     callback = function(e) {
@@ -597,14 +633,10 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "crp_results", target_expr = quote({
                 {
-                  if (inherits(filtered_array, "RAVEFileArray")) {
-                    filtered_array_impl <- filtered_array$`@impl`
-                  } else {
-                    filtered_array_impl <- filtered_array
-                  }
-                  sample_rate <- filtered_array_impl$get_header("sample_rate")
-                  dnames <- dimnames(filtered_array_impl)
-                  time_range <- range(dnames$Time)
+                  aligned_array_impl <- aligned_array$`@impl`
+                  sample_rate <- aligned_array_impl$get_header("sample_rate")
+                  dnames <- dimnames(aligned_array_impl)
+                  time_range <- aligned_array_impl$get_header("valid_time_range")
                   crp_time_begin <- 0.01
                   if (crp_time_begin > time_range[[2]]) {
                     crp_time_begin <- 0
@@ -622,12 +654,11 @@ rm(._._env_._.)
                     cond_groups <- condition_groups_clean$groups
                     crp_results <- ravepipeline::lapply_jobs(dnames$Electrode, 
                       function(electrode) {
-                        filtered_array_impl <- filtered_array$`@impl`
+                        aligned_array_impl <- aligned_array$`@impl`
                         group_data <- lapply(cond_groups, function(group) {
-                          sub_array <- filtered_array_impl[, 
-                            match(group$trials_included, dnames$Trial), 
-                            dnames$Electrode == electrode, dimnames = NULL, 
-                            drop = FALSE]
+                          sub_array <- aligned_array_impl[, match(group$trials_included, 
+                            dnames$Trial), dnames$Electrode == 
+                            electrode, dimnames = NULL, drop = FALSE]
                           dim(sub_array) <- dim(sub_array)[c(1, 
                             2)]
                           crp_result <- ravetools::crp(sub_array, 
@@ -645,7 +676,7 @@ rm(._._env_._.)
                         })
                         return(group_data)
                       }, .globals = list(cond_groups = cond_groups, 
-                        filtered_array = ravepipeline::RAVEFileArray$new(filtered_array_impl), 
+                        aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl), 
                         dnames = dnames, crp_time_begin = crp_time_begin, 
                         crp_time_end = crp_time_end, crp_time_step = crp_time_step), 
                       callback = function(e) {
@@ -657,8 +688,8 @@ rm(._._env_._.)
                   }
                 }
                 crp_results
-            }), target_depends = c("filtered_array", "condition_groups_clean"
-            )), deps = c("filtered_array", "condition_groups_clean"
+            }), target_depends = c("aligned_array", "condition_groups_clean"
+            )), deps = c("aligned_array", "condition_groups_clean"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
         iteration = "list"), prepare_erp_duration_for_viewer = targets::tar_target_raw(name = "erp_results_for_viewer", 
         command = quote({
@@ -728,15 +759,11 @@ rm(._._env_._.)
         iteration = "list"), prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({
-                if (inherits(filtered_array, "RAVEFileArray")) {
-                  filtered_array_impl <- filtered_array$`@impl`
-                } else {
-                  filtered_array_impl <- filtered_array
-                }
+                aligned_array_impl <- aligned_array$`@impl`
                 group_data <- lapply(data_placeholder$groups, 
                   function(group) {
-                    sub_array <- subset(filtered_array_impl, 
-                      Electrode ~ Electrode %in% analysis_electrodes_clean, 
+                    sub_array <- subset(aligned_array_impl, Electrode ~ 
+                      Electrode %in% analysis_electrodes_clean, 
                       Trial ~ Trial %in% group$trials_included, 
                       drop = FALSE)
                     dimnames(sub_array) <- NULL
@@ -758,14 +785,10 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_by_channel_condition", target_expr = quote({
                 {
-                  if (inherits(filtered_array, "RAVEFileArray")) {
-                    filtered_array_impl <- filtered_array$`@impl`
-                  } else {
-                    filtered_array_impl <- filtered_array
-                  }
+                  aligned_array_impl <- aligned_array$`@impl`
                   group_data <- lapply(data_placeholder$groups, 
                     function(group) {
-                      sub_array <- subset(filtered_array_impl, 
+                      sub_array <- subset(aligned_array_impl, 
                         Electrode ~ Electrode %in% analysis_electrodes_clean, 
                         Trial ~ Trial %in% group$trials_included, 
                         drop = FALSE)
@@ -779,22 +802,18 @@ rm(._._env_._.)
                   data_by_channel_condition$data <- group_data
                 }
                 data_by_channel_condition
-            }), target_depends = c("filtered_array", "data_placeholder", 
-            "analysis_electrodes_clean")), deps = c("filtered_array", 
+            }), target_depends = c("aligned_array", "data_placeholder", 
+            "analysis_electrodes_clean")), deps = c("aligned_array", 
         "data_placeholder", "analysis_electrodes_clean"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), prepare_voltage_collapsed_over_channels_per_condition = targets::tar_target_raw(name = "data_by_trial_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({
-                if (inherits(filtered_array, "RAVEFileArray")) {
-                  filtered_array_impl <- filtered_array$`@impl`
-                } else {
-                  filtered_array_impl <- filtered_array
-                }
-                dnames <- dimnames(filtered_array_impl)
+                aligned_array_impl <- aligned_array$`@impl`
+                dnames <- dimnames(aligned_array_impl)
                 trial_numbers <- dnames$Trial
                 time_points <- data_placeholder$time_points
                 sample_rate <- data_placeholder$sample_rate
-                time_range <- range(time_points)
+                time_range <- aligned_array_impl$get_header("valid_time_range")
                 crp_time_begin <- 0.01
                 if (crp_time_begin > time_range[[2]]) {
                   crp_time_begin <- 0
@@ -809,8 +828,8 @@ rm(._._env_._.)
                 }
                 group_data <- lapply(data_placeholder$groups, 
                   function(group) {
-                    sub_array <- subset(filtered_array_impl, 
-                      Electrode ~ Electrode %in% analysis_electrodes_clean, 
+                    sub_array <- subset(aligned_array_impl, Electrode ~ 
+                      Electrode %in% analysis_electrodes_clean, 
                       Trial ~ match(group$trials_included, trial_numbers), 
                       drop = FALSE)
                     dimnames(sub_array) <- NULL
@@ -853,16 +872,12 @@ rm(._._env_._.)
             target_export = "data_by_trial_channel_condition", 
             target_expr = quote({
                 {
-                  if (inherits(filtered_array, "RAVEFileArray")) {
-                    filtered_array_impl <- filtered_array$`@impl`
-                  } else {
-                    filtered_array_impl <- filtered_array
-                  }
-                  dnames <- dimnames(filtered_array_impl)
+                  aligned_array_impl <- aligned_array$`@impl`
+                  dnames <- dimnames(aligned_array_impl)
                   trial_numbers <- dnames$Trial
                   time_points <- data_placeholder$time_points
                   sample_rate <- data_placeholder$sample_rate
-                  time_range <- range(time_points)
+                  time_range <- aligned_array_impl$get_header("valid_time_range")
                   crp_time_begin <- 0.01
                   if (crp_time_begin > time_range[[2]]) {
                     crp_time_begin <- 0
@@ -878,7 +893,7 @@ rm(._._env_._.)
                   }
                   group_data <- lapply(data_placeholder$groups, 
                     function(group) {
-                      sub_array <- subset(filtered_array_impl, 
+                      sub_array <- subset(aligned_array_impl, 
                         Electrode ~ Electrode %in% analysis_electrodes_clean, 
                         Trial ~ match(group$trials_included, 
                           trial_numbers), drop = FALSE)
@@ -913,7 +928,7 @@ rm(._._env_._.)
                   data_by_trial_channel_condition$data <- group_data
                 }
                 data_by_trial_channel_condition
-            }), target_depends = c("filtered_array", "data_placeholder", 
-            "analysis_electrodes_clean")), deps = c("filtered_array", 
+            }), target_depends = c("aligned_array", "data_placeholder", 
+            "analysis_electrodes_clean")), deps = c("aligned_array", 
         "data_placeholder", "analysis_electrodes_clean"), cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"))

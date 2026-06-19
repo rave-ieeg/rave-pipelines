@@ -14,9 +14,6 @@ module_html <- function() {
           shiny::column(
             width = 12L,
 
-            # ---- Electrode Selector -------------------------------------------
-
-            electrode_selector$ui_func(),
 
             # ---- Signal Filters card ------------------------------------------
             # Enforced order: Detrend -> pre-Downsample -> FIR/IIR filters -> post-Downsample -> Baseline
@@ -372,15 +369,28 @@ module_html <- function() {
 
             ), # end Signal Filters card
 
+            # ---- Electrode Selector -------------------------------------------
+
+            electrode_selector$ui_func(),
+
             # ---- Condition Groups card ----------------------------------------
 
             ravedash::input_card(
               title = "Condition Groups",
               class_header = "shidashi-anchor",
 
-              shiny::p(
-                "Define one or more condition groups. ",
-                "Each group needs a unique label and at least one trial condition."
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("analysis_event"),
+                  label = "Analysis event",
+                  choices = "Trial Onset"
+                ),
+                inputId = "analysis_event",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "Align the trials based on events after signal filtering ",
+                  "and baseline so the event onset becomes the time zero."
+                )
               ),
 
               shidashi::register_input(
