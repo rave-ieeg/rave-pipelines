@@ -1,4 +1,5 @@
-analysis_electrodes: '14'
+analysis_electrodes: '15 '
+analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
   '1':
@@ -28,15 +29,17 @@ epoch_choice__trial_ends_rel_to_event: ~
 epoch_choice__trial_starts: -1
 epoch_choice__trial_starts_rel_to_event: ~
 filter_configurations:
+- type: detrend
+- type: demean
 - type: decimate
   by: 2.0
   auto: yes
 - type: firls
   high_pass_freq: 1
-  low_pass_freq: 80
+  low_pass_freq: 30
 - type: decimate
-  by: 1
-  auto: no
+  by: 5.0
+  auto: yes
 - type: baseline
   windows:
   - -1
