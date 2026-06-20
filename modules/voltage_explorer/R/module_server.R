@@ -78,7 +78,8 @@ module_server <- function(input, output, session, ...) {
             "data_placeholder",
 
             "data_by_channel_condition",
-            "data_by_trial_channel_condition"
+            "data_by_trial_channel_condition",
+            "crp_by_channel"
           ),
           return_values = FALSE
         )
@@ -418,6 +419,18 @@ module_server <- function(input, output, session, ...) {
       list(space = value / 100, space_mode = "quantile")
     } else {
       list(space = value, space_mode = "absolute")
+    }
+  })
+
+  # CRP canonical responses are normalized, so a user-entered absolute (uV)
+  # spacing is meaningless. Keep quantile spacing as-is, but when the user picks
+  # absolute, fall back to the full quantile range (space = 1, quantile).
+  get_crp_plot_space <- shiny::reactive({
+    plot_space <- get_plot_space()
+    if (identical(plot_space$space_mode, "absolute")) {
+      list(space = 1, space_mode = "quantile")
+    } else {
+      plot_space
     }
   })
 
@@ -1217,6 +1230,58 @@ module_server <- function(input, output, session, ...) {
       cex            = get_cex(),
       crp            = isTRUE(input$mean_erp_crp),
       vertical_marks = input$plot_onset_mark %||% 0
+    )
+  })
+
+
+  # CRP canonical response per channel, one panel per condition group
+  output$figure_crp_by_channel <- shiny::renderPlot({
+    .output_ready()
+    crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
+    shiny::validate(shiny::need(
+      inherits(crp_by_channel, "crp_by_channel"),
+      message = "No data available"
+    ))
+    time_range <- c(input$plot_time_start, input$plot_time_end)
+    if (!length(time_range) || all(is.na(time_range))) {
+      time_range <- c(NA, NA)
+    }
+    # CRP canonical responses are normalized, so an absolute (uV) spacing is
+    # meaningless; fall back to the full quantile range in that case.
+    crp_space <- get_crp_plot_space()
+    plot_crp_by_channel_multilines(
+      crp_by_channel     = crp_by_channel,
+      channel_annotation = get_channel_annotation_style(),
+      cex                = get_cex(),
+      crp                = isTRUE(input$mean_erp_crp),
+      vertical_marks     = input$plot_onset_mark %||% 0,
+      time_range         = time_range,
+      space              = crp_space$space,
+      space_mode         = crp_space$space_mode
+    )
+  })
+
+  output$figure_crp_by_channel_heatmap <- shiny::renderPlot({
+    .output_ready()
+    crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
+    shiny::validate(shiny::need(
+      inherits(crp_by_channel, "crp_by_channel"),
+      message = "No data available"
+    ))
+    time_range <- c(input$plot_time_start, input$plot_time_end)
+    if (!length(time_range) || all(is.na(time_range))) {
+      time_range <- c(NA, NA)
+    }
+    crp_space <- get_crp_plot_space()
+    plot_crp_by_channel_heatmap(
+      crp_by_channel     = crp_by_channel,
+      channel_annotation = get_channel_annotation_style(),
+      cex                = get_cex(),
+      crp                = isTRUE(input$mean_erp_crp),
+      vertical_marks     = input$plot_onset_mark %||% 0,
+      time_range         = time_range,
+      space              = crp_space$space,
+      space_mode         = crp_space$space_mode
     )
   })
 

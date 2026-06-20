@@ -130,12 +130,25 @@ add_crp_decorators <- function(crp_result, cex = 1) {
 
 }
 
-add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1) {
+add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
+                               fmt = NULL) {
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
   par_opt$cex.lab <- 1
 
   vlim <- range(vlim, na.rm = TRUE)
+
+  # Pick a format with enough precision so small (normalized) ranges do not
+  # collapse to the same printed value.
+  if (is.null(fmt)) {
+    span <- diff(vlim)
+    if (is.finite(span) && span > 0) {
+      digits <- max(0, ceiling(-log10(span)) + 1)
+    } else {
+      digits <- 0
+    }
+    fmt <- sprintf("%%.%df", digits)
+  }
 
   legend_z <- seq(vlim[[1]], vlim[[2]], length.out = length(col))
 
@@ -154,7 +167,7 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1) {
   graphics::axis(
     side = 2L,
     at = c(vlim, 0),
-    labels = c(sprintf("%.0f", vlim), "0"),
+    labels = c(sprintf(fmt, vlim), "0"),
     las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
   )

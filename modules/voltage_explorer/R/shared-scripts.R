@@ -1,7 +1,5 @@
 
 
-
-
 # Overall plot: (collapse condition AND channels)
 plot_collapse_by_condition <- function(
     data_collapse_by_condition, crp_decoration = TRUE, col = NULL, flip_y = FALSE,
@@ -85,6 +83,19 @@ plot.data_by_channel_condition <- function(x, ...) {
 
 plot.data_collapse_by_condition <- function(x, ...) {
   plot_collapse_by_condition(data_collapse_by_condition = x, ...)
+}
+
+plot.crp_by_channel <- function(x, type = c("multilines", "heatmap"), ...) {
+  type <- match.arg(type)
+  switch(
+    type,
+    "heatmap" = {
+      plot_crp_by_channel_heatmap(crp_by_channel = x, ...)
+    },
+    {
+      plot_crp_by_channel_multilines(crp_by_channel = x, ...)
+    }
+  )
 }
 
 plot.data_by_trial_channel_condition <- function(

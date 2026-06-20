@@ -573,7 +573,24 @@ module_html <- function() {
               class_body = "no-padding fill-width min-height-450 height-550 resize-vertical",
               append_tools = FALSE,
 
-              "Over Time" = div(
+
+              "Canonical (Lines)" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_crp_by_channel"),
+                  width = "100%", height = "100%"
+                )
+              ),
+              "Canonical (Heatmap)" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_crp_by_channel_heatmap"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+
+              "Analysis Electrode Over Time" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
                   outputId = ns("figure_by_channel_condition_ch"),
@@ -620,6 +637,9 @@ module_html <- function() {
               )
 
             )
+
+
+
 
           )
         )

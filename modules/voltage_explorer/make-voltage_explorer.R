@@ -457,23 +457,57 @@ rm(._._env_._.)
             }), target_depends = c("filtered_array", "analysis_event_colname"
             )), deps = c("filtered_array", "analysis_event_colname"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), get_electrode_coordinate_table = targets::tar_target_raw(name = "analysis_electrode_coordinates", 
+        iteration = "list"), get_coordinate_table = targets::tar_target_raw(name = "electrode_coordinates", 
         command = quote({
             .__target_expr__. <- quote({
-                analysis_electrode_coordinates <- subject$get_electrode_table(electrodes = analysis_electrodes_clean, 
+                electrode_coordinates <- subject$get_electrode_table(electrodes = repository$electrode_list, 
                   reference_name = repository$reference_name, 
                   subset = TRUE)
-                labels <- analysis_electrode_coordinates$Label
-                if (!length(analysis_electrode_coordinates$LabelPrefix)) {
-                  analysis_electrode_coordinates$LabelPrefix <- gsub("[0-9]+", 
+                labels <- electrode_coordinates$Label
+                if (!length(electrode_coordinates$LabelPrefix)) {
+                  electrode_coordinates$LabelPrefix <- gsub("[0-9]+", 
                     "", labels)
                 }
-                label_prefix <- analysis_electrode_coordinates$LabelPrefix
+                label_prefix <- electrode_coordinates$LabelPrefix
                 label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
                 is_lead_channel <- label_prefix != label_prefix_lag1
-                analysis_electrode_coordinates$ShortLabel <- ifelse(!is_lead_channel, 
+                electrode_coordinates$ShortLabel <- ifelse(!is_lead_channel, 
                   gsub("^[a-zA-Z_-]+", "", labels), labels)
-                analysis_electrode_coordinates$LeadChannel <- is_lead_channel
+                electrode_coordinates$LeadChannel <- is_lead_channel
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(electrode_coordinates)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "electrode_coordinates", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "electrode_coordinates", target_expr = quote({
+                {
+                  electrode_coordinates <- subject$get_electrode_table(electrodes = repository$electrode_list, 
+                    reference_name = repository$reference_name, 
+                    subset = TRUE)
+                  labels <- electrode_coordinates$Label
+                  if (!length(electrode_coordinates$LabelPrefix)) {
+                    electrode_coordinates$LabelPrefix <- gsub("[0-9]+", 
+                      "", labels)
+                  }
+                  label_prefix <- electrode_coordinates$LabelPrefix
+                  label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
+                  is_lead_channel <- label_prefix != label_prefix_lag1
+                  electrode_coordinates$ShortLabel <- ifelse(!is_lead_channel, 
+                    gsub("^[a-zA-Z_-]+", "", labels), labels)
+                  electrode_coordinates$LeadChannel <- is_lead_channel
+                }
+                electrode_coordinates
+            }), target_depends = c("subject", "repository")), 
+        deps = c("subject", "repository"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), get_electrode_coordinate_table = targets::tar_target_raw(name = "analysis_electrode_coordinates", 
+        command = quote({
+            .__target_expr__. <- quote({
+                analysis_electrode_coordinates <- electrode_coordinates[electrode_coordinates$Electrode %in% 
+                  analysis_electrodes_clean, ]
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -486,25 +520,13 @@ rm(._._env_._.)
             target_export = "analysis_electrode_coordinates", 
             target_expr = quote({
                 {
-                  analysis_electrode_coordinates <- subject$get_electrode_table(electrodes = analysis_electrodes_clean, 
-                    reference_name = repository$reference_name, 
-                    subset = TRUE)
-                  labels <- analysis_electrode_coordinates$Label
-                  if (!length(analysis_electrode_coordinates$LabelPrefix)) {
-                    analysis_electrode_coordinates$LabelPrefix <- gsub("[0-9]+", 
-                      "", labels)
-                  }
-                  label_prefix <- analysis_electrode_coordinates$LabelPrefix
-                  label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
-                  is_lead_channel <- label_prefix != label_prefix_lag1
-                  analysis_electrode_coordinates$ShortLabel <- ifelse(!is_lead_channel, 
-                    gsub("^[a-zA-Z_-]+", "", labels), labels)
-                  analysis_electrode_coordinates$LeadChannel <- is_lead_channel
+                  analysis_electrode_coordinates <- electrode_coordinates[electrode_coordinates$Electrode %in% 
+                    analysis_electrodes_clean, ]
                 }
                 analysis_electrode_coordinates
-            }), target_depends = c("subject", "analysis_electrodes_clean", 
-            "repository")), deps = c("subject", "analysis_electrodes_clean", 
-        "repository"), cue = targets::tar_cue("thorough"), pattern = NULL, 
+            }), target_depends = c("electrode_coordinates", "analysis_electrodes_clean"
+            )), deps = c("electrode_coordinates", "analysis_electrodes_clean"
+        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
         iteration = "list"), clean_condition_groups = targets::tar_target_raw(name = "condition_groups_clean", 
         command = quote({
             .__target_expr__. <- quote({
@@ -595,13 +617,13 @@ rm(._._env_._.)
                         sub_array <- aligned_array_impl[, match(group$trials_included, 
                           dnames$Trial), dnames$Electrode == 
                           electrode, dimnames = NULL, drop = FALSE]
-                        dim(sub_array) <- dim(sub_array)[c(1, 
-                          2)]
+                        dm <- dim(sub_array)
+                        dim(sub_array) <- dm[c(1, 2)]
                         crp_result <- ravetools::crp(sub_array, 
                           time = dnames$Time, t_start = crp_time_begin, 
                           t_end = crp_time_end, time_step = crp_time_step, 
                           threshold_quantile = 0.98, artifact_interval = "tR", 
-                          remove_artifacts = TRUE)
+                          remove_artifacts = TRUE, detect_onset = TRUE)
                         crp_result$projections$S_all <- NULL
                         crp_result$.data$V <- NULL
                         crp_result$parameters$ep <- NULL
@@ -614,8 +636,8 @@ rm(._._env_._.)
                     }, .globals = list(cond_groups = cond_groups, 
                       aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl), 
                       dnames = dnames, crp_time_begin = crp_time_begin, 
-                      crp_time_end = crp_time_end, crp_time_step = crp_time_step), 
-                    callback = function(e) {
+                      crp_time_end = crp_time_end, crp_time_step = crp_time_step, 
+                      time_range = time_range), callback = function(e) {
                       sprintf("Calculating ERP duration | %s", 
                         e)
                     })
@@ -659,13 +681,13 @@ rm(._._env_._.)
                           sub_array <- aligned_array_impl[, match(group$trials_included, 
                             dnames$Trial), dnames$Electrode == 
                             electrode, dimnames = NULL, drop = FALSE]
-                          dim(sub_array) <- dim(sub_array)[c(1, 
-                            2)]
+                          dm <- dim(sub_array)
+                          dim(sub_array) <- dm[c(1, 2)]
                           crp_result <- ravetools::crp(sub_array, 
                             time = dnames$Time, t_start = crp_time_begin, 
                             t_end = crp_time_end, time_step = crp_time_step, 
                             threshold_quantile = 0.98, artifact_interval = "tR", 
-                            remove_artifacts = TRUE)
+                            remove_artifacts = TRUE, detect_onset = TRUE)
                           crp_result$projections$S_all <- NULL
                           crp_result$.data$V <- NULL
                           crp_result$parameters$ep <- NULL
@@ -678,8 +700,8 @@ rm(._._env_._.)
                       }, .globals = list(cond_groups = cond_groups, 
                         aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl), 
                         dnames = dnames, crp_time_begin = crp_time_begin, 
-                        crp_time_end = crp_time_end, crp_time_step = crp_time_step), 
-                      callback = function(e) {
+                        crp_time_end = crp_time_end, crp_time_step = crp_time_step, 
+                        time_range = time_range), callback = function(e) {
                         sprintf("Calculating ERP duration | %s", 
                           e)
                       })
@@ -704,11 +726,11 @@ rm(._._env_._.)
                         group_result$group_index]
                       data.frame(Electrode = group_result$electrode, 
                         vname = sprintf("%s (%s)", c("t_val", 
-                          "resp_strength", "var_explain", "tau"), 
-                          label), value = c(group_result$projections$t_value_tR, 
+                          "resp_strength", "var_explain", "tau", 
+                          "onset"), label), value = c(group_result$projections$t_value_tR, 
                           mean(abs(group_result$parameters$al_p)), 
                           mean(group_result$parameters$expl_var), 
-                          group_result$tau_R))
+                          group_result$tau_R, group_result$tau_onset))
                     })
                     data.table::rbindlist(group_tbl)
                   })
@@ -738,11 +760,11 @@ rm(._._env_._.)
                           group_result$group_index]
                         data.frame(Electrode = group_result$electrode, 
                           vname = sprintf("%s (%s)", c("t_val", 
-                            "resp_strength", "var_explain", "tau"), 
-                            label), value = c(group_result$projections$t_value_tR, 
+                            "resp_strength", "var_explain", "tau", 
+                            "onset"), label), value = c(group_result$projections$t_value_tR, 
                             mean(abs(group_result$parameters$al_p)), 
                             mean(group_result$parameters$expl_var), 
-                            group_result$tau_R))
+                            group_result$tau_R, group_result$tau_onset))
                       })
                       data.table::rbindlist(group_tbl)
                     })
@@ -756,7 +778,66 @@ rm(._._env_._.)
             }), target_depends = c("crp_results", "condition_groups_clean", 
             "subject")), deps = c("crp_results", "condition_groups_clean", 
         "subject"), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
+        iteration = "list"), prepare_CRP_response = targets::tar_target_raw(name = "crp_by_channel", 
+        command = quote({
+            .__target_expr__. <- quote({
+                time_points <- data_placeholder$time_points
+                samp <- rep(NA_real_, length(time_points))
+                group_data <- lapply(crp_results, function(group_results) {
+                  sapply(group_results, function(group_result) {
+                    samp[time_points %in% group_result$.data$time] <- group_result$parameters$C_full
+                    c(group_result$tau_onset, group_result$tau_R, 
+                      samp)
+                  })
+                })
+                group_data <- simplify2array(group_data, higher = TRUE)
+                group_data <- aperm(group_data, c(1, 3, 2))
+                tau <- group_data[c(1, 2), , , drop = FALSE]
+                group_data <- group_data[-c(1, 2), , , drop = FALSE]
+                crp_by_channel <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                  name = "crp_by_channel")
+                crp_by_channel$coord_table <- electrode_coordinates
+                crp_by_channel$analysis_electrodes <- data_placeholder$coord_table$Electrode
+                crp_by_channel$data <- list(canonical = group_data, 
+                  onset = tau[1, , , drop = FALSE], offset = tau[2, 
+                    , , drop = FALSE])
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(crp_by_channel)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "crp_by_channel", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "crp_by_channel", target_expr = quote({
+                {
+                  time_points <- data_placeholder$time_points
+                  samp <- rep(NA_real_, length(time_points))
+                  group_data <- lapply(crp_results, function(group_results) {
+                    sapply(group_results, function(group_result) {
+                      samp[time_points %in% group_result$.data$time] <- group_result$parameters$C_full
+                      c(group_result$tau_onset, group_result$tau_R, 
+                        samp)
+                    })
+                  })
+                  group_data <- simplify2array(group_data, higher = TRUE)
+                  group_data <- aperm(group_data, c(1, 3, 2))
+                  tau <- group_data[c(1, 2), , , drop = FALSE]
+                  group_data <- group_data[-c(1, 2), , , drop = FALSE]
+                  crp_by_channel <- ravepipeline::pipeline_plot_data(x = data_placeholder, 
+                    name = "crp_by_channel")
+                  crp_by_channel$coord_table <- electrode_coordinates
+                  crp_by_channel$analysis_electrodes <- data_placeholder$coord_table$Electrode
+                  crp_by_channel$data <- list(canonical = group_data, 
+                    onset = tau[1, , , drop = FALSE], offset = tau[2, 
+                      , , drop = FALSE])
+                }
+                crp_by_channel
+            }), target_depends = c("data_placeholder", "crp_results", 
+            "electrode_coordinates")), deps = c("data_placeholder", 
+        "crp_results", "electrode_coordinates"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({
                 aligned_array_impl <- aligned_array$`@impl`
