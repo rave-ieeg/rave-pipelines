@@ -59,7 +59,9 @@ plot_trials_per_condition <- function(
       ylim = ylim,
       axes = FALSE,
       xlab = "",
-      ylab = ""
+      ylab = "",
+      xlim = time_range,
+      ...
     )
     add_axis_time(time_range = time_range, cex = cex)
     add_axis_voltage(value_range = c(-space, space), cex = cex)
