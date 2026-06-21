@@ -417,6 +417,109 @@ module_html <- function() {
               )
             ),
 
+            # ---- CRP Parameters card ------------------------------------------
+
+            ravedash::input_card(
+              title = "CRP Parameters",
+              class_header = "shidashi-anchor",
+
+              ravedash::group_box(
+                title = "Detection window",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::register_input(
+                    shiny::sliderInput(
+                      inputId = ns("crp_detection_window"),
+                      label = "Response window (seconds)",
+                      min = 0, max = 1,
+                      value = c(0.01, 1),
+                      step = 0.01
+                    ),
+                    inputId = "crp_detection_window",
+                    update = "shiny::updateSliderInput",
+                    description = paste(
+                      "Post-stimulus window [t_start, t_end] within which the",
+                      "canonical response duration is estimated; the evoked",
+                      "response must start after t_start and end before t_end.",
+                      "Bounds are set automatically when epoch data is loaded."
+                    )
+                  )
+                )
+              ),
+
+              ravedash::group_box(
+                title = "Advanced",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("crp_onset_border"),
+                      label = "Onset detection border",
+                      choices = c(
+                        "Earliest possible"        = "earliest_possible",
+                        "Event onset (0 s)"        = "event_onset",
+                        "Detection start (t_start)" = "t_start",
+                        "Disabled (no onset)"      = "disabled"
+                      ),
+                      selected = "earliest_possible"
+                    ),
+                    inputId = "crp_onset_border",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "Earliest time the onset scan may reach. 'Disabled' skips",
+                      "onset estimation entirely."
+                    )
+                  )
+                ),
+
+                shiny::column(
+                  width = 6L,
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("crp_time_step"),
+                      label = "Time step (samples)",
+                      value = 5L, min = 1L, step = 1L
+                    ),
+                    inputId = "crp_time_step",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "Sampling step (in samples) used when sweeping candidate",
+                      "response durations. Larger is faster but smoother."
+                    )
+                  )
+                ),
+
+                shiny::column(
+                  width = 6L,
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("crp_threshold_quantile"),
+                      label = "Threshold (%)",
+                      value = 98, min = 1, max = 100, step = 1
+                    ),
+                    inputId = "crp_threshold_quantile",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "Fraction (percent) of the peak mean projection magnitude",
+                      "used to derive the duration-uncertainty bounds."
+                    )
+                  )
+                )
+              ),
+
+              footer = shiny::div(
+                shiny::actionLink(
+                  inputId = ns("crp_params_reset"),
+                  label = "Reset to defaults"
+                )
+              )
+
+            ), # end CRP Parameters card
+
             # ---- Plot Options card --------------------------------------------
 
             ravedash::input_card(

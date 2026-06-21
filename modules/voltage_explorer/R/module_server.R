@@ -35,12 +35,22 @@ module_server <- function(input, output, session, ...) {
     # Enforced order: Detrend -> pre-Downsample -> FIR/IIR filters -> post-Downsample -> Baseline
     fc <- get_filter_configurations()
 
+    # Persist advanced CRP params as preferences so they are remembered across
+    # sessions; the detection window is a per-analysis setting (not a preference)
+    crp_time_step <- use_crp_time_step(input$crp_time_step)
+    crp_threshold_quantile <- use_crp_threshold_quantile(input$crp_threshold_quantile)
+    crp_onset_border <- use_crp_onset_border(input$crp_onset_border)
+
     settings2 <- list(
       condition_groups = input$condition_groups,
       filter_configurations = unname(fc),
       analysis_ranges = settings$analysis_ranges,
       analysis_electrodes = settings$analysis_electrodes,
-      analysis_event = input$analysis_event
+      analysis_event = input$analysis_event,
+      crp_detection_window = input$crp_detection_window,
+      crp_time_step = crp_time_step,
+      crp_threshold_quantile = crp_threshold_quantile,
+      crp_onset_border = crp_onset_border
     )
 
     if (length(force_settings)) {
@@ -292,6 +302,7 @@ module_server <- function(input, output, session, ...) {
 
 
       update_filter_configurations()
+      update_crp_parameters()
 
       # Reset outputs
       shidashi::reset_output("figure_by_condition_over_time")
@@ -451,6 +462,28 @@ module_server <- function(input, output, session, ...) {
       shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
     }),
     input$plot_options_reset,
+    ignoreInit = TRUE,
+    ignoreNULL = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      reset_analysis_preferences()
+      shiny::updateSelectInput(session,  "crp_onset_border",       selected = use_crp_onset_border())
+      shiny::updateNumericInput(session, "crp_time_step",          value = use_crp_time_step())
+      shiny::updateNumericInput(session, "crp_threshold_quantile", value = use_crp_threshold_quantile())
+
+      # Detection window back to its full epoch range (start ~ t=0.01)
+      repository <- component_container$data$repository
+      if (inherits(repository, "rave_prepare_subject_voltage_with_epochs")) {
+        time_range <- range(unlist(repository$time_windows), na.rm = TRUE)
+        shiny::updateSliderInput(
+          session = session, inputId = "crp_detection_window",
+          value = c(max(0.01, time_range[[1L]]), time_range[[2L]])
+        )
+      }
+    }),
+    input$crp_params_reset,
     ignoreInit = TRUE,
     ignoreNULL = TRUE
   )
@@ -962,6 +995,44 @@ module_server <- function(input, output, session, ...) {
     }
 
 
+  }
+
+  # Restore CRP parameter inputs on data load: detection window comes from the
+  # (per-analysis) settings and is bounded by the epoch range; the advanced
+  # params come from user preferences.
+  update_crp_parameters <- function() {
+
+    if (!isTRUE(ravedash::watch_data_loaded())) { return() }
+
+    repository <- component_container$data$repository
+    time_range <- range(unlist(repository$time_windows), na.rm = TRUE)
+
+    # Detection window (clamped into the epoch range); either entry may be NA:
+    # t_start falls back to 0.01, t_end falls back to the max available time.
+    saved_window <- suppressWarnings(as.numeric(unlist(
+      pipeline$get_settings("crp_detection_window")
+    )))
+    saved_window <- saved_window[seq_len(2)]
+    t_start <- saved_window[[1L]]
+    if (!isTRUE(is.finite(t_start))) { t_start <- max(0.01, time_range[[1L]]) }
+    t_end <- saved_window[[2L]]
+    if (!isTRUE(is.finite(t_end))) { t_end <- time_range[[2L]] }
+    window_val <- sort(pmax(pmin(c(t_start, t_end), time_range[[2L]]), time_range[[1L]]))
+    shiny::updateSliderInput(
+      session = session,
+      inputId = "crp_detection_window",
+      min   = time_range[[1L]],
+      max   = time_range[[2L]],
+      value = window_val
+    )
+
+    # Advanced params (preferences)
+    shiny::updateSelectInput(session = session, inputId = "crp_onset_border",
+                             selected = use_crp_onset_border())
+    shiny::updateNumericInput(session = session, inputId = "crp_time_step",
+                              value = use_crp_time_step())
+    shiny::updateNumericInput(session = session, inputId = "crp_threshold_quantile",
+                              value = use_crp_threshold_quantile())
   }
 
 

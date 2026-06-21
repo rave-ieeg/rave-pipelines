@@ -16,6 +16,13 @@ DEFAULT_CHAN_ANNOT <- "number"
 OPTIONS_TRIAL_SORT <- c("stimuli", "trial")
 DEFAULT_TRIAL_SORT <- "stimuli"
 
+OPTIONS_CRP_ONSET_BORDER <- c("disabled", "event_onset", "t_start", "earliest_possible")
+DEFAULT_CRP_PARAMS <- list(
+  time_step = 5,
+  threshold_quantile = 98,
+  onset_border = "earliest_possible"
+)
+
 if (!pipeline$has_preferences("voltage_explorer.graphics.discrete_palette")) {
   pipeline$set_preferences("voltage_explorer.graphics.discrete_palette" = list(
     name = "Default",
@@ -155,6 +162,55 @@ use_plot_space_is_percentile <- function(is_pct) {
     }
   }
   isTRUE(is_pct)
+}
+
+# ---- CRP analysis preferences -------------------------------------------------
+# All advanced CRP parameters are stored together as a single list so new fields
+# can be added without breaking older saved preferences (read with `%||%`).
+use_crp_params <- function() {
+  params <- pipeline$get_preferences("voltage_explorer.analysis.crp_params")
+  if (!is.list(params)) { params <- list() }
+  params
+}
+
+use_crp_time_step <- function(value) {
+  params <- use_crp_params()
+  if (!missing(value)) {
+    value <- as.integer(value)
+    if (!isTRUE(value >= 1)) { value <- DEFAULT_CRP_PARAMS$time_step }
+    params$time_step <- value
+    pipeline$set_preferences("voltage_explorer.analysis.crp_params" = params)
+  }
+  params$time_step %||% DEFAULT_CRP_PARAMS$time_step
+}
+
+use_crp_threshold_quantile <- function(value) {
+  params <- use_crp_params()
+  if (!missing(value)) {
+    value <- as.numeric(value)
+    if (!isTRUE(value >= 1 && value <= 100)) {
+      value <- DEFAULT_CRP_PARAMS$threshold_quantile
+    }
+    params$threshold_quantile <- value
+    pipeline$set_preferences("voltage_explorer.analysis.crp_params" = params)
+  }
+  params$threshold_quantile %||% DEFAULT_CRP_PARAMS$threshold_quantile
+}
+
+use_crp_onset_border <- function(value) {
+  params <- use_crp_params()
+  if (!missing(value)) {
+    value <- value %OF% OPTIONS_CRP_ONSET_BORDER
+    params$onset_border <- value
+    pipeline$set_preferences("voltage_explorer.analysis.crp_params" = params)
+  }
+  (params$onset_border %||% DEFAULT_CRP_PARAMS$onset_border) %OF% OPTIONS_CRP_ONSET_BORDER
+}
+
+reset_analysis_preferences <- function() {
+  pipeline$set_preferences(
+    "voltage_explorer.analysis.crp_params" = DEFAULT_CRP_PARAMS
+  )
 }
 
 reset_graphics_preferences <- function() {

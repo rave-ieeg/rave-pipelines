@@ -103,7 +103,27 @@ add_crp_decorators <- function(crp_result, cex = 1) {
   crp_mean <- crp_result$parameters$C * mean(crp_result$parameters$al)
 
   graphics::lines(crp_time, crp_mean, col = "yellow", lwd = 3)
-  graphics::lines(crp_time, crp_result$parameters$avg_trace_tR, lwd = 1)
+
+  # `avg_trace_tR` spans [t_start, tau_R]. When onset detection is on, `C` /
+  # `params_times` are sliced to [tau_onset, tau_R], so the two axes no longer
+  # share a length; rebuild the avg-trace axis from the sampling step, ending at
+  # tau_R.
+  avg_trace <- crp_result$parameters$avg_trace_tR
+  if (length(avg_trace)) {
+    ref_time <- crp_result$parameters$params_times_full
+    if (length(ref_time) < 2) { ref_time <- crp_time }
+    dt <- if (length(ref_time) > 1) stats::median(diff(ref_time)) else NA_real_
+    if (isTRUE(is.finite(dt)) && length(avg_trace) == length(crp_time)) {
+      avg_time <- crp_time
+    } else if (isTRUE(is.finite(dt))) {
+      avg_time <- seq(to = crp_result$tau_R, by = dt, length.out = length(avg_trace))
+    } else {
+      avg_time <- NULL
+    }
+    if (length(avg_time) == length(avg_trace)) {
+      graphics::lines(avg_time, avg_trace, lwd = 1)
+    }
+  }
 
   idx <- which.min(abs(crp_time - crp_result$tau_R))
 

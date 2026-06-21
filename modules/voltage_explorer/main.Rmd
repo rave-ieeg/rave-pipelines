@@ -3,6 +3,8 @@ title: "RAVE Pipeline Markdown Template"
 output:
   html_document: default
   pdf_document: default
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include = FALSE}
@@ -325,55 +327,95 @@ attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_
 
 
 
-```{r calculating_erp_durations, engine='rave', language = "R", export = "crp_results"}
-aligned_array_impl <- aligned_array$`@impl`
+```{r prepare_crp_settings, engine='rave', language = "R", export = "crp_settings"}
+filtered_array_impl <- filtered_array$`@impl`
 
-sample_rate <- aligned_array_impl$get_header("sample_rate")
-dnames <- dimnames(aligned_array_impl)
-time_range <- aligned_array_impl$get_header("valid_time_range")
-crp_time_begin <- 0.01
+sample_rate <- filtered_array_impl$get_header("sample_rate")
+time_range <- filtered_array_impl$get_header("valid_time_range")
+
+# CRP detection window (t_start, t_end); either entry may be NA (or missing):
+# t_start falls back to 0.01, t_end falls back to the max available time.
+crp_detection_window <- suppressWarnings(as.numeric(unlist(crp_detection_window)))
+crp_detection_window <- crp_detection_window[seq_len(2)]
+crp_time_begin <- crp_detection_window[[1]]
+if (!isTRUE(is.finite(crp_time_begin))) { crp_time_begin <- 0.01 }
 if (crp_time_begin > time_range[[2]]) {
   crp_time_begin <- 0
 }
-crp_time_end <- time_range[[2]]
-crp_time_step <- max(floor(sample_rate / 50), 5)
+crp_time_end <- crp_detection_window[[2]]
+if (!isTRUE(is.finite(crp_time_end))) { crp_time_end <- time_range[[2]] }
 
-# make sure CRP time points have at least 11 time-points
-if ((crp_time_end - crp_time_begin) * sample_rate <= 10) {
-  crp_enabled <- FALSE
-} else {
-  crp_enabled <- TRUE
+# CRP sweeping step (in samples)
+crp_time_step <- as.integer(crp_time_step)
+if (!isTRUE(crp_time_step >= 1)) { crp_time_step <- 5L }
+
+# CRP duration-uncertainty threshold (percent -> fraction)
+crp_threshold_quantile <- as.numeric(crp_threshold_quantile)
+if (!isTRUE(crp_threshold_quantile >= 1 && crp_threshold_quantile <= 100)) {
+  crp_threshold_quantile <- 98
 }
 
-if (crp_enabled) {
-  
+# Onset detection: border controls whether to estimate onset and how far back
+# the scan may reach (see `ravetools::crp`)
+detect_onset <- !identical(crp_onset_border, "disabled")
+# "earliest_possible" -> earliest available time (clamped into [min(time), t_end]
+# by `crp`); "disabled" leaves it NULL since onset is not estimated.
+onset_search_start <- switch(
+  crp_onset_border,
+  "event_onset" = 0,
+  "t_start" = crp_time_begin,
+  "earliest_possible" = time_range[[1]],
+  NULL
+)
+
+# CRP needs at least 11 time-points within the detection window
+crp_enabled <- isTRUE((crp_time_end - crp_time_begin) * sample_rate > 10)
+
+# Shared arguments for `ravetools::crp()`; reused by every crp() call below.
+# Each call supplies its own `x` and `time` via do.call().
+crp_settings <- list(
+  enabled = crp_enabled,
+  args = list(
+    t_start = crp_time_begin,
+    t_end = crp_time_end,
+    time_step = crp_time_step,
+    threshold_quantile = crp_threshold_quantile / 100,
+    artifact_interval = "tR",
+    remove_artifacts = TRUE,
+    detect_onset = detect_onset,
+    onset_search_start = onset_search_start
+  )
+)
+```
+
+
+
+```{r calculating_erp_durations, engine='rave', language = "R", export = "crp_results"}
+aligned_array_impl <- aligned_array$`@impl`
+dnames <- dimnames(aligned_array_impl)
+
+if (isTRUE(crp_settings$enabled)) {
+
   cond_groups <- condition_groups_clean$groups
-  
+
   # ravepipeline::with_rave_parallel({
     crp_results <- ravepipeline::lapply_jobs(dnames$Electrode, function(electrode) {
-      
+
       aligned_array_impl <- aligned_array$`@impl`
-      
+
       group_data <- lapply(cond_groups, function(group) {
         # group <- cond_groups[[1]]
         # electrode <- dnames$Electrode[[1]]
-        sub_array <- aligned_array_impl[, match(group$trials_included, dnames$Trial), 
-                                         dnames$Electrode == electrode, 
+        sub_array <- aligned_array_impl[, match(group$trials_included, dnames$Trial),
+                                         dnames$Electrode == electrode,
                                          dimnames = NULL, drop = FALSE]
         dm <- dim(sub_array)
         dim(sub_array) <- dm[c(1, 2)]
-        
-        crp_result <- ravetools::crp(
-          sub_array,
-          time = dnames$Time,
-          t_start = crp_time_begin,
-          t_end = crp_time_end,
-          time_step = crp_time_step,
-          threshold_quantile = 0.98,
-          artifact_interval = "tR",
-          remove_artifacts = TRUE,
-          detect_onset = TRUE
-        )
+
+        crp_result <- do.call(ravetools::crp, c(
+          list(x = sub_array, time = dnames$Time),
+          crp_settings$args
+        ))
         
         # Trim
         crp_result$projections$S_all <- NULL
@@ -402,10 +444,7 @@ if (crp_enabled) {
       cond_groups = cond_groups,
       aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl),
       dnames = dnames,
-      crp_time_begin = crp_time_begin,
-      crp_time_end = crp_time_end,
-      crp_time_step = crp_time_step,
-      time_range = time_range
+      crp_settings = crp_settings
     ), callback = function(e) {
       sprintf("Calculating ERP duration | %s", e)
     })
@@ -488,9 +527,10 @@ group_data <- lapply(crp_results, function(group_results) {
   sapply(group_results, function(group_result) {
     
     samp[time_points %in% group_result$.data$time] <- group_result$parameters$C_full
-    
-    c(group_result$tau_onset,
-      group_result$tau_R,
+
+    # tau_onset is absent when onset detection is disabled
+    c(group_result$tau_onset %||% NA_real_,
+      group_result$tau_R %||% NA_real_,
       samp)
   })
   
@@ -596,22 +636,6 @@ dnames <- dimnames(aligned_array_impl)
 trial_numbers <- dnames$Trial
 
 time_points <- data_placeholder$time_points
-sample_rate <- data_placeholder$sample_rate 
-
-time_range <- aligned_array_impl$get_header("valid_time_range")
-crp_time_begin <- 0.01
-if (crp_time_begin > time_range[[2]]) {
-  crp_time_begin <- 0
-}
-crp_time_end <- time_range[[2]]
-crp_time_step <- max(floor(sample_rate / 50), 5)
-
-# make sure CRP time points have at least 11 time-points
-if ((crp_time_end - crp_time_begin) * sample_rate <= 10) {
-  crp_enabled <- FALSE
-} else {
-  crp_enabled <- TRUE
-}
 
 group_data <- lapply(data_placeholder$groups, function(group) {
   # group <- data_placeholder$groups[[1]]
@@ -629,17 +653,11 @@ group_data <- lapply(data_placeholder$groups, function(group) {
                                           keep = c(1L, 2L),
                                           average = TRUE)
   
-  if (crp_enabled) {
-    crp_result <- ravetools::crp(
-      voltage_by_trial,
-      time = time_points,
-      t_start = crp_time_begin,
-      t_end = crp_time_end,
-      time_step = crp_time_step,
-      threshold_quantile = 0.98,
-      artifact_interval = "tR",
-      remove_artifacts = TRUE
-    )
+  if (isTRUE(crp_settings$enabled)) {
+    crp_result <- do.call(ravetools::crp, c(
+      list(x = voltage_by_trial, time = time_points),
+      crp_settings$args
+    ))
   } else {
     crp_result <- NULL
   }
@@ -667,7 +685,7 @@ data_by_trial_channel_condition <- ravepipeline::pipeline_plot_data(
   x = data_placeholder, name = "data_by_trial_channel_condition"
 )
 
-data_by_trial_channel_condition$crp_enabled <- crp_enabled
+data_by_trial_channel_condition$crp_enabled <- isTRUE(crp_settings$enabled)
 data_by_trial_channel_condition$data <- group_data
 ```
 

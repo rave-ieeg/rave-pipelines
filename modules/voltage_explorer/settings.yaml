@@ -1,4 +1,4 @@
-analysis_electrodes: 13-24
+analysis_electrodes: '14'
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
@@ -23,6 +23,12 @@ condition_groups:
     - drive_v
     - known_v
     - meant_v
+crp_detection_window:
+- 0.01
+- 2.0
+crp_onset_border: earliest_possible
+crp_threshold_quantile: 98.0
+crp_time_step: 5
 epoch_choice: auditory_onset
 epoch_choice__trial_ends: 2
 epoch_choice__trial_ends_rel_to_event: ~
@@ -42,8 +48,8 @@ filter_configurations:
   auto: yes
 - type: baseline
   windows:
-  - -1.0
-  - -0.03
+  - -1
+  - 0
 loaded_electrodes: 13-16,24
 project_name: demo
 reference_name: default
