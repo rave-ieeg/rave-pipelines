@@ -20,7 +20,7 @@ OPTIONS_CRP_ONSET_BORDER <- c("disabled", "event_onset", "t_start", "earliest_po
 DEFAULT_CRP_PARAMS <- list(
   time_step = 5,
   threshold_quantile = 98,
-  onset_border = "earliest_possible"
+  onset_border = "disabled"
 )
 
 if (!pipeline$has_preferences("voltage_explorer.graphics.discrete_palette")) {

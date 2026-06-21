@@ -26,7 +26,7 @@ condition_groups:
 crp_detection_window:
 - 0.01
 - 2.0
-crp_onset_border: earliest_possible
+crp_onset_border: disabled
 crp_threshold_quantile: 98.0
 crp_time_step: 5
 epoch_choice: auditory_onset
