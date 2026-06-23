@@ -98,6 +98,11 @@ module_server <- function(input, output, session, ...) {
                              level = "debug")
         shidashi::clear_notifications(
           class = ns("pipeline-error"), session = session)
+
+        # Collapse signal configurations
+        shidashi::card_operate(title = "Signal Configurations",
+                               method = "collapse",
+                               session = session)
         local_reactives$update_outputs <- Sys.time()
 
         if (trigger_3dviewer) {
@@ -134,6 +139,33 @@ module_server <- function(input, output, session, ...) {
     }),
     server_tools$run_analysis_flag(),
     ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # After each run, refresh the CRP channel-filter metric choices from the
+  # available `erp_results_for_viewer` columns (depend on condition groups).
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      erp_tbl <- tryCatch(
+        pipeline$read(var_names = "erp_results_for_viewer"),
+        error = function(e) NULL
+      )
+      if (!is.data.frame(erp_tbl)) { return() }
+      choices <- setdiff(names(erp_tbl), c("Electrode", "Subject"))
+      # Prioritize `t_val` metrics first and push `onset` metrics to the end
+      metric_prefix <- sub("\\s*\\(.*$", "", choices)
+      rank <- ifelse(metric_prefix == "t_val", 0L,
+                     ifelse(metric_prefix == "onset", 2L, 1L))
+      choices <- choices[order(rank)]
+      dipsaus::updateCompoundInput2(
+        session = session,
+        inputId = "crp_channel_filter",
+        initialization = list(name = list(choices = choices)),
+        value = shiny::isolate(input$crp_channel_filter)
+      )
+
+    }),
+    local_reactives$update_outputs,
+    ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
 
@@ -209,6 +241,19 @@ module_server <- function(input, output, session, ...) {
                                inputId = "analysis_event",
                                choices = available_events,
                                selected = analysis_event)
+
+      # The first filter op should always be AND
+      # document.querySelector(".voltage_explorer-compound-filter:first-child")
+      shidashi::add_class(
+        selector = sprintf("#%s .dipsaus-compound-input-item:first-child .%s",
+                           ns("crp_channel_filter"), ns("compound-filter")),
+        class = "soft-hidden",
+        session = session
+      )
+
+      shidashi::card_operate(title = "Signal Configurations",
+                             method = "expand",
+                             session = session)
 
       later::later(function() {
         # ensure the input selected value is correct
@@ -444,6 +489,63 @@ module_server <- function(input, output, session, ...) {
       plot_space
     }
   })
+
+  # Resolve the electrode subset for the CRP-by-channel plots from the channel
+  # filter compoundInput2; returns NULL (all channels) when no active filter.
+  get_crp_channel_selection <- shiny::reactive({
+    if (!isTRUE(ravedash::watch_data_loaded())) { return() }
+    filters <- input$crp_channel_filter
+    if (!length(filters)) { return(NULL) }
+    erp_tbl <- tryCatch(
+      pipeline$read(var_names = "erp_results_for_viewer"),
+      error = function(e) NULL
+    )
+    if (!is.data.frame(erp_tbl)) { return(NULL) }
+    tryCatch({
+      crp_filter_electrodes(erp_tbl, filters)
+    }, error = function(e) { NULL })
+  })
+
+  # "Update visualization" button: commit the current channel filter so the CRP
+  # plots redraw with the subset, and sync the 3D viewer (flag the selected
+  # electrodes and threshold the viewer to display only them). A NULL selection
+  # (no active filter) flags all electrodes as kept.
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      selection <- get_crp_channel_selection()
+
+      # Commit for the CRP plots (read via local_data, triggered by the nonce)
+      local_data$crp_channel_selection <- selection
+      local_reactives$crp_filter_applied <- Sys.time()
+
+      erp_tbl <- tryCatch(
+        pipeline$read(var_names = "erp_results_for_viewer"),
+        error = function(e) NULL
+      )
+      if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return() }
+
+      electrodes <- erp_tbl$Electrode
+      crp_filter <- if (is.null(selection)) {
+        rep(TRUE, length(electrodes))
+      } else {
+        electrodes %in% selection
+      }
+      crp_filter <- ifelse(crp_filter, "true", "false")
+
+      brain_proxy$set_electrode_data(
+        data = data.frame(Electrode = electrodes, crp_filter = crp_filter),
+        clear_first = FALSE,
+        update_display = FALSE,
+        override = TRUE
+      )
+      brain_proxy$set_controllers(list(
+        "Threshold Data" = "crp_filter",
+        "Threshold Range" = "true"
+      ))
+    }),
+    input$crp_filter_apply,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -1004,6 +1106,11 @@ module_server <- function(input, output, session, ...) {
 
     if (!isTRUE(ravedash::watch_data_loaded())) { return() }
 
+    # New data: clear any committed channel filter so the CRP plots show all
+    # channels until the user clicks "Update visualization" again.
+    local_data$crp_channel_selection <- NULL
+    local_reactives$crp_filter_applied <- Sys.time()
+
     repository <- component_container$data$repository
     time_range <- range(unlist(repository$time_windows), na.rm = TRUE)
 
@@ -1141,6 +1248,7 @@ module_server <- function(input, output, session, ...) {
     controllers <- list()
 
     if (is.data.frame(erp_results_for_viewer)) {
+      erp_results_for_viewer$crp_filter <- "true"
       brain$set_electrode_values(erp_results_for_viewer)
 
       nms <- names(erp_results_for_viewer)
@@ -1320,6 +1428,9 @@ module_server <- function(input, output, session, ...) {
     # CRP canonical responses are normalized, so an absolute (uV) spacing is
     # meaningless; fall back to the full quantile range in that case.
     crp_space <- get_crp_plot_space()
+    # Channel filter is applied via the "Update visualization" button (commits to
+    # local_data$crp_channel_selection); depend on the nonce to redraw on apply.
+    local_reactives$crp_filter_applied
     plot_crp_by_channel_multilines(
       crp_by_channel     = crp_by_channel,
       channel_annotation = get_channel_annotation_style(),
@@ -1328,7 +1439,8 @@ module_server <- function(input, output, session, ...) {
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
       space              = crp_space$space,
-      space_mode         = crp_space$space_mode
+      space_mode         = crp_space$space_mode,
+      channel_selection  = local_data$crp_channel_selection
     )
   })
 
@@ -1344,6 +1456,7 @@ module_server <- function(input, output, session, ...) {
       time_range <- c(NA, NA)
     }
     crp_space <- get_crp_plot_space()
+    local_reactives$crp_filter_applied
     plot_crp_by_channel_heatmap(
       crp_by_channel     = crp_by_channel,
       channel_annotation = get_channel_annotation_style(),
@@ -1352,7 +1465,8 @@ module_server <- function(input, output, session, ...) {
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
       space              = crp_space$space,
-      space_mode         = crp_space$space_mode
+      space_mode         = crp_space$space_mode,
+      channel_selection  = local_data$crp_channel_selection
     )
   })
 

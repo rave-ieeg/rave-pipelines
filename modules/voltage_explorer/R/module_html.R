@@ -511,6 +511,87 @@ module_html <- function() {
                 )
               ),
 
+              ravedash::group_box(
+                title = "Channel filter",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::register_input(
+                    dipsaus::compoundInput2(
+                      inputId = ns("crp_channel_filter"),
+                      label = "Filter",
+                      initial_ncomp = 1L, min_ncomp = 0L, max_ncomp = 10L,
+                      components = shiny::fluidRow(
+                        shiny::column(
+                          width = 8L,
+                          shiny::selectInput(
+                            inputId = "name",
+                            label = NULL,
+                            choices = character(0L)
+                          )
+                        ),
+                        shiny::column(
+                          width = 4L,
+                          shiny::div(
+                            class = ns("compound-filter"),
+                            shiny::selectInput(
+                              inputId = "operator",
+                              label = NULL,
+                              choices = c("AND" = "and", "OR" = "or"),
+                              selected = "or"
+                            )
+                          )
+                        ),
+                        shiny::column(
+                          width = 8L,
+                          shiny::selectInput(
+                            inputId = "criteria",
+                            label = NULL,
+                            choices = c(
+                              "v = T1"           = "eq",
+                              "|v| < T1"         = "abs_lt",
+                              "|v| >= T1"        = "abs_gte",
+                              "v < T1"           = "lt",
+                              "v >= T1"          = "gte",
+                              "v in [T1, T2]"    = "in",
+                              "v not in [T1, T2]" = "not_in"
+                            ),
+                            selected = "abs_gte"
+                          )
+                        ),
+                        shiny::column(
+                          width = 4L,
+                          shiny::textInput(
+                            inputId = "threshold",
+                            label = NULL,
+                            value = "",
+                            placeholder = "T1 or T1, T2"
+                          )
+                        )
+                      )
+                    ),
+                    inputId = "crp_channel_filter",
+                    update = "dipsaus::updateCompoundInput2",
+                    description = paste(
+                      "Restrict the CRP-by-channel plots to electrodes whose CRP",
+                      "metrics satisfy the combined filters. Operators apply",
+                      "left-to-right (the first is ignored), e.g. c1 AND c2 OR c3",
+                      "= (c1 & c2) | c3. No rows shows all channels."
+                    )
+                  )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shiny::actionButton(
+                    inputId = ns("crp_filter_apply"),
+                    label = "Update visualization",
+                    width = "100%"
+                  )
+                )
+              ),
+
               footer = shiny::div(
                 shiny::actionLink(
                   inputId = ns("crp_params_reset"),

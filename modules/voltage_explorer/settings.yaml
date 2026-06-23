@@ -1,4 +1,4 @@
-analysis_electrodes: '14'
+analysis_electrodes: '13 '
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
@@ -24,8 +24,8 @@ condition_groups:
     - known_v
     - meant_v
 crp_detection_window:
-- 0.01
-- 2.0
+- 0
+- 1
 crp_onset_border: disabled
 crp_threshold_quantile: 98.0
 crp_time_step: 5
