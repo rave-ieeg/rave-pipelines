@@ -481,7 +481,7 @@ module_html <- function() {
                   shidashi::register_input(
                     shiny::numericInput(
                       inputId = ns("crp_time_step"),
-                      label = "Time step (samples)",
+                      label = "step",
                       value = 5L, min = 1L, step = 1L
                     ),
                     inputId = "crp_time_step",
