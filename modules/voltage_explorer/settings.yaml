@@ -1,4 +1,4 @@
-analysis_electrodes: '13 '
+analysis_electrodes: 15
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
@@ -29,7 +29,7 @@ crp_detection_window:
 crp_onset_border: disabled
 crp_threshold_quantile: 98.0
 crp_time_step: 5
-epoch_choice: auditory_onset
+epoch_choice: YABaOutlier
 epoch_choice__trial_ends: 2
 epoch_choice__trial_ends_rel_to_event: ~
 epoch_choice__trial_starts: -1
@@ -42,15 +42,15 @@ filter_configurations:
   auto: yes
 - type: firls
   high_pass_freq: 1
-  low_pass_freq: 30
+  low_pass_freq: 80
 - type: decimate
-  by: 5.0
+  by: 3.0
   auto: yes
 - type: baseline
   windows:
   - -1
   - 0
-loaded_electrodes: 13-16,24
-project_name: demo
+loaded_electrodes: 13-31,33-63,65-84
+project_name: test
 reference_name: default
-subject_code: DemoSubject
+subject_code: YAB

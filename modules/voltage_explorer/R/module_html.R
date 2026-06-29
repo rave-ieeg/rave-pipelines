@@ -721,7 +721,23 @@ module_html <- function() {
                 )
               )
 
-            ) # end Plot Options card
+            ), # end Plot Options card
+
+            # ---- Export Configurations card -----------------------------------
+
+            ravedash::input_card(
+              title = "Export Configurations",
+              class_header = "shidashi-anchor",
+
+              shiny::p("Generate a standalone HTML voltage analysis report in the background."),
+              shiny::actionButton(
+                inputId = ns("open_report_modal"),
+                label = "Generate Report",
+                class = "btn-primary",
+                icon = ravedash::shiny_icons$save
+              )
+
+            ) # end Export Configurations card
 
           )
         )

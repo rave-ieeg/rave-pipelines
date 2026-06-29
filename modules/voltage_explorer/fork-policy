@@ -1,0 +1,9 @@
+[default]
+^build
+^shared
+^main\.html$
+^data
+
+[report]
+^build
+^main\.html$

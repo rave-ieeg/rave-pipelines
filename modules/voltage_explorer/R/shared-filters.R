@@ -314,7 +314,7 @@ prepare_filtered_data <- function(array_type, repository, filter_configurations)
   )
 
   pre_analysis_filter_array <- filearray::filearray_load_or_create(
-    filebase = file.path(pipeline$pipeline_path, "data",
+    filebase = file.path(pipeline$pipeline_path, "shared", "user",
                          array_type, fsep = "/"),
     mode = "readonly",
     type = "float",
@@ -391,7 +391,7 @@ align_trials <- function(filtered_array, analysis_event_colname) {
 
   # No need to cache this file because the repository, analysis event, and filters
   # together determines the cache key from the pipeline level
-  filebase <- file.path(pipeline$pipeline_path, "data", "trials_aligned", fsep = "/")
+  filebase <- file.path(pipeline$pipeline_path, "shared", "user", "trials_aligned", fsep = "/")
   if (file.exists(filebase)) {
     unlink(filebase, recursive = TRUE)
   }

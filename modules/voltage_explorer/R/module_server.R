@@ -1189,12 +1189,180 @@ module_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  output$filter_inspector_plot <- shiny::renderPlot({
+  output$filter_inspector_plot <- shidashi::renderPlot2({
     filter_freqz <- local_reactives$filter_freqz
     shiny::validate(shiny::need(!is.null(filter_freqz), message = "No filter detected"))
 
     plot(filter_freqz, xlim = filter_freqz$xlim)
   })
+
+  # ---- Export Configurations: voltage report ------------------------------
+
+  # Open the report modal, pre-filled with the current plot configuration
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      repository <- component_container$data$repository
+      if (is.null(repository)) { stop("Please load data first.") }
+
+      full_range <- range(unlist(repository$time_windows), na.rm = TRUE)
+
+      # current plot range, fall back to full range when auto (NA)
+      tr <- c(input$plot_time_start, input$plot_time_end)
+      if (length(tr) != 2 || all(is.na(tr))) { tr <- full_range }
+      tr[is.na(tr)] <- full_range[is.na(tr)]
+
+      shiny::showModal(
+        session = session,
+        shiny::modalDialog(
+          title = "Generate Voltage Report",
+          size = "s", easyClose = FALSE,
+          footer = shiny::tagList(
+            shiny::modalButton("Cancel"),
+            shiny::actionButton(
+              ns("do_generate_report"), "Generate report",
+              class = "btn-primary"
+            )
+          ),
+
+          shiny::textInput(
+            ns("report_electrodes"), "Electrodes",
+            value = dipsaus::deparse_svec(repository$electrode_list),
+            placeholder = "e.g. 1-10,15"
+          ),
+          shiny::sliderInput(
+            ns("report_time_range"), "Plot range (s)",
+            min = full_range[[1]], max = full_range[[2]],
+            value = tr, step = 0.01
+          ),
+          shiny::checkboxInput(
+            ns("report_crp"), "CRP annotations",
+            value = isTRUE(input$mean_erp_crp)
+          ),
+          shiny::numericInput(
+            ns("report_vmarks"), "Vertical marks (s)",
+            value = input$plot_onset_mark %||% 0, step = 0.01
+          )
+        )
+      )
+    }, error_wrapper = "notification"),
+    input$open_report_modal,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # Schedule the report as a background job
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      shiny::removeModal(session = session)
+
+      repository <- pipeline$read("repository")
+      subject <- repository$subject
+
+      electrodes <- trimws(input$report_electrodes %||% "")
+      if (!nzchar(electrodes)) {
+        # default: all loaded electrodes
+        electrodes <- dipsaus::deparse_svec(repository$electrode_list)
+      }
+      analysis_electrodes <- dipsaus::deparse_svec(dipsaus::parse_svec(electrodes))
+
+      job_id <- pipeline$generate_report(
+        "univariateVoltage",
+        subject = subject,
+        output_format = "html_document",
+        theme = "spacelab",
+        params = list(
+          analysis_electrodes = analysis_electrodes,
+          time_range          = input$report_time_range,
+          crp_annotations     = isTRUE(input$report_crp),
+          vertical_marks      = input$report_vmarks %||% 0
+        ),
+        code_folding = "none"
+      )
+      # MUST keep a reference, otherwise gc() kills the background process
+      local_data$report_job_id <- job_id
+
+      ravedash::clear_notifications(class = ns("_voltage_report_notif"), session = session)
+      ravedash::show_notification(
+        title = "Report(s) scheduled",
+        message = shiny::div(
+          shiny::p(
+            "Report scheduled. Please check the subject report directory later: \n",
+            subject$report_path,
+            " \nFeel free to dismiss this message."
+          )
+        ),
+        autohide = FALSE,
+        type = "white",
+        class = ns("_voltage_report_notif"),
+        session = session,
+        close = TRUE
+      )
+
+      job_promise <- ravepipeline::as.promise(job_id)
+      handling_promise <- promises::then(
+        job_promise,
+        onFulfilled = function(path) {
+          params <- as.list(attr(path, "params"))
+          params$module <- "standalone_report"
+          params$type <- "widget"
+          params$project_name <- subject$project_name
+          params$subject_code <- subject$subject_code
+          if (!length(params$report_filename)) {
+            params$report_filename <- basename(dirname(path))
+          }
+          params <- unlist(lapply(names(params), function(nm) {
+            sprintf("%s=%s", nm, htmltools::urlEncodePath(paste(params[[nm]], collapse = ",")))
+          }))
+          params <- paste(params, collapse = "&")
+          url <- sprintf("?%s", params)
+
+          ravedash::clear_notifications(class = ns("_voltage_report_notif"), session = session)
+          ravedash::show_notification(
+            title = "Report generated!",
+            type = "default",
+            message = shiny::div(
+              shiny::p(
+                "Univariate voltage analysis report has been generated. Check the following path"
+              ),
+              shiny::p(
+                shiny::tags$code(class = "bg-secondary", path)
+              ),
+              shiny::a(
+                target = "_blank", href = url, class = "btn btn-sm btn-success",
+                shiny::span("View report ", ravedash::shiny_icons$external_link)
+              )
+            ),
+            close = TRUE,
+            autohide = FALSE,
+            class = ns("_voltage_report_notif"),
+            session = session
+          )
+        },
+        onRejected = function(e) {
+          ravepipeline::logger_error_condition(e)
+          ravedash::error_notification(
+            cond = e,
+            title = "Error while generating reports",
+            autohide = FALSE,
+            prefix = "Report generating error: "
+          )
+        }
+      )
+
+      # Must handle the errors of onFulfilled or shiny will crash
+      promises::then(
+        handling_promise,
+        onRejected = function(e) {
+          ravepipeline::logger_error_condition(e)
+        }
+      )
+
+      return()
+    }, error_wrapper = "notification"),
+    input$do_generate_report,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
   # ---- Helper: check outputs are ready ------------------------------------
   .output_ready <- function() {
@@ -1234,39 +1402,45 @@ module_server <- function(input, output, session, ...) {
 
 
   # ---- Register outputs ---------------------------------------------------
+  shidashi::register_output(
+    outputId = "brain_viewer",
+    description = "3D viewer showing the CRP statistics for each electrode per condition.",
+    download_type = "threeBrain",
+    session = session,
+    expr = threeBrain::renderBrain({
+      .viewer_ready()
 
-  output$brain_viewer <- threeBrain::renderBrain({
-    .viewer_ready()
+      repository <- component_container$data$repository
+      brain <- ravecore::rave_brain(repository$subject)
 
-    repository <- component_container$data$repository
-    brain <- ravecore::rave_brain(repository$subject)
+      if (is.null(brain)) { return() }
 
-    if (is.null(brain)) { return() }
+      erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
 
-    erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+      controllers <- list()
 
-    controllers <- list()
+      if (is.data.frame(erp_results_for_viewer)) {
+        erp_results_for_viewer$crp_filter <- "true"
+        brain$set_electrode_values(erp_results_for_viewer)
 
-    if (is.data.frame(erp_results_for_viewer)) {
-      erp_results_for_viewer$crp_filter <- "true"
-      brain$set_electrode_values(erp_results_for_viewer)
-
-      nms <- names(erp_results_for_viewer)
-      nms <- nms[startsWith(nms, "t_val")]
-      if (length(nms)) {
-        controllers[["Display Data"]] <- nms[[1]]
+        nms <- names(erp_results_for_viewer)
+        nms <- nms[startsWith(nms, "t_val")]
+        if (length(nms)) {
+          current_controller <- shiny::isolate(brain_proxy$get_controllers())
+          controllers[["Display Data"]] <- current_controller[["Display Data"]] %||% nms[[1]]
+        }
       }
-    }
-    brain$render(
-      outputId = "brain_viewer",
-      session = session,
-      show_modal = FALSE,
-      controllers = controllers
-    )
-  })
+      brain$render(
+        outputId = "brain_viewer",
+        session = session,
+        show_modal = FALSE,
+        controllers = controllers
+      )
+    })
+  )
 
   # Mean ERP: one line per condition group, collapsed over channels
-  output$figure_by_condition_over_time <- shiny::renderPlot({
+  output$figure_by_condition_over_time <- shidashi::renderPlot2({
     .output_ready()
     data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
     shiny::validate(shiny::need(
@@ -1292,7 +1466,7 @@ module_server <- function(input, output, session, ...) {
 
 
   # ERP by condition: stacked channel traces, one panel per condition group
-  output$figure_by_channel_condition_cond <- shiny::renderPlot({
+  output$figure_by_channel_condition_cond <- shidashi::renderPlot2({
     .output_ready()
     data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
     shiny::validate(shiny::need(
@@ -1328,7 +1502,7 @@ module_server <- function(input, output, session, ...) {
 
 
   # ERP by channel: one panel per electrode, condition groups overlaid
-  output$figure_by_channel_condition_ch <- shiny::renderPlot({
+  output$figure_by_channel_condition_ch <- shidashi::renderPlot2({
     .output_ready()
     data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
     shiny::validate(shiny::need(
@@ -1364,7 +1538,7 @@ module_server <- function(input, output, session, ...) {
 
 
   # Trial heatmap: time x trial image, one panel per condition group
-  output$figure_by_trial_per_condition <- shiny::renderPlot({
+  output$figure_by_trial_per_condition <- shidashi::renderPlot2({
     .output_ready()
     data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
     shiny::validate(shiny::need(
@@ -1388,7 +1562,7 @@ module_server <- function(input, output, session, ...) {
     )
 
   })
-  output$figure_by_trial_per_condition_heatmap <- shiny::renderPlot({
+  output$figure_by_trial_per_condition_heatmap <- shidashi::renderPlot2({
     .output_ready()
     data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
     shiny::validate(shiny::need(
@@ -1414,7 +1588,7 @@ module_server <- function(input, output, session, ...) {
 
 
   # CRP canonical response per channel, one panel per condition group
-  output$figure_crp_by_channel <- shiny::renderPlot({
+  output$figure_crp_by_channel <- shidashi::renderPlot2({
     .output_ready()
     crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
     shiny::validate(shiny::need(
@@ -1444,7 +1618,7 @@ module_server <- function(input, output, session, ...) {
     )
   })
 
-  output$figure_crp_by_channel_heatmap <- shiny::renderPlot({
+  output$figure_crp_by_channel_heatmap <- shidashi::renderPlot2({
     .output_ready()
     crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
     shiny::validate(shiny::need(

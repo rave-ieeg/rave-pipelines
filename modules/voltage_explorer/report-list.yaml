@@ -1,0 +1,4 @@
+- name: univariateVoltage
+  label: Subject Voltage Analysis
+  entry: report-univariate.Rmd
+  fork_policy: report
