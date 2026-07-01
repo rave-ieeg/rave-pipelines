@@ -79,7 +79,7 @@ condition_groups_clean <- pipeline$read("condition_groups_clean")
 crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
 mfrow <- get_mfrow(n = condition_groups_clean$n, mfrow = NULL, asp = 3)
 
-crp_fig_ratio <- mfrow[[1]] * max(crp_by_channel$n_trials) / 40
+crp_fig_ratio <- mfrow[[1]] * nrow(crp_by_channel$coord_table) / 40
 ```
 
 ```{r, handle_params_if_missing, include=FALSE}
