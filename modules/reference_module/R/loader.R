@@ -76,36 +76,23 @@ loader_server <- function(input, output, session, ...) {
       # Save the variables into pipeline settings file
       pipeline$set_settings(.list = settings)
 
-      res <- pipeline$run(
-        as_promise = TRUE,
+      pipeline$run(
+        as_promise = FALSE,
         names = c("reference_table_initial", "voltage_data"),
         return_values = FALSE
       )
 
-      res$promise$then(
+      # Let the module know the data has been changed
+      ravedash::fire_rave_event("data_changed", Sys.time())
+      ravepipeline::logger("Data has been loaded loaded")
 
-        # When data can be imported
-        onFulfilled = function(e) {
-
-          dipsaus::close_alert2()
-
-          # Let the module know the data has been changed
-          ravedash::fire_rave_event("data_changed", Sys.time())
-          ravepipeline::logger("Data has been loaded loaded")
-
-          # Save session-based state: project name & subject code
-          ravedash::session_setopt(
-            project_name = settings$project_name,
-            subject_code = settings$subject_code
-          )
-
-        },
-
-
-        # this is what should happen when pipeline fails
-        onRejected = ravedash::error_alert
+      # Save session-based state: project name & subject code
+      ravedash::session_setopt(
+        project_name = settings$project_name,
+        subject_code = settings$subject_code
       )
-    }),
+
+    }, error_wrapper = "alert"),
     input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 

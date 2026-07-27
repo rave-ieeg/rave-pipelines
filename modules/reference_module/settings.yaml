@@ -1,11 +1,23 @@
-changes: []
+carla_params:
+  epoch_name: default
+  time_window:
+  - 0.01
+  - 1.0
+  electrodes: 1-118
+  n_bootstrap: 100
+  virtual_reference: yes
+  sensitive: yes
+  min_size: ~
+  absolute_rank: yes
+changes:
+- group_name: iEEG
+  electrodes: 1-118
+  reference_type: Common Average Reference
+  reference_signal: ref_33,37,43,47,49,51,53-54,58,62-63,69,83,90-91,100,104-106,108,117
 electrode_group:
   '1':
-    name: A
-    electrodes: 1-17
-  '2':
-    name: B
-    electrodes: 18-20
-project_name: demo
-reference_name: '[Blank profile]'
-subject_code: DemoSubject
+    name: iEEG
+    electrodes: 1-118
+project_name: demo@bids:ds005953
+reference_name: _unsaved
+subject_code: '01'

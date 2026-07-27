@@ -45,20 +45,28 @@ module_html <- function() {
               start_collapsed = TRUE,
               class_foot = "no-padding",
 
-              shiny::selectInput(
-                inputId = ns("group_name"),
-                label = "Group name",
-                choices = character(0L)
+              shiny::fluidRow(
+
+                shiny::column(
+                  width = 12,
+                  shiny::selectInput(
+                    inputId = ns("group_name"),
+                    label = "Group name",
+                    choices = character(0L)
+                  )
+                ),
+
+                shiny::column(
+                  width = 12,
+                  shiny::selectInput(
+                    inputId = ns("reference_type"),
+                    label = "Reference type",
+                    choices = reference_choices,
+                    selected = "No Reference"
+                  )
+                )
+
               ),
-
-
-              shiny::selectInput(
-                inputId = ns("reference_type"),
-                label = "Reference type",
-                choices = reference_choices,
-                selected = "No Reference"
-              ),
-
 
               shiny::uiOutput(outputId = ns("reference_details")),
 

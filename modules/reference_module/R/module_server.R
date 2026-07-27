@@ -138,7 +138,9 @@ module_server <- function(input, output, session, ...) {
 
       re <- list(
         subject = subject,
-        data = arr[drop = FALSE],
+        # Get filearray instance without reading it to RAM
+        data = arr$`@impl`,
+        # data = arr[drop = FALSE],
         electrodes = voltage_data$electrodes,
         sample_rate = srates[[1]]
       )
@@ -676,7 +678,9 @@ module_server <- function(input, output, session, ...) {
 
       tp_idx <- seq.int(tidx_start, tidx_end)
       elec_idx <- vdata$electrodes %in% electrodes
-      signals <- vdata$data[tp_idx, , drop = FALSE]
+      # signals <- vdata$data[tp_idx, , drop = FALSE]
+      signals <- subset(vdata$data, Time ~ tp_idx, Electrode ~ Electrode %in% vdata$electrodes, drop = FALSE)
+      dimnames(signals) <- NULL
 
       if (ginsp_gap <= 1) {
         ginsp_gap <- stats::quantile(signals, max(ginsp_gap, 0.01), na.rm = TRUE)
@@ -881,7 +885,10 @@ module_server <- function(input, output, session, ...) {
       # on.exit({ do.call(graphics::par, old_theme) }, add = TRUE)
 
 
-      signals <- vdata$data[, vdata$electrodes == einsp_electrode, drop = TRUE]
+      # select by electrode number via dimnames (robust to non-sequential
+      # electrodes / extra NA columns), not by column position
+      signals <- subset(vdata$data, Electrode ~ Electrode == einsp_electrode, drop = TRUE)
+      names(signals) <- NULL
 
       ref_name <- ginfo$data$Reference[ginfo$data$Electrode == einsp_electrode]
       if (length(ref_name) == 1 && startsWith(ref_name, "ref_")) {
@@ -891,7 +898,8 @@ module_server <- function(input, output, session, ...) {
         if (length(elecs) == 0) {
           ref_data <- 0
         } else if (length(elecs) == 1 && elecs %in% vdata$electrodes) {
-          ref_data <- vdata$data[, vdata$electrodes == elecs, drop = TRUE]
+          ref_data <- subset(vdata$data, Electrode ~ Electrode == elecs, drop = TRUE)
+          names(ref_data) <- NULL
 
         } else {
           ref_data <- get_reference_data(ref_name)
@@ -1249,10 +1257,14 @@ module_server <- function(input, output, session, ...) {
 
       # Reset custom UI
       ref_tbl <- new_subject$get_reference("_unsaved")
+
+      lfp_electrodes <- new_subject$electrodes[new_subject$electrode_types %in% c("LFP")]
+
       groups <- unique(ref_tbl$Group)
       electrode_group <- dipsaus::drop_nulls(lapply(groups, function(gname) {
         if (!nzchar(trimws(gname))) { return() }
         channels <- ref_tbl$Electrode[ref_tbl$Group == gname]
+        channels <- channels[channels %in% lfp_electrodes]
         if (!length(channels)) { return() }
         list(
           electrodes = dipsaus::deparse_svec(channels),
@@ -1433,12 +1445,224 @@ module_server <- function(input, output, session, ...) {
 
   shiny::bindEvent(
     ravedash::safe_observe({
-      channels <- input$reference_channels_new
-      channels <- gsub("^ref_", "", channels)
-      channels <- dipsaus::parse_svec(channels)
 
+      # DIPSAUS DEBUG START
+      # ravecore::prepare_subject_bare0(
+      #   subject = "demo@bids:ds005953/01",reference_name = "_unsaved",
+      #   auto_exclude = FALSE
+      # ) -> repository
+      # input = list(
+      #   reference_carla_channels = "1-118", reference_carla_epoch = "default"
+      # )
+
+      # Need to use the channels to determine the
+      repository <- component_container$data$repository
+      subject <- repository$subject
+      lfp_channels <- subject$electrodes[subject$electrode_types %in% c("LFP")]
+
+      ch_input_carla <- dipsaus::parse_svec(paste(input$reference_carla_channels, collapse = ","))
+      ch_input_carla <- ch_input_carla[ch_input_carla %in% lfp_channels]
+      if (!length(ch_input_carla)) {
+        ch_input_carla <- lfp_channels
+      }
+
+      epoch_name <- input$reference_carla_epoch
+      if (!isTRUE(epoch_name %in% subject$epoch_names)) {
+        stop("Epoch must not be empty for CARLA.")
+      }
+
+      time_windows <- ravecore::validate_time_window(c(input$reference_carla_pre, input$reference_carla_post))
+      time_windows <- time_windows[[1]]
+      if (is.na(time_windows[[1]])) {
+        time_windows[[1]] <- 0.01
+      }
+      if (is.na(time_windows[[2]])) {
+        time_windows[[2]] <- 1
+      }
+
+      n_bootstrap <- as.integer(input$reference_carla_n_bootstrap)
+      if (!isTRUE(n_bootstrap > 0)) {
+        n_bootstrap <- 100L
+      }
+
+      min_size <- as.integer(input$reference_carla_min_size)
+      if (!isTRUE(min_size > 0)) {
+        min_size <- NULL
+      }
+
+      misc <- input$reference_carla_others
+
+      virtual_reference <- "virtual_reference" %in% misc
+      sensitive <- "sensitive" %in% misc
+      absolute_rank <- "absolute_rank" %in% misc
+
+      pipeline$set_settings(
+        carla_params = list(
+          epoch_name = epoch_name,
+          time_window = time_windows,
+          electrodes = dipsaus::deparse_svec(ch_input_carla),
+          n_bootstrap = n_bootstrap,
+          virtual_reference = virtual_reference,
+          sensitive = sensitive,
+          min_size = min_size,
+          absolute_rank = absolute_rank
+        )
+      )
+
+      dipsaus::shiny_alert2(
+        "Calculating...",
+        text = "Calculating CAR channels with least anti-correlation. This will load the epoch'ed signal and compute the suggested channels for CAR reference. Good coffee will take time. Please wait...",
+        icon = "info",
+        auto_close = FALSE,
+        session = session,
+        buttons = FALSE
+      )
+      on.exit({
+        Sys.sleep(0.5)
+        dipsaus::close_alert2()
+      })
+
+      carla_fit <- pipeline$run("carla_fit")
+
+      car_channels <- dipsaus::deparse_svec(ch_input_carla[carla_fit$channels])
+
+      shiny::updateTextInput(
+        session = session,
+        inputId = "reference_channels_new",
+        value = car_channels
+      )
+      shiny::removeModal(session = session)
+
+    }),
+    input$reference_carla_btn,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      channels <- paste(input$reference_channels_new, collapse = "")
       repo <- component_container$data$repository
       subject <- repo$subject
+      lfp_channels <- subject$electrodes[subject$electrode_types %in% c("LFP")]
+
+      if (!nzchar(channels)) {
+        # Use CARLA
+        shiny::showModal(
+          session = session,
+          shiny::modalDialog(
+            title = "Find CAR channels",
+            easyClose = FALSE,
+            size = "m",
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              dipsaus::actionButtonStyled(inputId = ns("reference_carla_btn"), label = "Calculate")
+            ),
+            shiny::fluidRow(
+              shiny::column(
+                width = 12,
+
+                shiny::textInput(
+                  inputId = ns("reference_carla_channels"),
+                  label = "Enter the channels to include in the calculation",
+                  placeholder = "Leave blank to use all macro channels",
+                  value = dipsaus::deparse_svec(lfp_channels)
+                ),
+
+                shiny::selectInput(
+                  inputId = ns("reference_carla_epoch"),
+                  label = "Choose a epoch",
+                  choices = subject$epoch_names
+                )
+              ) # .col-12
+            ), # .row
+
+            shiny::fluidRow(
+
+              shiny::column(
+                width = 6,
+                shiny::numericInput(
+                  inputId = ns("reference_carla_pre"),
+                  label = "Start time (s)",
+                  value = input$reference_carla_pre %||% 0.01,
+                  step = 0.01
+                )
+              ),
+
+              shiny::column(
+                width = 6,
+                shiny::numericInput(
+                  inputId = ns("reference_carla_post"),
+                  label = "End time (s)",
+                  value = input$reference_carla_post %||% 1,
+                  step = 0.1
+                )
+              )
+            ), # .row
+
+            shiny::fluidRow(
+              shiny::column(
+                width = 12,
+                shiny::hr(),
+                shiny::tags$small("Optional arguments:"),
+              ),
+
+              # Optional
+              # n_bootstrap = 100L,
+              # virtual_reference = TRUE,
+              # sensitive = TRUE,
+              # min_size = NULL,
+              # absolute_rank = TRUE
+              shiny::column(
+                width = 6,
+                shiny::numericInput(
+                  inputId = ns("reference_carla_n_bootstrap"),
+                  label = "Bootstrap samples",
+                  value = input$reference_carla_n_bootstrap %||% 100,
+                  min = 1, max = 10000, step = 1
+                )
+              ), # .col-6
+              shiny::column(
+                width = 6,
+                shiny::numericInput(
+                  inputId = ns("reference_carla_min_size"),
+                  label = "Minimum size",
+                  value = input$reference_carla_min_size %||% NA,
+                  min = 1, max = 10000, step = 1
+                )
+              ), # .col-6
+              shiny::column(
+                width = 12,
+
+                shiny::checkboxGroupInput(
+                  inputId = ns("reference_carla_others"),
+                  label = NULL,
+                  choiceNames = c(
+                    "Modified CARLA",
+                    "Sensitive",
+                    "Absolute data"
+                  ),
+                  choiceValues = c(
+                    "virtual_reference",
+                    "sensitive",
+                    "absolute_rank"
+                  ),
+                  selected = input$reference_carla_others %||% c(
+                    "virtual_reference",
+                    "sensitive",
+                    "absolute_rank"
+                  ),
+                  inline = TRUE
+                )
+              ) # .col-12
+            ) # .row
+          )
+        )
+
+        return()
+      }
+
+      channels <- gsub("^ref_", "", channels)
+      channels <- dipsaus::parse_svec(channels)
 
       misschan <- channels[!channels %in% subject$electrodes]
       if (length(misschan)) {
@@ -1504,34 +1728,66 @@ module_server <- function(input, output, session, ...) {
       ref_selection <- unique(sub_data$Reference)
       ref_selection <- ref_selection[!ref_selection %in% c("", "noref")] %OF% ref_choices
 
-      return(shiny::tagList(
-        shiny::selectInput(
-          inputId = ns("reference_channels"),
-          label = "Reference to",
-          choices = ref_choices,
-          selected = ref_selection
-        ),
-        shiny::uiOutput(ns("ref_generator")),
-        dipsaus::actionButtonStyled(
-          inputId = ns("reference_btn"),
-          label = "Confirm changes & visualize",
-          width = "100%"
+      return(
+        shiny::tagList(
+          shiny::fluidRow(
+
+            shiny::column(
+              width = 12,
+              shiny::selectInput(
+                inputId = ns("reference_channels"),
+                label = "Reference to",
+                choices = ref_choices,
+                selected = ref_selection
+              )
+            ),
+            shiny::uiOutput(ns("ref_generator")),
+            shiny::p()
+
+          ),
+          shiny::fluidRow(
+            shiny::column(
+              width = 12,
+              dipsaus::actionButtonStyled(
+                inputId = ns("reference_btn"),
+                label = "Confirm changes & visualize",
+                width = "100%"
+              )
+            )
+          )
         )
-      ))
+      )
 
     } else if (isTRUE(reference_type %in% reference_choices[4])) {
       # Bipolar
-      return(dipsaus::actionButtonStyled(
-        inputId = ns("bipolar_btn"),
-        label = "Open Bipolar reference editor",
-        width = "100%"
-      ))
+      return(
+        shiny::fluidRow(
+
+          shiny::column(
+            width = 12,
+            dipsaus::actionButtonStyled(
+              inputId = ns("bipolar_btn"),
+              label = "Open Bipolar reference editor",
+              width = "100%"
+            )
+          )
+        )
+
+      )
     } else {
-      return(dipsaus::actionButtonStyled(
-        inputId = ns("reference_btn"),
-        label = "Confirm changes & visualize",
-        width = "100%"
-      ))
+      return(
+        shiny::fluidRow(
+
+          shiny::column(
+            width = 12,
+            dipsaus::actionButtonStyled(
+              inputId = ns("reference_btn"),
+              label = "Confirm changes & visualize",
+              width = "100%"
+            )
+          )
+        )
+      )
     }
 
   })
@@ -1724,18 +1980,18 @@ module_server <- function(input, output, session, ...) {
     if (!isTRUE(input$reference_channels == "[new reference]")) {
       return()
     }
-    shidashi::flex_container(
-      style = "margin: -5px;",
-      shidashi::flex_item(
-        size = 2,
+    shiny::tagList(
+      # style = "margin: -5px;",
+      shiny::column(
+        width = 12L,
         shiny::textInput(
           inputId = ns("reference_channels_new"),
           label = NULL,
           placeholder = "Enter reference channels"
         )
       ),
-      shidashi::flex_item(
-        size = 1,
+      shiny::column(
+        width = 12,
         shiny::actionButton(
           inputId = ns("reference_channels_btn"),
           label = "Generate", width = "100%"
@@ -1743,6 +1999,19 @@ module_server <- function(input, output, session, ...) {
       )
     )
   })
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      ref_channels <- trimws(paste(input$reference_channels_new, collapse = ""))
+      if (nzchar(ref_channels)) {
+        shiny::updateActionButton(session = session, inputId = "reference_channels_btn", label = "Generate")
+      } else {
+        shiny::updateActionButton(session = session, inputId = "reference_channels_btn", label = "Calculate from least anti-correlation")
+      }
+    }),
+    input$reference_channels_new,
+    ignoreNULL = TRUE, ignoreInit = FALSE
+  )
 
   # set when group name changed
   current_group <- shiny::bindEvent(

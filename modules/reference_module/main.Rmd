@@ -148,7 +148,29 @@ utils::write.csv(reference_table_initial, unsaved_meta)
 
 ```
 
-```{rave load_voltage_data, language = "R", export = "voltage_data", cue = "always"}
+```{rave load_repository, language = "R", export = "repository_block"}
+electrodes <- subject$electrodes
+is_lfp <- subject$electrode_types %in% "LFP"
+lfp_channels <- electrodes[is_lfp]
+
+if (!length(lfp_channels)) {
+  stop("There is no LFP/macro channel for this subject")
+}
+
+blocks <- subject$blocks
+
+# No reference
+repository_block <- ravecore::prepare_subject_raw_voltage_with_blocks(
+  subject = subject,
+  electrodes = lfp_channels,
+  blocks = blocks
+)
+```
+
+
+Creating new references will remove the caching data. This is because `ravecore::generate_reference()` calls `ravecore::clear_cached_files()` internally, which deletes all relevant subject cache. In such case, the `repository_block` will be invalidated and `voltage_data` will fall back to `NULL`. To keep data safe, we need to move the array to somewhere safe. 
+
+```{rave load_voltage_data, language = "R", export = "voltage_data"}
 # need to 
 
 electrodes <- subject$electrodes
@@ -160,140 +182,183 @@ if (!length(lfp_channels)) {
 }
 
 blocks <- subject$blocks
-use_cache <- preprocessing_history$use_cache
-has_wavelet <- all(preprocessing_history$current$has_wavelet[is_lfp])
 
-cache_root <- file.path(subject$cache_path, "rave2", "voltage")
-ravepipeline::dir_create2(cache_root)
+# No reference
+# repository_block <- ravecore::prepare_subject_raw_voltage_with_blocks(
+#   subject = subject,
+#   electrodes = lfp_channels,
+#   blocks = blocks
+# )
 
-notch_params <- subject$preprocess_settings$notch_params
+container <- repository_block$get_container()
 
-first_e <- electrodes[is_lfp][[1]]
-first_inst <- ravecore::new_electrode(subject = subject, 
-                                    number = first_e)
+voltage_path <- file.path(pipeline$extdata_path, "voltage_data")
 
-progress <- dipsaus::progress2("Check cache data", max = length(blocks), shiny_auto_close = TRUE)
-
-voltage_signals <- structure(
-  names = blocks,
-  lapply(blocks, function(block) {
-    
-    # block <- blocks[[1]]
-    
-    progress$inc(sprintf("%s", block))
-    
-    if ( has_wavelet ) {
-      sample_signal <- ieegio::io_read_h5(
-        first_inst$voltage_file,
-        name = sprintf("/raw/voltage/%s", block),
-        ram = FALSE
-      )
-    } else {
-      sample_signal <- ieegio::io_read_h5(first_inst$preprocess_file,
-                                          name = sprintf("/notch/%s", block),
-                                          ram = FALSE)
-    }
-    
-    
-    signal_length <- length(sample_signal)
-    
-    block_path <- file.path(cache_root, block)
-    exists <- TRUE
-    
-    arr <- tryCatch({
-      if ( !use_cache ) { stop("Do not use cache") }
-      filearray::filearray_checkload(
-        filebase = block_path,
-        mode = "readwrite", 
-        symlink_ok = FALSE, 
-        subject_id = subject$subject_id,
-        blocks = blocks,
-        electrodes = electrodes,
-        electrode_is_lfp = is_lfp,
-        notch_params = notch_params,
-        sample_rates = subject$raw_sample_rates,
-        signal_length = as.integer(signal_length),
-        staged = TRUE
-      )
-    }, error = function(e) {
-      unlink(block_path, recursive = TRUE)
-      arr <- filearray::filearray_create(
-        filebase = block_path, 
-        dimension = c(signal_length, sum(is_lfp)), 
-        type = "double", partition_size = 1L
-      )
-      arr$.header$subject_id <- subject$subject_id
-      arr$.header$blocks <- blocks
-      arr$.header$electrodes <- electrodes
-      arr$.header$electrode_is_lfp <- is_lfp
-      arr$.header$notch_params <- notch_params
-      arr$.header$sample_rates <- subject$raw_sample_rates
-      arr$.header$signal_length <- as.integer(signal_length)
-      dimnames(arr) <- list(NULL, Electrode = lfp_channels)
-      arr$.save_header()
-      exists <<- FALSE
-      arr
-    })
-    
-    list(
-      exists = exists,
-      array = ravepipeline::RAVEFileArray$new(arr)
-    )
-    
-  })
-)
-
-exists <- vapply(voltage_signals, "[[", FALSE, "exists")
-missing_blocks <- blocks[!exists]
-
-subject_id <- subject$subject_id
-
-
-if (length(missing_blocks)) {
-  
-  ravepipeline::lapply_jobs(
-    seq_along(lfp_channels), 
-    function(ii) {
-      e <- lfp_channels[[ii]]
-      inst <- ravecore::new_electrode(subject = subject_id, number = e)
-      if ( has_wavelet ) {
-        voltage_file <- inst$voltage_file
-        h5_name_format <- "/raw/voltage/%s"
-      } else {
-        voltage_file <- inst$preprocess_file
-        h5_name_format <- "/notch/%s"
-      }
-      for (block in missing_blocks) {
-        s <- ieegio::io_read_h5(voltage_file, sprintf(h5_name_format, block), ram = TRUE)
-        arr <- voltage_signals[[block]]$array$`@impl`
-        arr[, ii] <- s
-      }
-      return()
-    },
-    .globals = list(
-      lfp_channels = lfp_channels,
-      subject_id = subject_id,
-      missing_blocks = missing_blocks,
-      voltage_signals = voltage_signals,
-      has_wavelet = has_wavelet
-    ), callback = function(ii) {
-      sprintf("Creating cache|Electrode %s", electrodes[[ii]])
-    }
-  )
-  
+if (file.exists(voltage_path)) {
+  unlink(voltage_path, recursive = TRUE)
 }
+ravepipeline::dir_create2(voltage_path)
+
+voltage_arrays <- lapply(blocks, function(block) {
+  farray <- container[[block]]$LFP$data
+  dir_copy2(
+    path = farray$.filebase,
+    new_path = file.path(voltage_path, block),
+    hidden_files = FALSE,
+    overwrite = TRUE
+  )
+  farray <- filearray::filearray_load(
+    filebase = file.path(voltage_path, block),
+    mode = "readonly"
+  )
+  ravepipeline::RAVEFileArray$new(farray)
+})
+
+names(voltage_arrays) <- blocks
 
 voltage_data <- list(
-  data = structure(lapply(voltage_signals, function(item) {
-    arr <- item$array$`@impl`
-    if (!item$exists) {
-      arr$set_header("staged", TRUE)
-    }
-    arr$.mode <- "readonly"
-    arr
-  }), names = blocks),
-  electrodes = lfp_channels
+  data = voltage_arrays,
+  electrodes = lfp_channels,
+  
+  # This makes sure the latter targets depending on this block will update
+  repository_signature = repository_block$signature
 )
+
+
+# use_cache <- preprocessing_history$use_cache
+# has_wavelet <- all(preprocessing_history$current$has_wavelet[is_lfp])
+# 
+# cache_root <- file.path(subject$cache_path, "rave2", "voltage")
+# ravepipeline::dir_create2(cache_root)
+# 
+# notch_params <- subject$preprocess_settings$notch_params
+# 
+# first_e <- electrodes[is_lfp][[1]]
+# first_inst <- ravecore::new_electrode(subject = subject, 
+#                                     number = first_e)
+# 
+# progress <- dipsaus::progress2("Check cache data", max = length(blocks), shiny_auto_close = TRUE)
+# 
+# voltage_signals <- structure(
+#   names = blocks,
+#   lapply(blocks, function(block) {
+#     
+#     # block <- blocks[[1]]
+#     
+#     progress$inc(sprintf("%s", block))
+#     
+#     if ( has_wavelet ) {
+#       sample_signal <- ieegio::io_read_h5(
+#         first_inst$voltage_file,
+#         name = sprintf("/raw/voltage/%s", block),
+#         ram = FALSE
+#       )
+#     } else {
+#       sample_signal <- ieegio::io_read_h5(first_inst$preprocess_file,
+#                                           name = sprintf("/notch/%s", block),
+#                                           ram = FALSE)
+#     }
+#     
+#     
+#     signal_length <- length(sample_signal)
+#     
+#     block_path <- file.path(cache_root, block)
+#     exists <- TRUE
+#     
+#     arr <- tryCatch({
+#       if ( !use_cache ) { stop("Do not use cache") }
+#       filearray::filearray_checkload(
+#         filebase = block_path,
+#         mode = "readwrite", 
+#         symlink_ok = FALSE, 
+#         subject_id = subject$subject_id,
+#         blocks = blocks,
+#         electrodes = electrodes,
+#         electrode_is_lfp = is_lfp,
+#         notch_params = notch_params,
+#         sample_rates = subject$raw_sample_rates,
+#         signal_length = as.integer(signal_length),
+#         staged = TRUE
+#       )
+#     }, error = function(e) {
+#       unlink(block_path, recursive = TRUE)
+#       arr <- filearray::filearray_create(
+#         filebase = block_path, 
+#         dimension = c(signal_length, sum(is_lfp)), 
+#         type = "double", partition_size = 1L
+#       )
+#       arr$.header$subject_id <- subject$subject_id
+#       arr$.header$blocks <- blocks
+#       arr$.header$electrodes <- electrodes
+#       arr$.header$electrode_is_lfp <- is_lfp
+#       arr$.header$notch_params <- notch_params
+#       arr$.header$sample_rates <- subject$raw_sample_rates
+#       arr$.header$signal_length <- as.integer(signal_length)
+#       dimnames(arr) <- list(NULL, Electrode = lfp_channels)
+#       arr$.save_header()
+#       exists <<- FALSE
+#       arr
+#     })
+#     
+#     list(
+#       exists = exists,
+#       array = ravepipeline::RAVEFileArray$new(arr)
+#     )
+#     
+#   })
+# )
+# 
+# exists <- vapply(voltage_signals, "[[", FALSE, "exists")
+# missing_blocks <- blocks[!exists]
+# 
+# subject_id <- subject$subject_id
+# 
+# 
+# if (length(missing_blocks)) {
+#   
+#   ravepipeline::lapply_jobs(
+#     seq_along(lfp_channels), 
+#     function(ii) {
+#       e <- lfp_channels[[ii]]
+#       inst <- ravecore::new_electrode(subject = subject_id, number = e)
+#       if ( has_wavelet ) {
+#         voltage_file <- inst$voltage_file
+#         h5_name_format <- "/raw/voltage/%s"
+#       } else {
+#         voltage_file <- inst$preprocess_file
+#         h5_name_format <- "/notch/%s"
+#       }
+#       for (block in missing_blocks) {
+#         s <- ieegio::io_read_h5(voltage_file, sprintf(h5_name_format, block), ram = TRUE)
+#         arr <- voltage_signals[[block]]$array$`@impl`
+#         arr[, ii] <- s
+#       }
+#       return()
+#     },
+#     .globals = list(
+#       lfp_channels = lfp_channels,
+#       subject_id = subject_id,
+#       missing_blocks = missing_blocks,
+#       voltage_signals = voltage_signals,
+#       has_wavelet = has_wavelet
+#     ), callback = function(ii) {
+#       sprintf("Creating cache|Electrode %s", electrodes[[ii]])
+#     }
+#   )
+#   
+# }
+# 
+# voltage_data <- list(
+#   data = structure(lapply(voltage_signals, function(item) {
+#     arr <- item$array$`@impl`
+#     if (!item$exists) {
+#       arr$set_header("staged", TRUE)
+#     }
+#     arr$.mode <- "readonly"
+#     arr
+#   }), names = blocks),
+#   electrodes = lfp_channels
+# )
 
 # save pipeline
 if ( !isTRUE(getOption("raveio.debug", FALSE)) ) {
@@ -304,6 +369,91 @@ if ( !isTRUE(getOption("raveio.debug", FALSE)) ) {
   )
 }
 voltage_data
+```
+
+```{rave repository_for_carla, language = "R", export = "repository_epoch"}
+repository_epoch <- ravecore::prepare_subject_raw_voltage_with_epochs(
+  subject = subject,
+  electrodes = carla_params$electrodes,
+  epoch_name = carla_params$epoch_name,
+  time_windows = ravecore::validate_time_window(carla_params$time_window),
+  quiet = TRUE
+)
+```
+
+```{rave estimate_carla, language = "R", export = "carla_fit", cue = "always"}
+container <- repository_epoch$get_container()
+
+# Run CARLA
+filebase <- file.path(pipeline$extdata_path, "carla_fit")
+
+d <- dim(container$data_list[[1]])
+d[[3]] <- length(repository_epoch$electrode_list)
+
+if (file.exists(filebase)) {
+  unlink(filebase, recursive = TRUE)
+}
+ravepipeline::dir_create2(pipeline$extdata_path)
+
+combined_array <- filearray::filearray_create(
+  filebase = filebase,
+  dimension = d,
+  type = "float",
+  partition_size = 1L,
+  initialize = FALSE
+)
+
+# Automatically removes the files on exit
+combined_array_wrapper <- ravepipeline::RAVEFileArray$new(
+  combined_array, temporary = TRUE)
+
+lapply(seq_along(container$data_list), function(ii) {
+  combined_array[, , ii] <- container$data_list[[ii]][]
+  NULL
+})
+
+fit <- ravetools::carla(
+  x = combined_array,
+  nboot = carla_params$n_bootstrap %||% 100,
+  sensitive = isTRUE(carla_params$sensitive),
+  min_size = carla_params$min_size,
+  virtual_reference = isTRUE(carla_params$virtual_reference),
+  absolute_rank = isTRUE(carla_params$absolute_rank)
+)
+
+fit$zmin_mean <- NULL
+
+# ravetools::carla is low-level and returns the channel from 1-n
+# we need to translate to the actual electrode numbers
+fit$virtual_channel <- repository_epoch$electrode_list[fit$virtual_channel]
+fit$bad_channels <- repository_epoch$electrode_list[fit$bad_channels]
+fit$channels <- repository_epoch$electrode_list[fit$channels]
+
+
+if ( isTRUE(getOption("raveio.debug", FALSE)) ) {
+  # debug
+  mean_voltage <- ravecore::collapse2(combined_array, keep = c(1, 3), method = "mean")
+  ravetools::plot_signals(
+    t(mean_voltage),
+    sample_rate = repository_epoch$sample_rates$LFP,
+    col = ifelse(
+      repository_epoch$electrode_list %in% fit$channels,
+      "red",
+      "gray"
+    ),
+    space = 0.995,
+    space_mode = "quantile",
+    # start_time = min(unlist(repository_epoch$time_windows), na.rm = TRUE),
+    channel_names = repository_epoch$electrode_list,
+    main = "CARLA: selected (red) vs rejected (gray)"
+  )
+}
+
+# Make sure this temporary array is removed
+if (file.exists(filebase)) {
+  unlink(filebase, recursive = TRUE)
+}
+carla_fit <- fit
 ```
 
 
