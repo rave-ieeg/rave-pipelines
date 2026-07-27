@@ -4,7 +4,8 @@ module_server <- function(input, output, session, ...) {
 
   # Local reactive values, used to store reactive event triggers
   local_reactives <- shiny::reactiveValues(
-    update_outputs = NULL
+    update_outputs = NULL,
+    viewer_ready = FALSE,
   )
 
   # Local non-reactive values, used to store static variables
@@ -689,8 +690,13 @@ module_server <- function(input, output, session, ...) {
 
       is_bipolar <- isTRUE(ginfo$data$Type[[1]] %in% reference_choices[4])
 
-      get_cols <- function(col, invalid = "red") {
+      # "#000000" "#DF536B" "#61D04F" "#2297E6" "#28E2E5"
+      included_in_reference <- NULL
+      get_cols <- function(col, invalid = "#DF536B", refs = "#61D04F") {
         re <- rep(col, length(electrodes))
+        if (length(included_in_reference)) {
+          re[included_in_reference] <- refs
+        }
         re[invalids] <- invalid
         if (!is_bipolar) {
           re <- c("orange", re)
@@ -773,6 +779,8 @@ module_server <- function(input, output, session, ...) {
         channel_names <- c("REF", electrodes)
 
         main <- sprintf("Reference: %s", ref_signal)
+
+        included_in_reference <- which(electrodes %in% dipsaus::parse_svec(gsub("^ref_", "", ref_signal)))
       }
 
       if (ginsp_type == "Show original signals only") {
@@ -803,7 +811,7 @@ module_server <- function(input, output, session, ...) {
           ylab = "Electrode Channels",
           new_plot = TRUE,
           main = main,
-          col = get_cols("gray60")
+          col = get_cols("gray60", refs = "gray60")
         )
       } else {
         ravetools::plot_signals(
@@ -1524,7 +1532,7 @@ module_server <- function(input, output, session, ...) {
 
       carla_fit <- pipeline$run("carla_fit")
 
-      car_channels <- dipsaus::deparse_svec(ch_input_carla[carla_fit$channels])
+      car_channels <- dipsaus::deparse_svec(carla_fit$channels)
 
       shiny::updateTextInput(
         session = session,
@@ -2070,39 +2078,25 @@ module_server <- function(input, output, session, ...) {
 
   # shiny::outputOptions(output, "group_3dviewer", suspendWhenHidden = FALSE)
   output$group_3dviewer <- threeBrain::renderBrain({
-    ginfo <- current_group()
 
-    theme <- ravedash::current_shiny_theme()
+    local_reactives$refresh
+    local_reactives$viewer_ready <- FALSE
 
-    shiny::validate(
-      shiny::need(
-        is.list(ginfo),
-        message = "No refernce group selected"
-      )
-    )
-    subject <- ginfo$subject
+    theme <- shiny::isolate(ravedash::current_shiny_theme())
+
+    data_loaded <- ravedash::watch_data_loaded()
+    data_opened <- ravedash::watch_loader_opened()
+    if (!data_loaded || data_opened) { return() }
+
+    repo <- component_container$data$repository
+    subject <- repo$subject
+
+    if (is.null(subject)) { return() }
+
     brain <- ravecore::rave_brain(subject = subject)
-
     shiny::validate(shiny::need(!is.null(brain), message = "No 3D brain available"))
 
-    value <- rep("Others", length(subject$electrodes))
-
-    electrodes <- ginfo$data$Electrode
-    invalid_electrodes <- electrodes[ginfo$data$Reference == ""]
-
-    value[subject$electrodes %in% electrodes] <- "Valid"
-    value[subject$electrodes %in% invalid_electrodes] <- "Invalid"
-
-    value <- factor(value, levels = c("Valid", "Invalid", "Others"))
-
-    tbl <- data.frame(
-      Subject = subject$subject_code,
-      Electrode = subject$electrodes,
-      Value = value,
-      stringsAsFactors = FALSE
-    )
-    brain$set_electrode_values(tbl)
-
+    local_reactives$viewer_ready <- Sys.time()
 
     brain$plot(
       volumes = FALSE,
@@ -2110,18 +2104,164 @@ module_server <- function(input, output, session, ...) {
       background = theme$background,
       side_canvas = FALSE,
       side_display = FALSE,
-      palettes = list("Value" = c("navy", "red", "gray80")),
+      palettes = list("Value" = c("#DF536B", "#61D04F", "#1874CD", "#C2C2C2")),
       control_panel = FALSE,
       control_display = FALSE,
       controllers = list(
-        "Show Time" = FALSE
+        "Show Time" = FALSE,
+        "Left Opacity" = 0.1,
+        "Right Opacity" = 0.1,
+        "Outlines" = "on"
       ),
       cex = 0.5,
-      start_zoom = 1.5
+      start_zoom = 1.5,
+      custom_javascript = 'app.canvas.mainCamera.setPosition2("superior"); app.canvas.needsUpdate = true;'
     )
 
-
   })
+
+  brain_proxy <- threeBrain::brain_proxy(outputId = "group_3dviewer", session = session)
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      if (isFALSE(local_reactives$viewer_ready)) { return() }
+
+      theme <- ravedash::current_shiny_theme()
+      brain_proxy$set_background(theme$background %||% "#FFFFFF")
+    }),
+    ravedash::current_shiny_theme(),
+    ravedash::watch_data_loaded(),
+    ravedash::watch_loader_opened(),
+    local_reactives$viewer_ready,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      if (isFALSE(local_reactives$viewer_ready)) { return() }
+
+      data_loaded <- ravedash::watch_data_loaded()
+      data_opened <- ravedash::watch_loader_opened()
+      if (!data_loaded || data_opened) { return() }
+
+      ginfo <- current_group()
+      if (!is.list(ginfo) || !length(ginfo)) {
+        return()
+      }
+
+      subject <- ginfo$subject
+      electrodes <- ginfo$data$Electrode
+
+      value <- rep("[4] Others", length(subject$electrodes))
+      invalid_electrodes <- electrodes[ginfo$data$Reference == ""]
+
+      # For CAR
+      reference_electrodes <- NULL
+      if (length(ginfo$data$Type) > 0 && isTRUE(ginfo$data$Type[[1]] %in% reference_choices[c(2, 3)])) {
+        reference_electrodes <- dipsaus::parse_svec(gsub("^ref_", "", as.character(ginfo$data$Reference[[1]]), ignore.case = TRUE))
+      }
+
+      value[subject$electrodes %in% electrodes] <- "[1] Valid"
+      value[subject$electrodes %in% electrodes & subject$electrodes %in% reference_electrodes] <- "[2] Within CAR"
+      value[subject$electrodes %in% invalid_electrodes] <- "[3] Ignored"
+
+      legeng_text <- c("[1] Valid", "[2] Within CAR", "[3] Ignored", "[4] Others")
+      legeng_color <- c("#1874CD", "#61D04F", "#DF536B", "#C2C2C2")
+
+      col_electrodes <- c(subject$electrodes, max(subject$electrodes) + 10000 + 1:4)
+      col_value <- c(value, legeng_text)
+
+      # sel <- match(unique(col_value), legeng_text)
+      # legeng_text <- legeng_text[sel]
+      # legeng_color <- legeng_color[sel]
+
+      tbl <- data.frame(
+        Subject = subject$subject_code,
+        Electrode = col_electrodes,
+        Value = col_value,
+        stringsAsFactors = FALSE
+      )
+      tbl <- tbl[!is.na(tbl$Value), ]
+
+
+      brain_proxy$set_electrode_data(data = tbl, list(Value = legeng_color), update_display = TRUE, override = FALSE, clear_first = TRUE)
+      brain_proxy$set_display_data(variable = "Value")
+
+    }),
+    current_group(),
+    ravedash::watch_data_loaded(),
+    ravedash::watch_loader_opened(),
+    local_reactives$viewer_ready,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # output$group_3dviewer <- threeBrain::renderBrain({
+  #   ginfo <- current_group()
+  #
+  #   theme <- ravedash::current_shiny_theme()
+  #
+  #   print(ginfo)
+  #
+  #   shiny::validate(
+  #     shiny::need(
+  #       is.list(ginfo),
+  #       message = "No refernce group selected"
+  #     )
+  #   )
+  #   subject <- ginfo$subject
+  #   brain <- ravecore::rave_brain(subject = subject)
+  #
+  #   shiny::validate(shiny::need(!is.null(brain), message = "No 3D brain available"))
+  #
+  #   value <- rep(NA_character_, length(subject$electrodes))
+  #
+  #   electrodes <- ginfo$data$Electrode
+  #   invalid_electrodes <- electrodes[ginfo$data$Reference == ""]
+  #
+  #   reference_electrodes <- NULL
+  #   # reference_choices <- c(
+  #   #   "No Reference", "Common Average Reference",
+  #   #   "White-matter Reference", "Bipolar Reference"
+  #   # )
+  #   if (length(ginfo$data$Type) > 0 && isTRUE(ginfo$data$Type[[1]] %in% reference_choices[c(2, 3)])) {
+  #     reference_electrodes <- dipsaus::parse_svec(gsub("^ref_", "", ginfo$data$Reference[[1]], ignore.case = TRUE))
+  #   }
+  #
+  #   value[subject$electrodes %in% electrodes] <- "Valid"
+  #   value[subject$electrodes %in% reference_electrodes] <- "Reference"
+  #   value[subject$electrodes %in% invalid_electrodes] <- "Ignored"
+  #
+  #   value <- factor(value, levels = c("Ignored", "Reference", "Valid"))
+  #
+  #   tbl <- data.frame(
+  #     Subject = subject$subject_code,
+  #     Electrode = subject$electrodes,
+  #     Value = value,
+  #     stringsAsFactors = FALSE
+  #   )
+  #   tbl <- tbl[!is.na(tbl$Value), ]
+  #   brain$set_electrode_values(tbl)
+  #
+  #
+  #   brain$plot(
+  #     volumes = FALSE,
+  #     atlases = FALSE,
+  #     background = theme$background,
+  #     side_canvas = FALSE,
+  #     side_display = FALSE,
+  #     palettes = list("Value" = c("#DF536B", "#61D04F", "dodgerblue3")),
+  #     control_panel = FALSE,
+  #     control_display = FALSE,
+  #     controllers = list(
+  #       "Show Time" = FALSE
+  #     ),
+  #     cex = 0.5,
+  #     start_zoom = 1.5
+  #   )
+  #
+  #
+  # })
 
   shiny::bindEvent(
     ravedash::safe_observe({

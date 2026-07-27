@@ -77,7 +77,7 @@ module_html <- function() {
                 ),
                 threeBrain::threejsBrainOutput(
                   outputId = ns("group_3dviewer"),
-                  height = "300px"
+                  height = "450px"
                 )
               )
 
