@@ -11,3 +11,23 @@ bibentry(bibtype = "Article",
          header       = "To cite this module in publications use:",
          textVersion  = "[1] Magnotti, J.F., Wang, Z. and Beauchamp, M.S., 2020. RAVE: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data. NeuroImage, 223, p.117341."
 )
+
+
+bibentry(bibtype = "Article",
+         title        = "{CARLA}: Adjusted common average referencing for cortico-cortical evoked potential data",
+         author       = c(as.person("Harvey Huang"),
+                          as.person("Gabriela Ojeda Valencia"),
+                          as.person("Nicholas M. Gregg"),
+                          as.person("Gamaleldin M. Osman"),
+                          as.person("Morgan N. Montoya"),
+                          as.person("Gregory A. Worrell"),
+                          as.person("Kai J. Miller"),
+                          as.person("Dora Hermes")),
+         journal      = "Journal of Neuroscience Methods",
+         year         = "2024",
+         volume       = "407",
+         pages        = "110153",
+         doi          = "10.1016/j.jneumeth.2024.110153",
+         header       = "To cite CARLA for automated common-average re-reference channels:",
+         textVersion  = "[2] Huang, H., Valencia, G.O., Gregg, N.M., Osman, G.M., Montoya, M.N., Worrell, G.A., Miller, K.J. and Hermes, D., 2024. CARLA: Adjusted common average referencing for cortico-cortical evoked potential data. Journal of neuroscience methods, 407, p.110153."
+)
