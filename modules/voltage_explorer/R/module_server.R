@@ -88,7 +88,7 @@ module_server <- function(input, output, session, ...) {
             "data_placeholder",
 
             "data_by_channel_condition",
-            "data_by_trial_channel_condition",
+            # "data_by_trial_channel_condition",
             "crp_by_channel"
           ),
           return_values = FALSE
@@ -210,6 +210,12 @@ module_server <- function(input, output, session, ...) {
       component_container$data$repository <- new_repository
       component_container$initialize_with_new_data()
 
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        choices = as.character(pipeline$read("loaded_electrodes_clean"))
+      )
+
       # Restore condition_groups, validated against available epoch conditions
       all_conditions <- sort(unique(new_repository$epoch$table$Condition))
       saved_groups   <- pipeline$get_settings("condition_groups")
@@ -261,7 +267,6 @@ module_server <- function(input, output, session, ...) {
                                  inputId = "analysis_event",
                                  selected = analysis_event)
       }, delay = 0.5)
-
 
       # # Compute epoch time range (used for slider bounds and clamping)
       # time_range <- tryCatch(
@@ -1365,7 +1370,7 @@ module_server <- function(input, output, session, ...) {
   )
 
   # ---- Helper: check outputs are ready ------------------------------------
-  .output_ready <- function() {
+  .output_ready <- function(...) {
     shiny::validate(
       shiny::need(
         !isFALSE(ravedash::watch_data_loaded()),
@@ -1379,7 +1384,8 @@ module_server <- function(input, output, session, ...) {
         length(local_reactives$update_outputs) &&
           !isFALSE(local_reactives$update_outputs),
         message = "Please run the module first"
-      )
+      ),
+      ...
     )
   }
   .viewer_ready <- function() {
@@ -1439,14 +1445,59 @@ module_server <- function(input, output, session, ...) {
     })
   )
 
+  reactive_data_by_trial_channel_condition <- shiny::bindEvent(
+    shiny::reactive({
+      tryCatch(
+        {
+          if (isFALSE(ravedash::watch_data_loaded())) {
+            stop("Data not loaded")
+          }
+          if (!length(local_reactives$update_outputs) ||
+              isFALSE(local_reactives$update_outputs)) {
+            stop("Please run the module first")
+          }
+
+          electrode <- input$by_cond_channel_selector
+          if (!isTRUE(electrode > 0)) {
+            stop("Invalid electrode selected")
+          }
+
+          res <- pipeline$read(c("aligned_array", "data_placeholder", "crp_settings"))
+
+          if (!length(res$aligned_array) || !length(res$data_placeholder)) {
+            stop("Pipeline result is empty. The result files might be broken. Try re-run the pipeline.")
+          }
+
+          prepare_data_by_trial_channel_condition(
+            electrode = electrode,
+            aligned_array = res$aligned_array,
+            data_placeholder = res$data_placeholder,
+            crp_settings = res$crp_settings
+          )
+        },
+        error = function(e) {
+          e
+        }
+      )
+    }),
+    ravedash::watch_data_loaded(),
+    local_reactives$update_outputs,
+    input$by_cond_channel_selector,
+    ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+
   # Mean ERP: one line per condition group, collapsed over channels
   output$figure_by_condition_over_time <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
-      message = "No data available"
-    ))
+
+    data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+    shiny::validate(
+      shiny::need(
+        !inherits(data_by_trial_channel_condition, "error"),
+        message = paste(data_by_trial_channel_condition$message, collapse = " ")
+      )
+    )
+
     time_range <- c(input$plot_time_start, input$plot_time_end)
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
@@ -1468,11 +1519,15 @@ module_server <- function(input, output, session, ...) {
   # ERP by condition: stacked channel traces, one panel per condition group
   output$figure_by_channel_condition_cond <- shidashi::renderPlot2({
     .output_ready()
+
     data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+
     shiny::validate(shiny::need(
       inherits(data_by_channel_condition, "data_by_channel_condition"),
       message = "No data available"
     ))
+
+
     time_range <- c(input$plot_time_start, input$plot_time_end)
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
@@ -1503,12 +1558,17 @@ module_server <- function(input, output, session, ...) {
 
   # ERP by channel: one panel per electrode, condition groups overlaid
   output$figure_by_channel_condition_ch <- shidashi::renderPlot2({
+
     .output_ready()
+
     data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+
     shiny::validate(shiny::need(
       inherits(data_by_channel_condition, "data_by_channel_condition"),
       message = "No data available"
     ))
+
+
     time_range <- c(input$plot_time_start, input$plot_time_end)
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
@@ -1539,12 +1599,17 @@ module_server <- function(input, output, session, ...) {
 
   # Trial heatmap: time x trial image, one panel per condition group
   output$figure_by_trial_per_condition <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
-      message = "No data available"
-    ))
+
+    data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+    shiny::validate(
+      shiny::need(
+        !inherits(data_by_trial_channel_condition, "error"),
+        message = paste(data_by_trial_channel_condition$message, collapse = " ")
+      )
+    )
+
+
     time_range <- c(input$plot_time_start, input$plot_time_end)
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
@@ -1563,12 +1628,16 @@ module_server <- function(input, output, session, ...) {
 
   })
   output$figure_by_trial_per_condition_heatmap <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
-      message = "No data available"
-    ))
+
+    data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+    shiny::validate(
+      shiny::need(
+        !inherits(data_by_trial_channel_condition, "error"),
+        message = paste(data_by_trial_channel_condition$message, collapse = " ")
+      )
+    )
+
     time_range <- c(input$plot_time_start, input$plot_time_end)
     if (!length(time_range) || all(is.na(time_range))) {
       time_range <- c(NA, NA)
@@ -1645,4 +1714,7 @@ module_server <- function(input, output, session, ...) {
   })
 
 
+
+  # ---- Cardset: by trial --------
+  eval(server_expr_by_trial, envir = environment())
 }

@@ -280,3 +280,72 @@ prepare_par <- function(mfrow = NULL, cex = 1, mar = c(3.1, 3.1, 2.1, 0.8) * (0.
   invisible(par_opt)
 }
 
+
+filter_electrodes <- function(repository, electrodes, type = "LFP", strict = TRUE) {
+  available_electrodes <- repository$electrode_list
+  if (missing(electrodes)) {
+    electrodes <- available_electrodes
+  } else {
+    electrodes <- ravecore:::parse_svec(unlist(electrodes))
+  }
+  # Now filter by type
+  available_electrodes2 <- repository$subject$electrodes[repository$subject$electrode_types %in% type]
+  available_electrodes <- intersect(available_electrodes, available_electrodes2)
+
+  electrodes <- electrodes[electrodes %in% available_electrodes]
+  electrodes <- sort(as.integer(electrodes))
+
+  if (strict && !length(electrodes)) {
+    stop(sprintf(
+      "No electrode channels selected filtered matching type %s. Please specify the electrodes from the following loaded: %s",
+      paste(sprintf("`%s`", type), collapse = ", "),
+      ravecore:::deparse_svec(available_electrodes)
+    ))
+  }
+
+  electrodes
+}
+
+load_electrode_coordinates_cleaned <- function(repository, electrodes) {
+  subject <- repository$subject
+
+  if (missing(electrodes)) {
+    electrodes <- repository$electrode_list
+  }
+  electrode_coordinates <- subject$get_electrode_table(
+    electrodes = electrodes,
+    reference_name = repository$reference_name,
+    subset = TRUE
+  )
+
+  # Order by electrode number
+  electrode_coordinates <- electrode_coordinates[order(electrode_coordinates$Electrode), ]
+
+  # Add labelprefix
+  labels <- electrode_coordinates$Label
+  if (!length(electrode_coordinates$LabelPrefix)) {
+    electrode_coordinates$LabelPrefix <- gsub("[0-9]+", "", labels)
+  }
+  label_prefix <- electrode_coordinates$LabelPrefix
+  label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
+  is_lead_channel <- label_prefix != label_prefix_lag1
+  electrode_coordinates$ShortLabel <- ifelse(
+    !is_lead_channel,
+    gsub("^[a-zA-Z_-]+", "", labels), labels
+  )
+
+  # Inner-most channels
+  electrode_coordinates$LeadChannel <- is_lead_channel
+
+  electrode_coordinates
+}
+
+
+get_filearray_impl <- function(x) {
+  if (inherits(x, "RAVEFileArray")) {
+    x <- x$`@impl`
+  } else {
+    x <- filearray::as_filearray(x)
+  }
+  x
+}

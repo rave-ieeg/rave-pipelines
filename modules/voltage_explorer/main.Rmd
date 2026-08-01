@@ -11,8 +11,13 @@ editor_options:
 # This code block sets up the engine environment
 # Please do not remove me
 ravepipeline::pipeline_setup_rmd("voltage_explorer")
+options("rave.debug" = TRUE)
 ```
 
+
+## Load data
+
+Initialize subject
 
 ```{r load_subject, engine='rave', language = "R", export = "subject"}
 subject <- ravecore::new_rave_subject(
@@ -25,9 +30,9 @@ print(subject)
 subject$epoch_names
 subject$reference_names
 subject$blocks
-subject$electrodes
+dipsaus::deparse_svec(subject$electrodes)
 ```
-
+Load repository - referenced voltage with trial epochs
 
 ```{r prepare_data_repository, engine='rave', language = "R", export = "repository"}
 repository <- ravecore::prepare_subject_voltage_with_epochs(
@@ -44,159 +49,51 @@ repository <- ravecore::prepare_subject_voltage_with_epochs(
 )
 ```
 
-`analysis_electrodes_clean` is the cleaned analysis channels. Compared to the input `analysis_electrodes`, the cleaned version
+Clean the electrode table and subset only loaded channels
 
-* Not empty
-* Electrode channel data must be loaded
-* Sorted integer, from smallest to largest
-
-
-```{r clean_analysis_electrodes, engine='rave', language = "R", export = "analysis_electrodes_clean"}
-available_channels <- repository$electrode_list
-analysis_electrodes_clean <- dipsaus::parse_svec(unlist(analysis_electrodes))
-analysis_electrodes_clean <- analysis_electrodes_clean[analysis_electrodes_clean %in% available_channels]
-if (!length(analysis_electrodes_clean)) {
-  stop("No channels selected for analysis. Please specify the electrode channels from the following loaded: ",
-       dipsaus::deparse_svec(available_channels))
-}
-analysis_electrodes_clean <- as.integer(sort(analysis_electrodes_clean))
+```{r get_coordinate_table, engine='rave', export = "electrode_coordinates"}
+electrode_coordinates <- load_electrode_coordinates_cleaned(repository)
 ```
+
+Keeps a copy of loaded LFP channels for future reference
+
+```{r get_loaded_electrodes, engine='rave', export = "loaded_electrodes_clean"}
+loaded_electrodes_clean <- filter_electrodes(repository)
+```
+
+and the electrode table for LFP channels only (removing auxiliary and micro-wire channels)
+
+```{r get_loaded_electrode_coordinate_table, engine='rave', export = "loaded_electrode_coordinates"}
+loaded_electrode_coordinates <- load_electrode_coordinates_cleaned(
+  repository = repository,
+  electrodes = loaded_electrodes_clean
+)
+```
+
+Load epoch event column for future data alignment (see target `aligned_array`)
 
 ```{r clean_analysis_event, engine='rave', language = "R", export = "analysis_event_colname"}
 analysis_event_colname <- repository$epoch$get_event_colname(
   event = analysis_event, missing = "warning")
+analysis_event_colname
 ```
+
+
+## Signal filters
+
+For visualization purposes, generate the filter in frequency domain. 
 
 ```{r diagnose_filters, engine='rave', language="R", export = "filter_freqz"}
 # Pre-calculate each frequency filter so its frequency response can be plotted.
 # Meta steps (detrend, demean, decimate, baseline) are not filter objects but
 # advance the tracked effective sample rate / timepoint count accordingly.
-sample_rate <- repository$sample_rate
-time_points <- repository$voltage$dimnames$Time
-
-start_time <- min(time_points, na.rm = TRUE)
-n_timepoints <- length(time_points)
-new_srate <- sample_rate
-
-configs <- as.list(filter_configurations)
-
-filter <- list()
-pre_filter_decimate <- 1L
-post_filter_decimate <- 1L
-found_frequency_filter <- FALSE
-freqz_n <- 2^(floor(log2(n_timepoints / 2)) + 1)
-
-xlim <- c(0, 10)
-
-for (cfg in configs) {
-  type <- cfg$type %||% ""
-
-  # -- Meta steps: update tracked state but produce no filter object ----------
-  if (type %in% c("detrend", "demean", "baseline")) {
-    next
-  }
-
-  if (type == "decimate") {
-    by <- max(1L, as.integer(cfg$by %||% 1L))
-    if (!found_frequency_filter) {
-      # Pre-filter decimation: accumulate before first frequency filter
-      pre_filter_decimate <- pre_filter_decimate * by
-      new_srate <- new_srate / by
-      n_timepoints <- ceiling(n_timepoints / by)
-    } else {
-      # Post-filter decimation: accumulate after frequency filters
-      post_filter_decimate <- post_filter_decimate * by
-    }
-    next
-  }
-
-  # -- Normalize type aliases -------------------------------------------------
-  if (type == "fir") { type <- "fir_kaiser" }
-  if (type == "iir") { type <- "butter" }
-
-  # -- Design the filter and capture coefficients for plotting ----------------
-  f <- tryCatch({
-    ravetools::design_filter(
-      sample_rate          = new_srate,
-      filter_order         = NA,
-      data_size            = n_timepoints,
-      high_pass_freq       = cfg$high_pass_freq       %||% NA,
-      high_pass_trans_freq = cfg$high_pass_trans_freq %||% NA,
-      low_pass_freq        = cfg$low_pass_freq        %||% NA,
-      low_pass_trans_freq  = cfg$low_pass_trans_freq  %||% NA,
-      passband_ripple      = cfg$passband_ripple      %||% 0.1,
-      stopband_attenuation = cfg$stopband_attenuation %||% 40,
-      scale                = TRUE,
-      method               = type
-    )
-  }, error = function(e) {
-    stop("Could not design filter (type=",
-         type,
-         "): ",
-         conditionMessage(e))
-    NULL
-  })
-
-  if (!is.null(f)) {
-    found_frequency_filter <- TRUE
-    freqz <- ravetools::freqz2(
-      b = f$b,
-      a = f$a,
-      fs = new_srate,
-      n = freqz_n,
-      whole = FALSE
-    )
-
-    filter[[length(filter) + 1L]] <- list(
-      config      = cfg,
-      type        = type,
-      sample_rate = new_srate,
-      b           = f$b,
-      a           = f$a,
-      frequency   = freqz$w,
-      response    = freqz$h
-    )
-    
-    xlim <- range(c(
-      xlim,
-      c(f$parameters$stopband, f$parameters$passband) * new_srate / 2
-    ), na.rm = TRUE)
-  }
-}
-
-# -- Combined frequency response on the pre-decimated sample-rate axis --
-if (length(filter)) {
-  # All FIR/IIR filters see the same sample_rate (new_srate), so they're all
-  # on the same frequency grid. Multiply responses directly.
-  combined_freq <- seq(0, new_srate / 2, length.out = freqz_n)
-  combined_response <- rep(1 + 0i, length(combined_freq))
-  
-  for (item in filter) {
-    # All filters are at the same sample rate, so responses align on same grid.
-    # Just multiply the complex responses directly.
-    combined_response <- combined_response * item$response
-  }
-  
-  filter_freqz <- structure(
-    class = c("ravetools-freqz2", "ravetools-printable"),
-    list(
-      w = combined_freq, # Hz, on the pre-decimated sample rate
-      h = combined_response, # complex; Mod() = amplitude, Arg() = phase
-      f = combined_freq, # Hz, redundant with w, but more intuitive to associate with h
-      u = "Hz",
-      srate = new_srate, # sample rate at the input to the FIR/IIR filters
-      pre_filter_decimate = pre_filter_decimate,
-      post_filter_decimate = post_filter_decimate,
-      original_srate = sample_rate,
-      n = freqz_n,
-      xlim = xlim
-    )
-  )
-} else {
-  filter_freqz <- NULL
-}
-# plot(filter_freqz, xlim = xlim)
+filter_freqz <- get_filter_freqz(
+  repository = repository,
+  filter_configurations = filter_configurations
+)
 ```
+
+For local debug only: plot the filter in frequency domain
 
 ```{r}
 if (!is.null(filter_freqz)) {
@@ -204,83 +101,20 @@ if (!is.null(filter_freqz)) {
 }
 ```
 
+Apply the filters
+
 ```{r prepare_pre_analysis_filters, engine='rave', language = "R", export = "filtered_array"}
-filtered_array <- prepare_filtered_data(
-  array_type = "filtered_voltage",
-  repository = repository,
-  filter_configurations = filter_configurations
-)
-
-filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
-
-# electrodes_to_filter <- analysis_electrodes_clean
-electrodes_to_filter <- repository$electrode_list
-
-invisible(
-  # ravepipeline::with_rave_parallel({
-    ravepipeline::lapply_jobs(electrodes_to_filter, function(ch) {
-      sel <- repository$electrode_list %in% ch
-      source_array <- repository$voltage$data_list[[which(sel)]]
-      signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
-      
-      # Get filter inputs
-      filtered_array_impl <- filtered_array$`@impl`
-      filter_configs <- filtered_array_impl$get_header("filter_configurations")
-      
-      # filtered signals
-      filtered <- apply_filters_to_signals(signals = signals, filter_configs = filter_configs)
-      
-      # write to disk via filearray
-      filtered_array_impl$.mode <- "readwrite"
-      filtered_array_impl[, , sel] <- filtered
-      
-      return(ch)
-    }, .globals = list(
-      repository = repository,
-      filtered_array = filtered_array,
-      apply_filters_to_signals = apply_filters_to_signals,
-      apply_filter = apply_filter,
-      ALLOWED_FILTER_TYPES = ALLOWED_FILTER_TYPES,
-      `%?<-%` = `%?<-%`
-    ), callback = function(ch) {
-      sprintf("Filtering channel|%d", ch)
-    })
-  # })
-)
-
-filtered_array$`@impl`
+filtered_array <- filter_repository(repository, filter_configurations)
 ```
+
+Align the arrays by event. When `analysis_event_colname="Time"`, the array needs no shift and the filtered array is aligned array's core, or a new array will be created.
 
 ```{r align_to_analysis_event, engine='rave', language = "R", export = "aligned_array"}
 aligned_array <- align_trials(filtered_array, analysis_event_colname)
 ```
 
-```{r get_coordinate_table, engine='rave', export = "electrode_coordinates"}
-electrode_coordinates <- subject$get_electrode_table(
-  electrodes = repository$electrode_list,
-  reference_name = repository$reference_name,
-  subset = TRUE
-)
-labels <- electrode_coordinates$Label
-if (!length(electrode_coordinates$LabelPrefix)) {
-  electrode_coordinates$LabelPrefix <- gsub("[0-9]+", "", labels)
-}
-label_prefix <- electrode_coordinates$LabelPrefix
 
-label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
-is_lead_channel <- label_prefix != label_prefix_lag1
-electrode_coordinates$ShortLabel <- ifelse(
-  !is_lead_channel,
-  gsub("^[a-zA-Z_-]+", "", labels), labels
-)
-electrode_coordinates$LeadChannel <- is_lead_channel
-```
-
-```{r get_electrode_coordinate_table, engine='rave', export = "analysis_electrode_coordinates"}
-analysis_electrode_coordinates <- electrode_coordinates[electrode_coordinates$Electrode %in% analysis_electrodes_clean, ]
-```
-
-## Clean condition groups
+## Clean condition groups & generate output placeholder
 
 `condition_groups_clean` is a list with two elements:
 
@@ -302,8 +136,7 @@ if (!isTRUE(condition_groups_clean$n > 0)) {
 }
 ```
 
-
-Combine `condition_groups_clean` and `aligned_array` to prepare plot data
+Combine `condition_groups_clean` and `aligned_array` to prepare plot data for all channels. If you want to plot single channel results, might need some tweaks
 
 ```{r prepare_plot_data_placeholder, engine='rave', export = "data_placeholder", cue = "always"}
 data_placeholder <- condition_groups_clean
@@ -316,178 +149,78 @@ dnames <- dimnames(aligned_array_impl)
 data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
 
 # electrode coordinate table
-data_placeholder$coord_table <- analysis_electrode_coordinates
+data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
+data_placeholder$coord_table <- loaded_electrode_coordinates
 
 # time points
 data_placeholder$time_points <- dnames$Time
+
+# unit
+data_placeholder$unit <- NA
+
+# electrodes to plot
+data_placeholder$electrode_mask <- loaded_electrodes_clean
 
 # Force the data to update if the array changes
 attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
 ```
 
 
+## CRP Analysis
+
+Gather CRP analysis parameters
 
 ```{r prepare_crp_settings, engine='rave', language = "R", export = "crp_settings"}
-filtered_array_impl <- filtered_array$`@impl`
-
-sample_rate <- filtered_array_impl$get_header("sample_rate")
-time_range <- filtered_array_impl$get_header("valid_time_range")
-
-# CRP detection window (t_start, t_end); either entry may be NA (or missing):
-# t_start falls back to 0.01, t_end falls back to the max available time.
-crp_detection_window <- suppressWarnings(as.numeric(unlist(crp_detection_window)))
-crp_detection_window <- crp_detection_window[seq_len(2)]
-crp_time_begin <- crp_detection_window[[1]]
-if (!isTRUE(is.finite(crp_time_begin))) { crp_time_begin <- 0.01 }
-if (crp_time_begin > time_range[[2]]) {
-  crp_time_begin <- 0
-}
-crp_time_end <- crp_detection_window[[2]]
-if (!isTRUE(is.finite(crp_time_end))) { crp_time_end <- time_range[[2]] }
-
-# CRP sweeping step (in samples)
-crp_time_step <- as.integer(crp_time_step)
-if (!isTRUE(crp_time_step >= 1)) { crp_time_step <- 5L }
-
-# CRP duration-uncertainty threshold (percent -> fraction)
-crp_threshold_quantile <- as.numeric(crp_threshold_quantile)
-if (!isTRUE(crp_threshold_quantile >= 1 && crp_threshold_quantile <= 100)) {
-  crp_threshold_quantile <- 98
-}
-
-# Onset detection: border controls whether to estimate onset and how far back
-# the scan may reach (see `ravetools::crp`)
-detect_onset <- !identical(crp_onset_border, "disabled")
-# "earliest_possible" -> earliest available time (clamped into [min(time), t_end]
-# by `crp`); "disabled" leaves it NULL since onset is not estimated.
-onset_search_start <- switch(
-  crp_onset_border,
-  "event_onset" = 0,
-  "t_start" = crp_time_begin,
-  "earliest_possible" = time_range[[1]],
-  NULL
-)
-
-# CRP needs at least 11 time-points within the detection window
-crp_enabled <- isTRUE((crp_time_end - crp_time_begin) * sample_rate > 10)
-
-# Shared arguments for `ravetools::crp()`; reused by every crp() call below.
-# Each call supplies its own `x` and `time` via do.call().
-crp_settings <- list(
-  enabled = crp_enabled,
-  args = list(
-    t_start = crp_time_begin,
-    t_end = crp_time_end,
-    time_step = crp_time_step,
-    threshold_quantile = crp_threshold_quantile / 100,
-    artifact_interval = "tR",
-    remove_artifacts = TRUE,
-    detect_onset = detect_onset,
-    onset_search_start = onset_search_start
-  )
+crp_settings <- prepare_crp_settings(
+  filtered_array = filtered_array,
+  crp_detection_window = crp_detection_window,
+  crp_time_step = crp_time_step,
+  crp_threshold_quantile = crp_threshold_quantile,
+  crp_onset_border = crp_onset_border
 )
 ```
 
-
+Run CRP on all electrodes to parameterize the voltage, estimate canonical shape, and the signal cutoff time points
 
 ```{r calculating_erp_durations, engine='rave', language = "R", export = "crp_results"}
-aligned_array_impl <- aligned_array$`@impl`
-dnames <- dimnames(aligned_array_impl)
+crp_results <- run_crp_on_channels(
+  aligned_array = aligned_array,
+  crp_settings = crp_settings,
+  condition_groups_clean = condition_groups_clean
+)
+```
 
-if (isTRUE(crp_settings$enabled)) {
+`crp_results` is hard to organize, use `data.table` to store and manipulate the results
 
-  cond_groups <- condition_groups_clean$groups
-
-  # ravepipeline::with_rave_parallel({
-    crp_results <- ravepipeline::lapply_jobs(dnames$Electrode, function(electrode) {
-
-      aligned_array_impl <- aligned_array$`@impl`
-
-      group_data <- lapply(cond_groups, function(group) {
-        # group <- cond_groups[[1]]
-        # electrode <- dnames$Electrode[[1]]
-        sub_array <- aligned_array_impl[, match(group$trials_included, dnames$Trial),
-                                         dnames$Electrode == electrode,
-                                         dimnames = NULL, drop = FALSE]
-        dm <- dim(sub_array)
-        dim(sub_array) <- dm[c(1, 2)]
-
-        crp_result <- do.call(ravetools::crp, c(
-          list(x = sub_array, time = dnames$Time),
-          crp_settings$args
-        ))
-        
-        # Trim
-        crp_result$projections$S_all <- NULL
-        crp_result$.data$V <- NULL
-        crp_result$parameters$ep <- NULL
-        crp_result$parameters$V_tR <- NULL
-        
-        crp_result$group_index <- group$index
-        crp_result$electrode <- electrode
-        
-        return(crp_result)
-        
-        # data.frame(
-        #   index = group$index,
-        #   Electrode = electrode,
-        #   # tau = crp_result$tau_R,
-        #   Time = crp_result$parameters$params_times,
-        #   C = crp_result$parameters$C
-        # )
-      })
-      
-      # data.table::rbindlist(group_data)
-      
-      return(group_data)
-    }, .globals = list(
-      cond_groups = cond_groups,
-      aligned_array = ravepipeline::RAVEFileArray$new(aligned_array_impl),
-      dnames = dnames,
-      crp_settings = crp_settings
-    ), callback = function(e) {
-      sprintf("Calculating ERP duration | %s", e)
-    })
-  # })
-  
-  # crp_results <- do.call("rbind", crp_results)
+```{r prepare_crp_results_as_table, engine='rave', language = "R", export = "crp_df"}
+if (length(crp_results)) {
+  crp_df <- crp_results_to_df(crp_results)
 } else {
-  crp_results <- NULL
+  crp_df <- NULL
 }
 ```
 
+Summarize `crp_df` into an array of channel by condition by statistics
+
 ```{r prepare_erp_duration_for_viewer, engine='rave', language = "R", export = "erp_results_for_viewer"}
-erp_results_for_viewer <- crp_results
-if (length(crp_results)) {
+erp_results_for_viewer <- crp_df
+if (length(crp_df)) {
+  sub_table <- crp_df[, c(
+    "electrode", "group_index", "tau_R", "t_value_tR", "tau_onset",
+    "al_mean", "al_p_mean", "snr_mean", "expl_var_mean")]
   
-  group_indexes <- condition_groups_clean$group_indexes
-  group_labels <- condition_groups_clean$group_labels
+  sub_table$group_index <- condition_groups_clean$group_labels[match(sub_table$group_index, condition_groups_clean$group_indexes)]
   
-  crp_tbl <- lapply(crp_results, function(group_results) {
-    # group_results <- crp_results[[1]]
-    # group_result <- group_results[[1]]
-    
-    group_tbl <- lapply(group_results, function(group_result) {
-      label <- group_labels[group_indexes == group_result$group_index]
-      data.frame(
-        Electrode = group_result$electrode,
-        vname = sprintf("%s (%s)", c("t_val", "resp_strength", "var_explain", "tau", "onset"), label),
-        value = c(
-          group_result$projections$t_value_tR,
-          # group_result$projections$p_value_tR,
-          mean(abs(group_result$parameters$al_p)),
-          mean(group_result$parameters$expl_var),
-          group_result$tau_R,
-          group_result$tau_onset
-        )
-      )
-    })
-    
-    data.table::rbindlist(group_tbl)
-  })
-  crp_tbl <- data.table::rbindlist(crp_tbl)
   
-  erp_results_for_viewer <- data.table::dcast(crp_tbl, Electrode ~ vname, value.var = "value")
+  sub_table <- data.table::melt(sub_table, c("electrode", "group_index"), value.name = "value")
+  sub_table <- sub_table[complete.cases(sub_table), ]
+  sub_table <- data.table::data.table(
+    Electrode = sub_table$electrode,
+    vname = sprintf("%s (%s)", sub_table$variable, sub_table$group_index),
+    value = sub_table$value
+  )
+  
+  erp_results_for_viewer <- data.table::dcast(sub_table, Electrode ~ vname, value.var = "value")
   erp_results_for_viewer$Subject <- subject$subject_code
 }
 ```
@@ -500,7 +233,30 @@ brain$set_electrode_values(erp_results_for_viewer)
 brain$plot()
 ```
 
-## Prepare data
+### CRP parameter per channel x trial
+
+1. coefficient (`alpha`)
+
+```{r prepare_crp_param_alpha, engine='rave', export = "crp_param_alpha"}
+crp_param_alpha <- extract_crp_param_per_trial_by_channel(
+  crp_df = crp_df,
+  name = "al",
+  data_placeholder = data_placeholder
+)
+```
+
+
+2. fitted amplitude (`alpha_prime`)
+
+```{r prepare_crp_param_alpha, engine='rave', export = "crp_param_alpha"}
+crp_param_alpha <- extract_crp_param_per_trial_by_channel(
+  crp_df = crp_df,
+  name = "al",
+  data_placeholder = data_placeholder
+)
+```
+
+
 
 Variables: condition group (of trials), channel
 
@@ -517,45 +273,15 @@ Visualizations
 ### CRP plots by channel
 
 ```{r prepare_CRP_response, engine='rave', language = "R", export = "crp_by_channel"}
-
-time_points <- data_placeholder$time_points
-samp <- rep(NA_real_, length(time_points))
-
-# Dimension is time x groups x channel
-group_data <- lapply(crp_results, function(group_results) {
-  
-  sapply(group_results, function(group_result) {
-    
-    samp[time_points %in% group_result$.data$time] <- group_result$parameters$C_full
-
-    # tau_onset is absent when onset detection is disabled
-    c(group_result$tau_onset %||% NA_real_,
-      group_result$tau_R %||% NA_real_,
-      samp)
-  })
-  
-})
-
-group_data <- simplify2array(group_data, higher = TRUE)
-
-# Time, channel, condition group
-group_data <- aperm(group_data, c(1, 3, 2))
-
-tau <- group_data[c(1, 2), , , drop = FALSE]
-group_data <- group_data[-c(1, 2), , , drop = FALSE]
-
-crp_by_channel <- ravepipeline::pipeline_plot_data(
-  x = data_placeholder, name = "crp_by_channel"
+crp_by_channel <- prepare_data_crp_by_channel(
+  crp_df = crp_results,
+  data_placeholder = data_placeholder
 )
-crp_by_channel$coord_table <- electrode_coordinates
-# Electrodes selected for analysis (subset of all loaded channels); used to
-# highlight the corresponding channels in the CRP-by-channel plots.
-crp_by_channel$analysis_electrodes <- data_placeholder$coord_table$Electrode
-crp_by_channel$data <- list(
-  canonical = group_data,
-  onset = tau[1, , , drop = FALSE],
-  offset = tau[2, , , drop = FALSE]
-)
+```
+
+```{r}
+plot(crp_by_channel)
+plot(crp_by_channel, type = "heatmap")
 ```
 
 ### `data_by_channel_condition`
@@ -563,33 +289,10 @@ crp_by_channel$data <- list(
 For each channel, condition group, collapse over trials
 
 ```{r prepare_voltage_over_channel_and_condition_by_collapsing_trials, engine='rave', language = "R", export = "data_by_channel_condition"}
-# unwrap the aligned_array
-aligned_array_impl <- aligned_array$`@impl`
-
-group_data <- lapply(data_placeholder$groups, function(group) {
-  # group <- data_placeholder$groups[[1]]
-  sub_array <- subset(
-    aligned_array_impl,
-    Electrode ~ Electrode %in% analysis_electrodes_clean,
-    Trial ~ Trial %in% group$trials_included,
-    drop = FALSE
-  )
-  # Drop dimnames to speed up
-  dimnames(sub_array) <- NULL
-  
-  # # Collapse over trial
-  ravetools::collapse(x = sub_array,
-                      keep = c(1L, 3L),
-                      average = TRUE)
-})
-
-# Time x Channel x Group
-group_data <- simplify2array(group_data)
-
-data_by_channel_condition <- ravepipeline::pipeline_plot_data(
-  x = data_placeholder, name = "data_by_channel_condition"
+data_by_channel_condition <- prepare_data_by_channel_condition(
+  aligned_array = aligned_array,
+  data_placeholder = data_placeholder
 )
-data_by_channel_condition$data <- group_data
 ```
 
 Visualization:
@@ -628,7 +331,12 @@ plot(data_by_channel_condition,
 - By-condition plot
   - plot each trial - collapse channels
 
-```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_channel_condition"}
+<!-- ```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_channel_condition"}
+data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(
+  aligned_array = aligned_array,
+  data_placeholder = data_placeholder,
+  crp_settings = crp_settings
+)
 # unwrap the aligned_array
 aligned_array_impl <- aligned_array$`@impl`
 
@@ -689,12 +397,12 @@ data_by_trial_channel_condition$crp_enabled <- isTRUE(crp_settings$enabled)
 data_by_trial_channel_condition$data <- group_data
 ```
 
-```{r}
+# ```{r}
 # or plot(...)
 plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
 plot(data_by_trial_channel_condition, type = "by_trial_line", cex = 0.9)
 plot(data_by_trial_channel_condition, type = "by_trial_heatmap", cex = 0.9)
-```
+<!-- ``` -->
 
 
 ### Spectrogram analyses

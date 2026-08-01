@@ -150,7 +150,7 @@ plot_crp_by_channel_heatmap <- function(
   graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]), cex = 1)
 
   for (ii in seq_len(mfrow[[1]])) {
-    add_heatmap_legend(vlim = c(-space, space), col = col, cex = cex)
+    add_heatmap_legend(vlim = c(-space, space), col = col, cex = cex, title = "")
   }
 
   graphics::par(mar = mar, cex = 1)

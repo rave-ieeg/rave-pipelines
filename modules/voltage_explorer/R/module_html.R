@@ -369,10 +369,6 @@ module_html <- function() {
 
             ), # end Signal Filters card
 
-            # ---- Electrode Selector -------------------------------------------
-
-            electrode_selector$ui_func(),
-
             # ---- Condition Groups card ----------------------------------------
 
             ravedash::input_card(
@@ -417,14 +413,20 @@ module_html <- function() {
               )
             ),
 
+
+            # ---- Electrode Selector -------------------------------------------
+
+            electrode_selector$ui_func(),
+
             # ---- CRP Parameters card ------------------------------------------
 
             ravedash::input_card(
               title = "CRP Parameters",
               class_header = "shidashi-anchor",
+              toggle_advanced = TRUE,
 
               ravedash::group_box(
-                title = "Detection window",
+                title = "Response window",
                 class = "row",
 
                 shiny::column(
@@ -451,7 +453,7 @@ module_html <- function() {
 
               ravedash::group_box(
                 title = "Advanced",
-                class = "row",
+                class = "row rave-optional soft-hidden",
 
                 shiny::column(
                   width = 12L,
@@ -753,7 +755,7 @@ module_html <- function() {
             width = 12L,
 
             ravedash::output_cardset(
-              title = "Brain Viewers",
+              title = "Overall",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
 
@@ -773,6 +775,13 @@ module_html <- function() {
               class_body = "no-padding fill-width min-height-450 height-550 resize-vertical",
               append_tools = FALSE,
 
+              "Mean Voltage" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_by_channel_condition_cond"),
+                  width = "100%", height = "100%"
+                )
+              ),
 
               "Canonical (Lines)" = div(
                 class = "position-relative fill",
@@ -796,23 +805,40 @@ module_html <- function() {
                   outputId = ns("figure_by_channel_condition_ch"),
                   width = "100%", height = "100%"
                 )
-              ),
-
-              "Per Condition" = div(
-                class = "position-relative fill",
-                shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_cond"),
-                  width = "100%", height = "100%"
-                )
               )
 
             ),
 
-
             ravedash::output_cardset(
-              title = "By Condition (Collapse Channels)",
+              title = "By Trial",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
+
+              "\U03B1\U0027 by Electrode" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_alpha_by_channel")
+                )
+              )
+            ),
+
+            ravedash::output_cardset(
+              title = "Over Time (Single Channel)",
+              class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
+              append_tools = FALSE,
+
+              footer = shiny::fluidRow(
+
+                shiny::column(
+                  width = 12L,
+                  shiny::selectInput(
+                    inputId = ns("by_cond_channel_selector"),
+                    label = "Channel to plot",
+                    choices = character(),
+                    selectize = FALSE
+                  )
+                )
+              ),
 
               "Over Time" = div(
                 class = "position-relative fill",

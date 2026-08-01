@@ -1,4 +1,4 @@
-analysis_electrodes: 15
+analysis_electrodes: '38 '
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
