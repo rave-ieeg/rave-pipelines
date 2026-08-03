@@ -1,14 +1,9 @@
-`%?<-%` <- dipsaus::`%?<-%`
 `%OF%` <- dipsaus::`%OF%`
+KEY_MISSING <- ravepipeline::KEY_MISSING
 
-group_palette <- c("#FFA500", "#1874CD", "#006400", "#FF4500", "#A52A2A", "#7D26CD",
-                   "#FE00FA", "#16FF32", "#FBE426", "#B00068", "#1CFFCE", "#90AD1C",
-                   "#2ED9FF", "#DEA0FD", "#F8A19F", "#325A9B", "#C4451C", "#1C8356",
-                   "#85660D", "#B10DA1", "#1CBE4F", "#F7E1A0", "#C075A6", "#AAF400",
-                   "#BDCDFF", "#822E1C", "#B5EFB5", "#7ED7D1", "#1C7F93", "#3B00FB"
-)
 DEFAULT_CEX <- 1.2
 DEFAULT_PLOT_SPACE <- 99
+DEFAULT_PLOT_SPACE_IS_PERCENTILE <- TRUE
 
 OPTIONS_CHAN_ANNOT <- c("number", "short", "label", "full")
 DEFAULT_CHAN_ANNOT <- "number"
@@ -23,208 +18,215 @@ DEFAULT_CRP_PARAMS <- list(
   onset_border = "disabled"
 )
 
-if (!pipeline$has_preferences("voltage_explorer.graphics.discrete_palette")) {
-  pipeline$set_preferences("voltage_explorer.graphics.discrete_palette" = list(
-    name = "Default",
-    colors = group_palette
-  ))
+
+# ---- Preference: discrete colormap -------------------------------------------
+pref_discrete_colormap <- ravepipeline::define_preference_discrete_colormap(
+  pipeline = pipeline
+)
+use_discrete_colormap <- function(value = KEY_MISSING) {
+  name <- pipeline$use_preference(
+    name = pref_discrete_colormap$metadata$key,
+    value = value,
+    apply_getter = FALSE
+  )
+  list(
+    name = name,
+    colors = ravepipeline::DISCRETE_COLORMAPS(name)
+  )
 }
 
-use_discrete_palette <- function(name, colors) {
-  if (!missing(name)) {
-
-    if (missing(colors) || length(colors) == 0) {
-      name <- "Default"
-      colors <- group_palette
+# ---- Preference: cex ---------------------------------------------------------
+pref_cex <- pipeline$define_preference(
+  name = "cex",
+  type = "numeric",
+  domain = "graphics",
+  default = DEFAULT_CEX,
+  global = FALSE,
+  validator = function(value) {
+    if (isTRUE(value > 0)) {
+      return(TRUE)
     }
-    pal <- list(
-      name = name,
-      colors = colors
-    )
-    pipeline$set_preferences("voltage_explorer.graphics.discrete_palette" = pal)
-  } else {
-
-    pal <- pipeline$get_preferences("voltage_explorer.graphics.discrete_palette")
-    if (!is.list(pal) || !all(c("name", "colors") %in% pal)) {
-      pal <- list(
-        name = "Default",
-        colors = group_palette
-      )
-      pipeline$set_preferences("voltage_explorer.graphics.discrete_palette" = pal)
-    }
+    return("Graphics preference `cex` must be positive.")
   }
-  pal
+)
+
+use_cex <- function(value = KEY_MISSING) {
+  pipeline$use_preference(pref_cex$metadata$key, value = value)
 }
 
+# ---- Preference: Channel annotation style ------------------------------------
+# pipeline <- ravepipeline::pipeline("voltage_explorer")
+# ravepipeline::pipeline_setup_rmd("voltage_explorer")
+pref_channel_annotation_style <- ravepipeline::define_preference_multichoice(
+  pipeline = pipeline,
+  name = "channel_annotation_style",
+  choices = OPTIONS_CHAN_ANNOT,
+  domain = "graphics",
+  partial_match = TRUE
+)
 
-use_cex <- function(cex) {
-  if (!missing(cex)) {
-    if (!isTRUE(cex > 0)) {
-      cex <- DEFAULT_CEX
-    }
-    pipeline$set_preferences("voltage_explorer.graphics.cex" = cex)
-  } else {
-    cex <- pipeline$get_preferences("voltage_explorer.graphics.cex", modes = "numeric", ifnotfound = DEFAULT_CEX)
-    if (!isTRUE(cex > 0)) {
-      cex <- DEFAULT_CEX
-      pipeline$set_preferences("voltage_explorer.graphics.cex" = cex)
-    }
-  }
-  cex
-}
-
-use_channel_annotation_style <- function(style = OPTIONS_CHAN_ANNOT) {
-  if (!missing(style)) {
-    style <- match.arg(style)
-    pipeline$set_preferences("voltage_explorer.graphics.channel_annotation_style" = style)
-  } else {
-    style <- pipeline$get_preferences(
-      "voltage_explorer.graphics.channel_annotation_style",
-      modes = "character",
-      ifnotfound = DEFAULT_CHAN_ANNOT
-    ) %OF% OPTIONS_CHAN_ANNOT
-  }
+use_channel_annotation_style <- function(value = KEY_MISSING) {
+  style <- pipeline$use_preference(name = pref_channel_annotation_style$metadata$key,
+                                   value = value)
+  attr(style, "preference_value") <- NULL
   style
 }
 
-use_trial_sort_by <- function(trial_sort_by = OPTIONS_TRIAL_SORT) {
-  if (!missing(trial_sort_by)) {
-    trial_sort_by <- match.arg(trial_sort_by)
-    pipeline$set_preferences("voltage_explorer.graphics.trial_sort_by" = trial_sort_by)
-  } else {
-    trial_sort_by <- pipeline$get_preferences(
-      "voltage_explorer.graphics.trial_sort_by",
-      modes = "character"
-    ) %OF% OPTIONS_TRIAL_SORT
-  }
+
+# use_channel_annotation_style("short")
+# ravepipeline:::construct_preference_validator(pref_channel_annotation_style$metadat)("assqwdwq", pipeline)
+
+# ---- Preference: sort trial by number or condition ---------------------------
+pref_trial_sort_by <- ravepipeline::define_preference_multichoice(
+  pipeline = pipeline,
+  name = "trial_sort_by",
+  choices = OPTIONS_TRIAL_SORT,
+  domain = "graphics",
+  partial_match = TRUE
+)
+
+use_trial_sort_by <- function(value = KEY_MISSING) {
+  trial_sort_by <- pipeline$use_preference(name = pref_trial_sort_by$metadata$key, value = value)
+  attr(trial_sort_by, "preference_value") <- NULL
   trial_sort_by
 }
 
-use_flipped_y <- function(flip) {
-  if (!missing(flip)) {
-    flip <- isTRUE(as.logical(flip))
-    pipeline$set_preferences("voltage_explorer.graphics.flipped_y" = flip)
-  } else {
-    flip <- isTRUE(pipeline$get_preferences(
-      "voltage_explorer.graphics.flipped_y",
-      modes = "logical"
-    ))
-  }
-  flip
+# ---- Preference: show CRP decoration -----------------------------------------
+pref_show_crp_decoration <- ravepipeline::define_preference_logical(
+  pipeline = pipeline,
+  name = "show_crp_decoration",
+  default = TRUE,
+  domain = "graphics"
+)
+
+use_show_crp_decoration <- function(value = KEY_MISSING) {
+  pipeline$use_preference(pref_show_crp_decoration$metadata$key, value = value)
 }
 
-use_show_crp_decoration <- function(show) {
-  if (!missing(show)) {
-    show <- isTRUE(as.logical(show))
-    pipeline$set_preferences("voltage_explorer.graphics.show_crp_decoration" = show)
-  } else {
-    show <- isTRUE(pipeline$get_preferences(
-      "voltage_explorer.graphics.show_crp_decoration",
-      modes = "logical"
-    ))
-  }
-  show
-}
-
-use_plot_space <- function(value) {
-  if (!missing(value)) {
-    value <- as.numeric(value)
-    if (!isTRUE(value > 0)) {
-      value <- DEFAULT_PLOT_SPACE
+# ---- Preference: spacing between vertical traces -----------------------------
+pref_plot_space <- pipeline$define_preference(
+  name = "plot_space",
+  type = "numeric",
+  domain = "graphics",
+  default = DEFAULT_PLOT_SPACE,
+  global = FALSE,
+  getter = function(value) {
+    if (value <= 0) {
+      value <- 100
     }
-    pipeline$set_preferences("voltage_explorer.graphics.plot_space" = value)
-  } else {
-    value <- pipeline$get_preferences(
-      "voltage_explorer.graphics.plot_space",
-      modes = "numeric",
-      ifnotfound = DEFAULT_PLOT_SPACE
-    )
-    if (!isTRUE(value > 0)) {
-      value <- DEFAULT_PLOT_SPACE
-      pipeline$set_preferences("voltage_explorer.graphics.plot_space" = value)
-    }
+    value
   }
-  value
+)
+
+pref_plot_space_is_percentile <- ravepipeline::define_preference_logical(
+  pipeline = pipeline,
+  name = "plot_space_is_percentile",
+  default = DEFAULT_PLOT_SPACE_IS_PERCENTILE,
+  domain = "graphics"
+)
+
+use_plot_space <- function(value = KEY_MISSING) {
+  plot_space <- pipeline$use_preference(pref_plot_space$metadata$key, value = value)
+  attr(plot_space, "preference_value") <- NULL
+  plot_space
 }
 
-use_plot_space_is_percentile <- function(is_pct) {
-  if (!missing(is_pct)) {
-    is_pct <- isTRUE(as.logical(is_pct))
-    pipeline$set_preferences("voltage_explorer.graphics.plot_space_is_percentile" = is_pct)
-  } else {
-    is_pct <- pipeline$get_preferences(
-      "voltage_explorer.graphics.plot_space_is_percentile",
-      modes = "logical",
-      ifnotfound = TRUE
-    )
-    if (!is.logical(is_pct) || length(is_pct) != 1) {
-      is_pct <- TRUE
-    }
-  }
-  isTRUE(is_pct)
+use_plot_space_is_percentile <- function(value = KEY_MISSING) {
+  pipeline$use_preference(pref_plot_space_is_percentile$metadata$key, value = value)
 }
 
-# ---- CRP analysis preferences -------------------------------------------------
-# All advanced CRP parameters are stored together as a single list so new fields
-# can be added without breaking older saved preferences (read with `%||%`).
+# ---- CRP analysis preferences ------------------------------------------------
+# time_step
+pref_crp_params_time_step <- pipeline$define_preference(
+  name = "crp_params_time_step",
+  type = "numeric",
+  domain = "analysis",
+  default = DEFAULT_CRP_PARAMS$time_step,
+  global = FALSE,
+  getter = dipsaus::new_function2(
+    args = alist(value = ),
+    quote_type = "quote",
+    body = bquote({
+      value <- as.integer(value)
+      if (!isTRUE(value >= 1)) { value <- .(DEFAULT_CRP_PARAMS$time_step) }
+      value
+    })
+  )
+)
+
+use_crp_params_time_step <- function(value = KEY_MISSING) {
+  time_step <- pipeline$use_preference(pref_crp_params_time_step$metadata$key, value = value)
+  attr(time_step, "preference_value") <- NULL
+  time_step
+}
+
+
+# threshold_quantile
+pref_crp_params_threshold_quantile <- pipeline$define_preference(
+  name = "crp_params_threshold_quantile",
+  type = "numeric",
+  domain = "analysis",
+  default = DEFAULT_CRP_PARAMS$threshold_quantile,
+  global = FALSE,
+  getter = dipsaus::new_function2(
+    args = alist(value = ),
+    quote_type = "quote",
+    body = bquote({
+      value <- as.numeric(value)
+      if (!isTRUE(value >= 1 && value <= 100)) {
+        value <- .(DEFAULT_CRP_PARAMS$threshold_quantile)
+      }
+      value
+    })
+  )
+)
+
+use_crp_params_threshold_quantile <- function(value = KEY_MISSING) {
+  threshold_quantile <- pipeline$use_preference(pref_crp_params_threshold_quantile$metadata$key, value = value)
+  attr(threshold_quantile, "preference_value") <- NULL
+  threshold_quantile
+}
+
+# Onset
+pref_crp_params_onset_border <- ravepipeline::define_preference_multichoice(
+  pipeline = pipeline,
+  name = "crp_params_onset_border",
+  choices = OPTIONS_CRP_ONSET_BORDER,
+  default = DEFAULT_CRP_PARAMS$onset_border,
+  domain = "analysis",
+  partial_match = TRUE
+)
+
+use_crp_params_onset_border <- function(value = KEY_MISSING) {
+  onset_border <- pipeline$use_preference(pref_crp_params_onset_border$metadata$key, value = value)
+  attr(onset_border, "preference_value") <- NULL
+  onset_border
+}
+
 use_crp_params <- function() {
-  params <- pipeline$get_preferences("voltage_explorer.analysis.crp_params")
-  if (!is.list(params)) { params <- list() }
-  params
+  list(
+    time_step = use_crp_params_time_step(),
+    threshold_quantile = use_crp_params_threshold_quantile(),
+    onset_border = use_crp_params_onset_border()
+  )
 }
 
-use_crp_time_step <- function(value) {
-  params <- use_crp_params()
-  if (!missing(value)) {
-    value <- as.integer(value)
-    if (!isTRUE(value >= 1)) { value <- DEFAULT_CRP_PARAMS$time_step }
-    params$time_step <- value
-    pipeline$set_preferences("voltage_explorer.analysis.crp_params" = params)
-  }
-  params$time_step %||% DEFAULT_CRP_PARAMS$time_step
-}
-
-use_crp_threshold_quantile <- function(value) {
-  params <- use_crp_params()
-  if (!missing(value)) {
-    value <- as.numeric(value)
-    if (!isTRUE(value >= 1 && value <= 100)) {
-      value <- DEFAULT_CRP_PARAMS$threshold_quantile
-    }
-    params$threshold_quantile <- value
-    pipeline$set_preferences("voltage_explorer.analysis.crp_params" = params)
-  }
-  params$threshold_quantile %||% DEFAULT_CRP_PARAMS$threshold_quantile
-}
-
-use_crp_onset_border <- function(value) {
-  params <- use_crp_params()
-  if (!missing(value)) {
-    value <- value %OF% OPTIONS_CRP_ONSET_BORDER
-    params$onset_border <- value
-    pipeline$set_preferences("voltage_explorer.analysis.crp_params" = params)
-  }
-  (params$onset_border %||% DEFAULT_CRP_PARAMS$onset_border) %OF% OPTIONS_CRP_ONSET_BORDER
-}
+# dummy
+use_flipped_y <- function() { FALSE }
 
 reset_analysis_preferences <- function() {
-  pipeline$set_preferences(
-    "voltage_explorer.analysis.crp_params" = DEFAULT_CRP_PARAMS
-  )
+  pipeline$reset_preference(pref_crp_params_time_step$metadata$key)
+  pipeline$reset_preference(pref_crp_params_threshold_quantile$metadata$key)
+  pipeline$reset_preference(pref_crp_params_onset_border$metadata$key)
 }
 
 reset_graphics_preferences <- function() {
-  pipeline$set_preferences(
-    "voltage_explorer.graphics.discrete_palette" = list(
-      name = "Default",
-      colors = group_palette
-    ),
-    "voltage_explorer.graphics.cex" = DEFAULT_CEX,
-    "voltage_explorer.graphics.channel_annotation_style" = DEFAULT_CHAN_ANNOT,
-    "voltage_explorer.graphics.trial_sort_by" = DEFAULT_TRIAL_SORT,
-    "voltage_explorer.graphics.flipped_y" = FALSE,
-    "voltage_explorer.graphics.show_crp_decoration" = TRUE,
-    "voltage_explorer.graphics.plot_space" = DEFAULT_PLOT_SPACE,
-    "voltage_explorer.graphics.plot_space_is_percentile" = TRUE
-  )
+  pipeline$reset_preference(pref_discrete_colormap$metadata$key)
+  pipeline$reset_preference(pref_cex$metadata$key)
+  pipeline$reset_preference(pref_channel_annotation_style$metadata$key)
+  pipeline$reset_preference(pref_trial_sort_by$metadata$key)
+  pipeline$reset_preference(pref_show_crp_decoration$metadata$key)
+  pipeline$reset_preference(pref_plot_space$metadata$key)
+  pipeline$reset_preference(pref_plot_space_is_percentile$metadata$key)
 }
+
