@@ -120,7 +120,7 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
   }
 }
 
-
+# Check filter configuration for errors
 assert_filter_config <- function(config, ..., disallow_types = NULL) {
   # c(
   #   "demean", "detrend", "decimate", "fir_kaiser", "firls", "fir_remez",
@@ -208,7 +208,12 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
 
 }
 
-
+# Slightly higher-level than apply_filter: this function
+# applies multiple filters to multiple signal traces
+# this is the unit to run filters on repository: it only handles
+# per-channel filtering
+# signals is per-trial signal on a single channel, and filter_configs
+# is a sequence of filters
 apply_filters_to_signals <- function(signals, filter_configs) {
   # assuming signals is a filearray
   signals_dim <- dim(signals)
@@ -239,7 +244,8 @@ apply_filters_to_signals <- function(signals, filter_configs) {
   signals
 }
 
-
+# Prepare a filearray to store the filtered data on disk, under pipeline folder
+# to avoid persist large objects in memory
 prepare_filtered_data <- function(array_type, repository, filter_configurations) {
   sample_rate <- repository$sample_rate
   time_points <- repository$voltage$dimnames$Time
@@ -365,80 +371,7 @@ prepare_filtered_data <- function(array_type, repository, filter_configurations)
   pre_analysis_filter_array
 }
 
-
-align_trials <- function(filtered_array, analysis_event_colname) {
-
-  filtered_array_impl <- get_filearray_impl(filtered_array)
-
-  epoch_table <- filtered_array_impl$get_header("epoch_table")
-  event_time <- epoch_table[[analysis_event_colname]]
-  onset_time <- epoch_table$Time
-
-  delta <- event_time - onset_time
-  delta[is.na(delta)] <- 0
-
-  if (all(delta == 0)) {
-    # No need to shift array, return filtered array
-    return(ravepipeline::RAVEFileArray$new(filtered_array_impl))
-  }
-
-  sample_rate <- filtered_array_impl$get_header("sample_rate")
-  shift_amount <- round(sample_rate * delta)
-
-  # No need to cache this file because the repository, analysis event, and filters
-  # together determines the cache key from the pipeline level
-  filebase <- file.path(pipeline$pipeline_path, "shared", "user", "trials_aligned", fsep = "/")
-  if (file.exists(filebase)) {
-    unlink(filebase, recursive = TRUE)
-  }
-
-  # Float to save disk space
-  dm <- dim(filtered_array_impl)
-  aligned_array_impl <- filearray::filearray_create(
-    filebase,
-    dimension = dm,
-    type = "float",
-    partition_size = 1L
-  )
-
-  pdm <- dm[-length(dm)]
-  filearray::fmap(
-    x = list(filtered_array_impl),
-    .y = aligned_array_impl,
-    .buffer_count = dm[[length(dm)]],
-    fun = function(input) {
-      slice <- array(input[[1]], pdm)
-      ravetools::shift_array(
-        x = slice,
-        along_margin = 1L, # shift along time
-        shift_amount = shift_amount,
-        unit_margin = 2L   # per trial
-      )
-    }
-  )
-
-  extra_headers <- filtered_array_impl$.header
-  extra_headers <- extra_headers[!names(extra_headers) %in% c(names(aligned_array_impl$.header), "dimnames")]
-  for (nm in names(extra_headers)) {
-    aligned_array_impl$set_header(nm, extra_headers[[nm]], save = FALSE)
-  }
-
-  signature_shift_mount <- ravepipeline::digest(as.integer(shift_amount))
-  aligned_array_impl$set_header("signature_shift_mount", signature_shift_mount, save = FALSE)
-
-  dnames <- dimnames(filtered_array_impl)
-  time_range <- range(dnames$Time)
-  shift_range <- range(delta, na.rm = TRUE)
-  valid_time_range <- c(time_range[[1]] + shift_range[[2]], time_range[[2]] + shift_range[[1]])
-  aligned_array_impl$set_header("valid_time_range", valid_time_range, save = FALSE)
-  dimnames(aligned_array_impl) <- dnames
-
-  aligned_array_impl$.mode <- "readonly"
-  ravepipeline::RAVEFileArray$new(aligned_array_impl)
-
-}
-
-
+# For getting combined filter in frequency domain
 get_filter_freqz <- function(repository, filter_configurations) {
   # Pre-calculate each frequency filter so its frequency response can be plotted.
   # Meta steps (detrend, demean, decimate, baseline) are not filter objects but
@@ -570,7 +503,7 @@ get_filter_freqz <- function(repository, filter_configurations) {
   filter_freqz
 }
 
-
+# High-level function to apply filters to repository
 filter_repository <- function(repository, filter_configurations) {
   filtered_array <- prepare_filtered_data(
     array_type = "filtered_voltage",
