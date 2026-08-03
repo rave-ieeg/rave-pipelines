@@ -32,6 +32,7 @@ subject$reference_names
 subject$blocks
 dipsaus::deparse_svec(subject$electrodes)
 ```
+
 Load repository - referenced voltage with trial epochs
 
 ```{r prepare_data_repository, engine='rave', language = "R", export = "repository"}
@@ -49,33 +50,15 @@ repository <- ravecore::prepare_subject_voltage_with_epochs(
 )
 ```
 
-Clean the electrode table and subset only loaded channels
-
-```{r get_coordinate_table, engine='rave', export = "electrode_coordinates"}
-electrode_coordinates <- load_electrode_coordinates_cleaned(repository)
-```
-
-Keeps a copy of loaded LFP channels for future reference
-
-```{r get_loaded_electrodes, engine='rave', export = "loaded_electrodes_clean"}
-loaded_electrodes_clean <- filter_electrodes(repository)
-```
-
-and the electrode table for LFP channels only (removing auxiliary and micro-wire channels)
+Keeps a copy of loaded LFP channels for future reference. The table has been ordered by channel number
 
 ```{r get_loaded_electrode_coordinate_table, engine='rave', export = "loaded_electrode_coordinates"}
-loaded_electrode_coordinates <- load_electrode_coordinates_cleaned(
-  repository = repository,
-  electrodes = loaded_electrodes_clean
-)
+loaded_electrode_coordinates <- repository$get_electrode_coordinate(type = "LFP")
 ```
 
-Load epoch event column for future data alignment (see target `aligned_array`)
 
-```{r clean_analysis_event, engine='rave', language = "R", export = "analysis_event_colname"}
-analysis_event_colname <- repository$epoch$get_event_colname(
-  event = analysis_event, missing = "warning")
-analysis_event_colname
+```{r get_loaded_electrodes, engine='rave', export = "loaded_electrodes_clean"}
+loaded_electrodes_clean <- loaded_electrode_coordinates$Electrode
 ```
 
 
@@ -107,10 +90,26 @@ Apply the filters
 filtered_array <- filter_repository(repository, filter_configurations)
 ```
 
+## Shift trial data to align to epoch event
+
+
+Load epoch event column for future data alignment (see target `aligned_array`)
+
+```{r clean_analysis_event, engine='rave', language = "R", export = "analysis_event_colname"}
+analysis_event_colname <- repository$epoch$get_event_colname(
+  event = analysis_event, missing = "warning")
+analysis_event_colname
+```
+
+
 Align the arrays by event. When `analysis_event_colname="Time"`, the array needs no shift and the filtered array is aligned array's core, or a new array will be created.
 
 ```{r align_to_analysis_event, engine='rave', language = "R", export = "aligned_array"}
-aligned_array <- align_trials(filtered_array, analysis_event_colname)
+aligned_array <- align_trials(
+  filtered_array = filtered_array,
+  analysis_event_colname = analysis_event_colname,
+  repository = repository
+)
 ```
 
 
@@ -183,7 +182,7 @@ crp_settings <- prepare_crp_settings(
 Run CRP on all electrodes to parameterize the voltage, estimate canonical shape, and the signal cutoff time points
 
 ```{r calculating_erp_durations, engine='rave', language = "R", export = "crp_results"}
-crp_results <- run_crp_on_channels(
+crp_results <- run_crp_on_all(
   aligned_array = aligned_array,
   crp_settings = crp_settings,
   condition_groups_clean = condition_groups_clean
@@ -200,29 +199,10 @@ if (length(crp_results)) {
 }
 ```
 
-Summarize `crp_df` into an array of channel by condition by statistics
+Summarize `crp_df` into an array of channel by condition by statistics so the 3D viewer can visualize
 
 ```{r prepare_erp_duration_for_viewer, engine='rave', language = "R", export = "erp_results_for_viewer"}
-erp_results_for_viewer <- crp_df
-if (length(crp_df)) {
-  sub_table <- crp_df[, c(
-    "electrode", "group_index", "tau_R", "t_value_tR", "tau_onset",
-    "al_mean", "al_p_mean", "snr_mean", "expl_var_mean")]
-  
-  sub_table$group_index <- condition_groups_clean$group_labels[match(sub_table$group_index, condition_groups_clean$group_indexes)]
-  
-  
-  sub_table <- data.table::melt(sub_table, c("electrode", "group_index"), value.name = "value")
-  sub_table <- sub_table[complete.cases(sub_table), ]
-  sub_table <- data.table::data.table(
-    Electrode = sub_table$electrode,
-    vname = sprintf("%s (%s)", sub_table$variable, sub_table$group_index),
-    value = sub_table$value
-  )
-  
-  erp_results_for_viewer <- data.table::dcast(sub_table, Electrode ~ vname, value.var = "value")
-  erp_results_for_viewer$Subject <- subject$subject_code
-}
+erp_results_for_viewer <- prepare_data_crp_3dviewer_value(crp_df)
 ```
 
 For debug use: show the results on brain
@@ -235,28 +215,35 @@ brain$plot()
 
 ### CRP parameter per channel x trial
 
-1. coefficient (`alpha`)
+1. fitted amplitude (`alpha_prime`), more comparable across channels
 
-```{r prepare_crp_param_alpha, engine='rave', export = "crp_param_alpha"}
-crp_param_alpha <- extract_crp_param_per_trial_by_channel(
+```{r prepare_crp_param_alpha, engine='rave', export = "data_crp_param_alpha_prime"}
+data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(
   crp_df = crp_df,
-  name = "al",
+  name = "al_p",
   data_placeholder = data_placeholder
 )
 ```
 
+2. SNR of canonical shape vs residuals
 
-2. fitted amplitude (`alpha_prime`)
-
-```{r prepare_crp_param_alpha, engine='rave', export = "crp_param_alpha"}
-crp_param_alpha <- extract_crp_param_per_trial_by_channel(
+```{r prepare_crp_param_SNR, engine='rave', export = "data_crp_param_snr"}
+data_crp_param_snr <- prepare_data_crp_param_per_trial(
   crp_df = crp_df,
-  name = "al",
+  name = "snr",
   data_placeholder = data_placeholder
 )
 ```
 
+3. $R^2$ (`expl_var`)
 
+```{r prepare_crp_R_squared, engine='rave', export = "data_crp_param_expl_var"}
+data_crp_param_expl_var <- prepare_data_crp_param_per_trial(
+  crp_df = crp_df,
+  name = "expl_var",
+  data_placeholder = data_placeholder
+)
+```
 
 Variables: condition group (of trials), channel
 
@@ -272,16 +259,16 @@ Visualizations
 
 ### CRP plots by channel
 
-```{r prepare_CRP_response, engine='rave', language = "R", export = "crp_by_channel"}
-crp_by_channel <- prepare_data_crp_by_channel(
-  crp_df = crp_results,
+```{r prepare_CRP_response, engine='rave', language = "R", export = "data_crp_by_channel"}
+data_crp_by_channel <- prepare_data_crp_by_channel(
+  crp_df = crp_df,
   data_placeholder = data_placeholder
 )
 ```
 
 ```{r}
-plot(crp_by_channel)
-plot(crp_by_channel, type = "heatmap")
+plot(data_crp_by_channel)
+plot(data_crp_by_channel, type = "heatmap")
 ```
 
 ### `data_by_channel_condition`
@@ -306,7 +293,7 @@ Here "by" means each plot has lines by the variable, and per means different var
 # Plot data collapsed over trials & channels, by condition
 plot(data_by_channel_condition,
      group_by = "channel",
-     channel_annotation = "full")
+     channel_annotation = "full", cex = 0.2)
 
 # Plot data collapsed over trials by channels, per condition
 plot(data_by_channel_condition,
@@ -326,10 +313,50 @@ plot(data_by_channel_condition,
 # )
 ```
 
-### Collapse channels
+### Single channel results
 
-- By-condition plot
-  - plot each trial - collapse channels
+The pipeline make file does not contain target code for single channel results, but you can always use helper functions
+
+```{r}
+# Example: using first loaded channel
+electrode <- loaded_electrodes_clean[[1]]
+data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(
+  electrode = electrode,
+  aligned_array = aligned_array,
+  data_placeholder = data_placeholder,
+  crp_settings = crp_settings
+)
+
+plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "by_trial_line", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "by_trial_heatmap", cex = 0.9)
+```
+
+To use it from built RAVE pipeline,
+
+```r
+pipeline$run(
+  c(
+    "loaded_electrodes_clean",
+    "aligned_array",
+    "data_placeholder",
+    "crp_settings"
+  ),
+  return_values = FALSE
+)
+
+pipe_env <- pipeline$shared_env()
+
+electrode <- pipeline['loaded_electrodes_clean'][[1]]
+
+data_by_trial_channel_condition <- pipe_env$prepare_data_by_trial_channel_condition(
+  electrode = electrode,
+  aligned_array = pipeline['aligned_array'],
+  data_placeholder = pipeline['data_placeholder'],
+  crp_settings = pipeline['crp_settings']
+)
+plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
+```
 
 <!-- ```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_channel_condition"}
 data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(

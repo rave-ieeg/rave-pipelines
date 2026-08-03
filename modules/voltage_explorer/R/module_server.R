@@ -37,9 +37,9 @@ module_server <- function(input, output, session, ...) {
 
     # Persist advanced CRP params as preferences so they are remembered across
     # sessions; the detection window is a per-analysis setting (not a preference)
-    crp_time_step <- use_crp_time_step(input$crp_time_step)
-    crp_threshold_quantile <- use_crp_threshold_quantile(input$crp_threshold_quantile)
-    crp_onset_border <- use_crp_onset_border(input$crp_onset_border)
+    crp_time_step <- use_crp_params_time_step(input$crp_time_step)
+    crp_threshold_quantile <- use_crp_params_threshold_quantile(input$crp_threshold_quantile)
+    crp_onset_border <- use_crp_params_onset_border(input$crp_onset_border)
 
     settings2 <- list(
       condition_groups = input$condition_groups,
@@ -576,9 +576,21 @@ module_server <- function(input, output, session, ...) {
   shiny::bindEvent(
     ravedash::safe_observe({
       reset_analysis_preferences()
-      shiny::updateSelectInput(session,  "crp_onset_border",       selected = use_crp_onset_border())
-      shiny::updateNumericInput(session, "crp_time_step",          value = use_crp_time_step())
-      shiny::updateNumericInput(session, "crp_threshold_quantile", value = use_crp_threshold_quantile())
+      shiny::updateSelectInput(
+        session,
+        "crp_onset_border",
+        selected = use_crp_params_onset_border()
+      )
+      shiny::updateNumericInput(
+        session,
+        "crp_time_step",
+        value = use_crp_params_time_step()
+      )
+      shiny::updateNumericInput(
+        session,
+        "crp_threshold_quantile",
+        value = use_crp_params_threshold_quantile()
+      )
 
       # Detection window back to its full epoch range (start ~ t=0.01)
       repository <- component_container$data$repository
@@ -1140,11 +1152,11 @@ module_server <- function(input, output, session, ...) {
 
     # Advanced params (preferences)
     shiny::updateSelectInput(session = session, inputId = "crp_onset_border",
-                             selected = use_crp_onset_border())
+                             selected = use_crp_params_onset_border())
     shiny::updateNumericInput(session = session, inputId = "crp_time_step",
-                              value = use_crp_time_step())
+                              value = use_crp_params_time_step())
     shiny::updateNumericInput(session = session, inputId = "crp_threshold_quantile",
-                              value = use_crp_threshold_quantile())
+                              value = use_crp_params_threshold_quantile())
   }
 
 

@@ -139,51 +139,10 @@ rm(._._env_._.)
         "loaded_electrodes", "epoch_choice", "epoch_choice__trial_starts", 
         "epoch_choice__trial_ends", "reference_name", "epoch_choice__trial_starts_rel_to_event", 
         "epoch_choice__trial_ends_rel_to_event"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), get_coordinate_table = targets::tar_target_raw(name = "electrode_coordinates", 
+        pattern = NULL, iteration = "list"), get_loaded_electrode_coordinate_table = targets::tar_target_raw(name = "loaded_electrode_coordinates", 
         command = quote({
             .__target_expr__. <- quote({
-                electrode_coordinates <- load_electrode_coordinates_cleaned(repository)
-            })
-            tryCatch({
-                eval(.__target_expr__.)
-                return(electrode_coordinates)
-            }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "electrode_coordinates", 
-                  condition = e, expr = .__target_expr__.)
-            })
-        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "electrode_coordinates", target_expr = quote({
-                {
-                  electrode_coordinates <- load_electrode_coordinates_cleaned(repository)
-                }
-                electrode_coordinates
-            }), target_depends = "repository"), deps = "repository", 
-        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
-    get_loaded_electrodes = targets::tar_target_raw(name = "loaded_electrodes_clean", 
-        command = quote({
-            .__target_expr__. <- quote({
-                loaded_electrodes_clean <- filter_electrodes(repository)
-            })
-            tryCatch({
-                eval(.__target_expr__.)
-                return(loaded_electrodes_clean)
-            }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "loaded_electrodes_clean", 
-                  condition = e, expr = .__target_expr__.)
-            })
-        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "loaded_electrodes_clean", target_expr = quote({
-                {
-                  loaded_electrodes_clean <- filter_electrodes(repository)
-                }
-                loaded_electrodes_clean
-            }), target_depends = "repository"), deps = "repository", 
-        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
-    get_loaded_electrode_coordinate_table = targets::tar_target_raw(name = "loaded_electrode_coordinates", 
-        command = quote({
-            .__target_expr__. <- quote({
-                loaded_electrode_coordinates <- load_electrode_coordinates_cleaned(repository = repository, 
-                  electrodes = loaded_electrodes_clean)
+                loaded_electrode_coordinates <- repository$get_electrode_coordinate(type = "LFP")
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -195,37 +154,31 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "loaded_electrode_coordinates", target_expr = quote({
                 {
-                  loaded_electrode_coordinates <- load_electrode_coordinates_cleaned(repository = repository, 
-                    electrodes = loaded_electrodes_clean)
+                  loaded_electrode_coordinates <- repository$get_electrode_coordinate(type = "LFP")
                 }
                 loaded_electrode_coordinates
-            }), target_depends = c("repository", "loaded_electrodes_clean"
-            )), deps = c("repository", "loaded_electrodes_clean"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), clean_analysis_event = targets::tar_target_raw(name = "analysis_event_colname", 
+            }), target_depends = "repository"), deps = "repository", 
+        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
+    get_loaded_electrodes = targets::tar_target_raw(name = "loaded_electrodes_clean", 
         command = quote({
             .__target_expr__. <- quote({
-                analysis_event_colname <- repository$epoch$get_event_colname(event = analysis_event, 
-                  missing = "warning")
-                analysis_event_colname
+                loaded_electrodes_clean <- loaded_electrode_coordinates$Electrode
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(analysis_event_colname)
+                return(loaded_electrodes_clean)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_event_colname", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "loaded_electrodes_clean", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "analysis_event_colname", target_expr = quote({
+            target_export = "loaded_electrodes_clean", target_expr = quote({
                 {
-                  analysis_event_colname <- repository$epoch$get_event_colname(event = analysis_event, 
-                    missing = "warning")
-                  analysis_event_colname
+                  loaded_electrodes_clean <- loaded_electrode_coordinates$Electrode
                 }
-                analysis_event_colname
-            }), target_depends = c("repository", "analysis_event"
-            )), deps = c("repository", "analysis_event"), cue = targets::tar_cue("thorough"), 
+                loaded_electrodes_clean
+            }), target_depends = "loaded_electrode_coordinates"), 
+        deps = "loaded_electrode_coordinates", cue = targets::tar_cue("thorough"), 
         pattern = NULL, iteration = "list"), diagnose_filters = targets::tar_target_raw(name = "filter_freqz", 
         command = quote({
             .__target_expr__. <- quote({
@@ -272,11 +225,36 @@ rm(._._env_._.)
             }), target_depends = c("repository", "filter_configurations"
             )), deps = c("repository", "filter_configurations"
         ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), align_to_analysis_event = targets::tar_target_raw(name = "aligned_array", 
+        iteration = "list"), clean_analysis_event = targets::tar_target_raw(name = "analysis_event_colname", 
         command = quote({
             .__target_expr__. <- quote({
-                aligned_array <- align_trials(filtered_array, 
-                  analysis_event_colname)
+                analysis_event_colname <- repository$epoch$get_event_colname(event = analysis_event, 
+                  missing = "warning")
+                analysis_event_colname
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(analysis_event_colname)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_event_colname", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "analysis_event_colname", target_expr = quote({
+                {
+                  analysis_event_colname <- repository$epoch$get_event_colname(event = analysis_event, 
+                    missing = "warning")
+                  analysis_event_colname
+                }
+                analysis_event_colname
+            }), target_depends = c("repository", "analysis_event"
+            )), deps = c("repository", "analysis_event"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), align_to_analysis_event = targets::tar_target_raw(name = "aligned_array", 
+        command = quote({
+            .__target_expr__. <- quote({
+                aligned_array <- align_trials(filtered_array = filtered_array, 
+                  analysis_event_colname = analysis_event_colname, 
+                  repository = repository)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -288,13 +266,14 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "aligned_array", target_expr = quote({
                 {
-                  aligned_array <- align_trials(filtered_array, 
-                    analysis_event_colname)
+                  aligned_array <- align_trials(filtered_array = filtered_array, 
+                    analysis_event_colname = analysis_event_colname, 
+                    repository = repository)
                 }
                 aligned_array
-            }), target_depends = c("filtered_array", "analysis_event_colname"
-            )), deps = c("filtered_array", "analysis_event_colname"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
+            }), target_depends = c("filtered_array", "analysis_event_colname", 
+            "repository")), deps = c("filtered_array", "analysis_event_colname", 
+        "repository"), cue = targets::tar_cue("thorough"), pattern = NULL, 
         iteration = "list"), clean_condition_groups = targets::tar_target_raw(name = "condition_groups_clean", 
         command = quote({
             .__target_expr__. <- quote({
@@ -323,7 +302,48 @@ rm(._._env_._.)
                 condition_groups_clean
             }), target_depends = c("condition_groups", "repository"
             )), deps = c("condition_groups", "repository"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), prepare_crp_settings = targets::tar_target_raw(name = "crp_settings", 
+        pattern = NULL, iteration = "list"), prepare_plot_data_placeholder = targets::tar_target_raw(name = "data_placeholder", 
+        command = quote({
+            .__target_expr__. <- quote({
+                data_placeholder <- condition_groups_clean
+                aligned_array_impl <- aligned_array$`@impl`
+                dnames <- dimnames(aligned_array_impl)
+                data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
+                data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
+                data_placeholder$coord_table <- loaded_electrode_coordinates
+                data_placeholder$time_points <- dnames$Time
+                data_placeholder$unit <- NA
+                data_placeholder$electrode_mask <- loaded_electrodes_clean
+                attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(data_placeholder)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_placeholder", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "data_placeholder", target_expr = quote({
+                {
+                  data_placeholder <- condition_groups_clean
+                  aligned_array_impl <- aligned_array$`@impl`
+                  dnames <- dimnames(aligned_array_impl)
+                  data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
+                  data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
+                  data_placeholder$coord_table <- loaded_electrode_coordinates
+                  data_placeholder$time_points <- dnames$Time
+                  data_placeholder$unit <- NA
+                  data_placeholder$electrode_mask <- loaded_electrodes_clean
+                  attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
+                }
+                data_placeholder
+            }), target_depends = c("condition_groups_clean", 
+            "aligned_array", "loaded_electrodes_clean", "loaded_electrode_coordinates"
+            )), deps = c("condition_groups_clean", "aligned_array", 
+        "loaded_electrodes_clean", "loaded_electrode_coordinates"
+        ), cue = targets::tar_cue("always"), pattern = NULL, 
+        iteration = "list"), prepare_crp_settings = targets::tar_target_raw(name = "crp_settings", 
         command = quote({
             .__target_expr__. <- quote({
                 crp_settings <- prepare_crp_settings(filtered_array = filtered_array, 
@@ -355,13 +375,8 @@ rm(._._env_._.)
         iteration = "list"), calculating_erp_durations = targets::tar_target_raw(name = "crp_results", 
         command = quote({
             .__target_expr__. <- quote({
-                crp_results <- run_crp_on_channels(aligned_array = aligned_array, 
+                crp_results <- run_crp_on_all(aligned_array = aligned_array, 
                   crp_settings = crp_settings, condition_groups_clean = condition_groups_clean)
-                if (length(crp_results)) {
-                  crp_results <- crp_results_to_df(crp_results)
-                } else {
-                  crp_results <- NULL
-                }
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -373,39 +388,45 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "crp_results", target_expr = quote({
                 {
-                  crp_results <- run_crp_on_channels(aligned_array = aligned_array, 
+                  crp_results <- run_crp_on_all(aligned_array = aligned_array, 
                     crp_settings = crp_settings, condition_groups_clean = condition_groups_clean)
-                  if (length(crp_results)) {
-                    crp_results <- crp_results_to_df(crp_results)
-                  } else {
-                    crp_results <- NULL
-                  }
                 }
                 crp_results
             }), target_depends = c("aligned_array", "crp_settings", 
             "condition_groups_clean")), deps = c("aligned_array", 
         "crp_settings", "condition_groups_clean"), cue = targets::tar_cue("thorough"), 
-        pattern = NULL, iteration = "list"), prepare_erp_duration_for_viewer = targets::tar_target_raw(name = "erp_results_for_viewer", 
+        pattern = NULL, iteration = "list"), prepare_crp_results_as_table = targets::tar_target_raw(name = "crp_df", 
         command = quote({
             .__target_expr__. <- quote({
-                erp_results_for_viewer <- crp_results
                 if (length(crp_results)) {
-                  sub_table <- crp_results[, c("electrode", "group_index", 
-                    "tau_R", "t_value_tR", "tau_onset", "al_mean", 
-                    "al_p_mean", "snr_mean", "expl_var_mean")]
-                  sub_table$group_index <- condition_groups_clean$group_labels[match(sub_table$group_index, 
-                    condition_groups_clean$group_indexes)]
-                  sub_table <- data.table::melt(sub_table, c("electrode", 
-                    "group_index"), value.name = "value")
-                  sub_table <- sub_table[complete.cases(sub_table), 
-                    ]
-                  sub_table <- data.table::data.table(Electrode = sub_table$electrode, 
-                    vname = sprintf("%s (%s)", sub_table$variable, 
-                      sub_table$group_index), value = sub_table$value)
-                  erp_results_for_viewer <- data.table::dcast(sub_table, 
-                    Electrode ~ vname, value.var = "value")
-                  erp_results_for_viewer$Subject <- subject$subject_code
+                  crp_df <- crp_results_to_df(crp_results)
+                } else {
+                  crp_df <- NULL
                 }
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(crp_df)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "crp_df", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "crp_df", target_expr = quote({
+                {
+                  if (length(crp_results)) {
+                    crp_df <- crp_results_to_df(crp_results)
+                  } else {
+                    crp_df <- NULL
+                  }
+                }
+                crp_df
+            }), target_depends = "crp_results"), deps = "crp_results", 
+        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
+    prepare_erp_duration_for_viewer = targets::tar_target_raw(name = "erp_results_for_viewer", 
+        command = quote({
+            .__target_expr__. <- quote({
+                erp_results_for_viewer <- prepare_data_crp_3dviewer_value(crp_df)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -417,90 +438,100 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "erp_results_for_viewer", target_expr = quote({
                 {
-                  erp_results_for_viewer <- crp_results
-                  if (length(crp_results)) {
-                    sub_table <- crp_results[, c("electrode", 
-                      "group_index", "tau_R", "t_value_tR", "tau_onset", 
-                      "al_mean", "al_p_mean", "snr_mean", "expl_var_mean")]
-                    sub_table$group_index <- condition_groups_clean$group_labels[match(sub_table$group_index, 
-                      condition_groups_clean$group_indexes)]
-                    sub_table <- data.table::melt(sub_table, 
-                      c("electrode", "group_index"), value.name = "value")
-                    sub_table <- sub_table[complete.cases(sub_table), 
-                      ]
-                    sub_table <- data.table::data.table(Electrode = sub_table$electrode, 
-                      vname = sprintf("%s (%s)", sub_table$variable, 
-                        sub_table$group_index), value = sub_table$value)
-                    erp_results_for_viewer <- data.table::dcast(sub_table, 
-                      Electrode ~ vname, value.var = "value")
-                    erp_results_for_viewer$Subject <- subject$subject_code
-                  }
+                  erp_results_for_viewer <- prepare_data_crp_3dviewer_value(crp_df)
                 }
                 erp_results_for_viewer
-            }), target_depends = c("crp_results", "condition_groups_clean", 
-            "subject")), deps = c("crp_results", "condition_groups_clean", 
-        "subject"), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), prepare_plot_data_placeholder = targets::tar_target_raw(name = "data_placeholder", 
+            }), target_depends = "crp_df"), deps = "crp_df", 
+        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
+    prepare_crp_param_alpha = targets::tar_target_raw(name = "data_crp_param_alpha_prime", 
         command = quote({
             .__target_expr__. <- quote({
-                data_placeholder <- condition_groups_clean
-                aligned_array_impl <- aligned_array$`@impl`
-                dnames <- dimnames(aligned_array_impl)
-                data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
-                data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
-                data_placeholder$coord_table <- loaded_electrode_coordinates
-                data_placeholder$time_points <- dnames$Time
-                attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
+                data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                  name = "al_p", data_placeholder = data_placeholder)
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(data_placeholder)
+                return(data_crp_param_alpha_prime)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_placeholder", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_crp_param_alpha_prime", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "data_placeholder", target_expr = quote({
+            target_export = "data_crp_param_alpha_prime", target_expr = quote({
                 {
-                  data_placeholder <- condition_groups_clean
-                  aligned_array_impl <- aligned_array$`@impl`
-                  dnames <- dimnames(aligned_array_impl)
-                  data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
-                  data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
-                  data_placeholder$coord_table <- loaded_electrode_coordinates
-                  data_placeholder$time_points <- dnames$Time
-                  attr(data_placeholder, "signature") <- aligned_array_impl$get_header("signature_filters")
+                  data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                    name = "al_p", data_placeholder = data_placeholder)
                 }
-                data_placeholder
-            }), target_depends = c("condition_groups_clean", 
-            "aligned_array", "loaded_electrodes_clean", "loaded_electrode_coordinates"
-            )), deps = c("condition_groups_clean", "aligned_array", 
-        "loaded_electrodes_clean", "loaded_electrode_coordinates"
-        ), cue = targets::tar_cue("always"), pattern = NULL, 
-        iteration = "list"), prepare_CRP_response = targets::tar_target_raw(name = "crp_by_channel", 
+                data_crp_param_alpha_prime
+            }), target_depends = c("crp_df", "data_placeholder"
+            )), deps = c("crp_df", "data_placeholder"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), prepare_crp_param_SNR = targets::tar_target_raw(name = "data_crp_param_snr", 
         command = quote({
             .__target_expr__. <- quote({
-                crp_by_channel <- prepare_data_crp_by_channel(crp_df = crp_results, 
+                data_crp_param_snr <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                  name = "snr", data_placeholder = data_placeholder)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(data_crp_param_snr)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_crp_param_snr", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "data_crp_param_snr", target_expr = quote({
+                {
+                  data_crp_param_snr <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                    name = "snr", data_placeholder = data_placeholder)
+                }
+                data_crp_param_snr
+            }), target_depends = c("crp_df", "data_placeholder"
+            )), deps = c("crp_df", "data_placeholder"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), prepare_crp_R_squared = targets::tar_target_raw(name = "data_crp_param_expl_var", 
+        command = quote({
+            .__target_expr__. <- quote({
+                data_crp_param_expl_var <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                  name = "expl_var", data_placeholder = data_placeholder)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(data_crp_param_expl_var)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_crp_param_expl_var", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "data_crp_param_expl_var", target_expr = quote({
+                {
+                  data_crp_param_expl_var <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                    name = "expl_var", data_placeholder = data_placeholder)
+                }
+                data_crp_param_expl_var
+            }), target_depends = c("crp_df", "data_placeholder"
+            )), deps = c("crp_df", "data_placeholder"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), prepare_CRP_response = targets::tar_target_raw(name = "data_crp_by_channel", 
+        command = quote({
+            .__target_expr__. <- quote({
+                data_crp_by_channel <- prepare_data_crp_by_channel(crp_df = crp_df, 
                   data_placeholder = data_placeholder)
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(crp_by_channel)
+                return(data_crp_by_channel)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "crp_by_channel", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "data_crp_by_channel", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "crp_by_channel", target_expr = quote({
+            target_export = "data_crp_by_channel", target_expr = quote({
                 {
-                  crp_by_channel <- prepare_data_crp_by_channel(crp_df = crp_results, 
+                  data_crp_by_channel <- prepare_data_crp_by_channel(crp_df = crp_df, 
                     data_placeholder = data_placeholder)
                 }
-                crp_by_channel
-            }), target_depends = c("crp_results", "data_placeholder"
-            )), deps = c("crp_results", "data_placeholder"), 
-        cue = targets::tar_cue("thorough"), pattern = NULL, iteration = "list"), 
-    prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
+                data_crp_by_channel
+            }), target_depends = c("crp_df", "data_placeholder"
+            )), deps = c("crp_df", "data_placeholder"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), prepare_voltage_over_channel_and_condition_by_collapsing_trials = targets::tar_target_raw(name = "data_by_channel_condition", 
         command = quote({
             .__target_expr__. <- quote({
                 data_by_channel_condition <- prepare_data_by_channel_condition(aligned_array = aligned_array, 
