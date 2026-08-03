@@ -51,6 +51,28 @@ plot_data_by_channel_condition_multiline <- function(
     mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE, ...) {
 
   space_mode <- match.arg(space_mode)
+
+  # Critical for dev debugging: do NOT remove
+  # DIPSAUS DEBUG START
+  # ravepipeline::pipeline_setup_rmd("voltage_explorer")
+  # data_by_channel_condition=pipeline$run("data_by_channel_condition")
+  # list2env(
+  #   envir = .GlobalEnv,
+  #   list(
+  #     x                  = data_by_channel_condition,
+  #     electrode_mask     = NULL,
+  #     channel_annotation = use_channel_annotation_style(),
+  #     cex                = use_cex(),
+  #     vertical_marks     = 0,
+  #     time_range         = c(NA, NA),
+  #     space              = use_plot_space(),
+  #     space_mode         = ifelse(use_plot_space_is_percentile(), "quantile", "absolute"),
+  #     flip_y             = TRUE,
+  #     mfrow = NULL,
+  #     col = NULL
+  #   )
+  # )
+
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   setup <- plot_data_by_channel_condition_setup(
@@ -62,16 +84,36 @@ plot_data_by_channel_condition_multiline <- function(
   col <- setup$col
   time_info <- setup$time_info
   time_range <- time_info$time_range
+  # `coord_table` has no `LeadChannel` for a degenerate (empty) channel table
+  has_lead_channel <- length(coord_table$LeadChannel) &&
+    is.logical(coord_table$LeadChannel)
 
-  # Separators between electrode leads, so stacked traces stay readable
-  if (length(coord_table$LeadChannel) && is.logical(coord_table$LeadChannel)) {
-    hlines_chs <- which(coord_table$LeadChannel) - 0.5
-    hlines_chs <- hlines_chs[hlines_chs >= 1]
-  } else if (n_channels > 5) {
-    hlines_chs <- seq(0.5, n_channels - 0.5, by = 5)
+  # Label priority: the first channel of each lead keeps its name however
+  # crowded the panel gets, the rest are thinned around it
+  channel_rank <- if (has_lead_channel) {
+    ifelse(coord_table$LeadChannel, 1L, 2L)
   } else {
-    hlines_chs <- numeric(0L)
+    1L
   }
+
+  # Which lead each channel belongs to, in channel order. `LeadChannel` flags the
+  # first channel of a lead; the first channel always opens one.
+  channel_group <- if (has_lead_channel) {
+    cumsum(c(TRUE, coord_table$LeadChannel[-1]))
+  } else if (n_channels > 5) {
+    (seq_len(n_channels) - 1L) %/% 5L + 1L
+  } else {
+    rep(1L, n_channels)
+  }
+
+  # Leads are told apart by shading alternate ones, which groups the stacked
+  # traces without a separator line cutting across them. The top-most lead keeps
+  # the plain background, so every second one from the top is shaded. Channel `k`
+  # is drawn at `space * (n_channels - k + 1)`, so a band reaches half a `space`
+  # past its outermost channels.
+  shaded <- split(seq_len(n_channels), channel_group)[c(FALSE, TRUE)]
+  band_top <- space * (n_channels - vapply(shaded, min, 0L) + 1.5)
+  band_bottom <- space * (n_channels - vapply(shaded, max, 0L) + 0.5)
 
   n_groups <- x$n
   mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 4)
@@ -79,12 +121,23 @@ plot_data_by_channel_condition_multiline <- function(
               mar = c(3.1, 2.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1)
 
   for (ii in seq_len(n_groups)) {
-    data_time_by_channel <- array(setup$data[, , ii], dim = dim(setup$data)[c(1, 2)])
+    # Time by channel, but channel is reversed because R plots from bottom-left
+    # to top-right while we want the channels to order from top to bottom
+    data_time_by_channel <- array(setup$data[, rev(seq_len(n_channels)), ii], dim = dim(setup$data)[c(1, 2)])
+
+    if (flip_y) {
+      data_time_by_channel <- - data_time_by_channel
+    }
+
     group <- x$groups[[ii]]
     ylim <- range(data_time_by_channel, na.rm = TRUE)
 
-    ravetools::plot_signals(
-      if (flip_y) { -t(data_time_by_channel) } else { t(data_time_by_channel) },
+    # Blank channel names: `plot_signals` still draws the axis line and a tick
+    # per channel, but the labels are left to `add_axis_ranked()` below, which
+    # thins them from the top down instead of from the bottom up. Blank (rather
+    # than `NULL`) also side-steps its own decimation of long channel lists.
+    signal_plot <- ravetools::plot_signals(
+      t(data_time_by_channel),
       sample_rate = x$sample_rate,
       space = space,
       space_mode = "absolute",
@@ -92,10 +145,31 @@ plot_data_by_channel_condition_multiline <- function(
       start_time = time_info$start_time,
       duration = time_info$duration,
       ylab = "",
-      channel_names = setup$channel_names,
+      channel_names = rep("", n_channels),
       main = "",
       adj = 0,
-      cex = cex
+      cex = cex, tck = -0.005 * (1 + cex)
+    )
+
+    # Painted over the traces rather than under them, because `plot_signals`
+    # owns the panel: a `par("fg")` band at 10% alpha composites onto the
+    # fg-coloured traces without altering them, so only the background shades.
+    if (length(band_top)) {
+      usr <- graphics::par("usr")
+      graphics::rect(
+        usr[[1]], band_bottom, usr[[2]], band_top, border = NA,
+        col = grDevices::adjustcolor(graphics::par("fg"), alpha.f = 0.05)
+      )
+    }
+
+    # `time_range[[1]]` is the start time `plot_signals` settled on after
+    # clamping; sharing its axis position keeps every label aligned on one edge.
+    add_axis_ranked(
+      at = rev(space * seq_len(n_channels)),
+      labels = setup$channel_names,
+      rank = channel_rank, thin = TRUE,
+      side = 2L, cex = cex, tick = FALSE,
+      pos = signal_plot$time_range[[1]] + time_info$time_shift
     )
 
     graphics::title(main = bquote(.(group$label) ~ scriptstyle(
@@ -106,10 +180,6 @@ plot_data_by_channel_condition_multiline <- function(
     )), adj = 0, cex.main = par("cex.main") * cex, col.main = col[[ii]])
 
     add_vertical_marks(vertical_marks, col = "#80808040", lty = 2)
-
-    if (length(hlines_chs)) {
-      graphics::abline(h = hlines_chs * space, col = "#80808040", lty = 3)
-    }
 
     # Scale bar spanning one `space`, at the right edge
     graphics::arrows(time_range[[2]], 0.5 * space, time_range[[2]], 1.5 * space,

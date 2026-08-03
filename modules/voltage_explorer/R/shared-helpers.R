@@ -93,6 +93,69 @@ add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), c
   graphics::mtext(side = 2L, text, line = 2, cex = cex)
 }
 
+# Axis labels with an explicit priority order, for axes too crowded to label in
+# full.
+#
+# `graphics::axis()` already drops labels that would collide, but it always scans
+# the axis from its low end upward and keeps whatever it reaches first --
+# regardless of the order `at` is given in. Panels that stack channels from the
+# top down therefore lose exactly the labels that should have survived, and a
+# second `axis()` call cannot see what the first one drew, so separately-drawn
+# labels overprint each other.
+#
+# So the thinning happens here instead: candidates are tried in `rank` order
+# (lower wins, ties broken in reading order) and one is kept only when it clears
+# every label already accepted. Drawing is one `axis()` call per label -- a call
+# carrying a single label has nothing to collide with, so R's own thinning never
+# fires and this selection is the only thing that drops anything.
+#
+# `at`, `labels` as in `graphics::axis()`; `rank` is recycled over them. `gap`
+# pads the measured label extent. `thin = FALSE` draws every label, overlaps and
+# all. `...` is passed to `graphics::axis()` (`pos`, `tick`, `col.axis`, ...).
+# Returns the indices drawn.
+add_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
+                            gap = 1.1, thin = TRUE, ...) {
+  cex_axis <- graphics::par("cex.axis") * cex
+
+  labels <- as.character(labels)
+  candidates <- which(is.finite(at) & !is.na(labels) & nzchar(labels))
+  if (!length(candidates)) { return(invisible(integer(0))) }
+
+  if (thin) {
+    # Along-axis extent of each label, in user units, measured at the size it
+    # will be drawn at. Sides 2/4 are labelled with `las = 1`, so what limits
+    # them is text height; sides 1/3 are limited by width.
+    extent <- if (side %in% c(2L, 4L)) {
+      graphics::strheight(labels, units = "user", cex = cex_axis)
+    } else {
+      graphics::strwidth(labels, units = "user", cex = cex_axis)
+    }
+    extent <- extent * gap
+
+    rank <- rep_len(rank, length(at))
+    # Reading order: top-down on a vertical axis, left-to-right on a horizontal
+    # one. Only used to break ties within a rank.
+    along <- if (side %in% c(2L, 4L)) { -at } else { at }
+    ordered <- candidates[order(rank[candidates], along[candidates])]
+
+    kept <- integer(0)
+    for (ii in ordered) {
+      if (!length(kept) ||
+          all(abs(at[[ii]] - at[kept]) >= (extent[[ii]] + extent[kept]) / 2)) {
+        kept <- c(kept, ii)
+      }
+    }
+    candidates <- sort(kept)
+  }
+
+  for (ii in candidates) {
+    graphics::axis(side = side, at = at[[ii]], labels = labels[[ii]],
+                   las = 1, cex.axis = cex_axis, ...)
+  }
+
+  invisible(candidates)
+}
+
 add_vertical_marks <- function(vertical_marks = NULL, col = "#808080", lty = 3, ...) {
   if (length(vertical_marks)) {
     graphics::abline(v = vertical_marks, col = col, lty = lty, ...)
@@ -293,6 +356,36 @@ get_filearray_impl <- function(x) {
   x
 }
 
+recalculate_short_labels <- function(coord_table, electrode_mask = NULL) {
+  if (!length(electrode_mask)) { return(coord_table) }
+
+  electrode_mask <- electrode_mask[electrode_mask %in% coord_table$Electrode]
+  electrode_mask <- sort(unique(electrode_mask))
+
+  coord_table <- coord_table[coord_table$Electrode %in% electrode_mask, ]
+  if (!nrow(coord_table)) {
+    return(coord_table)
+  }
+
+  # Order by electrode number
+  coord_table <- coord_table[order(coord_table$Electrode), ]
+
+  # Add labelprefix
+  labels <- coord_table$Label
+  label_prefix <- coord_table$LabelPrefix
+  label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
+  is_lead_channel <- label_prefix != label_prefix_lag1
+  coord_table$ShortLabel <- ifelse(
+    !is_lead_channel,
+    gsub("^[a-zA-Z_-]+", "", labels), labels
+  )
+
+  # Inner-most channels
+  coord_table$LeadChannel <- is_lead_channel
+
+  coord_table
+}
+
 
 # ---- Channel selection -------------------------------------------------------
 
@@ -309,7 +402,9 @@ get_filearray_impl <- function(x) {
 # never by position. An empty mask, or one matching nothing on the axis, falls back
 # to every channel, so an over-restrictive selection never yields an empty figure.
 resolve_channel_selection <- function(x, electrode_mask = NULL) {
+
   electrodes <- x$electrodes
+
   if (!length(electrodes)) {
     # Container predates the explicit axis; the coordinate table is the best guess
     electrodes <- x$coord_table$Electrode
@@ -317,22 +412,21 @@ resolve_channel_selection <- function(x, electrode_mask = NULL) {
 
   if (is.null(electrode_mask)) {
     electrode_mask <- x$electrode_mask
-  }
-  electrode_mask <- suppressWarnings(as.integer(unlist(electrode_mask, use.names = FALSE)))
-  electrode_mask <- electrode_mask[!is.na(electrode_mask)]
-
-  index <- if (length(electrode_mask)) {
-    which(electrodes %in% electrode_mask)
   } else {
-    seq_along(electrodes)
+    electrode_mask <- ravecore:::parse_svec(unlist(electrode_mask))
   }
-  if (!length(index)) { index <- seq_along(electrodes) }
+  electrode_mask <- electrode_mask[electrode_mask %in% electrodes]
+  electrode_mask <- sort(unique(electrode_mask))
 
+  if (!length(electrode_mask)) {
+    electrode_mask <- electrodes
+  }
+
+  # Make sure the short label has proper surgical labels
+  coord_table <- recalculate_short_labels(x$coord_table, electrode_mask = electrode_mask)
+
+  index <- which(electrodes %in% electrode_mask)
   kept <- electrodes[index]
-
-  # `match()` (not a logical subset) so the table rows stay 1:1 with `index`; a
-  # channel absent from the table yields an NA row instead of shifting every label
-  coord_table <- x$coord_table[match(kept, x$coord_table$Electrode), , drop = FALSE]
 
   list(
     index = index,
