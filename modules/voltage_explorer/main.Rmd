@@ -148,7 +148,7 @@ dnames <- dimnames(aligned_array_impl)
 data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
 
 # electrode coordinate table
-data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
+data_placeholder$loaded_electrodes <- loaded_electrodes_clean
 data_placeholder$coord_table <- loaded_electrode_coordinates
 
 # time points
@@ -157,7 +157,9 @@ data_placeholder$time_points <- dnames$Time
 # unit
 data_placeholder$unit <- NA
 
-# electrodes to plot
+# Channels to visualize by default. Plot functions accept an `electrode_mask`
+# argument that overrides this, so narrowing the selection in the UI redraws
+# without invalidating any target downstream of `data_placeholder`.
 data_placeholder$electrode_mask <- loaded_electrodes_clean
 
 # Force the data to update if the array changes
@@ -218,7 +220,7 @@ brain$plot()
 1. fitted amplitude (`alpha_prime`), more comparable across channels
 
 ```{r prepare_crp_param_alpha, engine='rave', export = "data_crp_param_alpha_prime"}
-data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(
+data_crp_param_alpha_prime <- prepare_data_crp_param_by_trial_channel(
   crp_df = crp_df,
   name = "al_p",
   data_placeholder = data_placeholder
@@ -228,7 +230,7 @@ data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(
 2. SNR of canonical shape vs residuals
 
 ```{r prepare_crp_param_SNR, engine='rave', export = "data_crp_param_snr"}
-data_crp_param_snr <- prepare_data_crp_param_per_trial(
+data_crp_param_snr <- prepare_data_crp_param_by_trial_channel(
   crp_df = crp_df,
   name = "snr",
   data_placeholder = data_placeholder
@@ -238,7 +240,7 @@ data_crp_param_snr <- prepare_data_crp_param_per_trial(
 3. $R^2$ (`expl_var`)
 
 ```{r prepare_crp_R_squared, engine='rave', export = "data_crp_param_expl_var"}
-data_crp_param_expl_var <- prepare_data_crp_param_per_trial(
+data_crp_param_expl_var <- prepare_data_crp_param_by_trial_channel(
   crp_df = crp_df,
   name = "expl_var",
   data_placeholder = data_placeholder
@@ -269,6 +271,19 @@ data_crp_by_channel <- prepare_data_crp_by_channel(
 ```{r}
 plot(data_crp_by_channel)
 plot(data_crp_by_channel, type = "heatmap")
+
+# Every by-channel plot accepts `electrode_mask` to narrow what is drawn. The
+# container itself is never subset, so this is free -- no target is invalidated.
+plot(data_crp_by_channel, electrode_mask = loaded_electrodes_clean[1:4])
+```
+
+Trial-level CRP parameters. All three `data_crp_param_*` targets share one class
+and carry their own parameter name, so one plot function renders them all.
+
+```{r}
+plot(data_crp_param_alpha_prime, channel_annotation = "short")
+plot(data_crp_param_snr, channel_annotation = "short")
+plot(data_crp_param_expl_var, channel_annotation = "short")
 ```
 
 ### `data_by_channel_condition`
@@ -290,27 +305,21 @@ Visualization:
 Here "by" means each plot has lines by the variable, and per means different variable are in the different sub-figures. For example, "ERP collapsed over trials by channels, per condition" means the plot is ERP collapsed over trials for each combination of channels and conditions. The number of sub-figures equal to the number of conditions, and each sub-figure has numbers of lines that each line is a channel.
 
 ```{r}
-# Plot data collapsed over trials & channels, by condition
+# One panel per channel, condition groups superimposed
 plot(data_by_channel_condition,
-     group_by = "channel",
+     type = "overlay",
      channel_annotation = "full", cex = 0.2)
 
-# Plot data collapsed over trials by channels, per condition
+# One panel per condition group, channels stacked as offset traces
 plot(data_by_channel_condition,
-     group_by = "condition",
+     type = "multiline",
      channel_annotation = "short")
 
-# plot_by_channel_condition(
-#   data_by_channel_condition = data_by_channel_condition,
-#   group_by = "channel",
-#   channel_annotation = "full"
-# )
-# 
-# plot_by_channel_condition(
-#   data_by_channel_condition = data_by_channel_condition,
-#   group_by = "condition",
-#   channel_annotation = "short"
-# )
+# Narrow to a handful of channels; the container is untouched
+plot(data_by_channel_condition,
+     type = "overlay",
+     electrode_mask = loaded_electrodes_clean[1:4],
+     channel_annotation = "full")
 ```
 
 ### Single channel results
@@ -327,9 +336,9 @@ data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(
   crp_settings = crp_settings
 )
 
-plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
-plot(data_by_trial_channel_condition, type = "by_trial_line", cex = 0.9)
-plot(data_by_trial_channel_condition, type = "by_trial_heatmap", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "butterfly", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "multiline", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "heatmap", cex = 0.9)
 ```
 
 To use it from built RAVE pipeline,
@@ -355,81 +364,8 @@ data_by_trial_channel_condition <- pipe_env$prepare_data_by_trial_channel_condit
   data_placeholder = pipeline['data_placeholder'],
   crp_settings = pipeline['crp_settings']
 )
-plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
+plot(data_by_trial_channel_condition, type = "butterfly", cex = 0.9)
 ```
-
-<!-- ```{rave prepare_voltage_collapsed_over_channels_per_condition, export = "data_by_trial_channel_condition"}
-data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(
-  aligned_array = aligned_array,
-  data_placeholder = data_placeholder,
-  crp_settings = crp_settings
-)
-# unwrap the aligned_array
-aligned_array_impl <- aligned_array$`@impl`
-
-dnames <- dimnames(aligned_array_impl)
-trial_numbers <- dnames$Trial
-
-time_points <- data_placeholder$time_points
-
-group_data <- lapply(data_placeholder$groups, function(group) {
-  # group <- data_placeholder$groups[[1]]
-  sub_array <- subset(
-    aligned_array_impl,
-    Electrode ~ Electrode %in% analysis_electrodes_clean,
-    Trial ~ match(group$trials_included, trial_numbers),
-    drop = FALSE
-  )
-  # Drop dimnames to speed up
-  dimnames(sub_array) <- NULL
-  
-  # Collapse over trial (the trial is sorted by stimuli names)
-  voltage_by_trial <- ravetools::collapse(x = sub_array,
-                                          keep = c(1L, 2L),
-                                          average = TRUE)
-  
-  if (isTRUE(crp_settings$enabled)) {
-    crp_result <- do.call(ravetools::crp, c(
-      list(x = voltage_by_trial, time = time_points),
-      crp_settings$args
-    ))
-  } else {
-    crp_result <- NULL
-  }
-  
-  # Mean and se of mean
-  if (length(crp_result$bad_trials)) {
-    bad_trials_index <- crp_result$bad_trials
-    bad_trials <- as.integer(group$trials_included[bad_trials_index])
-    mean_erp <- rowMeans(voltage_by_trial[, - bad_trials_index, drop = FALSE])
-  } else {
-    bad_trials <- integer(0L)
-    mean_erp <- rowMeans(voltage_by_trial)
-  }
-  
-  return(list(
-    voltage = voltage_by_trial,
-    mean = mean_erp,
-    bad_trials = bad_trials, 
-    crp_result = crp_result
-  ))
-  # return(voltage_by_trial)
-})
-
-data_by_trial_channel_condition <- ravepipeline::pipeline_plot_data(
-  x = data_placeholder, name = "data_by_trial_channel_condition"
-)
-
-data_by_trial_channel_condition$crp_enabled <- isTRUE(crp_settings$enabled)
-data_by_trial_channel_condition$data <- group_data
-```
-
-# ```{r}
-# or plot(...)
-plot(data_by_trial_channel_condition, type = "collapse_trial", cex = 0.9)
-plot(data_by_trial_channel_condition, type = "by_trial_line", cex = 0.9)
-plot(data_by_trial_channel_condition, type = "by_trial_heatmap", cex = 0.9)
-<!-- ``` -->
 
 
 ### Spectrogram analyses
@@ -441,7 +377,7 @@ env <- pipeline$shared_env()
 spectrogram <- env$calculate_spectrogram(
   repository = repository,
   condition_groups = condition_groups,
-  channel = analysis_electrodes_clean[[1]]
+  channel = pipeline['loaded_electrodes_clean'][[1]]
 )
 
 # ITPC

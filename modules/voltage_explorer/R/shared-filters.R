@@ -514,7 +514,8 @@ filter_repository <- function(repository, filter_configurations) {
   # For ravepipeline workers to fast-serialize the arrays
   filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
 
-  # electrodes_to_filter <- analysis_electrodes_clean
+  # Filter every loaded channel: channel selection is a plot-time mask, not a
+  # subset of the analysis
   electrodes_to_filter <- repository$electrode_list
 
   expr <- quote({

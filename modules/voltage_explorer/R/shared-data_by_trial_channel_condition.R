@@ -6,7 +6,6 @@ prepare_data_by_trial_channel_condition <- function(electrode, aligned_array, da
   trial_numbers <- dnames$Trial
 
   time_points <- data_placeholder$time_points
-  # loaded_electrodes_clean <- data_placeholder$loaded_lectrodes
 
   group_data <- lapply(data_placeholder$groups, function(group) {
     # group <- data_placeholder$groups[[1]]
@@ -62,6 +61,8 @@ prepare_data_by_trial_channel_condition <- function(electrode, aligned_array, da
     pipe_dir = pipeline$pipeline_path
   )
 
+  # Single channel: no channel dimension to mask, but the plots title with it
+  data_by_trial_channel_condition$electrode <- electrode
   data_by_trial_channel_condition$crp_enabled <- isTRUE(crp_settings$enabled)
   data_by_trial_channel_condition$data <- group_data
   data_by_trial_channel_condition

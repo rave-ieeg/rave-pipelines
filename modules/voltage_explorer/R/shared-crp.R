@@ -113,6 +113,7 @@ run_crp_on_one_electrode <- function(electrode, aligned_array, crp_settings, con
 
     # Add back some electrode and condition group information
     crp_result$group_index <- group$index
+    crp_result$group_label <- group$label
     crp_result$electrode <- electrode
 
     # ~ 30 KB per channel for 1-3s signals, so 3MB for 100 channels... not good but not bad
@@ -195,6 +196,7 @@ crp_results_to_df <- function(crp_results) {
       list(
         electrode = crp_result$electrode,
         group_index = crp_result$group_index,
+        group_label = crp_result$group_label,
 
         bad_trials = list(crp_result$bad_trials),
 
@@ -241,10 +243,8 @@ prepare_data_crp_3dviewer_value <- function(crp_df) {
 
   if (length(crp_df)) {
     sub_table <- crp_df[, c(
-      "electrode", "group_index", "tau_R", "t_value_tR", "tau_onset",
+      "electrode", "group_label", "tau_R", "t_value_tR", "tau_onset",
       "al_mean", "al_p_mean", "snr_mean", "expl_var_mean")]
-
-    sub_table$group_index <- condition_groups_clean$group_labels[match(sub_table$group_index, condition_groups_clean$group_indexes)]
 
     names(sub_table) <- c(
       "electrode", "group_label", "tau", "statistics", "onset",
@@ -259,15 +259,18 @@ prepare_data_crp_3dviewer_value <- function(crp_df) {
     )
 
     erp_results_for_viewer <- data.table::dcast(sub_table, Electrode ~ vname, value.var = "value")
-    erp_results_for_viewer$Subject <- subject$subject_code
+    # erp_results_for_viewer$Subject <- subject$subject_code
   } else {
     erp_results_for_viewer <- NULL
   }
   erp_results_for_viewer
 }
 
-# Extract trial-level CRP parameters (trial x channel per condition)
-prepare_data_crp_param_per_trial <- function(crp_df, name, data_placeholder) {
+# Extract trial-level CRP parameters (trial x channel per condition).
+#
+# `name` picks the `crp_df` column to extract and is baked into the result as
+# `$data$parameter_name`, so one plot function renders every parameter.
+prepare_data_crp_param_by_trial_channel <- function(crp_df, name, data_placeholder) {
 
   if (!length(crp_df)) {
     return(NULL)
@@ -276,6 +279,10 @@ prepare_data_crp_param_per_trial <- function(crp_df, name, data_placeholder) {
   if (!name %in% names(crp_df)) {
     stop("No column called ", sQuote(name), " in the CRP result table.")
   }
+
+  # The channel axis of every group's `params` matrix; `crp_df` is sorted by
+  # electrode, so each group's rows come out in this order
+  electrodes <- sort(unique(crp_df$electrode))
 
   # name = "al"
   crp_params <- lapply(data_placeholder$groups, function(group) {
@@ -305,15 +312,12 @@ prepare_data_crp_param_per_trial <- function(crp_df, name, data_placeholder) {
 
   names(crp_params) <- data_placeholder$group_labels
 
-  # col <- grDevices::colorRampPalette(c("#053061", "#2166ac", "#4393c3", "#92c5de", "#d1e5f0",
-  #                                      "#ffffff", "#fddbc7", "#f4a582", "#d6604d", "#b2182b", "#67001f"))(101)
-  # image(t(crp_params$AV$params), zlim = c(-9000, 9000), col = col)
-
   data_crp_params <- ravepipeline::pipeline_plot_data(
-    x = data_placeholder, name = "crp_params_per_trial_by_channel",
+    x = data_placeholder, name = "data_crp_param_by_trial_channel",
     pipe_dir = pipeline$pipeline_path
   )
 
+  data_crp_params$electrodes <- electrodes
   data_crp_params$data <- list(
     parameter_name = name,
     group_data = crp_params
@@ -361,11 +365,13 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
   }
 
   crp_by_channel <- ravepipeline::pipeline_plot_data(
-    x = data_placeholder, name = "crp_by_channel",
+    x = data_placeholder, name = "data_crp_by_channel",
     pipe_dir = pipeline$pipeline_path
   )
 
-  # crp_by_channel$coord_table
+  # CRP runs on every loaded channel, so this axis is a superset of the LFP-only
+  # `coord_table`; the plots resolve `electrode_mask` against it by number
+  crp_by_channel$electrodes <- sort(unique(crp_df$electrode))
 
   crp_by_channel$data <- list(
     canonical = c_full,
@@ -373,27 +379,7 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
     offset = tau_R
   )
 
-  # crp_by_channel$analysis_electrodes <- analysis_electrodes_clean
-
   crp_by_channel
-}
-
-
-
-
-plot.crp_params_per_trial_by_channel <- function(x, ...) {
-  # x <- prepare_data_crp_param_per_trial(crp_df, "al_p", data_placeholder)
-  data_range <- unlist(lapply(x$data$group_data, function(d) {
-    d$range
-  }))
-  data_range <- max(abs(data_range), na.rm = TRUE) * c(-1, 1)
-
-  use_plot_space()
-
-  col <- grDevices::colorRampPalette(c("#053061", "#2166ac", "#4393c3", "#92c5de", "#d1e5f0",
-                                       "#ffffff", "#fddbc7", "#f4a582", "#d6604d", "#b2182b", "#67001f"))(101)
-  # image(t(crp_params$AV$params), zlim = c(-9000, 9000), col = col)
-  image(t(x$data$group_data[[3]]$params), zlim = data_range, col = col)
 }
 
 

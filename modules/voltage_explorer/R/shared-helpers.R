@@ -24,10 +24,13 @@ get_spacing <- function(x, space, space_mode = c("quantile", "absolute")) {
 }
 
 
-get_mfrow <- function(n, mfrow = NULL, asp = 3) {
+# Panel layout for `n` sub-figures. Up to `single_row_max` panels are laid out in a
+# single row; beyond that `n2mfrow` picks a grid at the requested aspect ratio. A
+# caller-supplied `mfrow` of length 2 always wins.
+get_mfrow <- function(n, mfrow = NULL, asp = 3, single_row_max = 4) {
   if (length(mfrow) != 2 || anyNA(mfrow)) {
-    if (n > 4) {
-      mfrow <- n2mfrow(n, asp = 3)
+    if (n > single_row_max) {
+      mfrow <- n2mfrow(n, asp = asp)
     } else {
       mfrow <- c(1, n)
     }
@@ -281,32 +284,6 @@ prepare_par <- function(mfrow = NULL, cex = 1, mar = c(3.1, 3.1, 2.1, 0.8) * (0.
 }
 
 
-filter_electrodes <- function(repository, electrodes, type = "LFP", strict = TRUE) {
-  available_electrodes <- repository$electrode_list
-  if (missing(electrodes)) {
-    electrodes <- available_electrodes
-  } else {
-    electrodes <- ravecore:::parse_svec(unlist(electrodes))
-  }
-  # Now filter by type
-  available_electrodes2 <- repository$subject$electrodes[repository$subject$electrode_types %in% type]
-  available_electrodes <- intersect(available_electrodes, available_electrodes2)
-
-  electrodes <- electrodes[electrodes %in% available_electrodes]
-  electrodes <- sort(as.integer(electrodes))
-
-  if (strict && !length(electrodes)) {
-    stop(sprintf(
-      "No electrode channels selected filtered matching type %s. Please specify the electrodes from the following loaded: %s",
-      paste(sprintf("`%s`", type), collapse = ", "),
-      ravecore:::deparse_svec(available_electrodes)
-    ))
-  }
-
-  electrodes
-}
-
-
 get_filearray_impl <- function(x) {
   if (inherits(x, "RAVEFileArray")) {
     x <- x$`@impl`
@@ -314,4 +291,132 @@ get_filearray_impl <- function(x) {
     x <- filearray::as_filearray(x)
   }
   x
+}
+
+
+# ---- Channel selection -------------------------------------------------------
+
+# Resolve which channels a by-channel figure should draw.
+#
+# Every `data_*` plot container built from `data_placeholder` carries
+#   `$electrodes`     the channel axis of `$data` (its 2nd margin), as electrode
+#                     numbers -- NOT necessarily `coord_table$Electrode`, since CRP
+#                     runs over every loaded channel while `coord_table` is LFP-only;
+#   `$coord_table`    the loaded LFP coordinate table, keyed by `Electrode`;
+#   `$electrode_mask` the channels to draw by default.
+#
+# `electrode_mask` overrides the container default. Matching is by electrode number,
+# never by position. An empty mask, or one matching nothing on the axis, falls back
+# to every channel, so an over-restrictive selection never yields an empty figure.
+resolve_channel_selection <- function(x, electrode_mask = NULL) {
+  electrodes <- x$electrodes
+  if (!length(electrodes)) {
+    # Container predates the explicit axis; the coordinate table is the best guess
+    electrodes <- x$coord_table$Electrode
+  }
+
+  if (is.null(electrode_mask)) {
+    electrode_mask <- x$electrode_mask
+  }
+  electrode_mask <- suppressWarnings(as.integer(unlist(electrode_mask, use.names = FALSE)))
+  electrode_mask <- electrode_mask[!is.na(electrode_mask)]
+
+  index <- if (length(electrode_mask)) {
+    which(electrodes %in% electrode_mask)
+  } else {
+    seq_along(electrodes)
+  }
+  if (!length(index)) { index <- seq_along(electrodes) }
+
+  kept <- electrodes[index]
+
+  # `match()` (not a logical subset) so the table rows stay 1:1 with `index`; a
+  # channel absent from the table yields an NA row instead of shifting every label
+  coord_table <- x$coord_table[match(kept, x$coord_table$Electrode), , drop = FALSE]
+
+  list(
+    index = index,
+    n = length(index),
+    electrodes = kept,
+    coord_table = coord_table
+  )
+}
+
+
+# Channel tick labels for the annotation styles in `OPTIONS_CHAN_ANNOT`.
+channel_names <- function(coord_table, channel_annotation = OPTIONS_CHAN_ANNOT) {
+  channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
+  switch(
+    channel_annotation,
+    "number" = as.character(coord_table$Electrode),
+    "short"  = coord_table$ShortLabel,
+    "label"  = coord_table$Label,
+    "full"   = sprintf("%s (%s)", coord_table$Electrode, coord_table$Label)
+  )
+}
+
+
+# Select electrodes whose CRP metrics satisfy every active filter, for the
+# interactive channel filter. The result is written into the analysis-electrode
+# selector, which is the single source of `electrode_mask` for every figure.
+#
+# `erp_tbl`: data.frame with an `Electrode` column plus metric columns.
+# `filters`: list of components, each `list(name = <column>, criteria = <code>,
+# threshold = <text "T1" or "T1, T2">, operator = "and"/"or")`. Criteria codes
+# (matching the 3D viewer threshold methods, with their boundary conventions):
+#   eq v=T1, abs_lt |v|<T1, abs_gte |v|>=T1, lt v<T1, gte v>=T1,
+#   in v in [T1,T2], not_in v not in [T1,T2]
+# Components combine left-to-right in the order given; each component's operator
+# joins it to the running result (the first active component's operator is
+# ignored), e.g. c1 AND c2 OR c3 AND c4 == (((c1 & c2) | c3) & c4).
+# Components with a blank threshold, unknown column, or insufficient bounds are
+# skipped. NA metric values fail a filter. Returns the passing electrode numbers,
+# or NULL when there is no usable table or no active filter (-> plot all).
+crp_filter_electrodes <- function(erp_tbl, filters) {
+  if (!is.data.frame(erp_tbl) || !nrow(erp_tbl) || !length(filters)) {
+    return(NULL)
+  }
+
+  electrodes <- erp_tbl$Electrode
+  result <- NULL
+
+  for (filter in filters) {
+    column <- filter$name
+    criteria <- filter$criteria %||% "abs_gte"
+    if (!length(column) || !nzchar(column) || !column %in% names(erp_tbl)) {
+      next
+    }
+    bounds <- suppressWarnings(as.numeric(
+      strsplit(trimws(as.character(filter$threshold %||% "")), "[,[:space:]]+")[[1]]
+    ))
+    bounds <- bounds[is.finite(bounds)]
+    if (!length(bounds)) { next }
+
+    v <- suppressWarnings(as.numeric(erp_tbl[[column]]))
+
+    m <- switch(
+      criteria,
+      "eq"      = v == bounds[[1]],
+      "abs_lt"  = abs(v) < bounds[[1]],
+      "abs_gte" = abs(v) >= bounds[[1]],
+      "lt"      = v < bounds[[1]],
+      "gte"     = v >= bounds[[1]],
+      "in"      = if (length(bounds) >= 2) v >= min(bounds[1:2]) & v <= max(bounds[1:2]) else NULL,
+      "not_in"  = if (length(bounds) >= 2) v < min(bounds[1:2]) | v > max(bounds[1:2]) else NULL,
+      NULL
+    )
+    if (is.null(m)) { next }
+
+    m[is.na(m)] <- FALSE
+    if (is.null(result)) {
+      # first active component: operator ignored
+      result <- m
+    } else {
+      op <- filter$operator %||% "and"
+      result <- if (identical(op, "or")) { result | m } else { result & m }
+    }
+  }
+
+  if (is.null(result)) { return(NULL) }
+  electrodes[result]
 }

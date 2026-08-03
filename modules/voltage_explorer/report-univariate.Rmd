@@ -53,6 +53,8 @@ list2env(settings, envir = globalenv())
 list2env(as.list(shared_env), envir = globalenv())
 
 # Evaluate to get the repository and omnibus_results
+# Every channel is analyzed; `analysis_electrodes` only decides what gets drawn, so
+# this runs once for the whole report rather than once per electrode.
 pipeline$run(
   scheduler = "none",
   type = "smart",
@@ -60,11 +62,14 @@ pipeline$run(
     "repository",
     "condition_groups_clean",
     "filtered_array",
+    "aligned_array",
+    "crp_settings",
     "crp_results",
     "erp_results_for_viewer",
     "data_placeholder",
-    "analysis_electrodes_clean",
-    "crp_by_channel"
+    "loaded_electrodes_clean",
+    "data_by_channel_condition",
+    "data_crp_by_channel"
   ),
   return_values = FALSE
 )
@@ -74,12 +79,17 @@ repository <- pipeline$read("repository")
 brain <- ravecore::rave_brain(repository$subject)
 erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
 erp_results_for_viewer <- as.data.frame(erp_results_for_viewer)
-analysis_electrodes <- pipeline$read("analysis_electrodes_clean")
 condition_groups_clean <- pipeline$read("condition_groups_clean")
-crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
+data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+
+# Restrict to the loaded LFP channels the caller asked for
+analysis_electrodes <- intersect(analysis_electrodes,
+                                 pipeline$read("loaded_electrodes_clean"))
+
 mfrow <- get_mfrow(n = condition_groups_clean$n, mfrow = NULL, asp = 3)
 
-crp_fig_ratio <- mfrow[[1]] * nrow(crp_by_channel$coord_table) / 40
+crp_fig_ratio <- mfrow[[1]] * length(analysis_electrodes) / 40
 ```
 
 ```{r, handle_params_if_missing, include=FALSE}
@@ -290,8 +300,9 @@ if (!isTRUE(use_plot_space_is_percentile())) {
   space <- max(0, min(use_plot_space(), 1))
   plot_space <- list(space = space, space_mode = "quantile")
 }
-plot_crp_by_channel_multilines(
-  crp_by_channel     = crp_by_channel,
+plot_data_crp_by_channel_multiline(
+  x                  = data_crp_by_channel,
+  electrode_mask     = analysis_electrodes,
   channel_annotation = channel_annotation_style,
   cex                = cex,
   crp                = crp_annotations,
@@ -309,8 +320,9 @@ plot_crp_by_channel_multilines(
   
 
 ```{r, fig.width=12, fig.height = crp_fig_ratio * 12}
-plot_crp_by_channel_heatmap(
-  crp_by_channel     = crp_by_channel,
+plot_data_crp_by_channel_heatmap(
+  x                  = data_crp_by_channel,
+  electrode_mask     = analysis_electrodes,
   channel_annotation = channel_annotation_style,
   cex                = cex,
   crp                = crp_annotations,
@@ -328,23 +340,29 @@ plot_crp_by_channel_heatmap(
 ```{r, message=FALSE, warning=FALSE, results='asis', fig.show='asis'}
 figure_root <- ravepipeline::dir_create2(file.path(pipeline$pipeline_path, "figures"))
 
+# The pipeline already ran over every channel; per-electrode figures are a plot-time
+# mask (`data_by_channel_condition`) or a cheap single-channel extraction
+# (`data_by_trial_channel_condition`) -- no pipeline re-run inside this loop.
+aligned_array <- pipeline$read("aligned_array")
+data_placeholder <- pipeline$read("data_placeholder")
+crp_settings <- pipeline$read("crp_settings")
+
 for (electrode in analysis_electrodes) {
   row <- repository$electrode_table[
     repository$electrode_table$Electrode == electrode, ]
-  pipeline$set_settings(analysis_electrodes = electrode)
-  
-  results <- pipeline$run(c(
-    "data_by_channel_condition",
-    "data_by_trial_channel_condition"
-  ))
-  data_by_channel_condition <- results$data_by_channel_condition
-  data_by_trial_channel_condition <- results$data_by_trial_channel_condition
-  
+
+  data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(
+    electrode = electrode,
+    aligned_array = aligned_array,
+    data_placeholder = data_placeholder,
+    crp_settings = crp_settings
+  )
+
   cat(sprintf("\n\n### Electrode %d - %s\n\n", electrode, row$Label))
-  
-  plot_by_channel_condition(
-    data_by_channel_condition,
-    group_by           = "channel",
+
+  plot_data_by_channel_condition_overlay(
+    x                  = data_by_channel_condition,
+    electrode_mask     = electrode,
     channel_annotation = channel_annotation_style,
     cex                = cex,
     vertical_marks     = vertical_marks,
@@ -353,10 +371,9 @@ for (electrode in analysis_electrodes) {
     space_mode         = by_elec_space$space_mode,
     flip_y             = FALSE
   )
-  
-  plot_trials_per_condition(
-    data_by_trial_channel_condition = data_by_trial_channel_condition,
-    # type = "collapse_trial",
+
+  plot_data_by_trial_channel_condition_butterfly(
+    x = data_by_trial_channel_condition,
     vertical_marks = vertical_marks,
     crp = crp_annotations,
     time_range = time_range,
@@ -364,9 +381,9 @@ for (electrode in analysis_electrodes) {
     space = by_elec_space$space,
     space_mode = by_elec_space$space_mode
   )
-  
-  plot_by_trials_per_condition_heatmap(
-    data_by_trial_channel_condition = data_by_trial_channel_condition,
+
+  plot_data_by_trial_channel_condition_heatmap(
+    x              = data_by_trial_channel_condition,
     sort_by        = trial_sort_by,
     space          = by_elec_space$space,
     space_mode     = by_elec_space$space_mode,

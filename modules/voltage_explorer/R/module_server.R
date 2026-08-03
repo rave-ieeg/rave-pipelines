@@ -89,7 +89,8 @@ module_server <- function(input, output, session, ...) {
 
             "data_by_channel_condition",
             # "data_by_trial_channel_condition",
-            "crp_by_channel"
+            "data_crp_by_channel",
+            "data_crp_param_alpha_prime"
           ),
           return_values = FALSE
         )
@@ -396,22 +397,17 @@ module_server <- function(input, output, session, ...) {
 
       ravedash::clear_notifications(class = ns('threedviewer_no'), session = session)
       ravedash::show_notification(
-        paste0("Trying to load data for electrode: ", electrode),
+        paste0("Showing electrode: ", electrode),
         class = ns('threedviewer_yes'),
         title = '3dViewer Info',
         delay = 2000,
         type = 'info'
       )
 
-      # ravepipeline::logger(str(info))
+      # Every channel is already loaded and analyzed; narrowing to this electrode is
+      # a plot-time mask change, so writing the selector is all it takes
       id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
-
       shiny::updateTextInput(inputId = id, value = dipsaus::deparse_svec(electrode))
-
-      run_analysis(
-        trigger_3dviewer = FALSE,
-        force_settings = list(analysis_electrodes = electrode)
-      )
 
     }),
     brain_proxy$mouse_event_double_click,
@@ -495,8 +491,22 @@ module_server <- function(input, output, session, ...) {
     }
   })
 
-  # Resolve the electrode subset for the CRP-by-channel plots from the channel
-  # filter compoundInput2; returns NULL (all channels) when no active filter.
+  # ---- Channel mask ------------------
+  # Every by-channel figure draws only the channels named by the analysis-electrode
+  # selector. This is applied at plot time, so narrowing the selection redraws
+  # immediately without re-running the pipeline. Empty selection -> all channels.
+  #
+  # Writers into the selector: the CRP channel filter (below) and the 3D viewer
+  # double-click handler.
+  get_electrode_mask <- shiny::reactive({
+    id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
+    mask <- dipsaus::parse_svec(input[[id]])
+    if (!length(mask)) { return(NULL) }
+    mask
+  })
+
+  # Resolve the electrode subset from the channel filter compoundInput2; returns
+  # NULL (all channels) when no active filter.
   get_crp_channel_selection <- shiny::reactive({
     if (!isTRUE(ravedash::watch_data_loaded())) { return() }
     filters <- input$crp_channel_filter
@@ -511,17 +521,22 @@ module_server <- function(input, output, session, ...) {
     }, error = function(e) { NULL })
   })
 
-  # "Update visualization" button: commit the current channel filter so the CRP
-  # plots redraw with the subset, and sync the 3D viewer (flag the selected
-  # electrodes and threshold the viewer to display only them). A NULL selection
-  # (no active filter) flags all electrodes as kept.
+  # "Update visualization" button: push the filtered electrodes into the
+  # analysis-electrode selector, which is the single source of the channel mask, and
+  # sync the 3D viewer (flag the selected electrodes and threshold the viewer to
+  # display only them). A NULL selection (no active filter) means all channels.
   shiny::bindEvent(
     ravedash::safe_observe({
       selection <- get_crp_channel_selection()
 
-      # Commit for the CRP plots (read via local_data, triggered by the nonce)
-      local_data$crp_channel_selection <- selection
-      local_reactives$crp_filter_applied <- Sys.time()
+      # Writing the selector redraws every by-channel figure via get_electrode_mask()
+      shiny::updateTextInput(
+        session = session,
+        inputId = electrode_selector$get_sub_element_id(with_namespace = FALSE),
+        value = dipsaus::deparse_svec(
+          selection %||% pipeline$read("loaded_electrodes_clean")
+        )
+      )
 
       erp_tbl <- tryCatch(
         pipeline$read(var_names = "erp_results_for_viewer"),
@@ -1123,11 +1138,6 @@ module_server <- function(input, output, session, ...) {
 
     if (!isTRUE(ravedash::watch_data_loaded())) { return() }
 
-    # New data: clear any committed channel filter so the CRP plots show all
-    # channels until the user clicks "Update visualization" again.
-    local_data$crp_channel_selection <- NULL
-    local_reactives$crp_filter_applied <- Sys.time()
-
     repository <- component_container$data$repository
     time_range <- range(unlist(repository$time_windows), na.rm = TRUE)
 
@@ -1498,7 +1508,8 @@ module_server <- function(input, output, session, ...) {
     ignoreInit = TRUE, ignoreNULL = TRUE
   )
 
-  # Mean ERP: one line per condition group, collapsed over channels
+  # Single channel: every trial as a faint line with the mean on top, one panel per
+  # condition group
   output$figure_by_condition_over_time <- shidashi::renderPlot2({
 
     data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
@@ -1515,9 +1526,8 @@ module_server <- function(input, output, session, ...) {
       time_range <- c(NA, NA)
     }
     plot_space <- get_plot_space()
-    plot_trials_per_condition(
-      data_by_trial_channel_condition = data_by_trial_channel_condition,
-      # type = "collapse_trial",
+    plot_data_by_trial_channel_condition_butterfly(
+      x = data_by_trial_channel_condition,
       vertical_marks = input$plot_onset_mark %||% 0,
       crp = isTRUE(input$mean_erp_crp),
       time_range = time_range,
@@ -1554,9 +1564,9 @@ module_server <- function(input, output, session, ...) {
       by_elec_space      <- plot_space$space
       by_elec_space_mode <- "absolute"
     }
-    plot_by_channel_condition(
-      data_by_channel_condition,
-      group_by           = "condition",
+    plot_data_by_channel_condition_multiline(
+      x                  = data_by_channel_condition,
+      electrode_mask     = get_electrode_mask(),
       channel_annotation = get_channel_annotation_style(),
       cex                = get_cex(),
       vertical_marks     = input$plot_onset_mark %||% 0,
@@ -1595,9 +1605,9 @@ module_server <- function(input, output, session, ...) {
       by_elec_space      <- plot_space$space
       by_elec_space_mode <- "absolute"
     }
-    plot_by_channel_condition(
-      data_by_channel_condition,
-      group_by           = "channel",
+    plot_data_by_channel_condition_overlay(
+      x                  = data_by_channel_condition,
+      electrode_mask     = get_electrode_mask(),
       channel_annotation = get_channel_annotation_style(),
       cex                = get_cex(),
       vertical_marks     = input$plot_onset_mark %||% 0,
@@ -1609,7 +1619,7 @@ module_server <- function(input, output, session, ...) {
   })
 
 
-  # Trial heatmap: time x trial image, one panel per condition group
+  # Single channel: trials stacked as offset traces, one panel per condition group
   output$figure_by_trial_per_condition <- shidashi::renderPlot2({
 
     data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
@@ -1627,8 +1637,8 @@ module_server <- function(input, output, session, ...) {
       time_range <- c(NA, NA)
     }
     plot_space <- get_plot_space()
-    plot_by_trials_per_condition_multilines(
-      data_by_trial_channel_condition = data_by_trial_channel_condition,
+    plot_data_by_trial_channel_condition_multiline(
+      x              = data_by_trial_channel_condition,
       sort_by        = get_trial_sort_by(),
       cex            = get_cex(),
       crp            = isTRUE(input$mean_erp_crp),
@@ -1655,8 +1665,8 @@ module_server <- function(input, output, session, ...) {
       time_range <- c(NA, NA)
     }
     plot_space <- get_plot_space()
-    plot_by_trials_per_condition_heatmap(
-      data_by_trial_channel_condition = data_by_trial_channel_condition,
+    plot_data_by_trial_channel_condition_heatmap(
+      x              = data_by_trial_channel_condition,
       sort_by        = get_trial_sort_by(),
       space          = plot_space$space,
       space_mode     = plot_space$space_mode,
@@ -1671,9 +1681,9 @@ module_server <- function(input, output, session, ...) {
   # CRP canonical response per channel, one panel per condition group
   output$figure_crp_by_channel <- shidashi::renderPlot2({
     .output_ready()
-    crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
+    data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
     shiny::validate(shiny::need(
-      inherits(crp_by_channel, "crp_by_channel"),
+      inherits(data_crp_by_channel, "data_crp_by_channel"),
       message = "No data available"
     ))
     time_range <- c(input$plot_time_start, input$plot_time_end)
@@ -1683,27 +1693,24 @@ module_server <- function(input, output, session, ...) {
     # CRP canonical responses are normalized, so an absolute (uV) spacing is
     # meaningless; fall back to the full quantile range in that case.
     crp_space <- get_crp_plot_space()
-    # Channel filter is applied via the "Update visualization" button (commits to
-    # local_data$crp_channel_selection); depend on the nonce to redraw on apply.
-    local_reactives$crp_filter_applied
-    plot_crp_by_channel_multilines(
-      crp_by_channel     = crp_by_channel,
+    plot_data_crp_by_channel_multiline(
+      x                  = data_crp_by_channel,
+      electrode_mask     = get_electrode_mask(),
       channel_annotation = get_channel_annotation_style(),
       cex                = get_cex(),
       crp                = isTRUE(input$mean_erp_crp),
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
       space              = crp_space$space,
-      space_mode         = crp_space$space_mode,
-      channel_selection  = local_data$crp_channel_selection
+      space_mode         = crp_space$space_mode
     )
   })
 
   output$figure_crp_by_channel_heatmap <- shidashi::renderPlot2({
     .output_ready()
-    crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
+    data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
     shiny::validate(shiny::need(
-      inherits(crp_by_channel, "crp_by_channel"),
+      inherits(data_crp_by_channel, "data_crp_by_channel"),
       message = "No data available"
     ))
     time_range <- c(input$plot_time_start, input$plot_time_end)
@@ -1711,22 +1718,21 @@ module_server <- function(input, output, session, ...) {
       time_range <- c(NA, NA)
     }
     crp_space <- get_crp_plot_space()
-    local_reactives$crp_filter_applied
-    plot_crp_by_channel_heatmap(
-      crp_by_channel     = crp_by_channel,
+    plot_data_crp_by_channel_heatmap(
+      x                  = data_crp_by_channel,
+      electrode_mask     = get_electrode_mask(),
       channel_annotation = get_channel_annotation_style(),
       cex                = get_cex(),
       crp                = isTRUE(input$mean_erp_crp),
       vertical_marks     = input$plot_onset_mark %||% 0,
       time_range         = time_range,
       space              = crp_space$space,
-      space_mode         = crp_space$space_mode,
-      channel_selection  = local_data$crp_channel_selection
+      space_mode         = crp_space$space_mode
     )
   })
 
 
 
   # ---- Cardset: by trial --------
-  eval(server_expr_by_trial, envir = environment())
+  eval(body(server_expr_by_trial))
 }

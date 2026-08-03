@@ -309,7 +309,7 @@ rm(._._env_._.)
                 aligned_array_impl <- aligned_array$`@impl`
                 dnames <- dimnames(aligned_array_impl)
                 data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
-                data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
+                data_placeholder$loaded_electrodes <- loaded_electrodes_clean
                 data_placeholder$coord_table <- loaded_electrode_coordinates
                 data_placeholder$time_points <- dnames$Time
                 data_placeholder$unit <- NA
@@ -330,7 +330,7 @@ rm(._._env_._.)
                   aligned_array_impl <- aligned_array$`@impl`
                   dnames <- dimnames(aligned_array_impl)
                   data_placeholder$sample_rate <- aligned_array_impl$get_header("sample_rate")
-                  data_placeholder$loaded_lectrodes <- loaded_electrodes_clean
+                  data_placeholder$loaded_electrodes <- loaded_electrodes_clean
                   data_placeholder$coord_table <- loaded_electrode_coordinates
                   data_placeholder$time_points <- dnames$Time
                   data_placeholder$unit <- NA
@@ -446,7 +446,7 @@ rm(._._env_._.)
     prepare_crp_param_alpha = targets::tar_target_raw(name = "data_crp_param_alpha_prime", 
         command = quote({
             .__target_expr__. <- quote({
-                data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                data_crp_param_alpha_prime <- prepare_data_crp_param_by_trial_channel(crp_df = crp_df, 
                   name = "al_p", data_placeholder = data_placeholder)
             })
             tryCatch({
@@ -459,7 +459,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_crp_param_alpha_prime", target_expr = quote({
                 {
-                  data_crp_param_alpha_prime <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                  data_crp_param_alpha_prime <- prepare_data_crp_param_by_trial_channel(crp_df = crp_df, 
                     name = "al_p", data_placeholder = data_placeholder)
                 }
                 data_crp_param_alpha_prime
@@ -468,7 +468,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), prepare_crp_param_SNR = targets::tar_target_raw(name = "data_crp_param_snr", 
         command = quote({
             .__target_expr__. <- quote({
-                data_crp_param_snr <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                data_crp_param_snr <- prepare_data_crp_param_by_trial_channel(crp_df = crp_df, 
                   name = "snr", data_placeholder = data_placeholder)
             })
             tryCatch({
@@ -481,7 +481,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_crp_param_snr", target_expr = quote({
                 {
-                  data_crp_param_snr <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                  data_crp_param_snr <- prepare_data_crp_param_by_trial_channel(crp_df = crp_df, 
                     name = "snr", data_placeholder = data_placeholder)
                 }
                 data_crp_param_snr
@@ -490,7 +490,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), prepare_crp_R_squared = targets::tar_target_raw(name = "data_crp_param_expl_var", 
         command = quote({
             .__target_expr__. <- quote({
-                data_crp_param_expl_var <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                data_crp_param_expl_var <- prepare_data_crp_param_by_trial_channel(crp_df = crp_df, 
                   name = "expl_var", data_placeholder = data_placeholder)
             })
             tryCatch({
@@ -503,7 +503,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "data_crp_param_expl_var", target_expr = quote({
                 {
-                  data_crp_param_expl_var <- prepare_data_crp_param_per_trial(crp_df = crp_df, 
+                  data_crp_param_expl_var <- prepare_data_crp_param_by_trial_channel(crp_df = crp_df, 
                     name = "expl_var", data_placeholder = data_placeholder)
                 }
                 data_crp_param_expl_var

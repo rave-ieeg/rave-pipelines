@@ -12,6 +12,17 @@ OPTIONS_TRIAL_SORT <- c("stimuli", "trial")
 DEFAULT_TRIAL_SORT <- "stimuli"
 
 OPTIONS_CRP_ONSET_BORDER <- c("disabled", "event_onset", "t_start", "earliest_possible")
+
+# Plotmath labels for the `crp_df` columns that `prepare_data_crp_param_by_trial_channel`
+# can extract. Names not listed here fall back to the column name itself.
+CRP_PARAM_LABELS <- list(
+  al = quote(alpha),
+  al_p = quote(alpha * minute),
+  snr = "SNR",
+  expl_var = quote(R^2),
+  tau_R = quote(tau[R]),
+  tau_onset = quote(tau[onset])
+)
 DEFAULT_CRP_PARAMS <- list(
   time_step = 5,
   threshold_quantile = 98,
