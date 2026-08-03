@@ -1,5 +1,6 @@
 # CRP analysis
 
+# Clean up and validate CRP settings
 prepare_crp_settings <- function(
     filtered_array, crp_detection_window,
     crp_time_step = 5, crp_threshold_quantile = 98,
@@ -65,6 +66,7 @@ prepare_crp_settings <- function(
 }
 
 
+# Run CRP on single electrode
 # crp_settings is output from prepare_crp_settings
 run_crp_on_one_electrode <- function(electrode, aligned_array, crp_settings, condition_groups_clean) {
 
@@ -130,7 +132,8 @@ run_crp_on_one_electrode <- function(electrode, aligned_array, crp_settings, con
   group_data
 }
 
-run_crp_on_channels <- function(aligned_array, crp_settings, condition_groups_clean) {
+# Run CRP on all electrodes
+run_crp_on_all <- function(aligned_array, crp_settings, condition_groups_clean) {
   if (!isTRUE(crp_settings$enabled)) { return(NULL) }
 
   aligned_array_impl <- get_filearray_impl(aligned_array)
@@ -176,6 +179,7 @@ run_crp_on_channels <- function(aligned_array, crp_settings, condition_groups_cl
 
 }
 
+# `run_crp_on_all` returns a list, why not using data.table to contain the results
 crp_results_to_df <- function(crp_results) {
 
   result_list <- lapply(crp_results, function(group_result) {
@@ -232,7 +236,8 @@ crp_results_to_df <- function(crp_results) {
 
 }
 
-crp_df_to_viewer_value <- function(crp_df) {
+# Extract the summary data for viewers
+prepare_data_crp_3dviewer_value <- function(crp_df) {
 
   if (length(crp_df)) {
     sub_table <- crp_df[, c(
@@ -261,19 +266,62 @@ crp_df_to_viewer_value <- function(crp_df) {
   erp_results_for_viewer
 }
 
-# tbl <- data.table::rbindlist(lapply(seq_len(nrow(crp_df)), function(ii) {
-#   row <- as.list(crp_df[ii, ])
-#   data.table::data.table(
-#     Electrode = row$electrode,
-#     Time = (seq_along(unlist(row$C)) - 1) / 333.33,
-#     name = sprintf("C(%s)", row$group_index),
-#     value = row$C[[1]]
-#   )
-# }))
-# v <- data.table::dcast(tbl, Electrode + Time ~ name)
-# brain$set_electrode_values(v)
-# brain$plot()
+# Extract trial-level CRP parameters (trial x channel per condition)
+prepare_data_crp_param_per_trial <- function(crp_df, name, data_placeholder) {
 
+  if (!length(crp_df)) {
+    return(NULL)
+  }
+
+  if (!name %in% names(crp_df)) {
+    stop("No column called ", sQuote(name), " in the CRP result table.")
+  }
+
+  # name = "al"
+  crp_params <- lapply(data_placeholder$groups, function(group) {
+    # group <- data_placeholder$groups[[1]]
+    crp_sub <- crp_df[crp_df$group_index == group$index, ]
+
+    n_trials <- group$n_trials
+    samp <- rep(NA_real_, n_trials)
+
+    # trial x electrode
+    params <- vapply(seq_len(nrow(crp_sub)), function(ii) {
+      bad_trials <- crp_sub$bad_trials[[ii]]
+      if (length(bad_trials)) {
+        samp[-bad_trials] <- crp_sub[[name]][[ii]]
+      } else {
+        samp <- crp_sub[[name]][[ii]]
+      }
+      samp
+    }, samp)
+
+    list(
+      group = group,
+      params = params,
+      range = range(params, na.rm = TRUE)
+    )
+  })
+
+  names(crp_params) <- data_placeholder$group_labels
+
+  # col <- grDevices::colorRampPalette(c("#053061", "#2166ac", "#4393c3", "#92c5de", "#d1e5f0",
+  #                                      "#ffffff", "#fddbc7", "#f4a582", "#d6604d", "#b2182b", "#67001f"))(101)
+  # image(t(crp_params$AV$params), zlim = c(-9000, 9000), col = col)
+
+  data_crp_params <- ravepipeline::pipeline_plot_data(
+    x = data_placeholder, name = "crp_params_per_trial_by_channel",
+    pipe_dir = pipeline$pipeline_path
+  )
+
+  data_crp_params$data <- list(
+    parameter_name = name,
+    group_data = crp_params
+  )
+  data_crp_params
+}
+
+# extract CRP canonical shapes for each channel per condition
 prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
 
   time_points <- data_placeholder$time_points
@@ -331,64 +379,10 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
 }
 
 
-# Get crp parameter per trial by channel per condition
-extract_crp_param_per_trial_by_channel <- function(crp_df, name, data_placeholder) {
-
-  if (!length(crp_df)) {
-    return(NULL)
-  }
-
-  if (!name %in% names(crp_df)) {
-    stop("No column called ", sQuote(name), " in the CRP result table.")
-  }
-
-  # name = "al"
-  crp_params <- lapply(data_placeholder$groups, function(group) {
-    # group <- data_placeholder$groups[[1]]
-    crp_sub <- crp_df[crp_df$group_index == group$index, ]
-
-    n_trials <- group$n_trials
-    samp <- rep(NA_real_, n_trials)
-
-    # trial x electrode
-    params <- vapply(seq_len(nrow(crp_sub)), function(ii) {
-      bad_trials <- crp_sub$bad_trials[[ii]]
-      if (length(bad_trials)) {
-        samp[-bad_trials] <- crp_sub[[name]][[ii]]
-      } else {
-        samp <- crp_sub[[name]][[ii]]
-      }
-      samp
-    }, samp)
-
-    list(
-      group = group,
-      params = params,
-      range = range(params, na.rm = TRUE)
-    )
-  })
-
-  names(crp_params) <- data_placeholder$group_labels
-
-  # col <- grDevices::colorRampPalette(c("#053061", "#2166ac", "#4393c3", "#92c5de", "#d1e5f0",
-  #                                      "#ffffff", "#fddbc7", "#f4a582", "#d6604d", "#b2182b", "#67001f"))(101)
-  # image(t(crp_params$AV$params), zlim = c(-9000, 9000), col = col)
-
-  data_crp_params <- ravepipeline::pipeline_plot_data(
-    x = data_placeholder, name = "crp_params_per_trial_by_channel",
-    pipe_dir = pipeline$pipeline_path
-  )
-
-  data_crp_params$data <- list(
-    parameter_name = name,
-    group_data = crp_params
-  )
-  data_crp_params
-}
 
 
 plot.crp_params_per_trial_by_channel <- function(x, ...) {
-  # x <- extract_crp_param_per_trial_by_channel(crp_df, "al_p", data_placeholder)
+  # x <- prepare_data_crp_param_per_trial(crp_df, "al_p", data_placeholder)
   data_range <- unlist(lapply(x$data$group_data, function(d) {
     d$range
   }))
