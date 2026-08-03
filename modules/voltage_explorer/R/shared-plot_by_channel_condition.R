@@ -37,7 +37,7 @@ plot_by_channel_condition <- function(
   n_groups <- data_by_channel_condition$n
 
   if (!length(col)) {
-    pal <- use_discrete_palette()
+    pal <- use_discrete_colormap()
     col <- pal$colors
   }
   max_group <- max(group_indexes)

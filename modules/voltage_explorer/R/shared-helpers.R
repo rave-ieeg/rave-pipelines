@@ -306,40 +306,6 @@ filter_electrodes <- function(repository, electrodes, type = "LFP", strict = TRU
   electrodes
 }
 
-load_electrode_coordinates_cleaned <- function(repository, electrodes) {
-  subject <- repository$subject
-
-  if (missing(electrodes)) {
-    electrodes <- repository$electrode_list
-  }
-  electrode_coordinates <- subject$get_electrode_table(
-    electrodes = electrodes,
-    reference_name = repository$reference_name,
-    subset = TRUE
-  )
-
-  # Order by electrode number
-  electrode_coordinates <- electrode_coordinates[order(electrode_coordinates$Electrode), ]
-
-  # Add labelprefix
-  labels <- electrode_coordinates$Label
-  if (!length(electrode_coordinates$LabelPrefix)) {
-    electrode_coordinates$LabelPrefix <- gsub("[0-9]+", "", labels)
-  }
-  label_prefix <- electrode_coordinates$LabelPrefix
-  label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
-  is_lead_channel <- label_prefix != label_prefix_lag1
-  electrode_coordinates$ShortLabel <- ifelse(
-    !is_lead_channel,
-    gsub("^[a-zA-Z_-]+", "", labels), labels
-  )
-
-  # Inner-most channels
-  electrode_coordinates$LeadChannel <- is_lead_channel
-
-  electrode_coordinates
-}
-
 
 get_filearray_impl <- function(x) {
   if (inherits(x, "RAVEFileArray")) {

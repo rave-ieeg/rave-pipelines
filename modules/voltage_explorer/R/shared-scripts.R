@@ -22,7 +22,7 @@ plot_collapse_by_condition <- function(
   max_group_idx <- max(group_indexes)
 
   if (!length(col)) {
-    pal <- use_discrete_palette()
+    pal <- use_discrete_colormap()
     col <- pal$colors
   }
   if (length(col) < max_group_idx) {
