@@ -356,11 +356,11 @@ module_server <- function(input, output, session, ...) {
       update_crp_parameters()
 
       # Reset outputs
-      shidashi::reset_output("figure_by_condition_over_time")
-      shidashi::reset_output("figure_by_channel_condition_cond")
-      shidashi::reset_output("figure_by_channel_condition_ch")
-      shidashi::reset_output("figure_by_trial_per_condition")
-      shidashi::reset_output("figure_by_trial_per_condition_heatmap")
+      shidashi::reset_output("figure_data_by_trial_channel_condition_butterfly")
+      shidashi::reset_output("figure_data_by_channel_condition_multiline")
+      shidashi::reset_output("figure_data_by_channel_condition_overlay")
+      shidashi::reset_output("figure_data_by_trial_channel_condition_multiline")
+      shidashi::reset_output("figure_data_by_trial_channel_condition_heatmap")
 
     }, priority = 1001),
     ravedash::watch_data_loaded(),
@@ -1510,226 +1510,271 @@ module_server <- function(input, output, session, ...) {
 
   # Single channel: every trial as a faint line with the mean on top, one panel per
   # condition group
-  output$figure_by_condition_over_time <- shidashi::renderPlot2({
+  shidashi::register_output(
+    outputId = "figure_data_by_trial_channel_condition_butterfly",
+    description = "Single channel: every trial as a faint line with the mean on top, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
 
-    data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+      data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
 
-    shiny::validate(
-      shiny::need(
-        !inherits(data_by_trial_channel_condition, "error"),
-        message = paste(data_by_trial_channel_condition$message, collapse = " ")
+      shiny::validate(
+        shiny::need(
+          !inherits(data_by_trial_channel_condition, "error"),
+          message = paste(data_by_trial_channel_condition$message, collapse = " ")
+        )
       )
-    )
 
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    plot_space <- get_plot_space()
-    plot_data_by_trial_channel_condition_butterfly(
-      x = data_by_trial_channel_condition,
-      vertical_marks = input$plot_onset_mark %||% 0,
-      crp = isTRUE(input$mean_erp_crp),
-      time_range = time_range,
-      cex = get_cex(),
-      space = plot_space$space,
-      space_mode = plot_space$space_mode
-    )
-  })
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_trial_channel_condition_butterfly(
+        x = data_by_trial_channel_condition,
+        vertical_marks = input$plot_onset_mark %||% 0,
+        crp = isTRUE(input$mean_erp_crp),
+        time_range = time_range,
+        cex = get_cex(),
+        space = plot_space$space,
+        space_mode = plot_space$space_mode
+      )
+    })
+  )
 
 
   # ERP by condition: stacked channel traces, one panel per condition group
-  output$figure_by_channel_condition_cond <- shidashi::renderPlot2({
-    .output_ready()
+  shidashi::register_output(
+    outputId = "figure_data_by_channel_condition_multiline",
+    description = "Mean voltage: stacked channel traces, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
 
-    data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+      data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
 
-    shiny::validate(shiny::need(
-      inherits(data_by_channel_condition, "data_by_channel_condition"),
-      message = "No data available"
-    ))
+      shiny::validate(shiny::need(
+        inherits(data_by_channel_condition, "data_by_channel_condition"),
+        message = "No data available"
+      ))
 
 
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    # For By Electrode: when mode is quantile, always use the full data range
-    # (ignore the user-specified percentile); only apply space when mode is absolute
-    plot_space <- get_plot_space()
-    if (plot_space$space_mode == "quantile") {
-      by_elec_space      <- 1
-      by_elec_space_mode <- "quantile"
-    } else {
-      by_elec_space      <- plot_space$space
-      by_elec_space_mode <- "absolute"
-    }
-    plot_data_by_channel_condition_multiline(
-      x                  = data_by_channel_condition,
-      electrode_mask     = get_electrode_mask(),
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = by_elec_space,
-      space_mode         = by_elec_space_mode,
-      flip_y             = isTRUE(input$mean_erp_flip_y)
-    )
-  })
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      # For By Electrode: when mode is quantile, always use the full data range
+      # (ignore the user-specified percentile); only apply space when mode is absolute
+      plot_space <- get_plot_space()
+      if (plot_space$space_mode == "quantile") {
+        by_elec_space      <- 1
+        by_elec_space_mode <- "quantile"
+      } else {
+        by_elec_space      <- plot_space$space
+        by_elec_space_mode <- "absolute"
+      }
+      plot_data_by_channel_condition_multiline(
+        x                  = data_by_channel_condition,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = by_elec_space,
+        space_mode         = by_elec_space_mode,
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
 
 
   # ERP by channel: one panel per electrode, condition groups overlaid
-  output$figure_by_channel_condition_ch <- shidashi::renderPlot2({
+  shidashi::register_output(
+    outputId = "figure_data_by_channel_condition_overlay",
+    description = "Mean voltage: one panel per electrode, condition groups overlaid.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
 
-    .output_ready()
+      .output_ready()
 
-    data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+      data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
 
-    shiny::validate(shiny::need(
-      inherits(data_by_channel_condition, "data_by_channel_condition"),
-      message = "No data available"
-    ))
+      shiny::validate(shiny::need(
+        inherits(data_by_channel_condition, "data_by_channel_condition"),
+        message = "No data available"
+      ))
 
 
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    # For By Electrode: when mode is quantile, always use the full data range
-    # (ignore the user-specified percentile); only apply space when mode is absolute
-    plot_space <- get_plot_space()
-    if (plot_space$space_mode == "quantile") {
-      by_elec_space      <- 1
-      by_elec_space_mode <- "quantile"
-    } else {
-      by_elec_space      <- plot_space$space
-      by_elec_space_mode <- "absolute"
-    }
-    plot_data_by_channel_condition_overlay(
-      x                  = data_by_channel_condition,
-      electrode_mask     = get_electrode_mask(),
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = by_elec_space,
-      space_mode         = by_elec_space_mode,
-      flip_y             = isTRUE(input$mean_erp_flip_y)
-    )
-  })
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      # For By Electrode: when mode is quantile, always use the full data range
+      # (ignore the user-specified percentile); only apply space when mode is absolute
+      plot_space <- get_plot_space()
+      if (plot_space$space_mode == "quantile") {
+        by_elec_space      <- 1
+        by_elec_space_mode <- "quantile"
+      } else {
+        by_elec_space      <- plot_space$space
+        by_elec_space_mode <- "absolute"
+      }
+      plot_data_by_channel_condition_overlay(
+        x                  = data_by_channel_condition,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = by_elec_space,
+        space_mode         = by_elec_space_mode,
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
 
 
   # Single channel: trials stacked as offset traces, one panel per condition group
-  output$figure_by_trial_per_condition <- shidashi::renderPlot2({
+  shidashi::register_output(
+    outputId = "figure_data_by_trial_channel_condition_multiline",
+    description = "Single channel: trials stacked as offset traces, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
 
-    data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+      data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
 
-    shiny::validate(
-      shiny::need(
-        !inherits(data_by_trial_channel_condition, "error"),
-        message = paste(data_by_trial_channel_condition$message, collapse = " ")
+      shiny::validate(
+        shiny::need(
+          !inherits(data_by_trial_channel_condition, "error"),
+          message = paste(data_by_trial_channel_condition$message, collapse = " ")
+        )
       )
-    )
 
 
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    plot_space <- get_plot_space()
-    plot_data_by_trial_channel_condition_multiline(
-      x              = data_by_trial_channel_condition,
-      sort_by        = get_trial_sort_by(),
-      cex            = get_cex(),
-      crp            = isTRUE(input$mean_erp_crp),
-      vertical_marks = input$plot_onset_mark %||% 0,
-      time_range     = time_range,
-      space          = plot_space$space,
-      space_mode     = plot_space$space_mode
-    )
-
-  })
-  output$figure_by_trial_per_condition_heatmap <- shidashi::renderPlot2({
-
-    data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
-
-    shiny::validate(
-      shiny::need(
-        !inherits(data_by_trial_channel_condition, "error"),
-        message = paste(data_by_trial_channel_condition$message, collapse = " ")
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_trial_channel_condition_multiline(
+        x              = data_by_trial_channel_condition,
+        sort_by        = get_trial_sort_by(),
+        cex            = get_cex(),
+        crp            = isTRUE(input$mean_erp_crp),
+        vertical_marks = input$plot_onset_mark %||% 0,
+        time_range     = time_range,
+        space          = plot_space$space,
+        space_mode     = plot_space$space_mode
       )
-    )
 
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    plot_space <- get_plot_space()
-    plot_data_by_trial_channel_condition_heatmap(
-      x              = data_by_trial_channel_condition,
-      sort_by        = get_trial_sort_by(),
-      space          = plot_space$space,
-      space_mode     = plot_space$space_mode,
-      time_range     = time_range,
-      cex            = get_cex(),
-      crp            = isTRUE(input$mean_erp_crp),
-      vertical_marks = input$plot_onset_mark %||% 0
-    )
-  })
+    })
+  )
+
+  # Single channel: trials as a time x trial heatmap, one panel per condition group
+  shidashi::register_output(
+    outputId = "figure_data_by_trial_channel_condition_heatmap",
+    description = "Single channel: trials as a time by trial heatmap, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+
+      data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+      shiny::validate(
+        shiny::need(
+          !inherits(data_by_trial_channel_condition, "error"),
+          message = paste(data_by_trial_channel_condition$message, collapse = " ")
+        )
+      )
+
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_trial_channel_condition_heatmap(
+        x              = data_by_trial_channel_condition,
+        sort_by        = get_trial_sort_by(),
+        space          = plot_space$space,
+        space_mode     = plot_space$space_mode,
+        time_range     = time_range,
+        cex            = get_cex(),
+        crp            = isTRUE(input$mean_erp_crp),
+        vertical_marks = input$plot_onset_mark %||% 0
+      )
+    })
+  )
 
 
   # CRP canonical response per channel, one panel per condition group
-  output$figure_crp_by_channel <- shidashi::renderPlot2({
-    .output_ready()
-    data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
-    shiny::validate(shiny::need(
-      inherits(data_crp_by_channel, "data_crp_by_channel"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    # CRP canonical responses are normalized, so an absolute (uV) spacing is
-    # meaningless; fall back to the full quantile range in that case.
-    crp_space <- get_crp_plot_space()
-    plot_data_crp_by_channel_multiline(
-      x                  = data_crp_by_channel,
-      electrode_mask     = get_electrode_mask(),
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      crp                = isTRUE(input$mean_erp_crp),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = crp_space$space,
-      space_mode         = crp_space$space_mode
-    )
-  })
+  shidashi::register_output(
+    outputId = "figure_data_crp_by_channel_multiline",
+    description = "CRP canonical response per channel, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
+      data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+      shiny::validate(shiny::need(
+        inherits(data_crp_by_channel, "data_crp_by_channel"),
+        message = "No data available"
+      ))
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      # CRP canonical responses are normalized, so an absolute (uV) spacing is
+      # meaningless; fall back to the full quantile range in that case.
+      crp_space <- get_crp_plot_space()
+      plot_data_crp_by_channel_multiline(
+        x                  = data_crp_by_channel,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        crp                = isTRUE(input$mean_erp_crp),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = crp_space$space,
+        space_mode         = crp_space$space_mode
+      )
+    })
+  )
 
-  output$figure_crp_by_channel_heatmap <- shidashi::renderPlot2({
-    .output_ready()
-    data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
-    shiny::validate(shiny::need(
-      inherits(data_crp_by_channel, "data_crp_by_channel"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    crp_space <- get_crp_plot_space()
-    plot_data_crp_by_channel_heatmap(
-      x                  = data_crp_by_channel,
-      electrode_mask     = get_electrode_mask(),
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      crp                = isTRUE(input$mean_erp_crp),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = crp_space$space,
-      space_mode         = crp_space$space_mode
-    )
-  })
+  # CRP canonical response per channel, rendered as a heatmap
+  shidashi::register_output(
+    outputId = "figure_data_crp_by_channel_heatmap",
+    description = "CRP canonical response per channel as a heatmap, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
+      data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+      shiny::validate(shiny::need(
+        inherits(data_crp_by_channel, "data_crp_by_channel"),
+        message = "No data available"
+      ))
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      crp_space <- get_crp_plot_space()
+      plot_data_crp_by_channel_heatmap(
+        x                  = data_crp_by_channel,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        crp                = isTRUE(input$mean_erp_crp),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = crp_space$space,
+        space_mode         = crp_space$space_mode
+      )
+    })
+  )
 
 
 

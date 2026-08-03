@@ -778,7 +778,7 @@ module_html <- function() {
               "Mean Voltage" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_cond"),
+                  outputId = ns("figure_data_by_channel_condition_multiline"),
                   width = "100%", height = "100%"
                 )
               ),
@@ -786,14 +786,14 @@ module_html <- function() {
               "Canonical (Lines)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_crp_by_channel"),
+                  outputId = ns("figure_data_crp_by_channel_multiline"),
                   width = "100%", height = "100%"
                 )
               ),
               "Canonical (Heatmap)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_crp_by_channel_heatmap"),
+                  outputId = ns("figure_data_crp_by_channel_heatmap"),
                   width = "100%", height = "100%"
                 )
               ),
@@ -802,7 +802,7 @@ module_html <- function() {
               "Analysis Electrode Over Time" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_ch"),
+                  outputId = ns("figure_data_by_channel_condition_overlay"),
                   width = "100%", height = "100%"
                 )
               )
@@ -817,7 +817,7 @@ module_html <- function() {
               "\U03B1\U0027 by Electrode" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_alpha_by_channel")
+                  outputId = ns("figure_data_crp_param_by_trial_channel_heatmap")
                 )
               )
             ),
@@ -843,21 +843,21 @@ module_html <- function() {
               "Over Time" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_condition_over_time"),
+                  outputId = ns("figure_data_by_trial_channel_condition_butterfly"),
                   width = "100%", height = "100%"
                 )
               ),
               "By Trial (Lines)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_trial_per_condition"),
+                  outputId = ns("figure_data_by_trial_channel_condition_multiline"),
                   width = "100%", height = "100%"
                 )
               ),
               "By Trial (Heatmap)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_trial_per_condition_heatmap"),
+                  outputId = ns("figure_data_by_trial_channel_condition_heatmap"),
                   width = "100%", height = "100%"
                 )
               )
