@@ -34,6 +34,24 @@ plot_data_crp_by_channel_heatmap <- function(
     channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1, crp = TRUE,
     mfrow = NULL, vertical_marks = 0, col = NULL, ...) {
 
+  # CRITICAL: do NOT remove
+  # DIPSAUS DEBUG START
+  # data_crp_by_channel <- pipeline$run('data_crp_by_channel')
+  # list2env(
+  #   envir = .GlobalEnv,
+  #   list(
+  #     x                  = data_crp_by_channel,
+  #     electrode_mask     = 13:20,
+  #     channel_annotation = use_channel_annotation_style(),
+  #     cex                = use_cex(),
+  #     crp                = TRUE,
+  #     vertical_marks     = 0,
+  #     time_range         = c(NA, NA),
+  #     space              = 0.99,
+  #     space_mode         = "quantile"
+  #   )
+  # )
+
   space_mode <- match.arg(space_mode)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
@@ -43,12 +61,24 @@ plot_data_crp_by_channel_heatmap <- function(
   n_channels <- setup$selection$n
   space <- setup$space
   time_points <- x$time_points
-  time_range <- setup$time_info$time_range
+  time_info <- setup$time_info
+  time_range <- time_info$time_range
   n_groups <- x$n
+  coord_table <- setup$selection$coord_table
+  has_lead_channel <- length(coord_table$LeadChannel) &&
+    is.logical(coord_table$LeadChannel)
+
+  # Label priority: the first channel of each lead keeps its name however
+  # crowded the panel gets, the rest are thinned around it
+  channel_rank <- if (has_lead_channel) {
+    ifelse(coord_table$LeadChannel, 1L, 2L)
+  } else {
+    1L
+  }
 
   if (length(col) == 0) {
-    col <- c("#053061", "#2166ac", "#4393c3", "#92c5de", "#d1e5f0",
-             "#ffffff", "#fddbc7", "#f4a582", "#d6604d", "#b2182b", "#67001f")
+    pal <- use_continuous_colormap()
+    col <- pal$colors
   }
   if (length(col) < 101) {
     col <- grDevices::colorRampPalette(col)(101)
@@ -73,11 +103,14 @@ plot_data_crp_by_channel_heatmap <- function(
 
   for (ii in seq_len(n_groups)) {
 
-    z <- array(setup$canonical[, , ii], dim = c(length(time_points), n_channels))
+    z <- array(
+      setup$canonical[, rev(seq_len(n_channels)), ii],
+      dim = c(length(time_points), n_channels)
+    )
     z[z < -space] <- -space
     z[z > space] <- space
 
-    graphics::image(
+    signal_plot <- graphics::image(
       x = time_points,
       y = seq_len(n_channels),
       z = z,
@@ -93,10 +126,18 @@ plot_data_crp_by_channel_heatmap <- function(
 
     add_axis_time(time_range = time_range, cex = cex)
 
-    graphics::axis(
-      side = 2L, at = seq_len(n_channels), labels = setup$channel_names, las = 1,
-      tck = -0.005 * (3 + cex), cex = cex,
-      cex.axis = par_opt$cex.axis * cex)
+    add_axis_ranked(
+      at = rev(seq_len(n_channels)),
+      labels = setup$channel_names,
+      rank = channel_rank, thin = TRUE,
+      side = 2L, cex = cex, tick = TRUE,
+      pos = signal_plot$time_range[[1]] + time_info$time_shift,
+      tck = -0.005 * (1 + cex), gap = 1
+    )
+    # graphics::axis(
+    #   side = 2L, at = seq_len(n_channels), labels = setup$channel_names, las = 1,
+    #   tck = -0.005 * (3 + cex), cex = cex,
+    #   cex.axis = par_opt$cex.axis * cex)
 
     add_vertical_marks(vertical_marks, col = "black", lty = 1)
 
