@@ -84,41 +84,13 @@ plot_data_by_channel_condition_multiline <- function(
   col <- setup$col
   time_info <- setup$time_info
   time_range <- time_info$time_range
-  # `coord_table` has no `LeadChannel` for a degenerate (empty) channel table
-  has_lead_channel <- length(coord_table$LeadChannel) &&
-    is.logical(coord_table$LeadChannel)
-
-  # Label priority: the first channel of each lead keeps its name however
-  # crowded the panel gets, the rest are thinned around it
-  channel_rank <- if (has_lead_channel) {
-    ifelse(coord_table$LeadChannel, 1L, 2L)
-  } else {
-    1L
-  }
-
-  # Which lead each channel belongs to, in channel order. `LeadChannel` flags the
-  # first channel of a lead; the first channel always opens one.
-  channel_group <- if (has_lead_channel) {
-    cumsum(c(TRUE, coord_table$LeadChannel[-1]))
-  } else if (n_channels > 5) {
-    (seq_len(n_channels) - 1L) %/% 5L + 1L
-  } else {
-    rep(1L, n_channels)
-  }
-
-  # Leads are told apart by shading alternate ones, which groups the stacked
-  # traces without a separator line cutting across them. The top-most lead keeps
-  # the plain background, so every second one from the top is shaded. Channel `k`
-  # is drawn at `space * (n_channels - k + 1)`, so a band reaches half a `space`
-  # past its outermost channels.
-  if (length(channel_group) > 1 && max(channel_group) > 1) {
-    shaded <- split(seq_len(n_channels), channel_group)[c(FALSE, TRUE)]
-    band_top <- space * (n_channels - vapply(shaded, min, 0L) + 1.5)
-    band_bottom <- space * (n_channels - vapply(shaded, max, 0L) + 0.5)
-  } else {
-    band_top <- NULL
-    band_bottom <- NULL
-  }
+  # Leads are told apart by alternating the label colour. Both columns come from
+  # `recalculate_short_labels()` and are absent for a degenerate (empty) channel
+  # table, which leaves `channel_col` zero-length -- one colour, no alternation.
+  fg <- graphics::par("fg")
+  channel_rank <- coord_table$LabelRank %||% 1L
+  channel_col <- ifelse(coord_table$LeadIndex %% 2L, fg,
+                        grDevices::adjustcolor(fg, alpha.f = 0.5))
 
   n_groups <- x$n
   mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 4)
@@ -156,23 +128,12 @@ plot_data_by_channel_condition_multiline <- function(
       cex = cex, tck = -0.005 * (1 + cex)
     )
 
-    # Painted over the traces rather than under them, because `plot_signals`
-    # owns the panel: a `par("fg")` band at 10% alpha composites onto the
-    # fg-coloured traces without altering them, so only the background shades.
-    if (length(band_top)) {
-      usr <- graphics::par("usr")
-      graphics::rect(
-        usr[[1]], band_bottom, usr[[2]], band_top, border = NA,
-        col = grDevices::adjustcolor(graphics::par("fg"), alpha.f = 0.05)
-      )
-    }
-
     # `time_range[[1]]` is the start time `plot_signals` settled on after
     # clamping; sharing its axis position keeps every label aligned on one edge.
     add_axis_ranked(
       at = rev(space * seq_len(n_channels)),
       labels = setup$channel_names,
-      rank = channel_rank, thin = TRUE,
+      rank = channel_rank, thin = TRUE, col.axis = channel_col,
       side = 2L, cex = cex, tick = FALSE,
       pos = signal_plot$time_range[[1]] + time_info$time_shift
     )
@@ -201,6 +162,119 @@ plot_data_by_channel_condition_multiline <- function(
       cex = cex * 0.8, offset = 0.2, adj = c(1.2, -0.5),
       labels = bquote(.(sprintf("%.0f", -top_label)) ~ mu * V)
     )
+  }
+
+  invisible()
+}
+
+
+# One panel per condition group; channels as a time x channel image.
+#
+# `col` is the continuous colour ramp for the image, as in
+# `plot_data_crp_by_channel_heatmap()` -- not the per-condition palette the other
+# two renderings take, which is only used for panel titles here and always comes
+# from the discrete colormap preference.
+plot_data_by_channel_condition_heatmap <- function(
+    x, electrode_mask = NULL,
+    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
+    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1,
+    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE, ...) {
+
+  space_mode <- match.arg(space_mode)
+  channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
+
+  setup <- plot_data_by_channel_condition_setup(
+    x, electrode_mask, space, space_mode, time_range, channel_annotation, col = NULL)
+
+  coord_table <- setup$selection$coord_table
+  n_channels <- setup$selection$n
+  title_col <- setup$col
+  time_points <- x$time_points
+  time_info <- setup$time_info
+  time_range <- time_info$time_range
+  n_groups <- x$n
+
+  # `setup$space` is the peak-to-peak span the stacked traces need; an image is
+  # centred on zero, so halve it back to the amplitude `get_spacing()` returned
+  zlim <- c(-1, 1) * setup$space / 2
+
+  # See `plot_data_by_channel_condition_multiline()`: leads are told apart by
+  # alternating the label colour
+  fg <- graphics::par("fg")
+  channel_rank <- coord_table$LabelRank %||% 1L
+  channel_col <- ifelse(coord_table$LeadIndex %% 2L, fg,
+                        grDevices::adjustcolor(fg, alpha.f = 0.5))
+
+  if (!length(col)) {
+    col <- use_continuous_colormap()$colors
+  }
+  if (length(col) < 101) {
+    col <- grDevices::colorRampPalette(col)(101)
+  }
+
+  mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 3)
+
+  par_opt <- prepare_par(cex = cex)
+  mar <- par_opt$mar
+
+  # Reserve the last column for one colour bar per panel row
+  lmat <- matrix(seq_len(prod(mfrow)), nrow = mfrow[[1]], byrow = TRUE)
+  lmat <- cbind(lmat + mfrow[[1]], seq_len(mfrow[[1]]))
+  graphics::layout(lmat, widths = c(rep(1, mfrow[[2]]), graphics::lcm(3)))
+
+  graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]), cex = 1)
+  for (ii in seq_len(mfrow[[1]])) {
+    add_heatmap_legend(vlim = zlim, col = col, cex = cex)
+  }
+
+  graphics::par(mar = mar, cex = 1)
+
+  for (ii in seq_len(n_groups)) {
+    # Channel reversed so channel 1 lands at the top, as in the other renderings
+    z <- array(setup$data[, rev(seq_len(n_channels)), ii],
+               dim = c(length(time_points), n_channels))
+
+    if (flip_y) {
+      z <- -z
+    }
+
+    value_range <- range(z, na.rm = TRUE)
+    z[z < zlim[[1]]] <- zlim[[1]]
+    z[z > zlim[[2]]] <- zlim[[2]]
+
+    graphics::image(
+      x = time_points,
+      y = seq_len(n_channels),
+      z = z,
+      axes = FALSE,
+      xlab = "",
+      ylab = "",
+      xlim = time_range, cex = cex,
+      zlim = zlim,
+      main = "",
+      adj = 0,
+      col = col
+    )
+
+    add_axis_time(time_range = time_range, cex = cex)
+
+    add_axis_ranked(
+      at = rev(seq_len(n_channels)),
+      labels = setup$channel_names,
+      rank = channel_rank, thin = TRUE, col.axis = channel_col,
+      side = 2L, cex = cex, tick = TRUE,
+      tck = -0.005 * (1 + cex), gap = 1
+    )
+
+    add_vertical_marks(vertical_marks, col = "black", lty = 1)
+
+    group <- x$groups[[ii]]
+    graphics::title(main = bquote(.(group$label) ~ scriptstyle(
+      "(" *
+        .(round(value_range[[1]])) ~ "~" ~ .(round(value_range[[2]])) ~ mu * V ~
+        ", n =" ~ .(group$n_trials) *
+        ")"
+    )), adj = 0, cex.main = par_opt$cex.main * cex, col.main = title_col[[ii]])
   }
 
   invisible()
@@ -271,10 +345,11 @@ plot_data_by_channel_condition_overlay <- function(
 }
 
 
-plot.data_by_channel_condition <- function(x, type = c("multiline", "overlay"), ...) {
+plot.data_by_channel_condition <- function(x, type = c("multiline", "heatmap", "overlay"), ...) {
   type <- match.arg(type)
   switch(
     type,
+    "heatmap" = plot_data_by_channel_condition_heatmap(x = x, ...),
     "overlay" = plot_data_by_channel_condition_overlay(x = x, ...),
     plot_data_by_channel_condition_multiline(x = x, ...)
   )

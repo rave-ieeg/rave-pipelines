@@ -65,16 +65,14 @@ plot_data_crp_by_channel_heatmap <- function(
   time_range <- time_info$time_range
   n_groups <- x$n
   coord_table <- setup$selection$coord_table
-  has_lead_channel <- length(coord_table$LeadChannel) &&
-    is.logical(coord_table$LeadChannel)
 
-  # Label priority: the first channel of each lead keeps its name however
-  # crowded the panel gets, the rest are thinned around it
-  channel_rank <- if (has_lead_channel) {
-    ifelse(coord_table$LeadChannel, 1L, 2L)
-  } else {
-    1L
-  }
+  # Leads are told apart by alternating the label colour. Both columns come from
+  # `recalculate_short_labels()` and are absent for a degenerate (empty) channel
+  # table, which leaves `channel_col` zero-length -- one colour, no alternation.
+  fg <- graphics::par("fg")
+  channel_rank <- coord_table$LabelRank %||% 1L
+  channel_col <- ifelse(coord_table$LeadIndex %% 2L, fg,
+                        grDevices::adjustcolor(fg, alpha.f = 0.5))
 
   if (length(col) == 0) {
     pal <- use_continuous_colormap()
@@ -110,7 +108,7 @@ plot_data_crp_by_channel_heatmap <- function(
     z[z < -space] <- -space
     z[z > space] <- space
 
-    signal_plot <- graphics::image(
+    graphics::image(
       x = time_points,
       y = seq_len(n_channels),
       z = z,
@@ -129,15 +127,10 @@ plot_data_crp_by_channel_heatmap <- function(
     add_axis_ranked(
       at = rev(seq_len(n_channels)),
       labels = setup$channel_names,
-      rank = channel_rank, thin = TRUE,
+      rank = channel_rank, thin = TRUE, col.axis = channel_col,
       side = 2L, cex = cex, tick = TRUE,
-      pos = signal_plot$time_range[[1]] + time_info$time_shift,
       tck = -0.005 * (1 + cex), gap = 1
     )
-    # graphics::axis(
-    #   side = 2L, at = seq_len(n_channels), labels = setup$channel_names, las = 1,
-    #   tck = -0.005 * (3 + cex), cex = cex,
-    #   cex.axis = par_opt$cex.axis * cex)
 
     add_vertical_marks(vertical_marks, col = "black", lty = 1)
 

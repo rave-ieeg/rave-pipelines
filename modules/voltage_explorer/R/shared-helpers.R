@@ -109,15 +109,16 @@ add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), c
 # carrying a single label has nothing to collide with, so R's own thinning never
 # fires and this selection is the only thing that drops anything.
 #
-# `at`, `labels` as in `graphics::axis()`; `rank` is recycled over them. `gap`
-# pads the measured label extent. `thin = FALSE` draws every label, overlaps and
-# all. `...` is passed to `graphics::axis()` (`pos`, `tick`, `col.axis`, ...).
-# Returns the indices drawn.
+# `at`, `labels` as in `graphics::axis()`; `rank` and `col.axis` are recycled over
+# them -- one label per call means each can have its own colour. `gap` pads the
+# measured label extent. `thin = FALSE` draws every label, overlaps and all.
+# `...` is passed to `graphics::axis()` (`pos`, `tick`, ...). Returns the indices
+# drawn.
 #
 # Called through `add_axis_ranked()`, never directly -- how many labels fit
 # depends on the device size, so the selection has to be redone on every resize.
 draw_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
-                             gap = 1.1, thin = TRUE, ...) {
+                             gap = 1.1, thin = TRUE, col.axis = NULL, ...) {
   cex_axis <- graphics::par("cex.axis") * cex
 
   labels <- as.character(labels)
@@ -151,9 +152,18 @@ draw_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
     candidates <- sort(kept)
   }
 
+  if (length(col.axis)) {
+    col.axis <- rep_len(col.axis, length(at))
+  }
+
   for (ii in candidates) {
-    graphics::axis(side = side, at = at[[ii]], labels = labels[[ii]],
-                   las = 1, cex.axis = cex_axis, ...)
+    if (length(col.axis)) {
+      graphics::axis(side = side, at = at[[ii]], labels = labels[[ii]],
+                     las = 1, cex.axis = cex_axis, col.axis = col.axis[[ii]], ...)
+    } else {
+      graphics::axis(side = side, at = at[[ii]], labels = labels[[ii]],
+                     las = 1, cex.axis = cex_axis, ...)
+    }
   }
 
   invisible(candidates)
@@ -174,9 +184,9 @@ draw_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
 # thinning honest across resizes. `draw_axis_ranked()` -- not this function --
 # has to be what gets recorded, or each replay would record itself afresh.
 add_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
-                            gap = 1.1, thin = TRUE, ...) {
+                            gap = 1.1, thin = TRUE, col.axis = NULL, ...) {
   args <- list(at = at, labels = labels, rank = rank, side = side,
-               cex = cex, gap = gap, thin = thin, ...)
+               cex = cex, gap = gap, thin = thin, col.axis = col.axis, ...)
   grDevices::recordGraphics(
     do.call(draw_axis_ranked, args),
     list(args = args, draw_axis_ranked = draw_axis_ranked),
@@ -410,6 +420,15 @@ recalculate_short_labels <- function(coord_table, electrode_mask = NULL) {
 
   # Inner-most channels
   coord_table$LeadChannel <- is_lead_channel
+
+  # Axis-label priority for `add_axis_ranked()`: the first channel of a lead keeps
+  # its name however crowded the panel gets, the rest are thinned around it
+  coord_table$LabelRank <- ifelse(is_lead_channel, 1L, 2L)
+
+  # Which lead each channel belongs to, so figures can tell leads apart (by
+  # alternating the label colour). The leading `TRUE` opens lead 1 at the first
+  # channel even when its label prefix is blank, so the alternation cannot invert.
+  coord_table$LeadIndex <- cumsum(c(TRUE, is_lead_channel[-1]))
 
   coord_table
 }
