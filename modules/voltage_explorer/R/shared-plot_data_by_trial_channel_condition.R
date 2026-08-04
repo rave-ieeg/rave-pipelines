@@ -32,10 +32,12 @@ plot_data_by_trial_channel_condition_title <- function(x, group, cex = 1) {
 
 # Every trial as a faint line, mean on top.
 plot_data_by_trial_channel_condition_butterfly <- function(
-    x, space = 0.995, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    cex = 1, crp = TRUE, mfrow = NULL, vertical_marks = 0, ...) {
+    x, space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    cex = use_cex(), crp = use_show_crp_decoration(),
+    mfrow = NULL, vertical_marks = 0, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
 
   crp_enabled <- isTRUE(x$crp_enabled & crp)
 
@@ -94,11 +96,13 @@ plot_data_by_trial_channel_condition_butterfly <- function(
 
 # Trials stacked as offset traces, grouped by stimuli or ordered by trial number.
 plot_data_by_trial_channel_condition_multiline <- function(
-    x, sort_by = OPTIONS_TRIAL_SORT,
-    space = 0.995, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    cex = 1, crp = TRUE, mfrow = NULL, vertical_marks = 0, ...) {
+    x, sort_by = use_trial_sort_by(),
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    cex = use_cex(), crp = use_show_crp_decoration(),
+    mfrow = NULL, vertical_marks = 0, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   sort_by <- match.arg(sort_by, choices = OPTIONS_TRIAL_SORT)
 
   crp_enabled <- isTRUE(x$crp_enabled & crp)
@@ -174,11 +178,13 @@ plot_data_by_trial_channel_condition_multiline <- function(
 
 # Time x trial image, one panel per condition group.
 plot_data_by_trial_channel_condition_heatmap <- function(
-    x, sort_by = OPTIONS_TRIAL_SORT,
-    space = 0.995, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    cex = 1, crp = TRUE, mfrow = NULL, vertical_marks = 0, col = NULL, ...) {
+    x, sort_by = use_trial_sort_by(),
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    cex = use_cex(), crp = use_show_crp_decoration(),
+    mfrow = NULL, vertical_marks = 0, col = use_continuous_colormap()$colors, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   sort_by <- match.arg(sort_by, choices = OPTIONS_TRIAL_SORT)
 
   crp_enabled <- isTRUE(x$crp_enabled & crp)
@@ -195,8 +201,7 @@ plot_data_by_trial_channel_condition_heatmap <- function(
   time_range <- time_info$time_range
 
   if (length(col) == 0) {
-    col <- c("#053061", "#2166ac", "#4393c3", "#92c5de", "#d1e5f0",
-             "#ffffff", "#fddbc7", "#f4a582", "#d6604d", "#b2182b", "#67001f")
+    col <- use_continuous_colormap()$colors
   }
   if (length(col) < 101) {
     col <- grDevices::colorRampPalette(col)(101)
@@ -276,13 +281,39 @@ plot_data_by_trial_channel_condition_heatmap <- function(
 }
 
 
-plot.data_by_trial_channel_condition <- function(
-    x, type = c("butterfly", "multiline", "heatmap"), ...) {
-  type <- match.arg(type)
+# The rendering for a given type. Used by `plot.data_by_trial_channel_condition()`
+# below and by the module server, so the type-to-function map lives in one place.
+plot_data_by_trial_channel_condition_fun <- function(
+    type = c("butterfly", "multiline", "heatmap")) {
   switch(
-    type,
-    "heatmap" = plot_data_by_trial_channel_condition_heatmap(x = x, ...),
-    "multiline" = plot_data_by_trial_channel_condition_multiline(x = x, ...),
-    plot_data_by_trial_channel_condition_butterfly(x = x, ...)
+    match.arg(type),
+    "heatmap" = plot_data_by_trial_channel_condition_heatmap,
+    "multiline" = plot_data_by_trial_channel_condition_multiline,
+    plot_data_by_trial_channel_condition_butterfly
   )
+}
+
+
+# `plot()` is the scripting entry point, so its defaults are stated outright
+# rather than read from the preference store: the same call has to produce the
+# same figure on any machine. The module UI calls `plot_data_*()` instead, whose
+# defaults do follow the user's preferences.
+#
+# The three renderings do not share one signature -- `butterfly` has neither
+# `sort_by` nor `col` (its trials are always grey) and forwards `...` straight to
+# `matplot()`, so handing it either one collides with `matplot`'s own `col`.
+# Hence the defaults below are filtered by the target's formals; the caller's
+# `...` still passes through untouched.
+plot.data_by_trial_channel_condition <- function(
+    x, type = c("butterfly", "multiline", "heatmap"),
+    space = DEFAULT_PLOT_SPACE / 100, space_mode = OPTIONS_SPACE_MODE,
+    sort_by = DEFAULT_TRIAL_SORT, cex = DEFAULT_CEX,
+    crp = DEFAULT_SHOW_CRP_DECORATION,
+    col = ravepipeline::CONTINUOUS_COLORMAPS(DEFAULT_CONTINUOUS_COLORMAP), ...) {
+  type <- match.arg(type)
+  fun <- plot_data_by_trial_channel_condition_fun(type)
+  args <- list(space = space, space_mode = space_mode, sort_by = sort_by,
+               cex = cex, crp = crp, col = col)
+  args <- args[names(args) %in% names(formals(fun))]
+  do.call(fun, c(list(x = x), args, list(...)))
 }

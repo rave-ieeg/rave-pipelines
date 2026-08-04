@@ -17,11 +17,12 @@ crp_param_label <- function(parameter_name) {
 
 plot_data_crp_param_by_trial_channel_heatmap <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1,
-    mfrow = NULL, col = NULL, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode,
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    mfrow = NULL, col = use_continuous_colormap()$colors, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   sel <- resolve_channel_selection(x, electrode_mask)
@@ -128,7 +129,18 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
 }
 
 
-plot.data_crp_param_by_trial_channel <- function(x, type = "heatmap", ...) {
+# `plot()` is the scripting entry point, so its defaults are stated outright
+# rather than read from the preference store: the same call has to produce the
+# same figure on any machine. The module UI calls `plot_data_*()` instead, whose
+# defaults do follow the user's preferences.
+plot.data_crp_param_by_trial_channel <- function(
+    x, type = "heatmap",
+    space = DEFAULT_PLOT_SPACE / 100, space_mode = OPTIONS_SPACE_MODE,
+    channel_annotation = DEFAULT_CHAN_ANNOT, cex = DEFAULT_CEX,
+    col = ravepipeline::CONTINUOUS_COLORMAPS(DEFAULT_CONTINUOUS_COLORMAP), ...) {
   type <- match.arg(type, choices = "heatmap")
-  plot_data_crp_param_by_trial_channel_heatmap(x = x, ...)
+  plot_data_crp_param_by_trial_channel_heatmap(
+    x = x, space = space, space_mode = space_mode,
+    channel_annotation = channel_annotation, cex = cex, col = col, ...
+  )
 }

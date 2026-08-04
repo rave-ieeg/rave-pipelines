@@ -5,6 +5,15 @@ DEFAULT_CEX <- 1.2
 DEFAULT_PLOT_SPACE <- 99
 DEFAULT_PLOT_SPACE_IS_PERCENTILE <- TRUE
 
+OPTIONS_SPACE_MODE <- c("quantile", "absolute")
+
+# Preference defaults, named so the `plot()` methods can reach for them without
+# consulting the preference store -- see the note above `plot.data_*()`.
+DEFAULT_SHOW_CRP_DECORATION <- TRUE
+DEFAULT_CRP_SCALE_BACK <- FALSE
+DEFAULT_DISCRETE_COLORMAP <- "default"
+DEFAULT_CONTINUOUS_COLORMAP <- "default"
+
 OPTIONS_CHAN_ANNOT <- c("number", "short", "label", "full")
 DEFAULT_CHAN_ANNOT <- "number"
 
@@ -195,6 +204,19 @@ use_plot_space <- function(value = KEY_MISSING) {
 
 use_plot_space_is_percentile <- function(value = KEY_MISSING) {
   pipeline$use_preference(pref_plot_space_is_percentile$metadata$key, value = value)
+}
+
+# The stored spacing is a percentage in percentile mode and micro-volts
+# otherwise, while the plots take a (space, space_mode) pair. Every caller that
+# needs that pair -- the plot defaults, the module server, the report -- goes
+# through here so the conversion exists once.
+use_plot_space_resolved <- function() {
+  value <- max(0, use_plot_space())
+  if (isTRUE(use_plot_space_is_percentile())) {
+    list(space = value / 100, space_mode = "quantile")
+  } else {
+    list(space = value, space_mode = "absolute")
+  }
 }
 
 # ---- CRP analysis preferences ------------------------------------------------

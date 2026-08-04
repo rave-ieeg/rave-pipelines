@@ -122,12 +122,14 @@ crp_channel_axis_style <- function(coord_table) {
 # One panel per condition group; channels stacked as offset traces.
 plot_data_crp_by_channel_multiline <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1, crp = TRUE,
-    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE,
-    scale_back = FALSE, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    crp = use_show_crp_decoration(),
+    mfrow = NULL, vertical_marks = 0, col = use_discrete_colormap()$colors,
+    flip_y = FALSE, scale_back = use_crp_scale_back(), ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   setup <- plot_data_crp_by_channel_setup(
@@ -249,10 +251,12 @@ plot_data_crp_by_channel_multiline <- function(
 # comes from the discrete colormap preference.
 plot_data_crp_by_channel_heatmap <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1, crp = TRUE,
-    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE,
-    scale_back = FALSE, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    crp = use_show_crp_decoration(),
+    mfrow = NULL, vertical_marks = 0, col = use_continuous_colormap()$colors,
+    flip_y = FALSE, scale_back = use_crp_scale_back(), ...) {
 
   # CRITICAL: do NOT remove
   # DIPSAUS DEBUG START
@@ -275,7 +279,7 @@ plot_data_crp_by_channel_heatmap <- function(
   #   )
   # )
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   setup <- plot_data_crp_by_channel_setup(
@@ -395,12 +399,14 @@ plot_data_crp_by_channel_heatmap <- function(
 # One panel per channel; condition groups superimposed.
 plot_data_crp_by_channel_overlay <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1, crp = TRUE,
-    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE,
-    scale_back = FALSE, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    crp = use_show_crp_decoration(),
+    mfrow = NULL, vertical_marks = 0, col = use_discrete_colormap()$colors,
+    flip_y = FALSE, scale_back = use_crp_scale_back(), ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   setup <- plot_data_crp_by_channel_setup(
@@ -477,12 +483,40 @@ plot_data_crp_by_channel_overlay <- function(
 }
 
 
-plot.data_crp_by_channel <- function(x, type = c("multiline", "heatmap", "overlay"), ...) {
-  type <- match.arg(type)
+# The rendering for a given type. Used by `plot.data_crp_by_channel()` below and
+# by the module server, so the type-to-function map lives in one place.
+plot_data_crp_by_channel_fun <- function(
+    type = c("multiline", "heatmap", "overlay")) {
   switch(
-    type,
-    "heatmap" = plot_data_crp_by_channel_heatmap(x = x, ...),
-    "overlay" = plot_data_crp_by_channel_overlay(x = x, ...),
-    plot_data_crp_by_channel_multiline(x = x, ...)
+    match.arg(type),
+    "heatmap" = plot_data_crp_by_channel_heatmap,
+    "overlay" = plot_data_crp_by_channel_overlay,
+    plot_data_crp_by_channel_multiline
+  )
+}
+
+
+# `plot()` is the scripting entry point, so its defaults are stated outright
+# rather than read from the preference store: the same call has to produce the
+# same figure on any machine. The module UI calls `plot_data_*()` instead, whose
+# defaults do follow the user's preferences.
+plot.data_crp_by_channel <- function(
+    x, type = c("multiline", "heatmap", "overlay"),
+    space = DEFAULT_PLOT_SPACE / 100, space_mode = OPTIONS_SPACE_MODE,
+    channel_annotation = DEFAULT_CHAN_ANNOT, cex = DEFAULT_CEX,
+    crp = DEFAULT_SHOW_CRP_DECORATION, scale_back = DEFAULT_CRP_SCALE_BACK,
+    col = NULL, ...) {
+  type <- match.arg(type)
+  if (!length(col)) {
+    col <- if (identical(type, "heatmap")) {
+      ravepipeline::CONTINUOUS_COLORMAPS(DEFAULT_CONTINUOUS_COLORMAP)
+    } else {
+      ravepipeline::DISCRETE_COLORMAPS(DEFAULT_DISCRETE_COLORMAP)
+    }
+  }
+  plot_data_crp_by_channel_fun(type)(
+    x = x, space = space, space_mode = space_mode,
+    channel_annotation = channel_annotation, cex = cex,
+    crp = crp, scale_back = scale_back, col = col, ...
   )
 }

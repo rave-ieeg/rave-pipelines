@@ -477,24 +477,19 @@ module_server <- function(input, output, session, ...) {
     show_crp
   })
 
+  # Persist whatever the two inputs currently hold, then let
+  # `use_plot_space_resolved()` do the percentage-vs-micro-volts conversion, so
+  # that rule is not restated here
   get_plot_space <- shiny::reactive({
     value <- input$plot_space_value
     is_pct <- input$plot_space_is_percentile
     if (isTRUE(is.numeric(value) && value > 0)) {
       use_plot_space(value)
-    } else {
-      value <- use_plot_space()
     }
     if (length(is_pct) > 0) {
       use_plot_space_is_percentile(is_pct)
-    } else {
-      is_pct <- use_plot_space_is_percentile()
     }
-    if (isTRUE(is_pct)) {
-      list(space = value / 100, space_mode = "quantile")
-    } else {
-      list(space = value, space_mode = "absolute")
-    }
+    use_plot_space_resolved()
   })
 
   # ---- Channel mask ------------------
@@ -1577,9 +1572,8 @@ module_server <- function(input, output, session, ...) {
         time_range <- c(NA, NA)
       }
       plot_space <- get_plot_space()
-      plot.data_by_channel_condition(
+      plot_data_by_channel_condition_fun(get_by_channel_plot_type())(
         x                  = data_by_channel_condition,
-        type               = get_by_channel_plot_type(),
         electrode_mask     = get_electrode_mask(),
         channel_annotation = get_channel_annotation_style(),
         cex                = get_cex(),
@@ -1723,9 +1717,8 @@ module_server <- function(input, output, session, ...) {
         time_range <- c(NA, NA)
       }
       plot_space <- get_plot_space()
-      plot.data_crp_by_channel(
+      plot_data_crp_by_channel_fun(get_by_channel_plot_type())(
         x                  = data_crp_by_channel,
-        type               = get_by_channel_plot_type(),
         electrode_mask     = get_electrode_mask(),
         channel_annotation = get_channel_annotation_style(),
         cex                = get_cex(),

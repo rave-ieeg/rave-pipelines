@@ -47,11 +47,12 @@ plot_data_by_channel_condition_setup <- function(
 # One panel per condition group; channels stacked as offset traces.
 plot_data_by_channel_condition_multiline <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1,
-    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    mfrow = NULL, vertical_marks = 0, col = use_discrete_colormap()$colors, flip_y = FALSE, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
 
   # Critical for dev debugging: do NOT remove
   # DIPSAUS DEBUG START
@@ -180,11 +181,12 @@ plot_data_by_channel_condition_multiline <- function(
 # from the discrete colormap preference.
 plot_data_by_channel_condition_heatmap <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1,
-    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    mfrow = NULL, vertical_marks = 0, col = use_continuous_colormap()$colors, flip_y = FALSE, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   setup <- plot_data_by_channel_condition_setup(
@@ -295,11 +297,12 @@ plot_data_by_channel_condition_heatmap <- function(
 # One panel per channel; condition groups superimposed.
 plot_data_by_channel_condition_overlay <- function(
     x, electrode_mask = NULL,
-    space = 1, space_mode = c("quantile", "absolute"), time_range = c(NA, NA),
-    channel_annotation = OPTIONS_CHAN_ANNOT, cex = 1,
-    mfrow = NULL, vertical_marks = 0, col = NULL, flip_y = FALSE, ...) {
+    space = use_plot_space_resolved()$space,
+    space_mode = use_plot_space_resolved()$space_mode, time_range = c(NA, NA),
+    channel_annotation = use_channel_annotation_style(), cex = use_cex(),
+    mfrow = NULL, vertical_marks = 0, col = use_discrete_colormap()$colors, flip_y = FALSE, ...) {
 
-  space_mode <- match.arg(space_mode)
+  space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
 
   setup <- plot_data_by_channel_condition_setup(
@@ -356,12 +359,38 @@ plot_data_by_channel_condition_overlay <- function(
 }
 
 
-plot.data_by_channel_condition <- function(x, type = c("multiline", "heatmap", "overlay"), ...) {
-  type <- match.arg(type)
+# The rendering for a given type. Used by `plot.data_by_channel_condition()`
+# below and by the module server, so the type-to-function map lives in one place.
+plot_data_by_channel_condition_fun <- function(
+    type = c("multiline", "heatmap", "overlay")) {
   switch(
-    type,
-    "heatmap" = plot_data_by_channel_condition_heatmap(x = x, ...),
-    "overlay" = plot_data_by_channel_condition_overlay(x = x, ...),
-    plot_data_by_channel_condition_multiline(x = x, ...)
+    match.arg(type),
+    "heatmap" = plot_data_by_channel_condition_heatmap,
+    "overlay" = plot_data_by_channel_condition_overlay,
+    plot_data_by_channel_condition_multiline
+  )
+}
+
+
+# `plot()` is the scripting entry point, so its defaults are stated outright
+# rather than read from the preference store: the same call has to produce the
+# same figure on any machine. The module UI calls `plot_data_*()` instead, whose
+# defaults do follow the user's preferences.
+plot.data_by_channel_condition <- function(
+    x, type = c("multiline", "heatmap", "overlay"),
+    space = DEFAULT_PLOT_SPACE / 100, space_mode = OPTIONS_SPACE_MODE,
+    channel_annotation = DEFAULT_CHAN_ANNOT, cex = DEFAULT_CEX,
+    col = NULL, ...) {
+  type <- match.arg(type)
+  if (!length(col)) {
+    col <- if (identical(type, "heatmap")) {
+      ravepipeline::CONTINUOUS_COLORMAPS(DEFAULT_CONTINUOUS_COLORMAP)
+    } else {
+      ravepipeline::DISCRETE_COLORMAPS(DEFAULT_DISCRETE_COLORMAP)
+    }
+  }
+  plot_data_by_channel_condition_fun(type)(
+    x = x, space = space, space_mode = space_mode,
+    channel_annotation = channel_annotation, cex = cex, col = col, ...
   )
 }
