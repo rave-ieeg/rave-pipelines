@@ -340,6 +340,21 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
   # Time x channel x group
   c_full <- simplify2array(c_full)
 
+  # `drop = FALSE` throughout: with a single condition group the `[, -1]` subset
+  # collapses to a plain vector, and the `dim<-` below then fails with
+  # "dims [product 1] do not match the length of object".
+
+  # Mean fitted amplitude, the factor that puts `C_full` back into micro-volts.
+  # Applied at plot time, not here, so callers can choose (see `scale_back`).
+  al_mean <- data.table::dcast(
+    crp_df,
+    electrode ~ group_index,
+    value.var = "al_mean",
+    fill = NA_real_
+  )
+  al_mean <- as.matrix(al_mean[order(al_mean$electrode), ])[, -1, drop = FALSE]
+  dim(al_mean) <- c(1, dim(al_mean))
+
   # TODO: check my order and dimensions
   # offset
   tau_R <- data.table::dcast(
@@ -348,7 +363,7 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
     value.var = "tau_R",
     fill = NA_real_
   )
-  tau_R <- as.matrix(tau_R[order(tau_R$electrode), ])[, -1]
+  tau_R <- as.matrix(tau_R[order(tau_R$electrode), ])[, -1, drop = FALSE]
   dim(tau_R) <- c(1, dim(tau_R))
 
   if ("tau_onset" %in% names(crp_df)) {
@@ -358,7 +373,7 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
       value.var = "tau_onset",
       fill = NA_real_
     )
-    tau_onset <- as.matrix(tau_onset[order(tau_onset$electrode), ])[, -1]
+    tau_onset <- as.matrix(tau_onset[order(tau_onset$electrode), ])[, -1, drop = FALSE]
     dim(tau_onset) <- c(1, dim(tau_onset))
   } else {
     tau_onset <- array(NA_real_, dim(tau_R))
@@ -373,8 +388,12 @@ prepare_data_crp_by_channel <- function(crp_df, data_placeholder) {
   # `coord_table`; the plots resolve `electrode_mask` against it by number
   crp_by_channel$electrodes <- sort(unique(crp_df$electrode))
 
+  # `canonical` is the unit-free CRP shape; multiplying by `al_mean` puts it back
+  # into micro-volts. They are reported separately so the plots can offer that as
+  # a choice rather than baking it in.
   crp_by_channel$data <- list(
     canonical = c_full,
+    al_mean = al_mean,
     onset = tau_onset,
     offset = tau_R
   )
