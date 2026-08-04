@@ -30,7 +30,7 @@ DEFAULT_CRP_PARAMS <- list(
 )
 
 
-# ---- Preference: discrete colormap -------------------------------------------
+# ---- Preference: colormaps ---------------------------------------------------
 pref_discrete_colormap <- ravepipeline::define_preference_discrete_colormap(
   pipeline = pipeline
 )
@@ -43,6 +43,22 @@ use_discrete_colormap <- function(value = KEY_MISSING) {
   list(
     name = name,
     colors = ravepipeline::DISCRETE_COLORMAPS(name)
+  )
+}
+
+pref_continuous_colormap <- ravepipeline::define_preference_continuous_colormap(
+  pipeline = pipeline
+)
+
+use_continuous_colormap <- function(value = KEY_MISSING) {
+  name <- pipeline$use_preference(
+    name = pref_continuous_colormap$metadata$key,
+    value = value,
+    apply_getter = FALSE
+  )
+  list(
+    name = name,
+    colors = ravepipeline::CONTINUOUS_COLORMAPS(name)
   )
 }
 
