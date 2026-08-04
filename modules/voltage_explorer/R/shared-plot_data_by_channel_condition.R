@@ -60,7 +60,7 @@ plot_data_by_channel_condition_multiline <- function(
   #   envir = .GlobalEnv,
   #   list(
   #     x                  = data_by_channel_condition,
-  #     electrode_mask     = NULL,
+  #     electrode_mask     = 13:20,
   #     channel_annotation = use_channel_annotation_style(),
   #     cex                = use_cex(),
   #     vertical_marks     = 0,
@@ -111,9 +111,14 @@ plot_data_by_channel_condition_multiline <- function(
   # the plain background, so every second one from the top is shaded. Channel `k`
   # is drawn at `space * (n_channels - k + 1)`, so a band reaches half a `space`
   # past its outermost channels.
-  shaded <- split(seq_len(n_channels), channel_group)[c(FALSE, TRUE)]
-  band_top <- space * (n_channels - vapply(shaded, min, 0L) + 1.5)
-  band_bottom <- space * (n_channels - vapply(shaded, max, 0L) + 0.5)
+  if (length(channel_group) > 1 && max(channel_group) > 1) {
+    shaded <- split(seq_len(n_channels), channel_group)[c(FALSE, TRUE)]
+    band_top <- space * (n_channels - vapply(shaded, min, 0L) + 1.5)
+    band_bottom <- space * (n_channels - vapply(shaded, max, 0L) + 0.5)
+  } else {
+    band_top <- NULL
+    band_bottom <- NULL
+  }
 
   n_groups <- x$n
   mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 4)
