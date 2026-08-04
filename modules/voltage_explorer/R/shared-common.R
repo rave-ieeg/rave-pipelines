@@ -306,6 +306,7 @@ reset_analysis_preferences <- function() {
 
 reset_graphics_preferences <- function() {
   pipeline$reset_preference(pref_discrete_colormap$metadata$key)
+  pipeline$reset_preference(pref_continuous_colormap$metadata$key)
   pipeline$reset_preference(pref_cex$metadata$key)
   pipeline$reset_preference(pref_channel_annotation_style$metadata$key)
   pipeline$reset_preference(pref_trial_sort_by$metadata$key)

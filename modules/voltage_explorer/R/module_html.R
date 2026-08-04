@@ -655,6 +655,38 @@ module_html <- function() {
                 )
               ),
 
+              # The rendering above decides which of these two palettes is in
+              # play, hence their placement right below it. `colormapSelectInput()`
+              # draws each palette as a colour bar under its name, so they can be
+              # picked by eye. `preview = FALSE` matters: bare `*_COLORMAPS()`
+              # defaults `preview` to `TRUE` and plots as a side effect.
+              ravedash::group_box(
+                title = "Colors",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::colormapSelectInput(
+                    inputId = ns("discrete_colormap"),
+                    label = "Condition colors",
+                    colormaps = ravepipeline::DISCRETE_COLORMAPS(preview = FALSE),
+                    selected = use_discrete_colormap()$name,
+                    continuous = FALSE
+                  )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::colormapSelectInput(
+                    inputId = ns("continuous_colormap"),
+                    label = "Heatmap colors",
+                    colormaps = ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE),
+                    selected = use_continuous_colormap()$name,
+                    continuous = TRUE
+                  )
+                )
+              ),
+
               ravedash::group_box(
                 title = "Plot max / spacing",
                 class = "row",

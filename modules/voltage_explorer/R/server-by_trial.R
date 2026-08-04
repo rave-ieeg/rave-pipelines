@@ -25,7 +25,8 @@ server_expr_by_trial <- function(input, output, session, ...) {
         channel_annotation = get_channel_annotation_style(),
         cex                = get_cex(),
         space              = plot_space$space,
-        space_mode         = plot_space$space_mode
+        space_mode         = plot_space$space_mode,
+        col                = get_colormaps()$continuous
       )
     })
   )

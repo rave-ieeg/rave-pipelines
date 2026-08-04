@@ -450,6 +450,23 @@ module_server <- function(input, output, session, ...) {
     plot_type
   })
 
+  # Both palettes resolved together so that changing either one redraws the whole
+  # figure set: a heatmap takes its image ramp from `continuous` but still colours
+  # its panel titles from `discrete` (see `plot_data_*_heatmap()`).
+  get_colormaps <- shiny::reactive({
+    discrete <- if (length(input$discrete_colormap) > 0) {
+      use_discrete_colormap(input$discrete_colormap)
+    } else {
+      use_discrete_colormap()
+    }
+    continuous <- if (length(input$continuous_colormap) > 0) {
+      use_continuous_colormap(input$continuous_colormap)
+    } else {
+      use_continuous_colormap()
+    }
+    list(discrete = discrete$colors, continuous = continuous$colors)
+  })
+
   get_crp_scale_back <- shiny::reactive({
     if (length(input$crp_scale_back) > 0) {
       scale_back <- use_crp_scale_back(input$crp_scale_back)
@@ -576,6 +593,8 @@ module_server <- function(input, output, session, ...) {
         channel_annot = use_channel_annotation_style(),
         trial_sort_by = use_trial_sort_by(),
         plot_type     = use_by_channel_plot_type(),
+        discrete_cmap = use_discrete_colormap()$name,
+        continuous_cmap = use_continuous_colormap()$name,
         scale_back    = use_crp_scale_back(),
         space_value   = use_plot_space(),
         space_is_pct  = use_plot_space_is_percentile()
@@ -584,6 +603,8 @@ module_server <- function(input, output, session, ...) {
       shiny::updateSelectInput(session,   "channel_annotation",       selected = defaults$channel_annot)
       shiny::updateSelectInput(session,   "trial_sort_by",            selected = defaults$trial_sort_by)
       shiny::updateSelectInput(session,   "by_channel_plot_type",     selected = defaults$plot_type)
+      shiny::updateSelectizeInput(session, "discrete_colormap",       selected = defaults$discrete_cmap)
+      shiny::updateSelectizeInput(session, "continuous_colormap",     selected = defaults$continuous_cmap)
       shiny::updateCheckboxInput(session, "crp_scale_back",           value = defaults$scale_back)
       shiny::updateNumericInput(session,  "plot_space_value",         value = defaults$space_value)
       shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
@@ -1572,7 +1593,9 @@ module_server <- function(input, output, session, ...) {
         time_range <- c(NA, NA)
       }
       plot_space <- get_plot_space()
-      plot_data_by_channel_condition_fun(get_by_channel_plot_type())(
+      plot_type <- get_by_channel_plot_type()
+      colormaps <- get_colormaps()
+      plot_data_by_channel_condition_fun(plot_type)(
         x                  = data_by_channel_condition,
         electrode_mask     = get_electrode_mask(),
         channel_annotation = get_channel_annotation_style(),
@@ -1581,6 +1604,11 @@ module_server <- function(input, output, session, ...) {
         time_range         = time_range,
         space              = plot_space$space,
         space_mode         = plot_space$space_mode,
+        col                = if (identical(plot_type, "heatmap")) {
+          colormaps$continuous
+        } else {
+          colormaps$discrete
+        },
         flip_y             = isTRUE(input$mean_erp_flip_y)
       )
     })
@@ -1619,6 +1647,7 @@ module_server <- function(input, output, session, ...) {
         time_range         = time_range,
         space              = plot_space$space,
         space_mode         = plot_space$space_mode,
+        col                = get_colormaps()$discrete,
         flip_y             = isTRUE(input$mean_erp_flip_y)
       )
     })
@@ -1692,6 +1721,7 @@ module_server <- function(input, output, session, ...) {
         time_range     = time_range,
         cex            = get_cex(),
         crp            = isTRUE(input$mean_erp_crp),
+        col            = get_colormaps()$continuous,
         vertical_marks = input$plot_onset_mark %||% 0
       )
     })
@@ -1717,7 +1747,9 @@ module_server <- function(input, output, session, ...) {
         time_range <- c(NA, NA)
       }
       plot_space <- get_plot_space()
-      plot_data_crp_by_channel_fun(get_by_channel_plot_type())(
+      plot_type <- get_by_channel_plot_type()
+      colormaps <- get_colormaps()
+      plot_data_crp_by_channel_fun(plot_type)(
         x                  = data_crp_by_channel,
         electrode_mask     = get_electrode_mask(),
         channel_annotation = get_channel_annotation_style(),
@@ -1727,6 +1759,11 @@ module_server <- function(input, output, session, ...) {
         time_range         = time_range,
         space              = plot_space$space,
         space_mode         = plot_space$space_mode,
+        col                = if (identical(plot_type, "heatmap")) {
+          colormaps$continuous
+        } else {
+          colormaps$discrete
+        },
         scale_back         = get_crp_scale_back(),
         flip_y             = isTRUE(input$mean_erp_flip_y)
       )
