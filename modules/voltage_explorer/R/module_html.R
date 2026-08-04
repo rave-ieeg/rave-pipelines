@@ -727,6 +727,15 @@ module_html <- function() {
                     label = "Show CRP decoration",
                     value = TRUE
                   )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shiny::checkboxInput(
+                    inputId = ns("crp_scale_back"),
+                    label = "Scale canonical to \U00B5V",
+                    value = use_crp_scale_back()
+                  )
                 )
 
               ),

@@ -139,6 +139,20 @@ use_by_channel_plot_type <- function(value = KEY_MISSING) {
   plot_type
 }
 
+# ---- Preference: scale canonical responses back to micro-volts ---------------
+# The CRP canonical shape is unit-free; multiplying by its mean fitted amplitude
+# restores micro-volts. Off by default, so the figures show pure shapes.
+pref_crp_scale_back <- ravepipeline::define_preference_logical(
+  pipeline = pipeline,
+  name = "crp_scale_back",
+  default = FALSE,
+  domain = "graphics"
+)
+
+use_crp_scale_back <- function(value = KEY_MISSING) {
+  pipeline$use_preference(pref_crp_scale_back$metadata$key, value = value)
+}
+
 # ---- Preference: show CRP decoration -----------------------------------------
 pref_show_crp_decoration <- ravepipeline::define_preference_logical(
   pipeline = pipeline,
@@ -274,6 +288,7 @@ reset_graphics_preferences <- function() {
   pipeline$reset_preference(pref_channel_annotation_style$metadata$key)
   pipeline$reset_preference(pref_trial_sort_by$metadata$key)
   pipeline$reset_preference(pref_by_channel_plot_type$metadata$key)
+  pipeline$reset_preference(pref_crp_scale_back$metadata$key)
   pipeline$reset_preference(pref_show_crp_decoration$metadata$key)
   pipeline$reset_preference(pref_plot_space$metadata$key)
   pipeline$reset_preference(pref_plot_space_is_percentile$metadata$key)
