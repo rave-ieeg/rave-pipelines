@@ -77,7 +77,11 @@ add_axis_time <- function(time_range, text = "Time (s)", cex = 1) {
                   cex = par_opt$cex.lab * cex)
 }
 
-add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), cex = 1) {
+# `fmt` widens to more decimals for callers whose values are not in micro-volts
+# (an unscaled CRP shape would otherwise print as "0"); `text = ""` drops the
+# axis label entirely for those callers, since they have no unit to name.
+add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), cex = 1,
+                             fmt = "%.0f") {
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
   yline <- 1 * cex
@@ -86,7 +90,7 @@ add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), c
   graphics::axis(
     side = 2L,
     at = c(value_range, 0),
-    labels = c(sprintf("%.0f", value_range), "0"),
+    labels = c(sprintf(fmt, value_range), "0"),
     las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
   )
@@ -254,6 +258,19 @@ add_crp_decorators <- function(crp_result, cex = 1) {
 
 }
 
+# `sprintf` format with enough precision that a small (normalized) range does not
+# collapse to the same printed value on every tick. Whole numbers suffice for
+# micro-volts; a canonical shape spanning 0.1 needs two decimals.
+value_format <- function(vlim) {
+  span <- diff(range(vlim, na.rm = TRUE))
+  if (is.finite(span) && span > 0) {
+    digits <- max(0, ceiling(-log10(span)) + 1)
+  } else {
+    digits <- 0
+  }
+  sprintf("%%.%df", digits)
+}
+
 add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
                                fmt = NULL) {
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
@@ -262,16 +279,8 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
 
   vlim <- range(vlim, na.rm = TRUE)
 
-  # Pick a format with enough precision so small (normalized) ranges do not
-  # collapse to the same printed value.
   if (is.null(fmt)) {
-    span <- diff(vlim)
-    if (is.finite(span) && span > 0) {
-      digits <- max(0, ceiling(-log10(span)) + 1)
-    } else {
-      digits <- 0
-    }
-    fmt <- sprintf("%%.%df", digits)
+    fmt <- value_format(vlim)
   }
 
   legend_z <- seq(vlim[[1]], vlim[[2]], length.out = length(col))

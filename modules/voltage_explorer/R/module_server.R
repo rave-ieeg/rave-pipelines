@@ -450,6 +450,15 @@ module_server <- function(input, output, session, ...) {
     plot_type
   })
 
+  get_crp_scale_back <- shiny::reactive({
+    if (length(input$crp_scale_back) > 0) {
+      scale_back <- use_crp_scale_back(input$crp_scale_back)
+    } else {
+      scale_back <- use_crp_scale_back()
+    }
+    isTRUE(scale_back)
+  })
+
   get_flipped_y <- shiny::reactive({
     if (length(input$mean_erp_flip_y) > 0) {
       flip_y <- use_flipped_y(input$mean_erp_flip_y)
@@ -485,18 +494,6 @@ module_server <- function(input, output, session, ...) {
       list(space = value / 100, space_mode = "quantile")
     } else {
       list(space = value, space_mode = "absolute")
-    }
-  })
-
-  # CRP canonical responses are normalized, so a user-entered absolute (uV)
-  # spacing is meaningless. Keep quantile spacing as-is, but when the user picks
-  # absolute, fall back to the full quantile range (space = 1, quantile).
-  get_crp_plot_space <- shiny::reactive({
-    plot_space <- get_plot_space()
-    if (identical(plot_space$space_mode, "absolute")) {
-      list(space = 1, space_mode = "quantile")
-    } else {
-      plot_space
     }
   })
 
@@ -584,6 +581,7 @@ module_server <- function(input, output, session, ...) {
         channel_annot = use_channel_annotation_style(),
         trial_sort_by = use_trial_sort_by(),
         plot_type     = use_by_channel_plot_type(),
+        scale_back    = use_crp_scale_back(),
         space_value   = use_plot_space(),
         space_is_pct  = use_plot_space_is_percentile()
       )
@@ -591,6 +589,7 @@ module_server <- function(input, output, session, ...) {
       shiny::updateSelectInput(session,   "channel_annotation",       selected = defaults$channel_annot)
       shiny::updateSelectInput(session,   "trial_sort_by",            selected = defaults$trial_sort_by)
       shiny::updateSelectInput(session,   "by_channel_plot_type",     selected = defaults$plot_type)
+      shiny::updateCheckboxInput(session, "crp_scale_back",           value = defaults$scale_back)
       shiny::updateNumericInput(session,  "plot_space_value",         value = defaults$space_value)
       shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
     }),
@@ -1723,9 +1722,7 @@ module_server <- function(input, output, session, ...) {
       if (!length(time_range) || all(is.na(time_range))) {
         time_range <- c(NA, NA)
       }
-      # CRP canonical responses are normalized, so an absolute (uV) spacing is
-      # meaningless; fall back to the full quantile range in that case.
-      crp_space <- get_crp_plot_space()
+      plot_space <- get_plot_space()
       plot.data_crp_by_channel(
         x                  = data_crp_by_channel,
         type               = get_by_channel_plot_type(),
@@ -1735,8 +1732,10 @@ module_server <- function(input, output, session, ...) {
         crp                = isTRUE(input$mean_erp_crp),
         vertical_marks     = input$plot_onset_mark %||% 0,
         time_range         = time_range,
-        space              = crp_space$space,
-        space_mode         = crp_space$space_mode
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
+        scale_back         = get_crp_scale_back(),
+        flip_y             = isTRUE(input$mean_erp_flip_y)
       )
     })
   )
