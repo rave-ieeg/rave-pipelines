@@ -113,8 +113,11 @@ add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), c
 # pads the measured label extent. `thin = FALSE` draws every label, overlaps and
 # all. `...` is passed to `graphics::axis()` (`pos`, `tick`, `col.axis`, ...).
 # Returns the indices drawn.
-add_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
-                            gap = 1.1, thin = TRUE, ...) {
+#
+# Called through `add_axis_ranked()`, never directly -- how many labels fit
+# depends on the device size, so the selection has to be redone on every resize.
+draw_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
+                             gap = 1.1, thin = TRUE, ...) {
   cex_axis <- graphics::par("cex.axis") * cex
 
   labels <- as.character(labels)
@@ -154,6 +157,31 @@ add_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
   }
 
   invisible(candidates)
+}
+
+# Draw ranked axis labels, re-thinning them whenever the device is resized.
+#
+# Resizing a plot does not re-run the code that drew it: R replays the graphics
+# engine display list. Base graphics record their `.Internal` calls there, so
+# `graphics::axis()` re-runs against the new device size and re-thins itself --
+# but a selection made in R beforehand is not on that list, only the labels it
+# happened to pick, so those would be replayed frozen at any size. Shiny makes
+# this the usual case rather than the exception: `shiny::renderPlot()` defaults
+# to `execOnResize = FALSE`, so every resize is a replay.
+#
+# `grDevices::recordGraphics()` puts the call itself on the display list, along
+# with everything it needs to be evaluated again, which is what keeps the
+# thinning honest across resizes. `draw_axis_ranked()` -- not this function --
+# has to be what gets recorded, or each replay would record itself afresh.
+add_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
+                            gap = 1.1, thin = TRUE, ...) {
+  args <- list(at = at, labels = labels, rank = rank, side = side,
+               cex = cex, gap = gap, thin = thin, ...)
+  grDevices::recordGraphics(
+    do.call(draw_axis_ranked, args),
+    list(args = args, draw_axis_ranked = draw_axis_ranked),
+    getNamespace("grDevices")
+  )
 }
 
 add_vertical_marks <- function(vertical_marks = NULL, col = "#808080", lty = 3, ...) {
