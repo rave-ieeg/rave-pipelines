@@ -798,7 +798,7 @@ module_html <- function() {
                 )
               ),
 
-              "Canonical" = div(
+              "Canonical Representations" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
                   outputId = ns("figure_data_crp_by_channel"),

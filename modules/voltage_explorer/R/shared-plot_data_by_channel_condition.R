@@ -4,13 +4,14 @@
 # channel; `x$electrodes` is its channel axis. Which channels are drawn is decided
 # here, at plot time, by `electrode_mask` -- see `resolve_channel_selection()`.
 #
-# Two renderings:
+# Three renderings:
 #   multiline  one panel per condition group, channels stacked as offset traces
+#   heatmap    one panel per condition group, channels as a time x channel image
 #   overlay    one panel per channel, condition groups superimposed
 
 
-# Shared setup for both renderings: mask the data, pick colours, resolve the time
-# axis. Returns everything the two functions need in common.
+# Shared setup for all three renderings: mask the data, pick colours, resolve the
+# time axis. Returns everything they need in common.
 plot_data_by_channel_condition_setup <- function(
     x, electrode_mask, space, space_mode, time_range, channel_annotation, col) {
 
@@ -94,20 +95,23 @@ plot_data_by_channel_condition_multiline <- function(
 
   n_groups <- x$n
   mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 4)
-  prepare_par(mfrow = mfrow, cex = cex,
-              mar = c(3.1, 2.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1)
+  par_opt <- prepare_par(mfrow = mfrow, cex = cex,
+                         mar = c(3.1, 2.1, 2.1, 0.8) * (0.25 + cex * 0.75) + 0.1)
 
   for (ii in seq_len(n_groups)) {
     # Time by channel, but channel is reversed because R plots from bottom-left
     # to top-right while we want the channels to order from top to bottom
     data_time_by_channel <- array(setup$data[, rev(seq_len(n_channels)), ii], dim = dim(setup$data)[c(1, 2)])
 
+    # Measured before `flip_y` negates the traces: the title reports the data,
+    # not the drawing. The scale bar below is what tracks the drawn orientation.
+    value_range <- range(data_time_by_channel, na.rm = TRUE)
+
     if (flip_y) {
       data_time_by_channel <- - data_time_by_channel
     }
 
     group <- x$groups[[ii]]
-    ylim <- range(data_time_by_channel, na.rm = TRUE)
 
     # Blank channel names: `plot_signals` still draws the axis line and a tick
     # per channel, but the labels are left to `add_axis_ranked()` below, which
@@ -140,10 +144,10 @@ plot_data_by_channel_condition_multiline <- function(
 
     graphics::title(main = bquote(.(group$label) ~ scriptstyle(
       "(" *
-        .(round(ylim[[1]])) ~ "~" ~ .(round(ylim[[2]])) ~ mu * V ~
+        .(round(value_range[[1]])) ~ "~" ~ .(round(value_range[[2]])) ~ mu * V ~
         ", n =" ~ .(group$n_trials) *
         ")"
-    )), adj = 0, cex.main = par("cex.main") * cex, col.main = col[[ii]])
+    )), adj = 0, cex.main = par_opt$cex.main * cex, col.main = col[[ii]])
 
     add_vertical_marks(vertical_marks, col = "#80808040", lty = 2)
 
@@ -198,6 +202,10 @@ plot_data_by_channel_condition_heatmap <- function(
   # centred on zero, so halve it back to the amplitude `get_spacing()` returned
   zlim <- c(-1, 1) * setup$space / 2
 
+  # Constant data collapses the spacing to zero; `image()` and the colour bar
+  # both need a non-zero span
+  if (!isTRUE(diff(zlim) > 0)) { zlim <- c(-1, 1) }
+
   # See `plot_data_by_channel_condition_multiline()`: leads are told apart by
   # alternating the label colour
   fg <- graphics::par("fg")
@@ -210,6 +218,13 @@ plot_data_by_channel_condition_heatmap <- function(
   }
   if (length(col) < 101) {
     col <- grDevices::colorRampPalette(col)(101)
+  }
+
+  # An image has no y axis to reverse, so `flip_y` flips the colour-to-sign
+  # association instead. `add_heatmap_legend()` gets the same ramp, so the bar
+  # keeps its true µV labels and shows the reversal.
+  if (flip_y) {
+    col <- rev(col)
   }
 
   mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 3)
@@ -233,10 +248,6 @@ plot_data_by_channel_condition_heatmap <- function(
     # Channel reversed so channel 1 lands at the top, as in the other renderings
     z <- array(setup$data[, rev(seq_len(n_channels)), ii],
                dim = c(length(time_points), n_channels))
-
-    if (flip_y) {
-      z <- -z
-    }
 
     value_range <- range(z, na.rm = TRUE)
     z[z < zlim[[1]]] <- zlim[[1]]
