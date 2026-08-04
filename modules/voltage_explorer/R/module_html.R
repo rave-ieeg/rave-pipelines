@@ -641,6 +641,21 @@ module_html <- function() {
               ),
 
               ravedash::group_box(
+                title = "By-electrode figures",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shiny::selectInput(
+                    inputId = ns("by_channel_plot_type"),
+                    label = "Rendering",
+                    choices = c("Stacked lines" = "multiline", "Heatmap" = "heatmap"),
+                    selected = use_by_channel_plot_type()
+                  )
+                )
+              ),
+
+              ravedash::group_box(
                 title = "Plot max / spacing",
                 class = "row",
 
@@ -778,22 +793,15 @@ module_html <- function() {
               "Mean Voltage" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_data_by_channel_condition_multiline"),
+                  outputId = ns("figure_data_by_channel_condition"),
                   width = "100%", height = "100%"
                 )
               ),
 
-              "Canonical (Lines)" = div(
+              "Canonical" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_data_crp_by_channel_multiline"),
-                  width = "100%", height = "100%"
-                )
-              ),
-              "Canonical (Heatmap)" = div(
-                class = "position-relative fill",
-                shiny::plotOutput(
-                  outputId = ns("figure_data_crp_by_channel_heatmap"),
+                  outputId = ns("figure_data_crp_by_channel"),
                   width = "100%", height = "100%"
                 )
               ),

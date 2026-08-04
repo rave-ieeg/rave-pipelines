@@ -11,6 +11,10 @@ DEFAULT_CHAN_ANNOT <- "number"
 OPTIONS_TRIAL_SORT <- c("stimuli", "trial")
 DEFAULT_TRIAL_SORT <- "stimuli"
 
+# Rendering shared by every by-electrode figure: stacked traces or an image
+OPTIONS_BY_CHANNEL_PLOT_TYPE <- c("multiline", "heatmap")
+DEFAULT_BY_CHANNEL_PLOT_TYPE <- "multiline"
+
 OPTIONS_CRP_ONSET_BORDER <- c("disabled", "event_onset", "t_start", "earliest_possible")
 
 # Plotmath labels for the `crp_df` columns that `prepare_data_crp_param_by_trial_channel`
@@ -116,6 +120,23 @@ use_trial_sort_by <- function(value = KEY_MISSING) {
   trial_sort_by <- pipeline$use_preference(name = pref_trial_sort_by$metadata$key, value = value)
   attr(trial_sort_by, "preference_value") <- NULL
   trial_sort_by
+}
+
+# ---- Preference: by-electrode rendering --------------------------------------
+pref_by_channel_plot_type <- ravepipeline::define_preference_multichoice(
+  pipeline = pipeline,
+  name = "by_channel_plot_type",
+  choices = OPTIONS_BY_CHANNEL_PLOT_TYPE,
+  default = DEFAULT_BY_CHANNEL_PLOT_TYPE,
+  domain = "graphics",
+  partial_match = TRUE
+)
+
+use_by_channel_plot_type <- function(value = KEY_MISSING) {
+  plot_type <- pipeline$use_preference(name = pref_by_channel_plot_type$metadata$key,
+                                       value = value)
+  attr(plot_type, "preference_value") <- NULL
+  plot_type
 }
 
 # ---- Preference: show CRP decoration -----------------------------------------
@@ -252,6 +273,7 @@ reset_graphics_preferences <- function() {
   pipeline$reset_preference(pref_cex$metadata$key)
   pipeline$reset_preference(pref_channel_annotation_style$metadata$key)
   pipeline$reset_preference(pref_trial_sort_by$metadata$key)
+  pipeline$reset_preference(pref_by_channel_plot_type$metadata$key)
   pipeline$reset_preference(pref_show_crp_decoration$metadata$key)
   pipeline$reset_preference(pref_plot_space$metadata$key)
   pipeline$reset_preference(pref_plot_space_is_percentile$metadata$key)

@@ -357,7 +357,7 @@ module_server <- function(input, output, session, ...) {
 
       # Reset outputs
       shidashi::reset_output("figure_data_by_trial_channel_condition_butterfly")
-      shidashi::reset_output("figure_data_by_channel_condition_multiline")
+      shidashi::reset_output("figure_data_by_channel_condition")
       shidashi::reset_output("figure_data_by_channel_condition_overlay")
       shidashi::reset_output("figure_data_by_trial_channel_condition_multiline")
       shidashi::reset_output("figure_data_by_trial_channel_condition_heatmap")
@@ -439,6 +439,15 @@ module_server <- function(input, output, session, ...) {
       trial_sort_by <- use_trial_sort_by()
     }
     trial_sort_by
+  })
+
+  get_by_channel_plot_type <- shiny::reactive({
+    if (length(input$by_channel_plot_type) > 0) {
+      plot_type <- use_by_channel_plot_type(input$by_channel_plot_type)
+    } else {
+      plot_type <- use_by_channel_plot_type()
+    }
+    plot_type
   })
 
   get_flipped_y <- shiny::reactive({
@@ -574,12 +583,14 @@ module_server <- function(input, output, session, ...) {
         cex          = use_cex(),
         channel_annot = use_channel_annotation_style(),
         trial_sort_by = use_trial_sort_by(),
+        plot_type     = use_by_channel_plot_type(),
         space_value   = use_plot_space(),
         space_is_pct  = use_plot_space_is_percentile()
       )
       shiny::updateNumericInput(session,  "plot_cex",                 value = defaults$cex)
       shiny::updateSelectInput(session,   "channel_annotation",       selected = defaults$channel_annot)
       shiny::updateSelectInput(session,   "trial_sort_by",            selected = defaults$trial_sort_by)
+      shiny::updateSelectInput(session,   "by_channel_plot_type",     selected = defaults$plot_type)
       shiny::updateNumericInput(session,  "plot_space_value",         value = defaults$space_value)
       shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
     }),
@@ -1544,10 +1555,11 @@ module_server <- function(input, output, session, ...) {
   )
 
 
-  # ERP by condition: stacked channel traces, one panel per condition group
+  # ERP by condition: every channel, one panel per condition group. Stacked traces
+  # or a heatmap, per the shared by-electrode rendering preference.
   shidashi::register_output(
-    outputId = "figure_data_by_channel_condition_multiline",
-    description = "Mean voltage: stacked channel traces, one panel per condition group.",
+    outputId = "figure_data_by_channel_condition",
+    description = "Mean voltage by channel, one panel per condition group.",
     download_type = "image",
     session = session,
     expr = shidashi::renderPlot2({
@@ -1565,25 +1577,17 @@ module_server <- function(input, output, session, ...) {
       if (!length(time_range) || all(is.na(time_range))) {
         time_range <- c(NA, NA)
       }
-      # For By Electrode: when mode is quantile, always use the full data range
-      # (ignore the user-specified percentile); only apply space when mode is absolute
       plot_space <- get_plot_space()
-      if (plot_space$space_mode == "quantile") {
-        by_elec_space      <- 1
-        by_elec_space_mode <- "quantile"
-      } else {
-        by_elec_space      <- plot_space$space
-        by_elec_space_mode <- "absolute"
-      }
-      plot_data_by_channel_condition_multiline(
+      plot.data_by_channel_condition(
         x                  = data_by_channel_condition,
+        type               = get_by_channel_plot_type(),
         electrode_mask     = get_electrode_mask(),
         channel_annotation = get_channel_annotation_style(),
         cex                = get_cex(),
         vertical_marks     = input$plot_onset_mark %||% 0,
         time_range         = time_range,
-        space              = by_elec_space,
-        space_mode         = by_elec_space_mode,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
         flip_y             = isTRUE(input$mean_erp_flip_y)
       )
     })
@@ -1612,16 +1616,7 @@ module_server <- function(input, output, session, ...) {
       if (!length(time_range) || all(is.na(time_range))) {
         time_range <- c(NA, NA)
       }
-      # For By Electrode: when mode is quantile, always use the full data range
-      # (ignore the user-specified percentile); only apply space when mode is absolute
       plot_space <- get_plot_space()
-      if (plot_space$space_mode == "quantile") {
-        by_elec_space      <- 1
-        by_elec_space_mode <- "quantile"
-      } else {
-        by_elec_space      <- plot_space$space
-        by_elec_space_mode <- "absolute"
-      }
       plot_data_by_channel_condition_overlay(
         x                  = data_by_channel_condition,
         electrode_mask     = get_electrode_mask(),
@@ -1629,8 +1624,8 @@ module_server <- function(input, output, session, ...) {
         cex                = get_cex(),
         vertical_marks     = input$plot_onset_mark %||% 0,
         time_range         = time_range,
-        space              = by_elec_space,
-        space_mode         = by_elec_space_mode,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
         flip_y             = isTRUE(input$mean_erp_flip_y)
       )
     })
@@ -1710,9 +1705,10 @@ module_server <- function(input, output, session, ...) {
   )
 
 
-  # CRP canonical response per channel, one panel per condition group
+  # CRP canonical response per channel, one panel per condition group. Stacked
+  # traces or a heatmap, per the shared by-electrode rendering preference.
   shidashi::register_output(
-    outputId = "figure_data_crp_by_channel_multiline",
+    outputId = "figure_data_crp_by_channel",
     description = "CRP canonical response per channel, one panel per condition group.",
     download_type = "image",
     session = session,
@@ -1730,40 +1726,9 @@ module_server <- function(input, output, session, ...) {
       # CRP canonical responses are normalized, so an absolute (uV) spacing is
       # meaningless; fall back to the full quantile range in that case.
       crp_space <- get_crp_plot_space()
-      plot_data_crp_by_channel_multiline(
+      plot.data_crp_by_channel(
         x                  = data_crp_by_channel,
-        electrode_mask     = get_electrode_mask(),
-        channel_annotation = get_channel_annotation_style(),
-        cex                = get_cex(),
-        crp                = isTRUE(input$mean_erp_crp),
-        vertical_marks     = input$plot_onset_mark %||% 0,
-        time_range         = time_range,
-        space              = crp_space$space,
-        space_mode         = crp_space$space_mode
-      )
-    })
-  )
-
-  # CRP canonical response per channel, rendered as a heatmap
-  shidashi::register_output(
-    outputId = "figure_data_crp_by_channel_heatmap",
-    description = "CRP canonical response per channel as a heatmap, one panel per condition group.",
-    download_type = "image",
-    session = session,
-    expr = shidashi::renderPlot2({
-      .output_ready()
-      data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
-      shiny::validate(shiny::need(
-        inherits(data_crp_by_channel, "data_crp_by_channel"),
-        message = "No data available"
-      ))
-      time_range <- c(input$plot_time_start, input$plot_time_end)
-      if (!length(time_range) || all(is.na(time_range))) {
-        time_range <- c(NA, NA)
-      }
-      crp_space <- get_crp_plot_space()
-      plot_data_crp_by_channel_heatmap(
-        x                  = data_crp_by_channel,
+        type               = get_by_channel_plot_type(),
         electrode_mask     = get_electrode_mask(),
         channel_annotation = get_channel_annotation_style(),
         cex                = get_cex(),
