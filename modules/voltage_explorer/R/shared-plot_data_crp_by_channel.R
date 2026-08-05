@@ -105,18 +105,8 @@ interp_on_trace <- function(t_val, time_points, y_vals) {
 }
 
 
-# Per-channel label priority and the alternating lead colour, shared by the two
-# renderings that label a channel axis. Both columns come from
-# `recalculate_short_labels()` and are absent for a degenerate (empty) channel
-# table, which leaves the colour zero-length -- one colour, no alternation.
-crp_channel_axis_style <- function(coord_table) {
-  fg <- graphics::par("fg")
-  list(
-    rank = coord_table$LabelRank %||% 1L,
-    col = ifelse(coord_table$LeadIndex %% 2L, fg,
-                 grDevices::adjustcolor(fg, alpha.f = 0.5))
-  )
-}
+# `crp_channel_axis_style()` used to live here; it moved to `shared-helpers.R`
+# once the trial x channel parameter heatmap started labelling a channel axis too.
 
 
 # One panel per condition group; channels stacked as offset traces.
