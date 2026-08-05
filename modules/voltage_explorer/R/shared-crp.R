@@ -4,7 +4,7 @@
 prepare_crp_settings <- function(
     filtered_array, crp_detection_window,
     crp_time_step = 5, crp_threshold_quantile = 98,
-    crp_onset_border = FALSE) {
+    crp_onset_border = FALSE, crp_remove_artifacts = TRUE) {
   filtered_array_impl <- get_filearray_impl(filtered_array)
 
   sample_rate <- filtered_array_impl$get_header("sample_rate")
@@ -32,6 +32,10 @@ prepare_crp_settings <- function(
     crp_threshold_quantile <- 98
   }
 
+  # Artifact rejection: when disabled, `crp` keeps every trial instead of
+  # dropping the ones flagged as artifacts within `artifact_interval`
+  remove_artifacts <- isTRUE(as.logical(crp_remove_artifacts))
+
   # Onset detection: border controls whether to estimate onset and how far back
   # the scan may reach (see `ravetools::crp`)
   detect_onset <- !(identical(crp_onset_border, "disabled") || isFALSE(crp_onset_border))
@@ -58,7 +62,7 @@ prepare_crp_settings <- function(
       time_step = crp_time_step,
       threshold_quantile = crp_threshold_quantile / 100,
       artifact_interval = "tR",
-      remove_artifacts = TRUE,
+      remove_artifacts = remove_artifacts,
       detect_onset = detect_onset,
       onset_search_start = onset_search_start
     )

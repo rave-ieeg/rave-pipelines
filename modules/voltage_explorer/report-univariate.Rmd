@@ -112,12 +112,7 @@ channel_annotation_style <- use_channel_annotation_style()
 cex <- use_cex()
 trial_sort_by <- use_trial_sort_by()
 
-space <- max(0, min(use_plot_space(), 1))
-if (isTRUE(use_plot_space_is_percentile())) {
-  by_elec_space <- list(space = space, space_mode = "quantile")
-} else {
-  by_elec_space <- list(space = space, space_mode = "absolute")
-}
+by_elec_space <- use_plot_space_resolved()
 ```
 
 ---
@@ -290,16 +285,6 @@ DT::formatStyle(
   <summary>Multi-line plot:</summary>
   
 ```{r, fig.width=12, fig.height = crp_fig_ratio * 12}
-
-
-# CRP canonical responses are normalized, so an absolute (uV) spacing is
-# meaningless; fall back to the full quantile range in that case.
-if (!isTRUE(use_plot_space_is_percentile())) {
-  plot_space <- list(space = 1, space_mode = "quantile")
-} else {
-  space <- max(0, min(use_plot_space(), 1))
-  plot_space <- list(space = space, space_mode = "quantile")
-}
 plot_data_crp_by_channel_multiline(
   x                  = data_crp_by_channel,
   electrode_mask     = analysis_electrodes,
@@ -308,8 +293,9 @@ plot_data_crp_by_channel_multiline(
   crp                = crp_annotations,
   vertical_marks     = vertical_marks,
   time_range         = time_range,
-  space              = plot_space$space,
-  space_mode         = plot_space$space_mode
+  space              = by_elec_space$space,
+  space_mode         = by_elec_space$space_mode,
+  scale_back         = use_crp_scale_back()
 )
 ```
 
@@ -328,8 +314,9 @@ plot_data_crp_by_channel_heatmap(
   crp                = crp_annotations,
   vertical_marks     = vertical_marks,
   time_range         = time_range,
-  space              = plot_space$space,
-  space_mode         = plot_space$space_mode
+  space              = by_elec_space$space,
+  space_mode         = by_elec_space$space_mode,
+  scale_back         = use_crp_scale_back()
 )
 ```
 

@@ -39,7 +39,11 @@ CRP_PARAM_LABELS <- list(
 DEFAULT_CRP_PARAMS <- list(
   time_step = 5,
   threshold_quantile = 98,
-  onset_border = "disabled"
+  onset_border = "disabled",
+  # Artifact rejection is a per-analysis setting (like the detection window)
+  # rather than a preference, but its default lives here with the other
+  # `ravetools::crp` parameters.
+  remove_artifacts = TRUE
 )
 
 

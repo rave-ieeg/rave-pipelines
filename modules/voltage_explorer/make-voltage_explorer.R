@@ -53,6 +53,9 @@ rm(._._env_._.)
         }), deps = "settings"), input_crp_threshold_quantile = targets::tar_target_raw("crp_threshold_quantile", 
         quote({
             settings[["crp_threshold_quantile"]]
+        }), deps = "settings"), input_crp_remove_artifacts = targets::tar_target_raw("crp_remove_artifacts", 
+        quote({
+            settings[["crp_remove_artifacts"]]
         }), deps = "settings"), input_crp_onset_border = targets::tar_target_raw("crp_onset_border", 
         quote({
             settings[["crp_onset_border"]]
@@ -349,7 +352,7 @@ rm(._._env_._.)
                 crp_settings <- prepare_crp_settings(filtered_array = filtered_array, 
                   crp_detection_window = crp_detection_window, 
                   crp_time_step = crp_time_step, crp_threshold_quantile = crp_threshold_quantile, 
-                  crp_onset_border = crp_onset_border)
+                  crp_onset_border = crp_onset_border, crp_remove_artifacts = crp_remove_artifacts)
             })
             tryCatch({
                 eval(.__target_expr__.)
@@ -364,15 +367,15 @@ rm(._._env_._.)
                   crp_settings <- prepare_crp_settings(filtered_array = filtered_array, 
                     crp_detection_window = crp_detection_window, 
                     crp_time_step = crp_time_step, crp_threshold_quantile = crp_threshold_quantile, 
-                    crp_onset_border = crp_onset_border)
+                    crp_onset_border = crp_onset_border, crp_remove_artifacts = crp_remove_artifacts)
                 }
                 crp_settings
             }), target_depends = c("filtered_array", "crp_detection_window", 
-            "crp_time_step", "crp_threshold_quantile", "crp_onset_border"
-            )), deps = c("filtered_array", "crp_detection_window", 
-        "crp_time_step", "crp_threshold_quantile", "crp_onset_border"
-        ), cue = targets::tar_cue("thorough"), pattern = NULL, 
-        iteration = "list"), calculating_erp_durations = targets::tar_target_raw(name = "crp_results", 
+            "crp_time_step", "crp_threshold_quantile", "crp_onset_border", 
+            "crp_remove_artifacts")), deps = c("filtered_array", 
+        "crp_detection_window", "crp_time_step", "crp_threshold_quantile", 
+        "crp_onset_border", "crp_remove_artifacts"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), calculating_erp_durations = targets::tar_target_raw(name = "crp_results", 
         command = quote({
             .__target_expr__. <- quote({
                 crp_results <- run_crp_on_all(aligned_array = aligned_array, 

@@ -448,6 +448,23 @@ module_html <- function() {
                       "Bounds are set automatically when epoch data is loaded."
                     )
                   )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("crp_remove_artifacts"),
+                      label = "Remove artifacts",
+                      value = DEFAULT_CRP_PARAMS$remove_artifacts
+                    ),
+                    inputId = "crp_remove_artifacts",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Discard trials flagged as artifacts before estimating the",
+                      "canonical response. Uncheck to keep every trial."
+                    )
+                  )
                 )
               ),
 

@@ -51,7 +51,8 @@ module_server <- function(input, output, session, ...) {
       crp_detection_window = input$crp_detection_window,
       crp_time_step = crp_time_step,
       crp_threshold_quantile = crp_threshold_quantile,
-      crp_onset_border = crp_onset_border
+      crp_onset_border = crp_onset_border,
+      crp_remove_artifacts = isTRUE(input$crp_remove_artifacts)
     )
 
     if (length(force_settings)) {
@@ -737,6 +738,12 @@ module_server <- function(input, output, session, ...) {
         value = use_crp_params_threshold_quantile()
       )
 
+      shiny::updateCheckboxInput(
+        session,
+        "crp_remove_artifacts",
+        value = DEFAULT_CRP_PARAMS$remove_artifacts
+      )
+
       # Detection window back to its full epoch range (start ~ t=0.01)
       repository <- component_container$data$repository
       if (inherits(repository, "rave_prepare_subject_voltage_with_epochs")) {
@@ -1297,6 +1304,12 @@ module_server <- function(input, output, session, ...) {
                               value = use_crp_params_time_step())
     shiny::updateNumericInput(session = session, inputId = "crp_threshold_quantile",
                               value = use_crp_params_threshold_quantile())
+
+    # Artifact rejection is a per-analysis setting, restored from settings.yaml
+    remove_artifacts <- pipeline$get_settings(
+      "crp_remove_artifacts", default = DEFAULT_CRP_PARAMS$remove_artifacts)
+    shiny::updateCheckboxInput(session = session, inputId = "crp_remove_artifacts",
+                               value = isTRUE(as.logical(remove_artifacts)))
   }
 
 

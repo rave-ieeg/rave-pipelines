@@ -177,7 +177,8 @@ crp_settings <- prepare_crp_settings(
   crp_detection_window = crp_detection_window,
   crp_time_step = crp_time_step,
   crp_threshold_quantile = crp_threshold_quantile,
-  crp_onset_border = crp_onset_border
+  crp_onset_border = crp_onset_border,
+  crp_remove_artifacts = crp_remove_artifacts
 )
 ```
 
