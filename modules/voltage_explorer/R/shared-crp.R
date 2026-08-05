@@ -252,13 +252,28 @@ prepare_data_crp_3dviewer_value <- function(crp_df) {
 
     sub_table <- data.table::melt(sub_table, c("electrode", "group_label"), value.name = "value")
     sub_table <- sub_table[complete.cases(sub_table), ]
+    sub_table$variable <- as.character(sub_table$variable)
+    value_ranges0 <- lapply(split(sub_table, sub_table$variable), function(sub) {
+      absmax <- max(abs(range(sub$value, na.rm = TRUE)))
+      structure(names = sub$variable[[1]], list(c(-absmax, absmax)))
+    })
+    value_ranges0 <- unlist(unname(value_ranges0), recursive = FALSE, use.names = TRUE)
+
+    value_ranges <- list()
+    for (label in unique(sub_table$group_label)) {
+      value_ranges[sprintf("%s (%s)", names(value_ranges0), label)] <- value_ranges0
+    }
+
     sub_table <- data.table::data.table(
       Electrode = sub_table$electrode,
       vname = sprintf("%s (%s)", sub_table$variable, sub_table$group_label),
       value = sub_table$value
     )
 
-    erp_results_for_viewer <- data.table::dcast(sub_table, Electrode ~ vname, value.var = "value")
+    erp_results_for_viewer <- data.table::dcast(
+      sub_table, Electrode ~ vname, value.var = "value")
+
+    attr(erp_results_for_viewer, "value_ranges") <- value_ranges
     # erp_results_for_viewer$Subject <- subject$subject_code
   } else {
     erp_results_for_viewer <- NULL
