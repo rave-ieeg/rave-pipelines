@@ -306,7 +306,9 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
   )
 }
 
-add_axis_trial_number <- function(group, by = 5, cex = 1, vspace = 1) {
+# Trial axis, labelled with trial numbers. `side` picks the orientation: 2 for
+# panels that stack trials vertically, 1 for those that run them along the x axis.
+add_axis_trial_number <- function(group, by = 5, cex = 1, vspace = 1, side = 2L) {
 
   n_trials <- group$n_trials
 
@@ -325,39 +327,61 @@ add_axis_trial_number <- function(group, by = 5, cex = 1, vspace = 1) {
   }
 
   graphics::axis(
-    side = 2L, at = at * vspace, labels = at, las = 1,
+    side = side, at = at * vspace, labels = at, las = 1,
     tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
 
 }
 
-add_axis_trial_stimuli <- function(group, cex = 1, vspace = 1, lty = 1, col = "#808080") {
+# Trial axis, labelled with the condition each block of trials belongs to. Only
+# meaningful when the trials are in their native (stimuli-grouped) order, which is
+# how `validate_condition_groupings()` builds `trials_included`.
+#
+# `side` picks the orientation, as in `add_axis_trial_number()`. The condition
+# names are always rotated 45 degrees and right-aligned onto the axis, so on side 1
+# they hang below it and need the bottom margin widened by the caller.
+add_axis_trial_stimuli <- function(group, cex = 1, vspace = 1, lty = 1,
+                                   col = "#808080", side = 2L) {
 
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
-  yline <- 1 * cex
   tck <- -0.005 * (3 + cex)
   par_opt$cex.lab <- 1
 
   separators <- cumsum(c(0, group$trial_count)) + 0.5
 
+  # Centre of each condition block, in the same user units as `separators`
+  centers <- (cumsum(group$trial_count) + 0.5 - group$trial_count / 2) * vspace
+
   graphics::axis(
-    side = 2L, at = separators * vspace, las = 1,
+    side = side, at = separators * vspace, las = 1,
     labels = rep("", length(group$trial_count) + 1),
     tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
 
-
-  graphics::text(
-    x = par("usr")[[1]],
-    y = (cumsum(group$trial_count) + 0.5 - group$trial_count / 2) * vspace,
-    labels = sprintf("%s  ", group$conditions),
-    srt = 45, adj = c(1, 0.5),
-    cex = 0.85 * cex, xpd = NA)
+  usr <- graphics::par("usr")
+  if (side == 1L) {
+    graphics::text(
+      x = centers,
+      y = usr[[3]],
+      labels = sprintf("%s  ", group$conditions),
+      srt = 45, adj = c(1, 0.5),
+      cex = 0.85 * cex, xpd = NA)
+  } else {
+    graphics::text(
+      x = usr[[1]],
+      y = centers,
+      labels = sprintf("%s  ", group$conditions),
+      srt = 45, adj = c(1, 0.5),
+      cex = 0.85 * cex, xpd = NA)
+  }
 
   if (length(separators) > 1) {
-    graphics::abline(h = separators[- c(1)] * vspace,
-                     col = col, lty = lty)
+    if (side == 1L) {
+      graphics::abline(v = separators[- c(1)] * vspace, col = col, lty = lty)
+    } else {
+      graphics::abline(h = separators[- c(1)] * vspace, col = col, lty = lty)
+    }
   }
 }
 
@@ -484,6 +508,31 @@ resolve_channel_selection <- function(x, electrode_mask = NULL) {
   index <- which(electrodes %in% electrode_mask)
   kept <- electrodes[index]
 
+  # `coord_table` is LFP-only while a channel axis need not be -- CRP runs over
+  # every loaded channel (`run_crp_on_all()`), so `electrodes` can be a strict
+  # superset. Callers index `coord_table` in lockstep with `index`, so align it
+  # by electrode number: a channel with no row gets an all-NA one, holding its
+  # place instead of shifting every label after it by one (which used to abort
+  # the figure with "'at' and 'labels' lengths differ").
+  #
+  # A wholly empty channel table has no columns to build NA rows out of, so it is
+  # left alone -- `channel_names()` then yields a zero-length vector, which
+  # `draw_axis_ranked()` already treats as "nothing to label".
+  if (ncol(coord_table)) {
+    coord_table <- coord_table[match(kept, coord_table$Electrode), , drop = FALSE]
+    rownames(coord_table) <- NULL
+
+    # The number is always known, even when nothing else about the channel is, so
+    # `channel_annotation = "number"` still labels these rows. The other styles
+    # leave them NA and `draw_axis_ranked()` skips them.
+    coord_table$Electrode <- kept
+    # Last in line for a label, and drawn in the dimmed lead colour
+    coord_table$LabelRank <- ifelse(is.na(coord_table$LabelRank %||% NA), 3L,
+                                    coord_table$LabelRank)
+    coord_table$LeadIndex <- ifelse(is.na(coord_table$LeadIndex %||% NA), 0L,
+                                    coord_table$LeadIndex)
+  }
+
   list(
     index = index,
     n = length(index),
@@ -502,6 +551,20 @@ channel_names <- function(coord_table, channel_annotation = OPTIONS_CHAN_ANNOT) 
     "short"  = coord_table$ShortLabel,
     "label"  = coord_table$Label,
     "full"   = sprintf("%s (%s)", coord_table$Electrode, coord_table$Label)
+  )
+}
+
+
+# Per-channel label priority and the alternating lead colour, shared by every
+# figure that labels a channel axis. Both columns come from
+# `recalculate_short_labels()` and are absent for a degenerate (empty) channel
+# table, which leaves the colour zero-length -- one colour, no alternation.
+crp_channel_axis_style <- function(coord_table) {
+  fg <- graphics::par("fg")
+  list(
+    rank = coord_table$LabelRank %||% 1L,
+    col = ifelse(coord_table$LeadIndex %% 2L, fg,
+                 grDevices::adjustcolor(fg, alpha.f = 0.5))
   )
 }
 
