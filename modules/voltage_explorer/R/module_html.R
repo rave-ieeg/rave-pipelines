@@ -848,10 +848,18 @@ module_html <- function() {
               ),
 
 
-              "Analysis Electrode Over Time" = div(
+              "Mean Voltage (Overlay)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
                   outputId = ns("figure_data_by_channel_condition_overlay"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+              "Canonical (Overlay)" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_by_channel_overlay"),
                   width = "100%", height = "100%"
                 )
               )
@@ -866,25 +874,61 @@ module_html <- function() {
               "\U03B1\U0027 by Electrode" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_data_crp_param_by_trial_channel_heatmap")
+                  outputId = ns("figure_data_crp_param_alpha_prime"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+              "SNR by Electrode" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_param_snr"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+              "R\U00B2 by Electrode" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_param_expl_var"),
+                  width = "100%", height = "100%"
                 )
               )
             ),
 
             ravedash::output_cardset(
-              title = "Over Time (Single Channel)",
+              title = "Single Channel Results",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
 
               footer = shiny::fluidRow(
 
                 shiny::column(
-                  width = 12L,
+                  width = 4L,
                   shiny::selectInput(
                     inputId = ns("by_cond_channel_selector"),
                     label = "Channel to plot",
                     choices = character(),
                     selectize = FALSE
+                  )
+                ),
+                shiny::column(
+                  width = 4L,
+                  shiny::tags$label(
+                    class="control-label",
+                    "Quick navigator"
+                  ),
+                  shiny::div(
+                    shiny::actionButton(
+                      inputId = ns("by_cond_channel_selector_prev"),
+                      label = "",
+                      icon = ravedash::shiny_icons$angle_left
+                    ),
+                    shiny::actionButton(
+                      inputId = ns("by_cond_channel_selector_next"),
+                      label = "",
+                      icon = ravedash::shiny_icons$angle_right
+                    )
                   )
                 )
               ),

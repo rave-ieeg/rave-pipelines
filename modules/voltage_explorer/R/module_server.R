@@ -4,7 +4,8 @@ module_server <- function(input, output, session, ...) {
 
   # Local reactive values, used to store reactive event triggers
   local_reactives <- shiny::reactiveValues(
-    update_outputs = NULL
+    update_outputs = Sys.time(),
+    update_3dviewer = Sys.time()
   )
 
   # Local non-reactive values, used to store static variables
@@ -24,7 +25,7 @@ module_server <- function(input, output, session, ...) {
 
   brain_proxy <- threeBrain::brain_proxy(outputId = "brain_viewer", session = session)
 
-  run_analysis <- function(trigger_3dviewer = TRUE, force_settings=list()) {
+  run_analysis <- function(trigger_3dviewer = FALSE, force_settings=list()) {
     if (!ravedash::watch_data_loaded()) { return() }
 
     # Collect input data
@@ -78,6 +79,13 @@ module_server <- function(input, output, session, ...) {
         ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
                              level = "debug", reset_timer = TRUE)
 
+        if (is.null(local_data$erp_results_for_viewer)) {
+          erp_results_for_viewer_signature <- NA
+        } else {
+          pipeline_meta <- pipeline$meta("erp_results_for_viewer")
+          erp_results_for_viewer_signature <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
+        }
+
         pipeline$run(
           scheduler = "none",
           type = "smart",
@@ -90,10 +98,18 @@ module_server <- function(input, output, session, ...) {
             "data_by_channel_condition",
             # "data_by_trial_channel_condition",
             "data_crp_by_channel",
-            "data_crp_param_alpha_prime"
+            "data_crp_param_alpha_prime",
+            "data_crp_param_snr",
+            "data_crp_param_expl_var"
           ),
           return_values = FALSE
         )
+
+        pipeline_meta <- pipeline$meta("erp_results_for_viewer")
+        erp_results_for_viewer_signature2 <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
+        if (!identical(erp_results_for_viewer_signature2, erp_results_for_viewer_signature)) {
+          trigger_3dviewer <- TRUE
+        }
 
         ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name,
                              level = "debug")
@@ -106,13 +122,13 @@ module_server <- function(input, output, session, ...) {
                                session = session)
         local_reactives$update_outputs <- Sys.time()
 
+        erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+        local_data$erp_results_for_viewer <- erp_results_for_viewer
+
         if (trigger_3dviewer) {
           local_reactives$update_3dviewer <- Sys.time()
         } else {
-          # erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
-          # if (is.data.frame(erp_results_for_viewer)) {
-          #   brain_proxy$set_electrode_data(data = erp_results_for_viewer, clear_first = FALSE)
-          # }
+          local_reactives$update_3dviewer_proxy <- Sys.time()
         }
       },
       error = function(e) {
@@ -210,11 +226,13 @@ module_server <- function(input, output, session, ...) {
       component_container$reset_data()
       component_container$data$repository <- new_repository
       component_container$initialize_with_new_data()
+      local_data$erp_results_for_viewer <- NULL
 
+      local_data$loaded_electrodes_clean <- pipeline$read("loaded_electrodes_clean")
       shiny::updateSelectInput(
         session = session,
         inputId = "by_cond_channel_selector",
-        choices = as.character(pipeline$read("loaded_electrodes_clean"))
+        choices = as.character(local_data$loaded_electrodes_clean)
       )
 
       # Restore condition_groups, validated against available epoch conditions
@@ -361,11 +379,66 @@ module_server <- function(input, output, session, ...) {
       shidashi::reset_output("figure_data_by_channel_condition_overlay")
       shidashi::reset_output("figure_data_by_trial_channel_condition_multiline")
       shidashi::reset_output("figure_data_by_trial_channel_condition_heatmap")
+      shidashi::reset_output("figure_data_crp_by_channel")
+      shidashi::reset_output("figure_data_crp_by_channel_overlay")
+      shidashi::reset_output("figure_data_crp_param_alpha_prime")
+      shidashi::reset_output("figure_data_crp_param_snr")
+      shidashi::reset_output("figure_data_crp_param_expl_var")
 
     }, priority = 1001),
     ravedash::watch_data_loaded(),
     ignoreNULL = FALSE,
     ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      choices <- local_data$loaded_electrodes_clean
+      if (!length(choices)) { return() }
+
+      current_channel <- as.integer(input$by_cond_channel_selector)
+
+      if (!isTRUE(current_channel %in% choices)) {
+        idx <- 1
+      } else {
+        idx <- which(choices == current_channel) - 1
+        if (idx <= 0) {
+          idx <- length(choices)
+        }
+      }
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        selected = as.character(choices[[idx]])
+      )
+    }),
+    input$by_cond_channel_selector_prev,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      choices <- local_data$loaded_electrodes_clean
+      if (!length(choices)) { return() }
+
+      current_channel <- as.integer(input$by_cond_channel_selector)
+
+      if (!isTRUE(current_channel %in% choices)) {
+        idx <- 1
+      } else {
+        idx <- which(choices == current_channel) + 1
+        if (idx > length(choices)) {
+          idx <- 1
+        }
+      }
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        selected = as.character(choices[[idx]])
+      )
+    }),
+    input$by_cond_channel_selector_next,
+    ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
 
@@ -413,6 +486,37 @@ module_server <- function(input, output, session, ...) {
     brain_proxy$mouse_event_double_click,
     ignoreNULL = TRUE, ignoreInit = FALSE
   )
+
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      erp_results_for_viewer <- local_data$erp_results_for_viewer
+      if (!is.data.frame(erp_results_for_viewer)) { return() }
+
+      value_ranges <- as.list(attr(erp_results_for_viewer, "value_ranges"))
+      cmaps <- get_colormaps()
+      palettes <- structure(
+        names = names(value_ranges),
+        lapply(names(value_ranges), function(nm) {
+          cmaps$continuous
+        })
+      )
+
+      brain_proxy$set_electrode_data(
+        data = erp_results_for_viewer,
+        palettes = palettes,
+        value_ranges = value_ranges,
+        clear_first = TRUE,
+        update_display = FALSE,
+        override = TRUE
+      )
+    }),
+    get_colormaps(),
+    local_reactives$update_3dviewer_proxy,
+    ignoreNULL = FALSE, ignoreInit = FALSE
+  )
+
   # ---- Graphics options ---------------
   get_cex <- shiny::reactive({
     if (isTRUE(input$plot_cex > 0)) {
@@ -1469,7 +1573,17 @@ module_server <- function(input, output, session, ...) {
 
       if (is.null(brain)) { return() }
 
-      erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+      erp_results_for_viewer <- local_data$erp_results_for_viewer
+      value_ranges <- as.list(attr(erp_results_for_viewer, "value_ranges"))
+
+      cmap <- use_continuous_colormap()
+      palettes <- structure(
+        names = names(value_ranges),
+        lapply(names(value_ranges), function(nm) {
+          cmap$colors
+        })
+      )
+
 
       controllers <- list()
 
@@ -1488,7 +1602,9 @@ module_server <- function(input, output, session, ...) {
         outputId = "brain_viewer",
         session = session,
         show_modal = FALSE,
-        controllers = controllers
+        controllers = controllers,
+        value_ranges = value_ranges,
+        palettes = palettes
       )
     })
   )
@@ -1764,6 +1880,47 @@ module_server <- function(input, output, session, ...) {
         } else {
           colormaps$discrete
         },
+        scale_back         = get_crp_scale_back(),
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
+
+
+  # CRP canonical response: one panel per electrode, condition groups overlaid.
+  # `col` is always the discrete palette -- the overlay draws one line per
+  # condition group and never an image, unlike the figure above.
+  shidashi::register_output(
+    outputId = "figure_data_crp_by_channel_overlay",
+    description = "CRP canonical response: one panel per electrode, condition groups overlaid.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
+
+      data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+
+      shiny::validate(shiny::need(
+        inherits(data_crp_by_channel, "data_crp_by_channel"),
+        message = "No data available"
+      ))
+
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_crp_by_channel_overlay(
+        x                  = data_crp_by_channel,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        crp                = isTRUE(input$mean_erp_crp),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
+        col                = get_colormaps()$discrete,
         scale_back         = get_crp_scale_back(),
         flip_y             = isTRUE(input$mean_erp_flip_y)
       )
