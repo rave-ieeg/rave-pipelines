@@ -451,10 +451,10 @@ module_server <- function(input, output, session, ...) {
       electrode <- as.integer(info$electrode_number)
       if (is.na(electrode)) { return() }
 
-      repository <- component_container$data$repository
-      if (is.null(repository)) { return() }
-
-      if (!isTRUE(electrode %in% repository$electrode_list)) {
+      # Only the loaded LFP channels can be plotted, which is exactly what the
+      # single-channel selector is populated from
+      choices <- local_data$loaded_electrodes_clean
+      if (!isTRUE(electrode %in% choices)) {
         ravedash::show_notification(
           sprintf("Selected electrode (%s) not loaded", electrode),
           title = '3dViewer Info',
@@ -467,17 +467,23 @@ module_server <- function(input, output, session, ...) {
 
       ravedash::clear_notifications(class = ns('threedviewer_no'), session = session)
       ravedash::show_notification(
-        paste0("Showing electrode: ", electrode),
+        paste0("Single channel results: ", electrode),
         class = ns('threedviewer_yes'),
         title = '3dViewer Info',
         delay = 2000,
         type = 'info'
       )
 
-      # Every channel is already loaded and analyzed; narrowing to this electrode is
-      # a plot-time mask change, so writing the selector is all it takes
-      id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
-      shiny::updateTextInput(inputId = id, value = dipsaus::deparse_svec(electrode))
+      # Drive the "Single Channel Results" card, not the analysis-electrode
+      # selector: every channel is already loaded and analyzed, so this is a
+      # read-out of one of them rather than a change to what is under analysis.
+      # The channel filter's "Send to electrode selector" button is the one way
+      # the electrode selector gets written.
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        selected = as.character(electrode)
+      )
 
     }),
     brain_proxy$mouse_event_double_click,
