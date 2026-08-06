@@ -15,6 +15,17 @@
 # `params` columns are in `trials_included` order, i.e. concatenated
 # condition-by-condition -- that is the `"stimuli"` order, and `"trial"` re-sorts
 # it by trial number.
+#
+# `show_summary` hangs a narrow bar panel off the right of each heatmap, one
+# horizontal bar per channel row, collapsing that row's trials to their mean and
+# standard error. It is the same summary the heatmap already shows, read across
+# instead of down -- the colour scale answers "which trial", the bars answer "how
+# big, on average".
+
+
+# Gap between a heatmap and its summary bars, in inches -- a seam, not a margin:
+# the bars annotate the panel they sit against and should read as part of it.
+SUMMARY_BAR_GAP <- 0.05
 
 
 # Axis title for a CRP parameter. Unknown names fall back to the column name.
@@ -25,13 +36,74 @@ crp_param_label <- function(parameter_name) {
 }
 
 
+# Per-channel mean across trials and its standard error. `m` is trial x channel,
+# as stored in `group_data[[ii]]$params`. Channels with fewer than two finite
+# trials get a zero-width error bar rather than an NA one, so a thin condition
+# still draws its bar; channels with no finite trial at all stay NA and are
+# skipped by `add_channel_summary_bars()`.
+crp_param_channel_stats <- function(m) {
+  avg <- colMeans(m, na.rm = TRUE)
+  avg[!is.finite(avg)] <- NA_real_
+
+  n <- colSums(!is.na(m))
+  se <- apply(m, 2L, stats::sd, na.rm = TRUE) / sqrt(n)
+  se[!is.finite(se)] <- 0
+
+  list(mean = unname(avg), se = unname(se))
+}
+
+
+# Summary bars for one heatmap panel: `stats` from `crp_param_channel_stats()`,
+# drawn at the channel rows `at` of the heatmap it sits beside.
+#
+# `ylim` is the heatmap's own y range (`par("usr")`, taken right after the
+# `image()` call) held with `yaxs = "i"`, so bar `k` lines up with heatmap row
+# `k` whatever the panel height. `xlim` is shared by every panel -- comparing
+# conditions is the whole point of the bars, and each would otherwise scale to
+# itself. The value axis is dropped: at a ninth of the heatmap's width there is
+# no room for it, and the colour bar already states the parameter's scale.
+add_channel_summary_bars <- function(stats, at, xlim, ylim, col = "#a6a6a6",
+                                     col.se = "#4d4d4d", height = 0.8) {
+
+  graphics::plot.default(
+    x = 0, y = 0, type = "n", axes = FALSE, xlab = "", ylab = "", main = "",
+    xlim = xlim, ylim = ylim, yaxs = "i"
+  )
+
+  avg <- stats$mean
+  se <- stats$se
+  ok <- which(is.finite(avg))
+  if (!length(ok)) { return(invisible()) }
+
+  # Bars grow from zero, so a signed parameter (`al_p`) reads left/right
+  graphics::rect(
+    xleft = pmin(0, avg[ok]), xright = pmax(0, avg[ok]),
+    ybottom = at[ok] - height / 2, ytop = at[ok] + height / 2,
+    col = col, border = NA
+  )
+  graphics::abline(v = 0, col = col.se, lwd = 0.5)
+
+  spread <- ok[se[ok] > 0]
+  if (length(spread)) {
+    graphics::segments(
+      x0 = avg[spread] - se[spread], x1 = avg[spread] + se[spread],
+      y0 = at[spread], y1 = at[spread], col = col.se, lwd = 0.75
+    )
+  }
+
+  invisible()
+}
+
+
 plot_data_crp_param_by_trial_channel_heatmap <- function(
     x, electrode_mask = NULL, sort_by = use_trial_sort_by(),
     space = use_plot_space_resolved()$space,
     space_mode = use_plot_space_resolved()$space_mode,
     channel_annotation = use_channel_annotation_style(), cex = use_cex(),
-    mfrow = NULL, col = use_continuous_colormap()$colors, ...) {
+    mfrow = NULL, col = use_continuous_colormap()$colors,
+    show_summary = TRUE, ...) {
 
+  show_summary <- isTRUE(show_summary)
   space_mode <- match.arg(space_mode, choices = OPTIONS_SPACE_MODE)
   channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
   sort_by <- match.arg(sort_by, choices = OPTIONS_TRIAL_SORT)
@@ -75,7 +147,19 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
     c(0, limit)
   }
 
-
+  # Summary bars are drawn from the unclamped values -- the heatmap clamps to
+  # `vlim` so the colour scale stays readable, but a mean pulled in by clamping
+  # would no longer be the mean. One shared x range over every panel's bars and
+  # error bars, always including zero since that is where the bars start.
+  if (show_summary) {
+    bar_stats <- lapply(params, crp_param_channel_stats)
+    bar_xlim <- range(c(0, unlist(lapply(bar_stats, function(s) {
+      c(s$mean - s$se, s$mean + s$se)
+    }))), na.rm = TRUE, finite = TRUE)
+    if (!all(is.finite(bar_xlim)) || diff(bar_xlim) <= 0) {
+      bar_xlim <- c(0, 1)
+    }
+  }
 
   mfrow <- get_mfrow(n = n_groups, mfrow = mfrow, asp = 3)
 
@@ -105,10 +189,18 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
     mar[[2]] <- mar[[2]] / par_opt$mai[[2]] * max_left_margin + 0.1
   }
 
-  # Reserve the last column for one colour bar per panel row
-  lmat <- matrix(seq_len(prod(mfrow)), nrow = mfrow[[1]], byrow = TRUE)
-  lmat <- cbind(lmat + mfrow[[1]], seq_len(mfrow[[1]]))
-  graphics::layout(lmat, widths = c(rep(1, mfrow[[2]]), graphics::lcm(3)))
+  # Reserve the last column for one colour bar per panel row. With the summary
+  # on, each panel owns two cells -- heatmap then bars, at 9:1 -- and the cell
+  # numbers stay consecutive, so `layout()`'s ascending draw order is the order
+  # the loop below draws in: every colour bar first, then each panel's pair.
+  n_legend <- mfrow[[1]]
+  n_cells <- if (show_summary) { 2L } else { 1L }
+  lmat <- matrix(n_legend + seq_len(prod(mfrow) * n_cells),
+                 nrow = mfrow[[1]], byrow = TRUE)
+  lmat <- cbind(lmat, seq_len(n_legend))
+  panel_widths <- if (show_summary) { c(9, 1) } else { 1 }
+  graphics::layout(lmat, widths = c(rep(panel_widths, mfrow[[2]]),
+                                    graphics::lcm(3)))
 
   graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]), cex = 1)
   for (ii in seq_len(mfrow[[1]])) {
@@ -116,7 +208,20 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
                        title = crp_param_label(x$data$parameter_name), cex = cex)
   }
 
-  graphics::par(mar = mar, cex = 1)
+  # The bars share the heatmap's top and bottom margins -- that is what makes the
+  # two plot regions the same height, and so the rows line up. Between them sits
+  # `SUMMARY_BAR_GAP` inches and nothing else: the bars carry no axis, so the
+  # heatmap gives up its right margin (which would otherwise be the far side of
+  # the figure) and the two panels split the gap. Margins are in text lines, and
+  # `mai / mar` is what one line is worth in inches.
+  mar_heatmap <- mar
+  if (show_summary) {
+    gap <- SUMMARY_BAR_GAP / (par_opt$mai[[2]] / par_opt$mar[[2]]) / 2
+    mar_heatmap[[4]] <- gap
+    mar_bar <- c(mar[[1]], gap, mar[[3]], mar[[4]])
+  }
+
+  graphics::par(mar = mar_heatmap, cex = 1)
 
   # Channel `k` occupies row `n_channels - k + 1`, so the labels are placed
   # against these rows -- channels read top-down, as in every other by-electrode
@@ -159,6 +264,9 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
       cex.lab = par_opt$cex.lab * cex
     )
 
+    # Read the panel's y range while it is current, so the bars can hold it
+    heatmap_usr <- graphics::par("usr")
+
     add_axis_ranked(
       at = channel_rows,
       labels = chan_names,
@@ -178,6 +286,15 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
       cex.main = par_opt$cex.main * cex
     )
 
+    if (show_summary) {
+      graphics::par(mar = mar_bar)
+      add_channel_summary_bars(
+        stats = bar_stats[[ii]], at = channel_rows,
+        xlim = bar_xlim, ylim = heatmap_usr[c(3, 4)]
+      )
+      graphics::par(mar = mar_heatmap)
+    }
+
   }
 
   invisible()
@@ -193,10 +310,12 @@ plot.data_crp_param_by_trial_channel <- function(
     space = DEFAULT_PLOT_SPACE / 100, space_mode = OPTIONS_SPACE_MODE,
     sort_by = DEFAULT_TRIAL_SORT,
     channel_annotation = DEFAULT_CHAN_ANNOT, cex = DEFAULT_CEX,
-    col = ravepipeline::CONTINUOUS_COLORMAPS(DEFAULT_CONTINUOUS_COLORMAP), ...) {
+    col = ravepipeline::CONTINUOUS_COLORMAPS(DEFAULT_CONTINUOUS_COLORMAP),
+    show_summary = TRUE, ...) {
   type <- match.arg(type, choices = "heatmap")
   plot_data_crp_param_by_trial_channel_heatmap(
     x = x, space = space, space_mode = space_mode, sort_by = sort_by,
-    channel_annotation = channel_annotation, cex = cex, col = col, ...
+    channel_annotation = channel_annotation, cex = cex, col = col,
+    show_summary = show_summary, ...
   )
 }
