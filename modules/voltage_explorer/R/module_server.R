@@ -169,9 +169,11 @@ module_server <- function(input, output, session, ...) {
       )
       if (!is.data.frame(erp_tbl)) { return() }
       choices <- setdiff(names(erp_tbl), c("Electrode", "Subject"))
-      # Prioritize `t_val` metrics first and push `onset` metrics to the end
+      # Prioritize `t_proj` metrics first and push `onset` metrics to the end;
+      # `order()` is stable, so everything in between keeps the source order,
+      # which is `CRP_VIEWER_METRICS`
       metric_prefix <- sub("\\s*\\(.*$", "", choices)
-      rank <- ifelse(metric_prefix == "t_val", 0L,
+      rank <- ifelse(metric_prefix == "t_proj", 0L,
                      ifelse(metric_prefix == "onset", 2L, 1L))
       choices <- choices[order(rank)]
       dipsaus::updateCompoundInput2(
@@ -228,6 +230,7 @@ module_server <- function(input, output, session, ...) {
       component_container$data$repository <- new_repository
       component_container$initialize_with_new_data()
       local_data$erp_results_for_viewer <- NULL
+      local_reactives$crp_filter_selection <- NULL
 
       local_data$loaded_electrodes_clean <- pipeline$read("loaded_electrodes_clean")
       shiny::updateSelectInput(
@@ -651,6 +654,10 @@ module_server <- function(input, output, session, ...) {
   shiny::bindEvent(
     ravedash::safe_observe({
       selection <- get_crp_channel_selection()
+
+      # Remember what was actually pushed to the viewer so the results table can
+      # report the same pass/fail status (NULL = no active filter, all pass)
+      local_reactives$crp_filter_selection <- selection
 
       # Writing the selector redraws every by-channel figure via get_electrode_mask()
       shiny::updateTextInput(
@@ -1598,14 +1605,16 @@ module_server <- function(input, output, session, ...) {
       )
 
 
-      controllers <- list()
+      controllers <- list(
+        "Show Time" = FALSE
+      )
 
       if (is.data.frame(erp_results_for_viewer)) {
         erp_results_for_viewer$crp_filter <- "true"
         brain$set_electrode_values(erp_results_for_viewer)
 
         nms <- names(erp_results_for_viewer)
-        nms <- nms[startsWith(nms, "t_val")]
+        nms <- nms[startsWith(nms, "t_proj")]
         if (length(nms)) {
           current_controller <- shiny::isolate(brain_proxy$get_controllers())
           controllers[["Display Data"]] <- current_controller[["Display Data"]] %||% nms[[1]]
@@ -1619,6 +1628,153 @@ module_server <- function(input, output, session, ...) {
         value_ranges = value_ranges,
         palettes = palettes
       )
+    })
+  )
+
+  # Flat version of the values painted on the 3D viewer: `Electrode` + electrode
+  # `Label`, followed by one column per metric x condition. `selection` is the
+  # electrode subset last pushed to the viewer; rows are restricted to it, so
+  # the table lists exactly the channels the viewer is showing (NULL = no active
+  # filter, every channel is listed). The metric-major column order and its
+  # two-row header live in the `viewer_table_layout` attribute. Returns NULL
+  # when the analysis has not produced viewer values.
+  build_crp_viewer_table <- function(selection = NULL) {
+    erp_tbl <- local_data$erp_results_for_viewer
+    if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return(NULL) }
+
+    layout <- crp_viewer_table_layout(names(erp_tbl))
+    tbl <- as.data.frame(erp_tbl, stringsAsFactors = FALSE)
+
+    if (!is.null(selection)) {
+      tbl <- tbl[tbl$Electrode %in% selection, , drop = FALSE]
+    }
+
+    # A metric can be absent for some conditions (e.g. `onset` is dropped when
+    # CRP onset detection is disabled); fill so the header stays rectangular
+    missing_columns <- setdiff(layout$columns, names(tbl))
+    for (nm in missing_columns) {
+      tbl[[nm]] <- NA_real_
+    }
+
+    electrode_table <- component_container$data$repository$electrode_table
+    if (is.data.frame(electrode_table) &&
+        all(c("Electrode", "Label") %in% names(electrode_table))) {
+      labels <- as.character(electrode_table$Label)[
+        match(tbl$Electrode, electrode_table$Electrode)]
+    } else {
+      labels <- rep(NA_character_, nrow(tbl))
+    }
+
+    leading <- data.frame(
+      Electrode = tbl$Electrode,
+      Label = labels,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
+    )
+
+    structure(
+      cbind(leading, tbl[, layout$columns, drop = FALSE]),
+      viewer_table_layout = layout
+    )
+  }
+
+  reactive_crp_viewer_table <- shiny::reactive({
+    .output_ready()
+    tbl <- build_crp_viewer_table(local_reactives$crp_filter_selection)
+    shiny::validate(
+      shiny::need(
+        is.data.frame(tbl),
+        message = "No CRP results to display"
+      ),
+      shiny::need(
+        nrow(tbl),
+        message = "No channels pass the current channel filter"
+      )
+    )
+    tbl
+  })
+
+  shidashi::register_output(
+    outputId = "crp_viewer_table",
+    description = "Per-electrode CRP statistics shown in the 3D viewer, grouped by metric with one sub-column per condition.",
+    download_type = "data",
+    extensions = list("CSV" = "csv"),
+    session = session,
+    download_function = function(con, params, ...) {
+      tbl <- build_crp_viewer_table(
+        shiny::isolate(local_reactives$crp_filter_selection))
+      utils::write.csv(tbl, file = con, row.names = FALSE)
+    },
+    expr = DT::renderDataTable({
+      tbl <- reactive_crp_viewer_table()
+      layout <- attr(tbl, "viewer_table_layout")
+      leading_names <- setdiff(names(tbl), layout$columns)
+
+      # Precision is decided per metric group over all of its conditions pooled,
+      # so the conditions of one metric stay aligned instead of each column
+      # picking its own decimals
+      digits_by_group <- vapply(layout$groups, function(group) {
+        crp_viewer_table_digits(unlist(tbl[, group$columns, drop = FALSE]))
+      }, integer(1L))
+
+      # The vertical rule between metric groups is drawn on the first column of
+      # each group; the header side of it comes from the container sketch
+      group_starts <- vapply(layout$groups, function(group) {
+        group$columns[[1L]]
+      }, character(1L))
+
+      options <- list(
+        # No `l`/`p` in `dom`: every electrode is listed at once, so there is no
+        # page-length menu or pager to show
+        dom = "Bfrti",
+        buttons = list(
+          list(extend = "copy", text = "Copy", title = ""),
+          list(extend = "csv", text = "CSV", title = "",
+               filename = "voltage-explorer-crp-results")
+        ),
+        scrollX = TRUE,
+        fixedColumns = list(leftColumns = length(leading_names)),
+        paging = FALSE,
+        columnDefs = list(list(className = "dt-center", targets = "_all"))
+      )
+
+      if (length(layout$groups)) {
+        dt <- DT::datatable(
+          tbl,
+          rownames = FALSE,
+          container = crp_viewer_table_container(layout, leading_names),
+          extensions = c("FixedColumns", "Buttons"),
+          options = options
+        )
+      } else {
+        # No metric columns to group; a grouped header would be malformed
+        dt <- DT::datatable(
+          tbl,
+          rownames = FALSE,
+          extensions = c("FixedColumns", "Buttons"),
+          options = options
+        )
+      }
+
+      # `DT::formatRound()` takes one `digits` per call, so one call per distinct
+      # precision. Only metric columns are touched, so `Electrode` -- an
+      # identifier rather than a measurement -- stays unrounded.
+      for (digits in unique(digits_by_group)) {
+        columns <- unlist(
+          lapply(layout$groups[digits_by_group == digits], `[[`, "columns"),
+          use.names = FALSE
+        )
+        dt <- DT::formatRound(dt, columns = columns, digits = digits)
+      }
+
+      if (length(group_starts)) {
+        dt <- DT::formatStyle(
+          dt,
+          columns = group_starts,
+          `border-left` = "1px solid #adb5bd"
+        )
+      }
+      dt
     })
   )
 

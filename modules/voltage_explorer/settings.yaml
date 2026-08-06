@@ -1,4 +1,4 @@
-analysis_electrodes: '13-31,33-63,65-84 '
+analysis_electrodes: 13-31,33-63,65-84
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
@@ -21,11 +21,14 @@ condition_groups:
     conditions:
     - last_v
     - drive_v
+  '4':
+    label: V2
+    conditions:
     - known_v
     - meant_v
 crp_detection_window:
 - 0.01
-- 1.0
+- 0.97
 crp_onset_border: disabled
 crp_remove_artifacts: yes
 crp_threshold_quantile: 98.0

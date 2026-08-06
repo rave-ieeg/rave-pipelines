@@ -36,6 +36,21 @@ CRP_PARAM_LABELS <- list(
   tau_R = quote(tau[R]),
   tau_onset = quote(tau[onset])
 )
+# Metrics carried into the 3D viewer and the results table, in display order.
+# Names are the viewer column prefixes emitted by
+# `prepare_data_crp_3dviewer_value()` (`shared-crp.R`); values are the
+# plain-language descriptions shown under the metric name in the results-table
+# header. This list is the single source of truth for which metrics reach the
+# viewer, in what order, and how they are explained.
+CRP_VIEWER_METRICS <- list(
+  al_p     = "mean amplitude, \U00B5V",
+  expl_var = "R\U00B2, variance explained",
+  SNR      = "canonical vs. residual signal-to-noise",
+  t_proj   = "t-statistic on trial projections",
+  tau      = "estimated response duration, s",
+  onset    = "estimated response onset, s"
+)
+
 DEFAULT_CRP_PARAMS <- list(
   time_step = 5,
   threshold_quantile = 98,

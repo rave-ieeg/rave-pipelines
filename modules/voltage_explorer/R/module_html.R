@@ -838,6 +838,39 @@ module_html <- function() {
                   outputId = ns("brain_viewer"),
                   width = "100%", height = "100%"
                 )
+              ),
+
+              # Same numbers the viewer paints on the electrodes, laid out with
+              # one header group per metric so conditions can be compared
+              "Results Table" = div(
+                class = "position-relative fill overflow-auto padding-10",
+
+                # Scoped to this table's id so the rules cannot leak into any
+                # other `DT` table on the page. `crp-group-start` marks the first
+                # column of each metric group (header cells come from the
+                # container sketch, body cells from `DT::formatStyle`). The table
+                # is unpaged, so the grouped header is pinned to the top of this
+                # scrolling tab -- `scrollX` puts it in its own `scrollHead` div,
+                # which is what has to stick.
+                shiny::tags$style(shiny::HTML(sprintf(
+                  paste(
+                    "#%1$s th.crp-group-start { border-left: 1px solid #adb5bd; }",
+                    "#%1$s .crp-metric-desc {",
+                    "  font-weight: normal; font-size: 85%%; opacity: 0.7;",
+                    "}",
+                    "#%1$s_wrapper .dataTables_scrollHead {",
+                    "  position: sticky; top: 0; z-index: 3;",
+                    "  background: var(--bs-body-bg, #fff);",
+                    "}",
+                    sep = "\n"
+                  ),
+                  ns("crp_viewer_table")
+                ))),
+
+                DT::dataTableOutput(
+                  outputId = ns("crp_viewer_table"),
+                  width = "100%"
+                )
               )
 
             ),

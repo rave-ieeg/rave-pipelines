@@ -246,13 +246,19 @@ crp_results_to_df <- function(crp_results) {
 prepare_data_crp_3dviewer_value <- function(crp_df) {
 
   if (length(crp_df)) {
+    # Metric selection, naming and order all follow `CRP_VIEWER_METRICS`. `al_mean`
+    # is deliberately absent: `al = C' V_tR` with `C` unit-normalized, so it
+    # carries a `sqrt(n_samples)` factor and has no interpretable unit. Its
+    # sibling `al_p = al / sqrt(length(C))` is the same response amplitude in
+    # micro-volts and is comparable across channels. `al_mean` stays in `crp_df`
+    # for `prepare_data_crp_by_channel()`, which uses it to scale `C_full` back.
     sub_table <- crp_df[, c(
-      "electrode", "group_label", "tau_R", "t_value_tR", "tau_onset",
-      "al_mean", "al_p_mean", "snr_mean", "expl_var_mean")]
+      "electrode", "group_label", "al_p_mean", "expl_var_mean", "snr_mean",
+      "t_value_tR", "tau_R", "tau_onset")]
 
     names(sub_table) <- c(
-      "electrode", "group_label", "tau", "statistics", "onset",
-      "coef", "coef_normalized", "snr", "expl_var")
+      "electrode", "group_label", "al_p", "expl_var", "SNR",
+      "t_proj", "tau", "onset")
 
     sub_table <- data.table::melt(sub_table, c("electrode", "group_label"), value.name = "value")
     sub_table <- sub_table[complete.cases(sub_table), ]
@@ -263,8 +269,12 @@ prepare_data_crp_3dviewer_value <- function(crp_df) {
     })
     value_ranges0 <- unlist(unname(value_ranges0), recursive = FALSE, use.names = TRUE)
 
+    # `crp_df` is sorted by electrode then group index, so this is the order the
+    # condition groups were defined in -- the same order the plot legends use
+    group_labels <- unique(sub_table$group_label)
+
     value_ranges <- list()
-    for (label in unique(sub_table$group_label)) {
+    for (label in group_labels) {
       value_ranges[sprintf("%s (%s)", names(value_ranges0), label)] <- value_ranges0
     }
 
@@ -276,6 +286,19 @@ prepare_data_crp_3dviewer_value <- function(crp_df) {
 
     erp_results_for_viewer <- data.table::dcast(
       sub_table, Electrode ~ vname, value.var = "value")
+
+    # `dcast()` sorts the wide columns alphabetically; restore metric-major order
+    # so the viewer's `Display Data` dropdown and the results table both follow
+    # `CRP_VIEWER_METRICS`. Metrics dropped by `complete.cases()` above (e.g.
+    # `onset` when onset detection is disabled) simply do not appear.
+    vname_order <- unlist(lapply(names(CRP_VIEWER_METRICS), function(metric) {
+      sprintf("%s (%s)", metric, group_labels)
+    }), use.names = FALSE)
+    new_order <- c("Electrode", intersect(vname_order, names(erp_results_for_viewer)))
+    # Spell out the full order (rather than a partial one) so this does not
+    # depend on the `data.table` version's handling of partial `neworder`
+    new_order <- c(new_order, setdiff(names(erp_results_for_viewer), new_order))
+    data.table::setcolorder(erp_results_for_viewer, new_order)
 
     attr(erp_results_for_viewer, "value_ranges") <- value_ranges
     # erp_results_for_viewer$Subject <- subject$subject_code
