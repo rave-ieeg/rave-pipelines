@@ -608,7 +608,7 @@ module_html <- function() {
                   width = 12L,
                   shiny::actionButton(
                     inputId = ns("crp_filter_apply"),
-                    label = "Update visualization",
+                    label = "Send to electrode selector",
                     width = "100%"
                   )
                 )

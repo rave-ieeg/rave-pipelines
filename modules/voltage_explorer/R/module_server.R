@@ -485,6 +485,24 @@ module_server <- function(input, output, session, ...) {
   )
 
 
+  # The channel filter as a 3D-viewer variable: one logical per electrode, which
+  # the viewer thresholds on -- logicals serialize to JSON `true`/`false`, so
+  # that is what the viewer's threshold control offers. A NULL selection (no
+  # active filter) passes every channel. Both the proxy update and the full
+  # render need this column and have to agree on it, so it is built here and
+  # nowhere else. `$<-` copies, so the table held in `local_data` is left alone
+  # -- but its `value_ranges` attribute must still be read before this is
+  # called, as both callers do.
+  with_crp_filter_column <- function(erp_tbl, selection) {
+    if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return(erp_tbl) }
+    erp_tbl$crp_filter <- if (is.null(selection)) {
+      rep(TRUE, nrow(erp_tbl))
+    } else {
+      erp_tbl$Electrode %in% selection
+    }
+    erp_tbl
+  }
+
   shiny::bindEvent(
     ravedash::safe_observe({
 
@@ -500,8 +518,13 @@ module_server <- function(input, output, session, ...) {
         })
       )
 
+      # `clear_first = TRUE` drops everything the viewer holds, so the channel
+      # filter has to be part of this push or a colormap change would wipe it.
+      # `bindEvent()` isolates this handler, so reading the selection adds no
+      # dependency -- the button's `update_3dviewer_proxy` bump re-runs it.
       brain_proxy$set_electrode_data(
-        data = erp_results_for_viewer,
+        data = with_crp_filter_column(erp_results_for_viewer,
+                                      local_reactives$crp_filter_selection),
         palettes = palettes,
         value_ranges = value_ranges,
         clear_first = TRUE,
@@ -640,16 +663,16 @@ module_server <- function(input, output, session, ...) {
     }, error = function(e) { NULL })
   })
 
-  # "Update visualization" button: push the filtered electrodes into the
-  # analysis-electrode selector, which is the single source of the channel mask, and
-  # sync the 3D viewer (flag the selected electrodes and threshold the viewer to
-  # display only them). A NULL selection (no active filter) means all channels.
+  # "Send to electrode selector" button: push the filtered electrodes into the
+  # analysis-electrode selector, which is the single source of the channel mask.
+  # A NULL selection (no active filter) means all channels.
   shiny::bindEvent(
     ravedash::safe_observe({
       selection <- get_crp_channel_selection()
 
-      # Remember what was actually pushed to the viewer so the results table can
-      # report the same pass/fail status (NULL = no active filter, all pass)
+      # Remember the selection: it is what the results table reports pass/fail
+      # against, and what the viewer's `crp_filter` variable is built from
+      # (NULL = no active filter, all pass)
       local_reactives$crp_filter_selection <- selection
 
       # Writing the selector redraws every by-channel figure via get_electrode_mask()
@@ -661,30 +684,9 @@ module_server <- function(input, output, session, ...) {
         )
       )
 
-      erp_tbl <- tryCatch(
-        pipeline$read(var_names = "erp_results_for_viewer"),
-        error = function(e) NULL
-      )
-      if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return() }
-
-      electrodes <- erp_tbl$Electrode
-      crp_filter <- if (is.null(selection)) {
-        rep(TRUE, length(electrodes))
-      } else {
-        electrodes %in% selection
-      }
-      crp_filter <- ifelse(crp_filter, "true", "false")
-
-      brain_proxy$set_electrode_data(
-        data = data.frame(Electrode = electrodes, crp_filter = crp_filter),
-        clear_first = FALSE,
-        update_display = FALSE,
-        override = TRUE
-      )
-      brain_proxy$set_controllers(list(
-        "Threshold Data" = "crp_filter",
-        "Threshold Range" = "true"
-      ))
+      # Repaint the viewer's electrode values, `crp_filter` among them, without
+      # a full re-render
+      local_reactives$update_3dviewer_proxy <- Sys.time()
     }),
     input$crp_filter_apply,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1599,11 +1601,24 @@ module_server <- function(input, output, session, ...) {
 
 
       controllers <- list(
-        "Show Time" = FALSE
+        "Show Time" = FALSE,
+
+        # Thresholding on the filter variable is what makes "Send to electrode
+        # selector" hide the channels that failed. The controller value names
+        # the JSON level, not the R one; with no filter every electrode is TRUE,
+        # so the default view shows everything.
+        "Threshold Data" = "crp_filter",
+        "Threshold Range" = "true"
       )
 
       if (is.data.frame(erp_results_for_viewer)) {
-        erp_results_for_viewer$crp_filter <- "true"
+        # `isolate()`: a plain read would re-render the whole viewer -- camera
+        # reset and all -- on every press of the button, which is exactly what
+        # the proxy repaint exists to avoid
+        erp_results_for_viewer <- with_crp_filter_column(
+          erp_results_for_viewer,
+          shiny::isolate(local_reactives$crp_filter_selection)
+        )
         brain$set_electrode_values(erp_results_for_viewer)
 
         nms <- names(erp_results_for_viewer)
