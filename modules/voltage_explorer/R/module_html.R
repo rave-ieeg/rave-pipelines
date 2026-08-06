@@ -596,7 +596,10 @@ module_html <- function() {
                       "Restrict the CRP-by-channel plots to electrodes whose CRP",
                       "metrics satisfy the combined filters. Operators apply",
                       "left-to-right (the first is ignored), e.g. c1 AND c2 OR c3",
-                      "= (c1 & c2) | c3. No rows shows all channels."
+                      "= (c1 & c2) | c3. No rows shows all channels.",
+                      "'all:<metric>' passes a channel only if every condition",
+                      "of that metric passes; 'any:<metric>' if at least one",
+                      "does. A missing value fails its own condition."
                     )
                   )
                 ),

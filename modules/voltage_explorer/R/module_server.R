@@ -168,14 +168,7 @@ module_server <- function(input, output, session, ...) {
         error = function(e) NULL
       )
       if (!is.data.frame(erp_tbl)) { return() }
-      choices <- setdiff(names(erp_tbl), c("Electrode", "Subject"))
-      # Prioritize `t_proj` metrics first and push `onset` metrics to the end;
-      # `order()` is stable, so everything in between keeps the source order,
-      # which is `CRP_VIEWER_METRICS`
-      metric_prefix <- sub("\\s*\\(.*$", "", choices)
-      rank <- ifelse(metric_prefix == "t_proj", 0L,
-                     ifelse(metric_prefix == "onset", 2L, 1L))
-      choices <- choices[order(rank)]
+      choices <- crp_filter_choices(names(erp_tbl))
       dipsaus::updateCompoundInput2(
         session = session,
         inputId = "crp_channel_filter",
