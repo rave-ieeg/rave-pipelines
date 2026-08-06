@@ -147,6 +147,14 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
     c(0, limit)
   }
 
+  # A rejected trial is NA in `params`, which `image()` would leave unpainted --
+  # the same white a near-zero value gets from a diverging colormap. Only worth
+  # a colour of its own if there is a rejected trial to mark.
+  na_col <- NULL
+  if (any(vapply(params, anyNA, FALSE))) {
+    na_col <- heatmap_na_color(vlim = vlim, col = col)
+  }
+
   # Summary bars are drawn from the unclamped values -- the heatmap clamps to
   # `vlim` so the colour scale stays readable, but a mean pulled in by clamping
   # would no longer be the mean. One shared x range over every panel's bars and
@@ -204,7 +212,7 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
 
   graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]), cex = 1)
   for (ii in seq_len(mfrow[[1]])) {
-    add_heatmap_legend(vlim = vlim, col = col,
+    add_heatmap_legend(vlim = vlim, col = col, na_col = na_col,
                        title = crp_param_label(x$data$parameter_name), cex = cex)
   }
 
@@ -263,6 +271,21 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
       cex.main = par_opt$cex.main * cex,
       cex.lab = par_opt$cex.lab * cex
     )
+
+    # Repaint the cells `image()` skipped, in the colour the legend names. The
+    # two images cover disjoint cells, so nothing shows through a seam.
+    if (!is.null(na_col) && anyNA(z)) {
+      z_na <- array(NA_real_, dim = dim(z))
+      z_na[is.na(z)] <- 1
+      graphics::image(
+        x = seq_len(n_trials),
+        y = seq_len(n_channels),
+        z = z_na,
+        zlim = c(0, 1),
+        col = na_col,
+        add = TRUE
+      )
+    }
 
     # Read the panel's y range while it is current, so the bars can hold it
     heatmap_usr <- graphics::par("usr")

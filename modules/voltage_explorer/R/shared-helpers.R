@@ -271,8 +271,53 @@ value_format <- function(vlim) {
   sprintf("%%.%df", digits)
 }
 
+# The colour `image()` paints `value` with, for a palette stretched over `vlim`.
+# `image()` cuts the range into `length(col)` equal bins; values outside it are
+# clamped here rather than dropped, since callers ask about the ends of a scale.
+colormap_value_color <- function(value, vlim, col) {
+  n <- length(col)
+  if (!n) { return(NA_character_) }
+  vlim <- range(vlim, na.rm = TRUE)
+  span <- diff(vlim)
+  index <- if (isTRUE(span > 0)) {
+    floor((value - vlim[[1]]) / span * n) + 1
+  } else {
+    1
+  }
+  col[[min(max(index, 1), n)]]
+}
+
+# Perceived brightness of a colour, 0 (black) to 255 (white).
+color_luminance <- function(col) {
+  as.vector(c(0.299, 0.587, 0.114) %*% grDevices::col2rgb(col))
+}
+
+# `image()` leaves an NA cell unpainted, so it shows the device background --
+# which reads as "no value" only while the palette is dark where the data is
+# zero. The default blue-white-red is *white* there, so a rejected trial would
+# be indistinguishable from a null response. Whenever zero's colour is lighter
+# than `NA_CELL_MIN_CONTRAST`, the caller paints NA cells `NA_CELL_COLOR`
+# instead; below that the background is contrast enough and the figure keeps its
+# unpainted (lighter) look. Returns `NULL` when no override is needed.
+NA_CELL_COLOR <- "#808080"
+NA_CELL_MIN_CONTRAST <- "#e2e2e2"
+
+heatmap_na_color <- function(vlim, col) {
+  zero_color <- colormap_value_color(0, vlim = vlim, col = col)
+  if (is.na(zero_color)) { return(NULL) }
+  if (color_luminance(zero_color) > color_luminance(NA_CELL_MIN_CONTRAST)) {
+    return(NA_CELL_COLOR)
+  }
+  NULL
+}
+
+# `na_col` (from `heatmap_na_color()`) adds a swatch under the bar, labelled
+# `na_label`, for the cells the colour scale cannot speak for. It is drawn in the
+# bar's own units -- `image()` is `yaxs = "i"`, so the strip reserved below
+# `vlim` is exactly the height asked for.
 add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
-                               fmt = NULL) {
+                               fmt = NULL, na_col = NULL,
+                               na_label = "outlier") {
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
   par_opt$cex.lab <- 1
@@ -285,6 +330,14 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
 
   legend_z <- seq(vlim[[1]], vlim[[2]], length.out = length(col))
 
+  span <- diff(vlim)
+  if (!isTRUE(span > 0)) { span <- 1 }
+
+  ylim <- vlim
+  if (length(na_col)) {
+    ylim[[1]] <- vlim[[1]] - span * 0.24
+  }
+
   graphics::image(
     x = 1,
     y = legend_z,
@@ -293,6 +346,7 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
     xlab = "",
     ylab = "",
     main = title,
+    ylim = ylim,
     col = col,
     cex.main = par_opt$cex.main * cex
   )
@@ -304,6 +358,22 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
     las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
   )
+
+  if (length(na_col)) {
+    # Full bar width, so the swatch reads as the same scale continued; the label
+    # is centred under it and may need the margins, hence `xpd = NA`
+    usr <- graphics::par("usr")
+    graphics::rect(
+      xleft = usr[[1]], xright = usr[[2]],
+      ybottom = vlim[[1]] - span * 0.14, ytop = vlim[[1]] - span * 0.07,
+      col = na_col, border = graphics::par("fg")
+    )
+    graphics::text(
+      x = mean(usr[c(1, 2)]), y = vlim[[1]] - span * 0.14,
+      labels = na_label, adj = c(0.5, 1.3), xpd = NA,
+      cex = par_opt$cex.axis * cex
+    )
+  }
 }
 
 # Trial axis, labelled with trial numbers. `side` picks the orientation: 2 for
