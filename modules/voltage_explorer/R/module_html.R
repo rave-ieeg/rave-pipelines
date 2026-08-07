@@ -369,10 +369,6 @@ module_html <- function() {
 
             ), # end Signal Filters card
 
-            # ---- Electrode Selector -------------------------------------------
-
-            electrode_selector$ui_func(),
-
             # ---- Condition Groups card ----------------------------------------
 
             ravedash::input_card(
@@ -417,14 +413,20 @@ module_html <- function() {
               )
             ),
 
+
+            # ---- Electrode Selector -------------------------------------------
+
+            electrode_selector$ui_func(),
+
             # ---- CRP Parameters card ------------------------------------------
 
             ravedash::input_card(
               title = "CRP Parameters",
               class_header = "shidashi-anchor",
+              toggle_advanced = TRUE,
 
               ravedash::group_box(
-                title = "Detection window",
+                title = "Response window",
                 class = "row",
 
                 shiny::column(
@@ -446,12 +448,29 @@ module_html <- function() {
                       "Bounds are set automatically when epoch data is loaded."
                     )
                   )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("crp_remove_artifacts"),
+                      label = "Remove artifacts",
+                      value = DEFAULT_CRP_PARAMS$remove_artifacts
+                    ),
+                    inputId = "crp_remove_artifacts",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Discard trials flagged as artifacts before estimating the",
+                      "canonical response. Uncheck to keep every trial."
+                    )
+                  )
                 )
               ),
 
               ravedash::group_box(
                 title = "Advanced",
-                class = "row",
+                class = "row rave-optional soft-hidden",
 
                 shiny::column(
                   width = 12L,
@@ -577,7 +596,10 @@ module_html <- function() {
                       "Restrict the CRP-by-channel plots to electrodes whose CRP",
                       "metrics satisfy the combined filters. Operators apply",
                       "left-to-right (the first is ignored), e.g. c1 AND c2 OR c3",
-                      "= (c1 & c2) | c3. No rows shows all channels."
+                      "= (c1 & c2) | c3. No rows shows all channels.",
+                      "'all:<metric>' passes a channel only if every condition",
+                      "of that metric passes; 'any:<metric>' if at least one",
+                      "does. A missing value fails its own condition."
                     )
                   )
                 ),
@@ -586,7 +608,7 @@ module_html <- function() {
                   width = 12L,
                   shiny::actionButton(
                     inputId = ns("crp_filter_apply"),
-                    label = "Update visualization",
+                    label = "Send to electrode selector",
                     width = "100%"
                   )
                 )
@@ -636,6 +658,53 @@ module_html <- function() {
                 #     value = FALSE
                 #   )
                 # )
+              ),
+
+              ravedash::group_box(
+                title = "By-electrode figures",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shiny::selectInput(
+                    inputId = ns("by_channel_plot_type"),
+                    label = "Rendering",
+                    choices = c("Stacked lines" = "multiline", "Heatmap" = "heatmap"),
+                    selected = use_by_channel_plot_type()
+                  )
+                )
+              ),
+
+              # The rendering above decides which of these two palettes is in
+              # play, hence their placement right below it. `colormapSelectInput()`
+              # draws each palette as a colour bar under its name, so they can be
+              # picked by eye. `preview = FALSE` matters: bare `*_COLORMAPS()`
+              # defaults `preview` to `TRUE` and plots as a side effect.
+              ravedash::group_box(
+                title = "Colors",
+                class = "row",
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::colormapSelectInput(
+                    inputId = ns("discrete_colormap"),
+                    label = "Condition colors",
+                    colormaps = ravepipeline::DISCRETE_COLORMAPS(preview = FALSE),
+                    selected = use_discrete_colormap()$name,
+                    continuous = FALSE
+                  )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shidashi::colormapSelectInput(
+                    inputId = ns("continuous_colormap"),
+                    label = "Heatmap colors",
+                    colormaps = ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE),
+                    selected = use_continuous_colormap()$name,
+                    continuous = TRUE
+                  )
+                )
               ),
 
               ravedash::group_box(
@@ -710,6 +779,15 @@ module_html <- function() {
                     label = "Show CRP decoration",
                     value = TRUE
                   )
+                ),
+
+                shiny::column(
+                  width = 12L,
+                  shiny::checkboxInput(
+                    inputId = ns("crp_scale_back"),
+                    label = "Scale canonical to \U00B5V",
+                    value = use_crp_scale_back()
+                  )
                 )
 
               ),
@@ -753,7 +831,7 @@ module_html <- function() {
             width = 12L,
 
             ravedash::output_cardset(
-              title = "Brain Viewers",
+              title = "Overall",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
 
@@ -762,6 +840,39 @@ module_html <- function() {
                 threeBrain::threejsBrainOutput(
                   outputId = ns("brain_viewer"),
                   width = "100%", height = "100%"
+                )
+              ),
+
+              # Same numbers the viewer paints on the electrodes, laid out with
+              # one header group per metric so conditions can be compared
+              "Results Table" = div(
+                class = "position-relative fill overflow-auto padding-10",
+
+                # Scoped to this table's id so the rules cannot leak into any
+                # other `DT` table on the page. `crp-group-start` marks the first
+                # column of each metric group (header cells come from the
+                # container sketch, body cells from `DT::formatStyle`). The table
+                # is unpaged, so the grouped header is pinned to the top of this
+                # scrolling tab -- `scrollX` puts it in its own `scrollHead` div,
+                # which is what has to stick.
+                shiny::tags$style(shiny::HTML(sprintf(
+                  paste(
+                    "#%1$s th.crp-group-start { border-left: 1px solid #adb5bd; }",
+                    "#%1$s .crp-metric-desc {",
+                    "  font-weight: normal; font-size: 85%%; opacity: 0.7;",
+                    "}",
+                    "#%1$s_wrapper .dataTables_scrollHead {",
+                    "  position: sticky; top: 0; z-index: 3;",
+                    "  background: var(--bs-body-bg, #fff);",
+                    "}",
+                    sep = "\n"
+                  ),
+                  ns("crp_viewer_table")
+                ))),
+
+                DT::dataTableOutput(
+                  outputId = ns("crp_viewer_table"),
+                  width = "100%"
                 )
               )
 
@@ -773,65 +884,126 @@ module_html <- function() {
               class_body = "no-padding fill-width min-height-450 height-550 resize-vertical",
               append_tools = FALSE,
 
-
-              "Canonical (Lines)" = div(
+              "Mean Voltage" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_crp_by_channel"),
-                  width = "100%", height = "100%"
-                )
-              ),
-              "Canonical (Heatmap)" = div(
-                class = "position-relative fill",
-                shiny::plotOutput(
-                  outputId = ns("figure_crp_by_channel_heatmap"),
+                  outputId = ns("figure_data_by_channel_condition"),
                   width = "100%", height = "100%"
                 )
               ),
 
-
-              "Analysis Electrode Over Time" = div(
+              "Canonical Representations" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_ch"),
+                  outputId = ns("figure_data_crp_by_channel"),
                   width = "100%", height = "100%"
                 )
               ),
 
-              "Per Condition" = div(
+
+              "Mean Voltage (Overlay)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_channel_condition_cond"),
+                  outputId = ns("figure_data_by_channel_condition_overlay"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+              "Canonical (Overlay)" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_by_channel_overlay"),
                   width = "100%", height = "100%"
                 )
               )
 
             ),
 
-
             ravedash::output_cardset(
-              title = "By Condition (Collapse Channels)",
+              title = "By Trial",
               class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
               append_tools = FALSE,
+
+              "\U03B1\U0027 by Electrode" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_param_alpha_prime"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+              "SNR by Electrode" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_param_snr"),
+                  width = "100%", height = "100%"
+                )
+              ),
+
+              "R\U00B2 by Electrode" = div(
+                class = "position-relative fill",
+                shiny::plotOutput(
+                  outputId = ns("figure_data_crp_param_expl_var"),
+                  width = "100%", height = "100%"
+                )
+              )
+            ),
+
+            ravedash::output_cardset(
+              title = "Single Channel Results",
+              class_body = "no-padding fill-width min-height-450 height-450 resize-vertical",
+              append_tools = FALSE,
+
+              footer = shiny::fluidRow(
+
+                shiny::column(
+                  width = 4L,
+                  shiny::selectInput(
+                    inputId = ns("by_cond_channel_selector"),
+                    label = "Channel to plot",
+                    choices = character(),
+                    selectize = FALSE
+                  )
+                ),
+                shiny::column(
+                  width = 4L,
+                  shiny::tags$label(
+                    class="control-label",
+                    "Quick navigator"
+                  ),
+                  shiny::div(
+                    shiny::actionButton(
+                      inputId = ns("by_cond_channel_selector_prev"),
+                      label = "",
+                      icon = ravedash::shiny_icons$angle_left
+                    ),
+                    shiny::actionButton(
+                      inputId = ns("by_cond_channel_selector_next"),
+                      label = "",
+                      icon = ravedash::shiny_icons$angle_right
+                    )
+                  )
+                )
+              ),
 
               "Over Time" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_condition_over_time"),
+                  outputId = ns("figure_data_by_trial_channel_condition_butterfly"),
                   width = "100%", height = "100%"
                 )
               ),
               "By Trial (Lines)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_trial_per_condition"),
+                  outputId = ns("figure_data_by_trial_channel_condition_multiline"),
                   width = "100%", height = "100%"
                 )
               ),
               "By Trial (Heatmap)" = div(
                 class = "position-relative fill",
                 shiny::plotOutput(
-                  outputId = ns("figure_by_trial_per_condition_heatmap"),
+                  outputId = ns("figure_data_by_trial_channel_condition_heatmap"),
                   width = "100%", height = "100%"
                 )
               )

@@ -1,4 +1,4 @@
-analysis_electrodes: 15
+analysis_electrodes: '13-31,33-63,65-84 '
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
@@ -24,9 +24,10 @@ condition_groups:
     - known_v
     - meant_v
 crp_detection_window:
-- 0
-- 1
+- -0.2
+- 1.0
 crp_onset_border: disabled
+crp_remove_artifacts: yes
 crp_threshold_quantile: 98.0
 crp_time_step: 5
 epoch_choice: YABaOutlier
@@ -52,5 +53,5 @@ filter_configurations:
   - 0
 loaded_electrodes: 13-31,33-63,65-84
 project_name: test
-reference_name: default
+reference_name: CARLA
 subject_code: YAB

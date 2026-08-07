@@ -1,6 +1,16 @@
+# Retired code, kept for reference only.
+#
+# The pipeline sources `R/shared-*.R` and nothing else, so anything parked here is
+# invisible to the pipeline, to the report, and to `plot()` dispatch via
+# `ravepipeline::pipeline_plot_data`. The Shiny app sources every `R/*.R`, so these
+# are still *defined* in the app -- dead, but present. Do not add new callers.
 
 
-# Overall plot: (collapse condition AND channels)
+# ---- plot_collapse_by_condition ----------------------------------------------
+# Retired: plots a `data_collapse_by_condition` container that no producer in this
+# module has ever created. The "collapse over channels" figure it drew is the one
+# case the electrode-mask refactor deliberately removed -- averaging unrelated
+# channels together is not a meaningful summary.
 plot_collapse_by_condition <- function(
     data_collapse_by_condition, crp_decoration = TRUE, col = NULL, flip_y = FALSE,
     vertical_marks = 0, time_range = c(NA, NA), cex = 1) {
@@ -22,7 +32,7 @@ plot_collapse_by_condition <- function(
   max_group_idx <- max(group_indexes)
 
   if (!length(col)) {
-    pal <- use_discrete_palette()
+    pal <- use_discrete_colormap()
     col <- pal$colors
   }
   if (length(col) < max_group_idx) {
@@ -76,42 +86,38 @@ plot_collapse_by_condition <- function(
 }
 
 
-# plot generics
-plot.data_by_channel_condition <- function(x, ...) {
-  plot_by_channel_condition(data_by_channel_condition = x, ...)
-}
-
+# ---- plot.data_collapse_by_condition -----------------------------------------
+# Retired: dispatch for the above.
 plot.data_collapse_by_condition <- function(x, ...) {
   plot_collapse_by_condition(data_collapse_by_condition = x, ...)
 }
 
-plot.crp_by_channel <- function(x, type = c("multilines", "heatmap"), ...) {
-  type <- match.arg(type)
-  switch(
-    type,
-    "heatmap" = {
-      plot_crp_by_channel_heatmap(crp_by_channel = x, ...)
-    },
-    {
-      plot_crp_by_channel_multilines(crp_by_channel = x, ...)
-    }
-  )
-}
 
-plot.data_by_trial_channel_condition <- function(
-    x, type = c("collapse_trial", "by_trial_line", "by_trial_heatmap"), ...) {
-  type <- match.arg(type)
+# ---- filter_electrodes -------------------------------------------------------
+# Retired: this cleaned the old `analysis_electrodes` input into
+# `analysis_electrodes_clean`, a target that no longer exists. Channel selection is
+# now a plot-time mask; see `resolve_channel_selection()` in `shared-helpers.R`.
+filter_electrodes <- function(repository, electrodes, type = "LFP", strict = TRUE) {
+  available_electrodes <- repository$electrode_list
+  if (missing(electrodes)) {
+    electrodes <- available_electrodes
+  } else {
+    electrodes <- ravecore:::parse_svec(unlist(electrodes))
+  }
+  # Now filter by type
+  available_electrodes2 <- repository$subject$electrodes[repository$subject$electrode_types %in% type]
+  available_electrodes <- intersect(available_electrodes, available_electrodes2)
 
-  switch (
-    type,
-    "by_trial_heatmap" = {
-      plot_by_trials_per_condition_heatmap(data_by_trial_channel_condition = x, ...)
-    },
-    "collapse_trial" = {
-      plot_trials_per_condition(data_by_trial_channel_condition = x, ...)
-    },
-    {
-      plot_by_trials_per_condition_multilines(data_by_trial_channel_condition = x, ...)
-    }
-  )
+  electrodes <- electrodes[electrodes %in% available_electrodes]
+  electrodes <- sort(as.integer(electrodes))
+
+  if (strict && !length(electrodes)) {
+    stop(sprintf(
+      "No electrode channels selected filtered matching type %s. Please specify the electrodes from the following loaded: %s",
+      paste(sprintf("`%s`", type), collapse = ", "),
+      ravecore:::deparse_svec(available_electrodes)
+    ))
+  }
+
+  electrodes
 }

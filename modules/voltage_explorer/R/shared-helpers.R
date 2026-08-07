@@ -24,10 +24,13 @@ get_spacing <- function(x, space, space_mode = c("quantile", "absolute")) {
 }
 
 
-get_mfrow <- function(n, mfrow = NULL, asp = 3) {
+# Panel layout for `n` sub-figures. Up to `single_row_max` panels are laid out in a
+# single row; beyond that `n2mfrow` picks a grid at the requested aspect ratio. A
+# caller-supplied `mfrow` of length 2 always wins.
+get_mfrow <- function(n, mfrow = NULL, asp = 3, single_row_max = 4) {
   if (length(mfrow) != 2 || anyNA(mfrow)) {
-    if (n > 4) {
-      mfrow <- n2mfrow(n, asp = 3)
+    if (n > single_row_max) {
+      mfrow <- n2mfrow(n, asp = asp)
     } else {
       mfrow <- c(1, n)
     }
@@ -74,7 +77,11 @@ add_axis_time <- function(time_range, text = "Time (s)", cex = 1) {
                   cex = par_opt$cex.lab * cex)
 }
 
-add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), cex = 1) {
+# `fmt` widens to more decimals for callers whose values are not in micro-volts
+# (an unscaled CRP shape would otherwise print as "0"); `text = ""` drops the
+# axis label entirely for those callers, since they have no unit to name.
+add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), cex = 1,
+                             fmt = "%.0f") {
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
   yline <- 1 * cex
@@ -83,11 +90,112 @@ add_axis_voltage <- function(value_range, text = bquote("Voltage" ~ (mu * V)), c
   graphics::axis(
     side = 2L,
     at = c(value_range, 0),
-    labels = c(sprintf("%.0f", value_range), "0"),
+    labels = c(sprintf(fmt, value_range), "0"),
     las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
   )
   graphics::mtext(side = 2L, text, line = 2, cex = cex)
+}
+
+# Axis labels with an explicit priority order, for axes too crowded to label in
+# full.
+#
+# `graphics::axis()` already drops labels that would collide, but it always scans
+# the axis from its low end upward and keeps whatever it reaches first --
+# regardless of the order `at` is given in. Panels that stack channels from the
+# top down therefore lose exactly the labels that should have survived, and a
+# second `axis()` call cannot see what the first one drew, so separately-drawn
+# labels overprint each other.
+#
+# So the thinning happens here instead: candidates are tried in `rank` order
+# (lower wins, ties broken in reading order) and one is kept only when it clears
+# every label already accepted. Drawing is one `axis()` call per label -- a call
+# carrying a single label has nothing to collide with, so R's own thinning never
+# fires and this selection is the only thing that drops anything.
+#
+# `at`, `labels` as in `graphics::axis()`; `rank` and `col.axis` are recycled over
+# them -- one label per call means each can have its own colour. `gap` pads the
+# measured label extent. `thin = FALSE` draws every label, overlaps and all.
+# `...` is passed to `graphics::axis()` (`pos`, `tick`, ...). Returns the indices
+# drawn.
+#
+# Called through `add_axis_ranked()`, never directly -- how many labels fit
+# depends on the device size, so the selection has to be redone on every resize.
+draw_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
+                             gap = 1.1, thin = TRUE, col.axis = NULL, ...) {
+  cex_axis <- graphics::par("cex.axis") * cex
+
+  labels <- as.character(labels)
+  candidates <- which(is.finite(at) & !is.na(labels) & nzchar(labels))
+  if (!length(candidates)) { return(invisible(integer(0))) }
+
+  if (thin) {
+    # Along-axis extent of each label, in user units, measured at the size it
+    # will be drawn at. Sides 2/4 are labelled with `las = 1`, so what limits
+    # them is text height; sides 1/3 are limited by width.
+    extent <- if (side %in% c(2L, 4L)) {
+      graphics::strheight(labels, units = "user", cex = cex_axis)
+    } else {
+      graphics::strwidth(labels, units = "user", cex = cex_axis)
+    }
+    extent <- extent * gap
+
+    rank <- rep_len(rank, length(at))
+    # Reading order: top-down on a vertical axis, left-to-right on a horizontal
+    # one. Only used to break ties within a rank.
+    along <- if (side %in% c(2L, 4L)) { -at } else { at }
+    ordered <- candidates[order(rank[candidates], along[candidates])]
+
+    kept <- integer(0)
+    for (ii in ordered) {
+      if (!length(kept) ||
+          all(abs(at[[ii]] - at[kept]) >= (extent[[ii]] + extent[kept]) / 2)) {
+        kept <- c(kept, ii)
+      }
+    }
+    candidates <- sort(kept)
+  }
+
+  if (length(col.axis)) {
+    col.axis <- rep_len(col.axis, length(at))
+  }
+
+  for (ii in candidates) {
+    if (length(col.axis)) {
+      graphics::axis(side = side, at = at[[ii]], labels = labels[[ii]],
+                     las = 1, cex.axis = cex_axis, col.axis = col.axis[[ii]], ...)
+    } else {
+      graphics::axis(side = side, at = at[[ii]], labels = labels[[ii]],
+                     las = 1, cex.axis = cex_axis, ...)
+    }
+  }
+
+  invisible(candidates)
+}
+
+# Draw ranked axis labels, re-thinning them whenever the device is resized.
+#
+# Resizing a plot does not re-run the code that drew it: R replays the graphics
+# engine display list. Base graphics record their `.Internal` calls there, so
+# `graphics::axis()` re-runs against the new device size and re-thins itself --
+# but a selection made in R beforehand is not on that list, only the labels it
+# happened to pick, so those would be replayed frozen at any size. Shiny makes
+# this the usual case rather than the exception: `shiny::renderPlot()` defaults
+# to `execOnResize = FALSE`, so every resize is a replay.
+#
+# `grDevices::recordGraphics()` puts the call itself on the display list, along
+# with everything it needs to be evaluated again, which is what keeps the
+# thinning honest across resizes. `draw_axis_ranked()` -- not this function --
+# has to be what gets recorded, or each replay would record itself afresh.
+add_axis_ranked <- function(at, labels, rank = 1L, side = 2L, cex = 1,
+                            gap = 1.1, thin = TRUE, col.axis = NULL, ...) {
+  args <- list(at = at, labels = labels, rank = rank, side = side,
+               cex = cex, gap = gap, thin = thin, col.axis = col.axis, ...)
+  grDevices::recordGraphics(
+    do.call(draw_axis_ranked, args),
+    list(args = args, draw_axis_ranked = draw_axis_ranked),
+    getNamespace("grDevices")
+  )
 }
 
 add_vertical_marks <- function(vertical_marks = NULL, col = "#808080", lty = 3, ...) {
@@ -150,27 +258,85 @@ add_crp_decorators <- function(crp_result, cex = 1) {
 
 }
 
+# `sprintf` format with enough precision that a small (normalized) range does not
+# collapse to the same printed value on every tick. Whole numbers suffice for
+# micro-volts; a canonical shape spanning 0.1 needs two decimals.
+value_format <- function(vlim) {
+  span <- diff(range(vlim, na.rm = TRUE))
+  if (is.finite(span) && span > 0) {
+    digits <- max(0, ceiling(-log10(span)) + 1)
+  } else {
+    digits <- 0
+  }
+  sprintf("%%.%df", digits)
+}
+
+# The colour `image()` paints `value` with, for a palette stretched over `vlim`.
+# `image()` cuts the range into `length(col)` equal bins; values outside it are
+# clamped here rather than dropped, since callers ask about the ends of a scale.
+colormap_value_color <- function(value, vlim, col) {
+  n <- length(col)
+  if (!n) { return(NA_character_) }
+  vlim <- range(vlim, na.rm = TRUE)
+  span <- diff(vlim)
+  index <- if (isTRUE(span > 0)) {
+    floor((value - vlim[[1]]) / span * n) + 1
+  } else {
+    1
+  }
+  col[[min(max(index, 1), n)]]
+}
+
+# Perceived brightness of a colour, 0 (black) to 255 (white).
+color_luminance <- function(col) {
+  as.vector(c(0.299, 0.587, 0.114) %*% grDevices::col2rgb(col))
+}
+
+# `image()` leaves an NA cell unpainted, so it shows the device background --
+# which reads as "no value" only while the palette is dark where the data is
+# zero. The default blue-white-red is *white* there, so a rejected trial would
+# be indistinguishable from a null response. Whenever zero's colour is lighter
+# than `NA_CELL_MIN_CONTRAST`, the caller paints NA cells `NA_CELL_COLOR`
+# instead; below that the background is contrast enough and the figure keeps its
+# unpainted (lighter) look. Returns `NULL` when no override is needed.
+NA_CELL_COLOR <- "#808080"
+NA_CELL_MIN_CONTRAST <- "#e2e2e2"
+
+heatmap_na_color <- function(vlim, col) {
+  zero_color <- colormap_value_color(0, vlim = vlim, col = col)
+  if (is.na(zero_color)) { return(NULL) }
+  if (color_luminance(zero_color) > color_luminance(NA_CELL_MIN_CONTRAST)) {
+    return(NA_CELL_COLOR)
+  }
+  NULL
+}
+
+# `na_col` (from `heatmap_na_color()`) adds a swatch under the bar, labelled
+# `na_label`, for the cells the colour scale cannot speak for. It is drawn in the
+# bar's own units -- `image()` is `yaxs = "i"`, so the strip reserved below
+# `vlim` is exactly the height asked for.
 add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
-                               fmt = NULL) {
+                               fmt = NULL, na_col = NULL,
+                               na_label = "outlier") {
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
   par_opt$cex.lab <- 1
 
   vlim <- range(vlim, na.rm = TRUE)
 
-  # Pick a format with enough precision so small (normalized) ranges do not
-  # collapse to the same printed value.
   if (is.null(fmt)) {
-    span <- diff(vlim)
-    if (is.finite(span) && span > 0) {
-      digits <- max(0, ceiling(-log10(span)) + 1)
-    } else {
-      digits <- 0
-    }
-    fmt <- sprintf("%%.%df", digits)
+    fmt <- value_format(vlim)
   }
 
   legend_z <- seq(vlim[[1]], vlim[[2]], length.out = length(col))
+
+  span <- diff(vlim)
+  if (!isTRUE(span > 0)) { span <- 1 }
+
+  ylim <- vlim
+  if (length(na_col)) {
+    ylim[[1]] <- vlim[[1]] - span * 0.24
+  }
 
   graphics::image(
     x = 1,
@@ -180,6 +346,7 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
     xlab = "",
     ylab = "",
     main = title,
+    ylim = ylim,
     col = col,
     cex.main = par_opt$cex.main * cex
   )
@@ -191,9 +358,27 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
     las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
   )
+
+  if (length(na_col)) {
+    # Full bar width, so the swatch reads as the same scale continued; the label
+    # is centred under it and may need the margins, hence `xpd = NA`
+    usr <- graphics::par("usr")
+    graphics::rect(
+      xleft = usr[[1]], xright = usr[[2]],
+      ybottom = vlim[[1]] - span * 0.14, ytop = vlim[[1]] - span * 0.07,
+      col = na_col, border = graphics::par("fg")
+    )
+    graphics::text(
+      x = mean(usr[c(1, 2)]), y = vlim[[1]] - span * 0.14,
+      labels = na_label, adj = c(0.5, 1.3), xpd = NA,
+      cex = par_opt$cex.axis * cex
+    )
+  }
 }
 
-add_axis_trial_number <- function(group, by = 5, cex = 1, vspace = 1) {
+# Trial axis, labelled with trial numbers. `side` picks the orientation: 2 for
+# panels that stack trials vertically, 1 for those that run them along the x axis.
+add_axis_trial_number <- function(group, by = 5, cex = 1, vspace = 1, side = 2L) {
 
   n_trials <- group$n_trials
 
@@ -212,39 +397,61 @@ add_axis_trial_number <- function(group, by = 5, cex = 1, vspace = 1) {
   }
 
   graphics::axis(
-    side = 2L, at = at * vspace, labels = at, las = 1,
+    side = side, at = at * vspace, labels = at, las = 1,
     tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
 
 }
 
-add_axis_trial_stimuli <- function(group, cex = 1, vspace = 1, lty = 1, col = "#808080") {
+# Trial axis, labelled with the condition each block of trials belongs to. Only
+# meaningful when the trials are in their native (stimuli-grouped) order, which is
+# how `validate_condition_groupings()` builds `trials_included`.
+#
+# `side` picks the orientation, as in `add_axis_trial_number()`. The condition
+# names are always rotated 45 degrees and right-aligned onto the axis, so on side 1
+# they hang below it and need the bottom margin widened by the caller.
+add_axis_trial_stimuli <- function(group, cex = 1, vspace = 1, lty = 1,
+                                   col = "#808080", side = 2L) {
 
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
-  yline <- 1 * cex
   tck <- -0.005 * (3 + cex)
   par_opt$cex.lab <- 1
 
   separators <- cumsum(c(0, group$trial_count)) + 0.5
 
+  # Centre of each condition block, in the same user units as `separators`
+  centers <- (cumsum(group$trial_count) + 0.5 - group$trial_count / 2) * vspace
+
   graphics::axis(
-    side = 2L, at = separators * vspace, las = 1,
+    side = side, at = separators * vspace, las = 1,
     labels = rep("", length(group$trial_count) + 1),
     tck = tck, cex = cex, cex.main = par_opt$cex.main * cex,
     cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex)
 
-
-  graphics::text(
-    x = par("usr")[[1]],
-    y = (cumsum(group$trial_count) + 0.5 - group$trial_count / 2) * vspace,
-    labels = sprintf("%s  ", group$conditions),
-    srt = 45, adj = c(1, 0.5),
-    cex = 0.85 * cex, xpd = NA)
+  usr <- graphics::par("usr")
+  if (side == 1L) {
+    graphics::text(
+      x = centers,
+      y = usr[[3]],
+      labels = sprintf("%s  ", group$conditions),
+      srt = 45, adj = c(1, 0.5),
+      cex = 0.85 * cex, xpd = NA)
+  } else {
+    graphics::text(
+      x = usr[[1]],
+      y = centers,
+      labels = sprintf("%s  ", group$conditions),
+      srt = 45, adj = c(1, 0.5),
+      cex = 0.85 * cex, xpd = NA)
+  }
 
   if (length(separators) > 1) {
-    graphics::abline(h = separators[- c(1)] * vspace,
-                     col = col, lty = lty)
+    if (side == 1L) {
+      graphics::abline(v = separators[- c(1)] * vspace, col = col, lty = lty)
+    } else {
+      graphics::abline(h = separators[- c(1)] * vspace, col = col, lty = lty)
+    }
   }
 }
 
@@ -280,3 +487,156 @@ prepare_par <- function(mfrow = NULL, cex = 1, mar = c(3.1, 3.1, 2.1, 0.8) * (0.
   invisible(par_opt)
 }
 
+
+get_filearray_impl <- function(x) {
+  if (inherits(x, "RAVEFileArray")) {
+    x <- x$`@impl`
+  } else {
+    x <- filearray::as_filearray(x)
+  }
+  x
+}
+
+recalculate_short_labels <- function(coord_table, electrode_mask = NULL) {
+  if (!length(electrode_mask)) { return(coord_table) }
+
+  electrode_mask <- electrode_mask[electrode_mask %in% coord_table$Electrode]
+  electrode_mask <- sort(unique(electrode_mask))
+
+  coord_table <- coord_table[coord_table$Electrode %in% electrode_mask, ]
+  if (!nrow(coord_table)) {
+    return(coord_table)
+  }
+
+  # Order by electrode number
+  coord_table <- coord_table[order(coord_table$Electrode), ]
+
+  # Add labelprefix
+  labels <- coord_table$Label
+  label_prefix <- coord_table$LabelPrefix
+  label_prefix_lag1 <- c("", label_prefix[-length(label_prefix)])
+  is_lead_channel <- label_prefix != label_prefix_lag1
+  coord_table$ShortLabel <- ifelse(
+    !is_lead_channel,
+    gsub("^[a-zA-Z_-]+", "", labels), labels
+  )
+
+  # Inner-most channels
+  coord_table$LeadChannel <- is_lead_channel
+
+  # Axis-label priority for `add_axis_ranked()`: the first channel of a lead keeps
+  # its name however crowded the panel gets, the rest are thinned around it
+  coord_table$LabelRank <- ifelse(is_lead_channel, 1L, 2L)
+
+  # Which lead each channel belongs to, so figures can tell leads apart (by
+  # alternating the label colour). The leading `TRUE` opens lead 1 at the first
+  # channel even when its label prefix is blank, so the alternation cannot invert.
+  coord_table$LeadIndex <- cumsum(c(TRUE, is_lead_channel[-1]))
+
+  coord_table
+}
+
+
+# ---- Channel selection -------------------------------------------------------
+
+# Resolve which channels a by-channel figure should draw.
+#
+# Every `data_*` plot container built from `data_placeholder` carries
+#   `$electrodes`     the channel axis of `$data` (its 2nd margin), as electrode
+#                     numbers -- NOT necessarily `coord_table$Electrode`, since CRP
+#                     runs over every loaded channel while `coord_table` is LFP-only;
+#   `$coord_table`    the loaded LFP coordinate table, keyed by `Electrode`;
+#   `$electrode_mask` the channels to draw by default.
+#
+# `electrode_mask` overrides the container default. Matching is by electrode number,
+# never by position. An empty mask, or one matching nothing on the axis, falls back
+# to every channel, so an over-restrictive selection never yields an empty figure.
+resolve_channel_selection <- function(x, electrode_mask = NULL) {
+
+  electrodes <- x$electrodes
+
+  if (!length(electrodes)) {
+    # Container predates the explicit axis; the coordinate table is the best guess
+    electrodes <- x$coord_table$Electrode
+  }
+
+  if (is.null(electrode_mask)) {
+    electrode_mask <- x$electrode_mask
+  } else {
+    electrode_mask <- ravecore:::parse_svec(unlist(electrode_mask))
+  }
+  electrode_mask <- electrode_mask[electrode_mask %in% electrodes]
+  electrode_mask <- sort(unique(electrode_mask))
+
+  if (!length(electrode_mask)) {
+    electrode_mask <- electrodes
+  }
+
+  # Make sure the short label has proper surgical labels
+  coord_table <- recalculate_short_labels(x$coord_table, electrode_mask = electrode_mask)
+
+  index <- which(electrodes %in% electrode_mask)
+  kept <- electrodes[index]
+
+  # `coord_table` is LFP-only while a channel axis need not be -- CRP runs over
+  # every loaded channel (`run_crp_on_all()`), so `electrodes` can be a strict
+  # superset. Callers index `coord_table` in lockstep with `index`, so align it
+  # by electrode number: a channel with no row gets an all-NA one, holding its
+  # place instead of shifting every label after it by one (which used to abort
+  # the figure with "'at' and 'labels' lengths differ").
+  #
+  # A wholly empty channel table has no columns to build NA rows out of, so it is
+  # left alone -- `channel_names()` then yields a zero-length vector, which
+  # `draw_axis_ranked()` already treats as "nothing to label".
+  if (ncol(coord_table)) {
+    coord_table <- coord_table[match(kept, coord_table$Electrode), , drop = FALSE]
+    rownames(coord_table) <- NULL
+
+    # The number is always known, even when nothing else about the channel is, so
+    # `channel_annotation = "number"` still labels these rows. The other styles
+    # leave them NA and `draw_axis_ranked()` skips them.
+    coord_table$Electrode <- kept
+    # Last in line for a label, and drawn in the dimmed lead colour
+    coord_table$LabelRank <- ifelse(is.na(coord_table$LabelRank %||% NA), 3L,
+                                    coord_table$LabelRank)
+    coord_table$LeadIndex <- ifelse(is.na(coord_table$LeadIndex %||% NA), 0L,
+                                    coord_table$LeadIndex)
+  }
+
+  list(
+    index = index,
+    n = length(index),
+    electrodes = kept,
+    coord_table = coord_table
+  )
+}
+
+
+# Channel tick labels for the annotation styles in `OPTIONS_CHAN_ANNOT`.
+channel_names <- function(coord_table, channel_annotation = OPTIONS_CHAN_ANNOT) {
+  channel_annotation <- match.arg(channel_annotation, choices = OPTIONS_CHAN_ANNOT)
+  switch(
+    channel_annotation,
+    "number" = as.character(coord_table$Electrode),
+    "short"  = coord_table$ShortLabel,
+    "label"  = coord_table$Label,
+    "full"   = sprintf("%s (%s)", coord_table$Electrode, coord_table$Label)
+  )
+}
+
+
+# Per-channel label priority and the alternating lead colour, shared by every
+# figure that labels a channel axis. Both columns come from
+# `recalculate_short_labels()` and are absent for a degenerate (empty) channel
+# table, which leaves the colour zero-length -- one colour, no alternation.
+crp_channel_axis_style <- function(coord_table) {
+  fg <- graphics::par("fg")
+  list(
+    rank = coord_table$LabelRank %||% 1L,
+    col = ifelse(coord_table$LeadIndex %% 2L, fg,
+                 grDevices::adjustcolor(fg, alpha.f = 0.5))
+  )
+}
+
+
+# The CRP channel filter lives in `shared-crp_filter_electrodes.R`.

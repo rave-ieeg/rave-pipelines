@@ -4,7 +4,8 @@ module_server <- function(input, output, session, ...) {
 
   # Local reactive values, used to store reactive event triggers
   local_reactives <- shiny::reactiveValues(
-    update_outputs = NULL
+    update_outputs = Sys.time(),
+    update_3dviewer = Sys.time()
   )
 
   # Local non-reactive values, used to store static variables
@@ -24,7 +25,7 @@ module_server <- function(input, output, session, ...) {
 
   brain_proxy <- threeBrain::brain_proxy(outputId = "brain_viewer", session = session)
 
-  run_analysis <- function(trigger_3dviewer = TRUE, force_settings=list()) {
+  run_analysis <- function(trigger_3dviewer = FALSE, force_settings=list()) {
     if (!ravedash::watch_data_loaded()) { return() }
 
     # Collect input data
@@ -37,9 +38,9 @@ module_server <- function(input, output, session, ...) {
 
     # Persist advanced CRP params as preferences so they are remembered across
     # sessions; the detection window is a per-analysis setting (not a preference)
-    crp_time_step <- use_crp_time_step(input$crp_time_step)
-    crp_threshold_quantile <- use_crp_threshold_quantile(input$crp_threshold_quantile)
-    crp_onset_border <- use_crp_onset_border(input$crp_onset_border)
+    crp_time_step <- use_crp_params_time_step(input$crp_time_step)
+    crp_threshold_quantile <- use_crp_params_threshold_quantile(input$crp_threshold_quantile)
+    crp_onset_border <- use_crp_params_onset_border(input$crp_onset_border)
 
     settings2 <- list(
       condition_groups = input$condition_groups,
@@ -50,7 +51,8 @@ module_server <- function(input, output, session, ...) {
       crp_detection_window = input$crp_detection_window,
       crp_time_step = crp_time_step,
       crp_threshold_quantile = crp_threshold_quantile,
-      crp_onset_border = crp_onset_border
+      crp_onset_border = crp_onset_border,
+      crp_remove_artifacts = isTRUE(input$crp_remove_artifacts)
     )
 
     if (length(force_settings)) {
@@ -78,6 +80,13 @@ module_server <- function(input, output, session, ...) {
         ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
                              level = "debug", reset_timer = TRUE)
 
+        if (is.null(local_data$erp_results_for_viewer)) {
+          erp_results_for_viewer_signature <- NA
+        } else {
+          pipeline_meta <- pipeline$meta("erp_results_for_viewer")
+          erp_results_for_viewer_signature <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
+        }
+
         pipeline$run(
           scheduler = "none",
           type = "smart",
@@ -88,11 +97,20 @@ module_server <- function(input, output, session, ...) {
             "data_placeholder",
 
             "data_by_channel_condition",
-            "data_by_trial_channel_condition",
-            "crp_by_channel"
+            # "data_by_trial_channel_condition",
+            "data_crp_by_channel",
+            "data_crp_param_alpha_prime",
+            "data_crp_param_snr",
+            "data_crp_param_expl_var"
           ),
           return_values = FALSE
         )
+
+        pipeline_meta <- pipeline$meta("erp_results_for_viewer")
+        erp_results_for_viewer_signature2 <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
+        if (!identical(erp_results_for_viewer_signature2, erp_results_for_viewer_signature)) {
+          trigger_3dviewer <- TRUE
+        }
 
         ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name,
                              level = "debug")
@@ -105,13 +123,13 @@ module_server <- function(input, output, session, ...) {
                                session = session)
         local_reactives$update_outputs <- Sys.time()
 
+        erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+        local_data$erp_results_for_viewer <- erp_results_for_viewer
+
         if (trigger_3dviewer) {
           local_reactives$update_3dviewer <- Sys.time()
         } else {
-          # erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
-          # if (is.data.frame(erp_results_for_viewer)) {
-          #   brain_proxy$set_electrode_data(data = erp_results_for_viewer, clear_first = FALSE)
-          # }
+          local_reactives$update_3dviewer_proxy <- Sys.time()
         }
       },
       error = function(e) {
@@ -150,12 +168,7 @@ module_server <- function(input, output, session, ...) {
         error = function(e) NULL
       )
       if (!is.data.frame(erp_tbl)) { return() }
-      choices <- setdiff(names(erp_tbl), c("Electrode", "Subject"))
-      # Prioritize `t_val` metrics first and push `onset` metrics to the end
-      metric_prefix <- sub("\\s*\\(.*$", "", choices)
-      rank <- ifelse(metric_prefix == "t_val", 0L,
-                     ifelse(metric_prefix == "onset", 2L, 1L))
-      choices <- choices[order(rank)]
+      choices <- crp_filter_choices(names(erp_tbl))
       dipsaus::updateCompoundInput2(
         session = session,
         inputId = "crp_channel_filter",
@@ -209,6 +222,15 @@ module_server <- function(input, output, session, ...) {
       component_container$reset_data()
       component_container$data$repository <- new_repository
       component_container$initialize_with_new_data()
+      local_data$erp_results_for_viewer <- NULL
+      local_reactives$crp_filter_selection <- NULL
+
+      local_data$loaded_electrodes_clean <- pipeline$read("loaded_electrodes_clean")
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        choices = as.character(local_data$loaded_electrodes_clean)
+      )
 
       # Restore condition_groups, validated against available epoch conditions
       all_conditions <- sort(unique(new_repository$epoch$table$Condition))
@@ -261,7 +283,6 @@ module_server <- function(input, output, session, ...) {
                                  inputId = "analysis_event",
                                  selected = analysis_event)
       }, delay = 0.5)
-
 
       # # Compute epoch time range (used for slider bounds and clamping)
       # time_range <- tryCatch(
@@ -350,16 +371,71 @@ module_server <- function(input, output, session, ...) {
       update_crp_parameters()
 
       # Reset outputs
-      shidashi::reset_output("figure_by_condition_over_time")
-      shidashi::reset_output("figure_by_channel_condition_cond")
-      shidashi::reset_output("figure_by_channel_condition_ch")
-      shidashi::reset_output("figure_by_trial_per_condition")
-      shidashi::reset_output("figure_by_trial_per_condition_heatmap")
+      shidashi::reset_output("figure_data_by_trial_channel_condition_butterfly")
+      shidashi::reset_output("figure_data_by_channel_condition")
+      shidashi::reset_output("figure_data_by_channel_condition_overlay")
+      shidashi::reset_output("figure_data_by_trial_channel_condition_multiline")
+      shidashi::reset_output("figure_data_by_trial_channel_condition_heatmap")
+      shidashi::reset_output("figure_data_crp_by_channel")
+      shidashi::reset_output("figure_data_crp_by_channel_overlay")
+      shidashi::reset_output("figure_data_crp_param_alpha_prime")
+      shidashi::reset_output("figure_data_crp_param_snr")
+      shidashi::reset_output("figure_data_crp_param_expl_var")
 
     }, priority = 1001),
     ravedash::watch_data_loaded(),
     ignoreNULL = FALSE,
     ignoreInit = FALSE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      choices <- local_data$loaded_electrodes_clean
+      if (!length(choices)) { return() }
+
+      current_channel <- as.integer(input$by_cond_channel_selector)
+
+      if (!isTRUE(current_channel %in% choices)) {
+        idx <- 1
+      } else {
+        idx <- which(choices == current_channel) - 1
+        if (idx <= 0) {
+          idx <- length(choices)
+        }
+      }
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        selected = as.character(choices[[idx]])
+      )
+    }),
+    input$by_cond_channel_selector_prev,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      choices <- local_data$loaded_electrodes_clean
+      if (!length(choices)) { return() }
+
+      current_channel <- as.integer(input$by_cond_channel_selector)
+
+      if (!isTRUE(current_channel %in% choices)) {
+        idx <- 1
+      } else {
+        idx <- which(choices == current_channel) + 1
+        if (idx > length(choices)) {
+          idx <- 1
+        }
+      }
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        selected = as.character(choices[[idx]])
+      )
+    }),
+    input$by_cond_channel_selector_next,
+    ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
 
@@ -375,10 +451,10 @@ module_server <- function(input, output, session, ...) {
       electrode <- as.integer(info$electrode_number)
       if (is.na(electrode)) { return() }
 
-      repository <- component_container$data$repository
-      if (is.null(repository)) { return() }
-
-      if (!isTRUE(electrode %in% repository$electrode_list)) {
+      # Only the loaded LFP channels can be plotted, which is exactly what the
+      # single-channel selector is populated from
+      choices <- local_data$loaded_electrodes_clean
+      if (!isTRUE(electrode %in% choices)) {
         ravedash::show_notification(
           sprintf("Selected electrode (%s) not loaded", electrode),
           title = '3dViewer Info',
@@ -391,27 +467,82 @@ module_server <- function(input, output, session, ...) {
 
       ravedash::clear_notifications(class = ns('threedviewer_no'), session = session)
       ravedash::show_notification(
-        paste0("Trying to load data for electrode: ", electrode),
+        paste0("Single channel results: ", electrode),
         class = ns('threedviewer_yes'),
         title = '3dViewer Info',
         delay = 2000,
         type = 'info'
       )
 
-      # ravepipeline::logger(str(info))
-      id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
-
-      shiny::updateTextInput(inputId = id, value = dipsaus::deparse_svec(electrode))
-
-      run_analysis(
-        trigger_3dviewer = FALSE,
-        force_settings = list(analysis_electrodes = electrode)
+      # Drive the "Single Channel Results" card, not the analysis-electrode
+      # selector: every channel is already loaded and analyzed, so this is a
+      # read-out of one of them rather than a change to what is under analysis.
+      # The channel filter's "Send to electrode selector" button is the one way
+      # the electrode selector gets written.
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "by_cond_channel_selector",
+        selected = as.character(electrode)
       )
 
     }),
     brain_proxy$mouse_event_double_click,
     ignoreNULL = TRUE, ignoreInit = FALSE
   )
+
+
+  # The channel filter as a 3D-viewer variable: one logical per electrode, which
+  # the viewer thresholds on -- logicals serialize to JSON `true`/`false`, so
+  # that is what the viewer's threshold control offers. A NULL selection (no
+  # active filter) passes every channel. Both the proxy update and the full
+  # render need this column and have to agree on it, so it is built here and
+  # nowhere else. `$<-` copies, so the table held in `local_data` is left alone
+  # -- but its `value_ranges` attribute must still be read before this is
+  # called, as both callers do.
+  with_crp_filter_column <- function(erp_tbl, selection) {
+    if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return(erp_tbl) }
+    erp_tbl$crp_filter <- if (is.null(selection)) {
+      rep(TRUE, nrow(erp_tbl))
+    } else {
+      erp_tbl$Electrode %in% selection
+    }
+    erp_tbl
+  }
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      erp_results_for_viewer <- local_data$erp_results_for_viewer
+      if (!is.data.frame(erp_results_for_viewer)) { return() }
+
+      value_ranges <- as.list(attr(erp_results_for_viewer, "value_ranges"))
+      cmaps <- get_colormaps()
+      palettes <- structure(
+        names = names(value_ranges),
+        lapply(names(value_ranges), function(nm) {
+          cmaps$continuous
+        })
+      )
+
+      # `clear_first = TRUE` drops everything the viewer holds, so the channel
+      # filter has to be part of this push or a colormap change would wipe it.
+      # `bindEvent()` isolates this handler, so reading the selection adds no
+      # dependency -- the button's `update_3dviewer_proxy` bump re-runs it.
+      brain_proxy$set_electrode_data(
+        data = with_crp_filter_column(erp_results_for_viewer,
+                                      local_reactives$crp_filter_selection),
+        palettes = palettes,
+        value_ranges = value_ranges,
+        clear_first = TRUE,
+        update_display = FALSE,
+        override = TRUE
+      )
+    }),
+    get_colormaps(),
+    local_reactives$update_3dviewer_proxy,
+    ignoreNULL = FALSE, ignoreInit = FALSE
+  )
+
   # ---- Graphics options ---------------
   get_cex <- shiny::reactive({
     if (isTRUE(input$plot_cex > 0)) {
@@ -440,6 +571,41 @@ module_server <- function(input, output, session, ...) {
     trial_sort_by
   })
 
+  get_by_channel_plot_type <- shiny::reactive({
+    if (length(input$by_channel_plot_type) > 0) {
+      plot_type <- use_by_channel_plot_type(input$by_channel_plot_type)
+    } else {
+      plot_type <- use_by_channel_plot_type()
+    }
+    plot_type
+  })
+
+  # Both palettes resolved together so that changing either one redraws the whole
+  # figure set: a heatmap takes its image ramp from `continuous` but still colours
+  # its panel titles from `discrete` (see `plot_data_*_heatmap()`).
+  get_colormaps <- shiny::reactive({
+    discrete <- if (length(input$discrete_colormap) > 0) {
+      use_discrete_colormap(input$discrete_colormap)
+    } else {
+      use_discrete_colormap()
+    }
+    continuous <- if (length(input$continuous_colormap) > 0) {
+      use_continuous_colormap(input$continuous_colormap)
+    } else {
+      use_continuous_colormap()
+    }
+    list(discrete = discrete$colors, continuous = continuous$colors)
+  })
+
+  get_crp_scale_back <- shiny::reactive({
+    if (length(input$crp_scale_back) > 0) {
+      scale_back <- use_crp_scale_back(input$crp_scale_back)
+    } else {
+      scale_back <- use_crp_scale_back()
+    }
+    isTRUE(scale_back)
+  })
+
   get_flipped_y <- shiny::reactive({
     if (length(input$mean_erp_flip_y) > 0) {
       flip_y <- use_flipped_y(input$mean_erp_flip_y)
@@ -458,40 +624,37 @@ module_server <- function(input, output, session, ...) {
     show_crp
   })
 
+  # Persist whatever the two inputs currently hold, then let
+  # `use_plot_space_resolved()` do the percentage-vs-micro-volts conversion, so
+  # that rule is not restated here
   get_plot_space <- shiny::reactive({
     value <- input$plot_space_value
     is_pct <- input$plot_space_is_percentile
     if (isTRUE(is.numeric(value) && value > 0)) {
       use_plot_space(value)
-    } else {
-      value <- use_plot_space()
     }
     if (length(is_pct) > 0) {
       use_plot_space_is_percentile(is_pct)
-    } else {
-      is_pct <- use_plot_space_is_percentile()
     }
-    if (isTRUE(is_pct)) {
-      list(space = value / 100, space_mode = "quantile")
-    } else {
-      list(space = value, space_mode = "absolute")
-    }
+    use_plot_space_resolved()
   })
 
-  # CRP canonical responses are normalized, so a user-entered absolute (uV)
-  # spacing is meaningless. Keep quantile spacing as-is, but when the user picks
-  # absolute, fall back to the full quantile range (space = 1, quantile).
-  get_crp_plot_space <- shiny::reactive({
-    plot_space <- get_plot_space()
-    if (identical(plot_space$space_mode, "absolute")) {
-      list(space = 1, space_mode = "quantile")
-    } else {
-      plot_space
-    }
+  # ---- Channel mask ------------------
+  # Every by-channel figure draws only the channels named by the analysis-electrode
+  # selector. This is applied at plot time, so narrowing the selection redraws
+  # immediately without re-running the pipeline. Empty selection -> all channels.
+  #
+  # Writers into the selector: the CRP channel filter (below) and the 3D viewer
+  # double-click handler.
+  get_electrode_mask <- shiny::reactive({
+    id <- electrode_selector$get_sub_element_id(with_namespace = FALSE)
+    mask <- dipsaus::parse_svec(input[[id]])
+    if (!length(mask)) { return(NULL) }
+    mask
   })
 
-  # Resolve the electrode subset for the CRP-by-channel plots from the channel
-  # filter compoundInput2; returns NULL (all channels) when no active filter.
+  # Resolve the electrode subset from the channel filter compoundInput2; returns
+  # NULL (all channels) when no active filter.
   get_crp_channel_selection <- shiny::reactive({
     if (!isTRUE(ravedash::watch_data_loaded())) { return() }
     filters <- input$crp_channel_filter
@@ -506,42 +669,30 @@ module_server <- function(input, output, session, ...) {
     }, error = function(e) { NULL })
   })
 
-  # "Update visualization" button: commit the current channel filter so the CRP
-  # plots redraw with the subset, and sync the 3D viewer (flag the selected
-  # electrodes and threshold the viewer to display only them). A NULL selection
-  # (no active filter) flags all electrodes as kept.
+  # "Send to electrode selector" button: push the filtered electrodes into the
+  # analysis-electrode selector, which is the single source of the channel mask.
+  # A NULL selection (no active filter) means all channels.
   shiny::bindEvent(
     ravedash::safe_observe({
       selection <- get_crp_channel_selection()
 
-      # Commit for the CRP plots (read via local_data, triggered by the nonce)
-      local_data$crp_channel_selection <- selection
-      local_reactives$crp_filter_applied <- Sys.time()
+      # Remember the selection: it is what the results table reports pass/fail
+      # against, and what the viewer's `crp_filter` variable is built from
+      # (NULL = no active filter, all pass)
+      local_reactives$crp_filter_selection <- selection
 
-      erp_tbl <- tryCatch(
-        pipeline$read(var_names = "erp_results_for_viewer"),
-        error = function(e) NULL
+      # Writing the selector redraws every by-channel figure via get_electrode_mask()
+      shiny::updateTextInput(
+        session = session,
+        inputId = electrode_selector$get_sub_element_id(with_namespace = FALSE),
+        value = dipsaus::deparse_svec(
+          selection %||% pipeline$read("loaded_electrodes_clean")
+        )
       )
-      if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return() }
 
-      electrodes <- erp_tbl$Electrode
-      crp_filter <- if (is.null(selection)) {
-        rep(TRUE, length(electrodes))
-      } else {
-        electrodes %in% selection
-      }
-      crp_filter <- ifelse(crp_filter, "true", "false")
-
-      brain_proxy$set_electrode_data(
-        data = data.frame(Electrode = electrodes, crp_filter = crp_filter),
-        clear_first = FALSE,
-        update_display = FALSE,
-        override = TRUE
-      )
-      brain_proxy$set_controllers(list(
-        "Threshold Data" = "crp_filter",
-        "Threshold Range" = "true"
-      ))
+      # Repaint the viewer's electrode values, `crp_filter` among them, without
+      # a full re-render
+      local_reactives$update_3dviewer_proxy <- Sys.time()
     }),
     input$crp_filter_apply,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -554,12 +705,20 @@ module_server <- function(input, output, session, ...) {
         cex          = use_cex(),
         channel_annot = use_channel_annotation_style(),
         trial_sort_by = use_trial_sort_by(),
+        plot_type     = use_by_channel_plot_type(),
+        discrete_cmap = use_discrete_colormap()$name,
+        continuous_cmap = use_continuous_colormap()$name,
+        scale_back    = use_crp_scale_back(),
         space_value   = use_plot_space(),
         space_is_pct  = use_plot_space_is_percentile()
       )
       shiny::updateNumericInput(session,  "plot_cex",                 value = defaults$cex)
       shiny::updateSelectInput(session,   "channel_annotation",       selected = defaults$channel_annot)
       shiny::updateSelectInput(session,   "trial_sort_by",            selected = defaults$trial_sort_by)
+      shiny::updateSelectInput(session,   "by_channel_plot_type",     selected = defaults$plot_type)
+      shiny::updateSelectizeInput(session, "discrete_colormap",       selected = defaults$discrete_cmap)
+      shiny::updateSelectizeInput(session, "continuous_colormap",     selected = defaults$continuous_cmap)
+      shiny::updateCheckboxInput(session, "crp_scale_back",           value = defaults$scale_back)
       shiny::updateNumericInput(session,  "plot_space_value",         value = defaults$space_value)
       shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
     }),
@@ -571,9 +730,27 @@ module_server <- function(input, output, session, ...) {
   shiny::bindEvent(
     ravedash::safe_observe({
       reset_analysis_preferences()
-      shiny::updateSelectInput(session,  "crp_onset_border",       selected = use_crp_onset_border())
-      shiny::updateNumericInput(session, "crp_time_step",          value = use_crp_time_step())
-      shiny::updateNumericInput(session, "crp_threshold_quantile", value = use_crp_threshold_quantile())
+      shiny::updateSelectInput(
+        session,
+        "crp_onset_border",
+        selected = use_crp_params_onset_border()
+      )
+      shiny::updateNumericInput(
+        session,
+        "crp_time_step",
+        value = use_crp_params_time_step()
+      )
+      shiny::updateNumericInput(
+        session,
+        "crp_threshold_quantile",
+        value = use_crp_params_threshold_quantile()
+      )
+
+      shiny::updateCheckboxInput(
+        session,
+        "crp_remove_artifacts",
+        value = DEFAULT_CRP_PARAMS$remove_artifacts
+      )
 
       # Detection window back to its full epoch range (start ~ t=0.01)
       repository <- component_container$data$repository
@@ -1106,11 +1283,6 @@ module_server <- function(input, output, session, ...) {
 
     if (!isTRUE(ravedash::watch_data_loaded())) { return() }
 
-    # New data: clear any committed channel filter so the CRP plots show all
-    # channels until the user clicks "Update visualization" again.
-    local_data$crp_channel_selection <- NULL
-    local_reactives$crp_filter_applied <- Sys.time()
-
     repository <- component_container$data$repository
     time_range <- range(unlist(repository$time_windows), na.rm = TRUE)
 
@@ -1135,11 +1307,17 @@ module_server <- function(input, output, session, ...) {
 
     # Advanced params (preferences)
     shiny::updateSelectInput(session = session, inputId = "crp_onset_border",
-                             selected = use_crp_onset_border())
+                             selected = use_crp_params_onset_border())
     shiny::updateNumericInput(session = session, inputId = "crp_time_step",
-                              value = use_crp_time_step())
+                              value = use_crp_params_time_step())
     shiny::updateNumericInput(session = session, inputId = "crp_threshold_quantile",
-                              value = use_crp_threshold_quantile())
+                              value = use_crp_params_threshold_quantile())
+
+    # Artifact rejection is a per-analysis setting, restored from settings.yaml
+    remove_artifacts <- pipeline$get_settings(
+      "crp_remove_artifacts", default = DEFAULT_CRP_PARAMS$remove_artifacts)
+    shiny::updateCheckboxInput(session = session, inputId = "crp_remove_artifacts",
+                               value = isTRUE(as.logical(remove_artifacts)))
   }
 
 
@@ -1198,6 +1376,12 @@ module_server <- function(input, output, session, ...) {
 
   # ---- Export Configurations: voltage report ------------------------------
 
+  # Every input in the report modal is named after the `params:` entry of
+  # `report-univariate.Rmd` it fills, so `params` below is a mechanical
+  # translation and the two cannot drift apart.
+  report_param_id <- function(name) { sprintf("report_param_%s", name) }
+  report_param <- function(name) { input[[report_param_id(name)]] }
+
   # Open the report modal, pre-filled with the current plot configuration
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -1212,11 +1396,20 @@ module_server <- function(input, output, session, ...) {
       if (length(tr) != 2 || all(is.na(tr))) { tr <- full_range }
       tr[is.na(tr)] <- full_range[is.na(tr)]
 
+      # The modal must reproduce what the user is looking at, so each option
+      # prefers the live sidebar input and only falls back to the stored
+      # preference when that input has never been set. Reading is all it may do:
+      # the `get_*()` reactives above persist their input via `use_*(value)`,
+      # but opening an export dialog has no business rewriting preferences.
+      active <- function(value, fallback) {
+        if (length(value) && !all(is.na(value))) { value } else { fallback }
+      }
+
       shiny::showModal(
         session = session,
         shiny::modalDialog(
           title = "Generate Voltage Report",
-          size = "s", easyClose = FALSE,
+          size = "l", easyClose = FALSE,
           footer = shiny::tagList(
             shiny::modalButton("Cancel"),
             shiny::actionButton(
@@ -1225,23 +1418,150 @@ module_server <- function(input, output, session, ...) {
             )
           ),
 
-          shiny::textInput(
-            ns("report_electrodes"), "Electrodes",
-            value = dipsaus::deparse_svec(repository$electrode_list),
-            placeholder = "e.g. 1-10,15"
+          shiny::p(paste(
+            "The report is rendered with the options below, pre-filled from the",
+            "current plot configuration. Nothing here is saved back into your",
+            "preferences."
+          )),
+
+          ravedash::group_box(
+            title = "Scope",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shiny::textInput(
+                ns(report_param_id("electrode_mask")), "Electrodes",
+                value = dipsaus::deparse_svec(
+                  get_electrode_mask() %||% repository$electrode_list),
+                placeholder = "e.g. 1-10,15"
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::sliderInput(
+                ns(report_param_id("time_range")), "Plot range (s)",
+                min = full_range[[1]], max = full_range[[2]],
+                value = tr, step = 0.01
+              )
+            )
           ),
-          shiny::sliderInput(
-            ns("report_time_range"), "Plot range (s)",
-            min = full_range[[1]], max = full_range[[2]],
-            value = tr, step = 0.01
+
+          # `preview = FALSE` matters: bare `*_COLORMAPS()` defaults `preview`
+          # to `TRUE` and plots as a side effect.
+          ravedash::group_box(
+            title = "Colors",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shidashi::colormapSelectInput(
+                inputId = ns(report_param_id("discrete_colormap")),
+                label = "Condition colors",
+                colormaps = ravepipeline::DISCRETE_COLORMAPS(preview = FALSE),
+                selected = active(input$discrete_colormap,
+                                  use_discrete_colormap()$name),
+                continuous = FALSE
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shidashi::colormapSelectInput(
+                inputId = ns(report_param_id("continuous_colormap")),
+                label = "Heatmap colors",
+                colormaps = ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE),
+                selected = active(input$continuous_colormap,
+                                  use_continuous_colormap()$name),
+                continuous = TRUE
+              )
+            )
           ),
-          shiny::checkboxInput(
-            ns("report_crp"), "CRP annotations",
-            value = isTRUE(input$mean_erp_crp)
+
+          ravedash::group_box(
+            title = "Plot max / spacing",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shiny::numericInput(
+                ns(report_param_id("plot_space")), "Max",
+                value = active(input$plot_space_value, use_plot_space()),
+                min = 0, step = 1
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              style = "margin-top: 37px;",
+              shiny::checkboxInput(
+                ns(report_param_id("plot_space_is_percentile")), "Max is %",
+                value = isTRUE(as.logical(active(
+                  input$plot_space_is_percentile, use_plot_space_is_percentile())))
+              )
+            )
           ),
-          shiny::numericInput(
-            ns("report_vmarks"), "Vertical marks (s)",
-            value = input$plot_onset_mark %||% 0, step = 0.01
+
+          ravedash::group_box(
+            title = "Annotations",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shiny::numericInput(
+                ns(report_param_id("cex")), "Text size (cex)",
+                value = active(input$plot_cex, use_cex()),
+                min = 0.5, max = 3, step = 0.1
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::numericInput(
+                ns(report_param_id("vertical_marks")), "Onset mark (s)",
+                value = active(input$plot_onset_mark, 0), step = 0.01
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::selectInput(
+                ns(report_param_id("channel_annotation")), "Channel",
+                choices = OPTIONS_CHAN_ANNOT,
+                selected = active(input$channel_annotation,
+                                  use_channel_annotation_style())
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::selectInput(
+                ns(report_param_id("trial_sort_by")), "Sort trials by",
+                choices = OPTIONS_TRIAL_SORT,
+                selected = active(input$trial_sort_by, use_trial_sort_by())
+              )
+            ),
+            shiny::column(
+              width = 12L,
+              shiny::checkboxInput(
+                ns(report_param_id("crp_annotations")), "Show CRP decoration",
+                value = isTRUE(as.logical(active(input$mean_erp_crp,
+                                                 use_show_crp_decoration())))
+              )
+            ),
+            shiny::column(
+              width = 12L,
+              shiny::checkboxInput(
+                ns(report_param_id("crp_scale_back")),
+                "Scale canonical to \U00B5V",
+                value = isTRUE(as.logical(active(input$crp_scale_back,
+                                                 use_crp_scale_back())))
+              )
+            ),
+            # No sidebar counterpart -- the module's "Flip y-axis" input is
+            # commented out, so the report modal is where this is configurable
+            shiny::column(
+              width = 12L,
+              shiny::checkboxInput(
+                ns(report_param_id("flip_y")), "Flip y-axis",
+                value = isTRUE(as.logical(use_flipped_y()))
+              )
+            )
           )
         )
       )
@@ -1259,23 +1579,44 @@ module_server <- function(input, output, session, ...) {
       repository <- pipeline$read("repository")
       subject <- repository$subject
 
-      electrodes <- trimws(input$report_electrodes %||% "")
+      electrodes <- trimws(report_param("electrode_mask") %||% "")
       if (!nzchar(electrodes)) {
         # default: all loaded electrodes
         electrodes <- dipsaus::deparse_svec(repository$electrode_list)
       }
-      analysis_electrodes <- dipsaus::deparse_svec(dipsaus::parse_svec(electrodes))
+      electrode_mask <- dipsaus::deparse_svec(dipsaus::parse_svec(electrodes))
 
+      # An emptied numeric input reads back as NA. Every other option treats NA
+      # as "unset" and falls back to a preference on the report side, but
+      # `vertical_marks` has no preference to fall back to, so pin it here.
+      vertical_marks <- as.numeric(report_param("vertical_marks") %||% 0)
+      vertical_marks <- vertical_marks[!is.na(vertical_marks)]
+      if (!length(vertical_marks)) { vertical_marks <- 0 }
+
+      # The modal supplies every declared param, so the report is fully
+      # described by what the user just saw -- nothing falls back to the
+      # preference store on the report side. Names must match the `params:`
+      # block of `report-univariate.Rmd` exactly: `rmarkdown::render()` aborts
+      # on any param it did not declare.
       job_id <- pipeline$generate_report(
         "univariateVoltage",
         subject = subject,
         output_format = "html_document",
         theme = "spacelab",
         params = list(
-          analysis_electrodes = analysis_electrodes,
-          time_range          = input$report_time_range,
-          crp_annotations     = isTRUE(input$report_crp),
-          vertical_marks      = input$report_vmarks %||% 0
+          electrode_mask           = electrode_mask,
+          time_range               = as.numeric(report_param("time_range")),
+          vertical_marks           = vertical_marks,
+          cex                      = as.numeric(report_param("cex")),
+          channel_annotation       = as.character(report_param("channel_annotation")),
+          trial_sort_by            = as.character(report_param("trial_sort_by")),
+          plot_space               = as.numeric(report_param("plot_space")),
+          plot_space_is_percentile = isTRUE(report_param("plot_space_is_percentile")),
+          crp_annotations          = isTRUE(report_param("crp_annotations")),
+          crp_scale_back           = isTRUE(report_param("crp_scale_back")),
+          flip_y                   = isTRUE(report_param("flip_y")),
+          discrete_colormap        = as.character(report_param("discrete_colormap")),
+          continuous_colormap      = as.character(report_param("continuous_colormap"))
         ),
         code_folding = "none"
       )
@@ -1365,7 +1706,7 @@ module_server <- function(input, output, session, ...) {
   )
 
   # ---- Helper: check outputs are ready ------------------------------------
-  .output_ready <- function() {
+  .output_ready <- function(...) {
     shiny::validate(
       shiny::need(
         !isFALSE(ravedash::watch_data_loaded()),
@@ -1379,7 +1720,8 @@ module_server <- function(input, output, session, ...) {
         length(local_reactives$update_outputs) &&
           !isFALSE(local_reactives$update_outputs),
         message = "Please run the module first"
-      )
+      ),
+      ...
     )
   }
   .viewer_ready <- function() {
@@ -1415,16 +1757,41 @@ module_server <- function(input, output, session, ...) {
 
       if (is.null(brain)) { return() }
 
-      erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
+      erp_results_for_viewer <- local_data$erp_results_for_viewer
+      value_ranges <- as.list(attr(erp_results_for_viewer, "value_ranges"))
 
-      controllers <- list()
+      cmap <- use_continuous_colormap()
+      palettes <- structure(
+        names = names(value_ranges),
+        lapply(names(value_ranges), function(nm) {
+          cmap$colors
+        })
+      )
+
+
+      controllers <- list(
+        "Show Time" = FALSE,
+
+        # Thresholding on the filter variable is what makes "Send to electrode
+        # selector" hide the channels that failed. The controller value names
+        # the JSON level, not the R one; with no filter every electrode is TRUE,
+        # so the default view shows everything.
+        "Threshold Data" = "crp_filter",
+        "Threshold Range" = "true"
+      )
 
       if (is.data.frame(erp_results_for_viewer)) {
-        erp_results_for_viewer$crp_filter <- "true"
+        # `isolate()`: a plain read would re-render the whole viewer -- camera
+        # reset and all -- on every press of the button, which is exactly what
+        # the proxy repaint exists to avoid
+        erp_results_for_viewer <- with_crp_filter_column(
+          erp_results_for_viewer,
+          shiny::isolate(local_reactives$crp_filter_selection)
+        )
         brain$set_electrode_values(erp_results_for_viewer)
 
         nms <- names(erp_results_for_viewer)
-        nms <- nms[startsWith(nms, "t_val")]
+        nms <- nms[startsWith(nms, "t_proj")]
         if (length(nms)) {
           current_controller <- shiny::isolate(brain_proxy$get_controllers())
           controllers[["Display Data"]] <- current_controller[["Display Data"]] %||% nms[[1]]
@@ -1434,215 +1801,480 @@ module_server <- function(input, output, session, ...) {
         outputId = "brain_viewer",
         session = session,
         show_modal = FALSE,
-        controllers = controllers
+        controllers = controllers,
+        value_ranges = value_ranges,
+        palettes = palettes
       )
     })
   )
 
-  # Mean ERP: one line per condition group, collapsed over channels
-  output$figure_by_condition_over_time <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    plot_space <- get_plot_space()
-    plot_trials_per_condition(
-      data_by_trial_channel_condition = data_by_trial_channel_condition,
-      # type = "collapse_trial",
-      vertical_marks = input$plot_onset_mark %||% 0,
-      crp = isTRUE(input$mean_erp_crp),
-      time_range = time_range,
-      cex = get_cex(),
-      space = plot_space$space,
-      space_mode = plot_space$space_mode
-    )
-  })
+  # Flat version of the values painted on the 3D viewer: `Electrode` + electrode
+  # `Label`, followed by one column per metric x condition. `selection` is the
+  # electrode subset last pushed to the viewer; rows are restricted to it, so
+  # the table lists exactly the channels the viewer is showing (NULL = no active
+  # filter, every channel is listed). The metric-major column order and its
+  # two-row header live in the `viewer_table_layout` attribute. Returns NULL
+  # when the analysis has not produced viewer values.
+  build_crp_viewer_table <- function(selection = NULL) {
+    erp_tbl <- local_data$erp_results_for_viewer
+    if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return(NULL) }
 
+    layout <- crp_viewer_table_layout(names(erp_tbl))
+    tbl <- as.data.frame(erp_tbl, stringsAsFactors = FALSE)
 
-  # ERP by condition: stacked channel traces, one panel per condition group
-  output$figure_by_channel_condition_cond <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_channel_condition, "data_by_channel_condition"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
+    if (!is.null(selection)) {
+      tbl <- tbl[tbl$Electrode %in% selection, , drop = FALSE]
     }
-    # For By Electrode: when mode is quantile, always use the full data range
-    # (ignore the user-specified percentile); only apply space when mode is absolute
-    plot_space <- get_plot_space()
-    if (plot_space$space_mode == "quantile") {
-      by_elec_space      <- 1
-      by_elec_space_mode <- "quantile"
+
+    # A metric can be absent for some conditions (e.g. `onset` is dropped when
+    # CRP onset detection is disabled); fill so the header stays rectangular
+    missing_columns <- setdiff(layout$columns, names(tbl))
+    for (nm in missing_columns) {
+      tbl[[nm]] <- NA_real_
+    }
+
+    electrode_table <- component_container$data$repository$electrode_table
+    if (is.data.frame(electrode_table) &&
+        all(c("Electrode", "Label") %in% names(electrode_table))) {
+      labels <- as.character(electrode_table$Label)[
+        match(tbl$Electrode, electrode_table$Electrode)]
     } else {
-      by_elec_space      <- plot_space$space
-      by_elec_space_mode <- "absolute"
+      labels <- rep(NA_character_, nrow(tbl))
     }
-    plot_by_channel_condition(
-      data_by_channel_condition,
-      group_by           = "condition",
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = by_elec_space,
-      space_mode         = by_elec_space_mode,
-      flip_y             = isTRUE(input$mean_erp_flip_y)
+
+    leading <- data.frame(
+      Electrode = tbl$Electrode,
+      Label = labels,
+      stringsAsFactors = FALSE,
+      check.names = FALSE
     )
+
+    structure(
+      cbind(leading, tbl[, layout$columns, drop = FALSE]),
+      viewer_table_layout = layout
+    )
+  }
+
+  reactive_crp_viewer_table <- shiny::reactive({
+    .output_ready()
+    tbl <- build_crp_viewer_table(local_reactives$crp_filter_selection)
+    shiny::validate(
+      shiny::need(
+        is.data.frame(tbl),
+        message = "No CRP results to display"
+      ),
+      shiny::need(
+        nrow(tbl),
+        message = "No channels pass the current channel filter"
+      )
+    )
+    tbl
   })
+
+  shidashi::register_output(
+    outputId = "crp_viewer_table",
+    description = "Per-electrode CRP statistics shown in the 3D viewer, grouped by metric with one sub-column per condition.",
+    download_type = "data",
+    extensions = list("CSV" = "csv"),
+    session = session,
+    download_function = function(con, params, ...) {
+      tbl <- build_crp_viewer_table(
+        shiny::isolate(local_reactives$crp_filter_selection))
+      utils::write.csv(tbl, file = con, row.names = FALSE)
+    },
+    expr = DT::renderDataTable({
+      tbl <- reactive_crp_viewer_table()
+      layout <- attr(tbl, "viewer_table_layout")
+      leading_names <- setdiff(names(tbl), layout$columns)
+
+      # Precision is decided per metric group over all of its conditions pooled,
+      # so the conditions of one metric stay aligned instead of each column
+      # picking its own decimals
+      digits_by_group <- vapply(layout$groups, function(group) {
+        crp_viewer_table_digits(unlist(tbl[, group$columns, drop = FALSE]))
+      }, integer(1L))
+
+      # The vertical rule between metric groups is drawn on the first column of
+      # each group; the header side of it comes from the container sketch
+      group_starts <- vapply(layout$groups, function(group) {
+        group$columns[[1L]]
+      }, character(1L))
+
+      options <- list(
+        # No `l`/`p` in `dom`: every electrode is listed at once, so there is no
+        # page-length menu or pager to show
+        dom = "Bfrti",
+        buttons = list(
+          list(extend = "copy", text = "Copy", title = ""),
+          list(extend = "csv", text = "CSV", title = "",
+               filename = "voltage-explorer-crp-results")
+        ),
+        scrollX = TRUE,
+        fixedColumns = list(leftColumns = length(leading_names)),
+        paging = FALSE,
+        columnDefs = list(list(className = "dt-center", targets = "_all"))
+      )
+
+      if (length(layout$groups)) {
+        dt <- DT::datatable(
+          tbl,
+          rownames = FALSE,
+          container = crp_viewer_table_container(layout, leading_names),
+          extensions = c("FixedColumns", "Buttons"),
+          options = options
+        )
+      } else {
+        # No metric columns to group; a grouped header would be malformed
+        dt <- DT::datatable(
+          tbl,
+          rownames = FALSE,
+          extensions = c("FixedColumns", "Buttons"),
+          options = options
+        )
+      }
+
+      # `DT::formatRound()` takes one `digits` per call, so one call per distinct
+      # precision. Only metric columns are touched, so `Electrode` -- an
+      # identifier rather than a measurement -- stays unrounded.
+      for (digits in unique(digits_by_group)) {
+        columns <- unlist(
+          lapply(layout$groups[digits_by_group == digits], `[[`, "columns"),
+          use.names = FALSE
+        )
+        dt <- DT::formatRound(dt, columns = columns, digits = digits)
+      }
+
+      if (length(group_starts)) {
+        dt <- DT::formatStyle(
+          dt,
+          columns = group_starts,
+          `border-left` = "1px solid #adb5bd"
+        )
+      }
+      dt
+    })
+  )
+
+  reactive_data_by_trial_channel_condition <- shiny::bindEvent(
+    shiny::reactive({
+      tryCatch(
+        {
+          if (isFALSE(ravedash::watch_data_loaded())) {
+            stop("Data not loaded")
+          }
+          if (!length(local_reactives$update_outputs) ||
+              isFALSE(local_reactives$update_outputs)) {
+            stop("Please run the module first")
+          }
+
+          electrode <- input$by_cond_channel_selector
+          if (!isTRUE(electrode > 0)) {
+            stop("Invalid electrode selected")
+          }
+
+          res <- pipeline$read(c("aligned_array", "data_placeholder", "crp_settings"))
+
+          if (!length(res$aligned_array) || !length(res$data_placeholder)) {
+            stop("Pipeline result is empty. The result files might be broken. Try re-run the pipeline.")
+          }
+
+          prepare_data_by_trial_channel_condition(
+            electrode = electrode,
+            aligned_array = res$aligned_array,
+            data_placeholder = res$data_placeholder,
+            crp_settings = res$crp_settings
+          )
+        },
+        error = function(e) {
+          e
+        }
+      )
+    }),
+    ravedash::watch_data_loaded(),
+    local_reactives$update_outputs,
+    input$by_cond_channel_selector,
+    ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+
+  # Single channel: every trial as a faint line with the mean on top, one panel per
+  # condition group
+  shidashi::register_output(
+    outputId = "figure_data_by_trial_channel_condition_butterfly",
+    description = "Single channel: every trial as a faint line with the mean on top, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+
+      data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+      shiny::validate(
+        shiny::need(
+          !inherits(data_by_trial_channel_condition, "error"),
+          message = paste(data_by_trial_channel_condition$message, collapse = " ")
+        )
+      )
+
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_trial_channel_condition_butterfly(
+        x = data_by_trial_channel_condition,
+        vertical_marks = input$plot_onset_mark %||% 0,
+        crp = isTRUE(input$mean_erp_crp),
+        time_range = time_range,
+        cex = get_cex(),
+        space = plot_space$space,
+        space_mode = plot_space$space_mode
+      )
+    })
+  )
+
+
+  # ERP by condition: every channel, one panel per condition group. Stacked traces
+  # or a heatmap, per the shared by-electrode rendering preference.
+  shidashi::register_output(
+    outputId = "figure_data_by_channel_condition",
+    description = "Mean voltage by channel, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
+
+      data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+
+      shiny::validate(shiny::need(
+        inherits(data_by_channel_condition, "data_by_channel_condition"),
+        message = "No data available"
+      ))
+
+
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_type <- get_by_channel_plot_type()
+      colormaps <- get_colormaps()
+      plot_data_by_channel_condition_fun(plot_type)(
+        x                  = data_by_channel_condition,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
+        col                = if (identical(plot_type, "heatmap")) {
+          colormaps$continuous
+        } else {
+          colormaps$discrete
+        },
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
 
 
   # ERP by channel: one panel per electrode, condition groups overlaid
-  output$figure_by_channel_condition_ch <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_channel_condition, "data_by_channel_condition"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    # For By Electrode: when mode is quantile, always use the full data range
-    # (ignore the user-specified percentile); only apply space when mode is absolute
-    plot_space <- get_plot_space()
-    if (plot_space$space_mode == "quantile") {
-      by_elec_space      <- 1
-      by_elec_space_mode <- "quantile"
-    } else {
-      by_elec_space      <- plot_space$space
-      by_elec_space_mode <- "absolute"
-    }
-    plot_by_channel_condition(
-      data_by_channel_condition,
-      group_by           = "channel",
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = by_elec_space,
-      space_mode         = by_elec_space_mode,
-      flip_y             = isTRUE(input$mean_erp_flip_y)
-    )
-  })
+  shidashi::register_output(
+    outputId = "figure_data_by_channel_condition_overlay",
+    description = "Mean voltage: one panel per electrode, condition groups overlaid.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+
+      .output_ready()
+
+      data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
+
+      shiny::validate(shiny::need(
+        inherits(data_by_channel_condition, "data_by_channel_condition"),
+        message = "No data available"
+      ))
 
 
-  # Trial heatmap: time x trial image, one panel per condition group
-  output$figure_by_trial_per_condition <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    plot_space <- get_plot_space()
-    plot_by_trials_per_condition_multilines(
-      data_by_trial_channel_condition = data_by_trial_channel_condition,
-      sort_by        = get_trial_sort_by(),
-      cex            = get_cex(),
-      crp            = isTRUE(input$mean_erp_crp),
-      vertical_marks = input$plot_onset_mark %||% 0,
-      time_range     = time_range,
-      space          = plot_space$space,
-      space_mode     = plot_space$space_mode
-    )
-
-  })
-  output$figure_by_trial_per_condition_heatmap <- shidashi::renderPlot2({
-    .output_ready()
-    data_by_trial_channel_condition <- pipeline$read(var_names = "data_by_trial_channel_condition")
-    shiny::validate(shiny::need(
-      inherits(data_by_trial_channel_condition, "data_by_trial_channel_condition"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    plot_space <- get_plot_space()
-    plot_by_trials_per_condition_heatmap(
-      data_by_trial_channel_condition = data_by_trial_channel_condition,
-      sort_by        = get_trial_sort_by(),
-      space          = plot_space$space,
-      space_mode     = plot_space$space_mode,
-      time_range     = time_range,
-      cex            = get_cex(),
-      crp            = isTRUE(input$mean_erp_crp),
-      vertical_marks = input$plot_onset_mark %||% 0
-    )
-  })
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_channel_condition_overlay(
+        x                  = data_by_channel_condition,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
+        col                = get_colormaps()$discrete,
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
 
 
-  # CRP canonical response per channel, one panel per condition group
-  output$figure_crp_by_channel <- shidashi::renderPlot2({
-    .output_ready()
-    crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
-    shiny::validate(shiny::need(
-      inherits(crp_by_channel, "crp_by_channel"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    # CRP canonical responses are normalized, so an absolute (uV) spacing is
-    # meaningless; fall back to the full quantile range in that case.
-    crp_space <- get_crp_plot_space()
-    # Channel filter is applied via the "Update visualization" button (commits to
-    # local_data$crp_channel_selection); depend on the nonce to redraw on apply.
-    local_reactives$crp_filter_applied
-    plot_crp_by_channel_multilines(
-      crp_by_channel     = crp_by_channel,
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      crp                = isTRUE(input$mean_erp_crp),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = crp_space$space,
-      space_mode         = crp_space$space_mode,
-      channel_selection  = local_data$crp_channel_selection
-    )
-  })
+  # Single channel: trials stacked as offset traces, one panel per condition group
+  shidashi::register_output(
+    outputId = "figure_data_by_trial_channel_condition_multiline",
+    description = "Single channel: trials stacked as offset traces, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
 
-  output$figure_crp_by_channel_heatmap <- shidashi::renderPlot2({
-    .output_ready()
-    crp_by_channel <- pipeline$read(var_names = "crp_by_channel")
-    shiny::validate(shiny::need(
-      inherits(crp_by_channel, "crp_by_channel"),
-      message = "No data available"
-    ))
-    time_range <- c(input$plot_time_start, input$plot_time_end)
-    if (!length(time_range) || all(is.na(time_range))) {
-      time_range <- c(NA, NA)
-    }
-    crp_space <- get_crp_plot_space()
-    local_reactives$crp_filter_applied
-    plot_crp_by_channel_heatmap(
-      crp_by_channel     = crp_by_channel,
-      channel_annotation = get_channel_annotation_style(),
-      cex                = get_cex(),
-      crp                = isTRUE(input$mean_erp_crp),
-      vertical_marks     = input$plot_onset_mark %||% 0,
-      time_range         = time_range,
-      space              = crp_space$space,
-      space_mode         = crp_space$space_mode,
-      channel_selection  = local_data$crp_channel_selection
-    )
-  })
+      data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+      shiny::validate(
+        shiny::need(
+          !inherits(data_by_trial_channel_condition, "error"),
+          message = paste(data_by_trial_channel_condition$message, collapse = " ")
+        )
+      )
 
 
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_trial_channel_condition_multiline(
+        x              = data_by_trial_channel_condition,
+        sort_by        = get_trial_sort_by(),
+        cex            = get_cex(),
+        crp            = isTRUE(input$mean_erp_crp),
+        vertical_marks = input$plot_onset_mark %||% 0,
+        time_range     = time_range,
+        space          = plot_space$space,
+        space_mode     = plot_space$space_mode
+      )
+
+    })
+  )
+
+  # Single channel: trials as a time x trial heatmap, one panel per condition group
+  shidashi::register_output(
+    outputId = "figure_data_by_trial_channel_condition_heatmap",
+    description = "Single channel: trials as a time by trial heatmap, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+
+      data_by_trial_channel_condition <- reactive_data_by_trial_channel_condition()
+
+      shiny::validate(
+        shiny::need(
+          !inherits(data_by_trial_channel_condition, "error"),
+          message = paste(data_by_trial_channel_condition$message, collapse = " ")
+        )
+      )
+
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_by_trial_channel_condition_heatmap(
+        x              = data_by_trial_channel_condition,
+        sort_by        = get_trial_sort_by(),
+        space          = plot_space$space,
+        space_mode     = plot_space$space_mode,
+        time_range     = time_range,
+        cex            = get_cex(),
+        crp            = isTRUE(input$mean_erp_crp),
+        col            = get_colormaps()$continuous,
+        vertical_marks = input$plot_onset_mark %||% 0
+      )
+    })
+  )
+
+
+  # CRP canonical response per channel, one panel per condition group. Stacked
+  # traces or a heatmap, per the shared by-electrode rendering preference.
+  shidashi::register_output(
+    outputId = "figure_data_crp_by_channel",
+    description = "CRP canonical response per channel, one panel per condition group.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
+      data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+      shiny::validate(shiny::need(
+        inherits(data_crp_by_channel, "data_crp_by_channel"),
+        message = "No data available"
+      ))
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_type <- get_by_channel_plot_type()
+      colormaps <- get_colormaps()
+      plot_data_crp_by_channel_fun(plot_type)(
+        x                  = data_crp_by_channel,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        crp                = isTRUE(input$mean_erp_crp),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
+        col                = if (identical(plot_type, "heatmap")) {
+          colormaps$continuous
+        } else {
+          colormaps$discrete
+        },
+        scale_back         = get_crp_scale_back(),
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
+
+
+  # CRP canonical response: one panel per electrode, condition groups overlaid.
+  # `col` is always the discrete palette -- the overlay draws one line per
+  # condition group and never an image, unlike the figure above.
+  shidashi::register_output(
+    outputId = "figure_data_crp_by_channel_overlay",
+    description = "CRP canonical response: one panel per electrode, condition groups overlaid.",
+    download_type = "image",
+    session = session,
+    expr = shidashi::renderPlot2({
+      .output_ready()
+
+      data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+
+      shiny::validate(shiny::need(
+        inherits(data_crp_by_channel, "data_crp_by_channel"),
+        message = "No data available"
+      ))
+
+      time_range <- c(input$plot_time_start, input$plot_time_end)
+      if (!length(time_range) || all(is.na(time_range))) {
+        time_range <- c(NA, NA)
+      }
+      plot_space <- get_plot_space()
+      plot_data_crp_by_channel_overlay(
+        x                  = data_crp_by_channel,
+        electrode_mask     = get_electrode_mask(),
+        channel_annotation = get_channel_annotation_style(),
+        cex                = get_cex(),
+        crp                = isTRUE(input$mean_erp_crp),
+        vertical_marks     = input$plot_onset_mark %||% 0,
+        time_range         = time_range,
+        space              = plot_space$space,
+        space_mode         = plot_space$space_mode,
+        col                = get_colormaps()$discrete,
+        scale_back         = get_crp_scale_back(),
+        flip_y             = isTRUE(input$mean_erp_flip_y)
+      )
+    })
+  )
+
+
+
+  # ---- Cardset: by trial --------
+  eval(body(server_expr_by_trial))
 }

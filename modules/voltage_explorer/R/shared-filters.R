@@ -12,6 +12,7 @@ DEFAULT_VOLTAGE_UNIT <- "MicroVolt"
 #' @param ... passed to the methods. For `decimate`, use `by` (integer) indicate
 #' the decimate ratio. For other methods, see `?ravetools::design_filter`
 apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
+  `%?<-%` <- dipsaus::`%?<-%`
   type <- match.arg(type)
 
   if ( type == "fir" ) {
@@ -119,7 +120,7 @@ apply_filter <- function(signals, type = ALLOWED_FILTER_TYPES, ...) {
   }
 }
 
-
+# Check filter configuration for errors
 assert_filter_config <- function(config, ..., disallow_types = NULL) {
   # c(
   #   "demean", "detrend", "decimate", "fir_kaiser", "firls", "fir_remez",
@@ -207,7 +208,12 @@ assert_filter_config <- function(config, ..., disallow_types = NULL) {
 
 }
 
-
+# Slightly higher-level than apply_filter: this function
+# applies multiple filters to multiple signal traces
+# this is the unit to run filters on repository: it only handles
+# per-channel filtering
+# signals is per-trial signal on a single channel, and filter_configs
+# is a sequence of filters
 apply_filters_to_signals <- function(signals, filter_configs) {
   # assuming signals is a filearray
   signals_dim <- dim(signals)
@@ -238,7 +244,8 @@ apply_filters_to_signals <- function(signals, filter_configs) {
   signals
 }
 
-
+# Prepare a filearray to store the filtered data on disk, under pipeline folder
+# to avoid persist large objects in memory
 prepare_filtered_data <- function(array_type, repository, filter_configurations) {
   sample_rate <- repository$sample_rate
   time_points <- repository$voltage$dimnames$Time
@@ -364,80 +371,221 @@ prepare_filtered_data <- function(array_type, repository, filter_configurations)
   pre_analysis_filter_array
 }
 
+# For getting combined filter in frequency domain
+get_filter_freqz <- function(repository, filter_configurations) {
+  # Pre-calculate each frequency filter so its frequency response can be plotted.
+  # Meta steps (detrend, demean, decimate, baseline) are not filter objects but
+  # advance the tracked effective sample rate / timepoint count accordingly.
+  sample_rate <- repository$sample_rate
+  time_points <- repository$voltage$dimnames$Time
 
-align_trials <- function(filtered_array, analysis_event_colname) {
+  start_time <- min(time_points, na.rm = TRUE)
+  n_timepoints <- length(time_points)
+  new_srate <- sample_rate
 
-  if (inherits(filtered_array, "RAVEFileArray")) {
-    # unwrap the filtered_array
-    filtered_array_impl <- filtered_array$`@impl`
-  } else {
-    filtered_array_impl <- filtered_array
-  }
+  configs <- as.list(filter_configurations)
 
-  epoch_table <- filtered_array_impl$get_header("epoch_table")
-  event_time <- epoch_table[[analysis_event_colname]]
-  onset_time <- epoch_table$Time
+  filter <- list()
+  pre_filter_decimate <- 1L
+  post_filter_decimate <- 1L
+  found_frequency_filter <- FALSE
+  freqz_n <- 2^(floor(log2(n_timepoints / 2)) + 1)
 
-  delta <- event_time - onset_time
-  delta[is.na(delta)] <- 0
+  xlim <- c(0, 10)
 
-  if (all(delta == 0)) {
-    # No need to shift array, return filtered array
-    return(ravepipeline::RAVEFileArray$new(filtered_array_impl))
-  }
+  for (cfg in configs) {
+    type <- cfg$type %||% ""
 
-  sample_rate <- filtered_array_impl$get_header("sample_rate")
-  shift_amount <- round(sample_rate * delta)
-
-  # No need to cache this file because the repository, analysis event, and filters
-  # together determines the cache key from the pipeline level
-  filebase <- file.path(pipeline$pipeline_path, "shared", "user", "trials_aligned", fsep = "/")
-  if (file.exists(filebase)) {
-    unlink(filebase, recursive = TRUE)
-  }
-
-  # Float to save disk space
-  dm <- dim(filtered_array_impl)
-  aligned_array_impl <- filearray::filearray_create(
-    filebase,
-    dimension = dm,
-    type = "float",
-    partition_size = 1L
-  )
-
-  pdm <- dm[-length(dm)]
-  filearray::fmap(
-    x = list(filtered_array_impl),
-    .y = aligned_array_impl,
-    .buffer_count = dm[[length(dm)]],
-    fun = function(input) {
-      slice <- array(input[[1]], pdm)
-      ravetools::shift_array(
-        x = slice,
-        along_margin = 1L, # shift along time
-        shift_amount = shift_amount,
-        unit_margin = 2L   # per trial
-      )
+    # -- Meta steps: update tracked state but produce no filter object ----------
+    if (type %in% c("detrend", "demean", "baseline")) {
+      next
     }
-  )
 
-  extra_headers <- filtered_array_impl$.header
-  extra_headers <- extra_headers[!names(extra_headers) %in% c(names(aligned_array_impl$.header), "dimnames")]
-  for (nm in names(extra_headers)) {
-    aligned_array_impl$set_header(nm, extra_headers[[nm]], save = FALSE)
+    if (type == "decimate") {
+      by <- max(1L, as.integer(cfg$by %||% 1L))
+      if (!found_frequency_filter) {
+        # Pre-filter decimation: accumulate before first frequency filter
+        pre_filter_decimate <- pre_filter_decimate * by
+        new_srate <- new_srate / by
+        n_timepoints <- ceiling(n_timepoints / by)
+      } else {
+        # Post-filter decimation: accumulate after frequency filters
+        post_filter_decimate <- post_filter_decimate * by
+      }
+      next
+    }
+
+    # -- Normalize type aliases -------------------------------------------------
+    if (type == "fir") { type <- "fir_kaiser" }
+    if (type == "iir") { type <- "butter" }
+
+    # -- Design the filter and capture coefficients for plotting ----------------
+    f <- tryCatch({
+      ravetools::design_filter(
+        sample_rate          = new_srate,
+        filter_order         = NA,
+        data_size            = n_timepoints,
+        high_pass_freq       = cfg$high_pass_freq       %||% NA,
+        high_pass_trans_freq = cfg$high_pass_trans_freq %||% NA,
+        low_pass_freq        = cfg$low_pass_freq        %||% NA,
+        low_pass_trans_freq  = cfg$low_pass_trans_freq  %||% NA,
+        passband_ripple      = cfg$passband_ripple      %||% 0.1,
+        stopband_attenuation = cfg$stopband_attenuation %||% 40,
+        scale                = TRUE,
+        method               = type
+      )
+    }, error = function(e) {
+      stop("Could not design filter (type=",
+           type,
+           "): ",
+           conditionMessage(e))
+      NULL
+    })
+
+    if (!is.null(f)) {
+      found_frequency_filter <- TRUE
+      freqz <- ravetools::freqz2(
+        b = f$b,
+        a = f$a,
+        fs = new_srate,
+        n = freqz_n,
+        whole = FALSE
+      )
+
+      filter[[length(filter) + 1L]] <- list(
+        config      = cfg,
+        type        = type,
+        sample_rate = new_srate,
+        b           = f$b,
+        a           = f$a,
+        frequency   = freqz$w,
+        response    = freqz$h
+      )
+
+      xlim <- range(c(
+        xlim,
+        c(f$parameters$stopband, f$parameters$passband) * new_srate / 2
+      ), na.rm = TRUE)
+    }
   }
 
-  signature_shift_mount <- ravepipeline::digest(as.integer(shift_amount))
-  aligned_array_impl$set_header("signature_shift_mount", signature_shift_mount, save = FALSE)
+  # -- Combined frequency response on the pre-decimated sample-rate axis --
+  if (length(filter)) {
+    # All FIR/IIR filters see the same sample_rate (new_srate), so they're all
+    # on the same frequency grid. Multiply responses directly.
+    combined_freq <- seq(0, new_srate / 2, length.out = freqz_n)
+    combined_response <- rep(1 + 0i, length(combined_freq))
 
-  dnames <- dimnames(filtered_array_impl)
-  time_range <- range(dnames$Time)
-  shift_range <- range(delta, na.rm = TRUE)
-  valid_time_range <- c(time_range[[1]] + shift_range[[2]], time_range[[2]] + shift_range[[1]])
-  aligned_array_impl$set_header("valid_time_range", valid_time_range, save = FALSE)
-  dimnames(aligned_array_impl) <- dnames
+    for (item in filter) {
+      # All filters are at the same sample rate, so responses align on same grid.
+      # Just multiply the complex responses directly.
+      combined_response <- combined_response * item$response
+    }
 
-  aligned_array_impl$.mode <- "readonly"
-  ravepipeline::RAVEFileArray$new(aligned_array_impl)
+    filter_freqz <- structure(
+      class = c("ravetools-freqz2", "ravetools-printable"),
+      list(
+        w = combined_freq, # Hz, on the pre-decimated sample rate
+        h = combined_response, # complex; Mod() = amplitude, Arg() = phase
+        f = combined_freq, # Hz, redundant with w, but more intuitive to associate with h
+        u = "Hz",
+        srate = new_srate, # sample rate at the input to the FIR/IIR filters
+        pre_filter_decimate = pre_filter_decimate,
+        post_filter_decimate = post_filter_decimate,
+        original_srate = sample_rate,
+        n = freqz_n,
+        xlim = xlim
+      )
+    )
+  } else {
+    filter_freqz <- NULL
+  }
+  filter_freqz
+}
 
+# High-level function to apply filters to repository
+filter_repository <- function(repository, filter_configurations) {
+  filtered_array <- prepare_filtered_data(
+    array_type = "filtered_voltage",
+    repository = repository,
+    filter_configurations = filter_configurations
+  )
+
+  # For ravepipeline workers to fast-serialize the arrays
+  filtered_array <- ravepipeline::RAVEFileArray$new(filtered_array)
+
+  # Filter every loaded channel: channel selection is a plot-time mask, not a
+  # subset of the analysis
+  electrodes_to_filter <- repository$electrode_list
+
+  expr <- quote({
+    ravepipeline::lapply_jobs(electrodes_to_filter, function(ch) {
+      sel <- repository$electrode_list %in% ch
+      source_array <- repository$voltage$data_list[[which(sel)]]
+      signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
+
+      # Get filter inputs
+      filtered_array_impl <- filtered_array$`@impl`
+      filter_configs <- filtered_array_impl$get_header("filter_configurations")
+
+      # filtered signals
+      filtered <- apply_filters_to_signals(signals = signals, filter_configs = filter_configs)
+
+      # write to disk via filearray
+      filtered_array_impl$.mode <- "readwrite"
+      filtered_array_impl[, , sel] <- filtered
+
+      return(ch)
+    }, .globals = list(
+      repository = repository,
+      filtered_array = filtered_array,
+      apply_filters_to_signals = apply_filters_to_signals,
+      apply_filter = apply_filter,
+      ALLOWED_FILTER_TYPES = ALLOWED_FILTER_TYPES
+    ), callback = function(ch) {
+      sprintf("Filtering channel|%d", ch)
+    })
+  })
+
+  do_filter <- function() {
+    ravepipeline::lapply_jobs(electrodes_to_filter, function(ch) {
+      sel <- repository$electrode_list %in% ch
+      source_array <- repository$voltage$data_list[[which(sel)]]
+      signals <- source_array[reshape = dim(source_array)[c(1, 2)]]
+
+      # Get filter inputs
+      filtered_array_impl <- filtered_array$`@impl`
+      filter_configs <- filtered_array_impl$get_header("filter_configurations")
+
+      # filtered signals
+      filtered <- apply_filters_to_signals(signals = signals, filter_configs = filter_configs)
+
+      # write to disk via filearray
+      filtered_array_impl$.mode <- "readwrite"
+      filtered_array_impl[, , sel] <- filtered
+
+      return(ch)
+    }, .globals = list(
+      repository = repository,
+      filtered_array = filtered_array,
+      apply_filters_to_signals = apply_filters_to_signals,
+      apply_filter = apply_filter,
+      ALLOWED_FILTER_TYPES = ALLOWED_FILTER_TYPES
+    ), callback = function(ch) {
+      sprintf("Filtering channel|%d", ch)
+    })
+  }
+
+  # For debugging to speed up
+  if (isTRUE(getOption("rave.debug"))) {
+    ravepipeline::with_rave_parallel({
+      do_filter()
+    })
+  } else {
+    # Pipeline automatically applies parallel with user-specified cores in production
+    do_filter()
+  }
+
+  # re-wrap incase anything has changed
+  ravepipeline::RAVEFileArray$new(filtered_array$`@impl`)
 }
