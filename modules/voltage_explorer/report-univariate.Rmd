@@ -1,19 +1,28 @@
 ---
-output: 
-  html_document: 
+output:
+  html_document:
     toc: true
-    toc_float: 
+    toc_float:
       collapsed: true
     toc_depth: 3
     df_print: kable
     theme: spacelab
-editor_options: 
+editor_options:
   chunk_output_type: console
 params:
-  analysis_electrodes: ~
+  electrode_mask: ~
   time_range: ~
-  crp_annotations: yes
   vertical_marks: 0
+  cex: ~
+  channel_annotation: ~
+  trial_sort_by: ~
+  plot_space: ~
+  plot_space_is_percentile: ~
+  crp_annotations: ~
+  crp_scale_back: ~
+  flip_y: ~
+  discrete_colormap: ~
+  continuous_colormap: ~
 ---
 
 ```{r setup, include=FALSE}
@@ -30,36 +39,23 @@ options(rmarkdown.df_print = "paged")
 
 # Load pipeline
 pipeline <- ravepipeline::pipeline_from_path(".")
-repository <- pipeline$run("repository")
-
-analysis_electrodes <- params$analysis_electrodes
-if (length(analysis_electrodes)) {
-  analysis_electrodes <- dipsaus::parse_svec(params$analysis_electrodes)
-}
-
-if (!length(analysis_electrodes)) {
-  analysis_electrodes <- repository$electrode_list
-}
-pipeline$set_settings(
-  analysis_electrodes = dipsaus::deparse_svec(analysis_electrodes)
-)
 
 shared_env <- pipeline$shared_env()
 settings <- pipeline$get_settings()
-# pipeline$clean()
 
 # mount inputs to global environment
 list2env(settings, envir = globalenv())
 list2env(as.list(shared_env), envir = globalenv())
 
-# Evaluate to get the repository and omnibus_results
-# Every channel is analyzed; `analysis_electrodes` only decides what gets drawn, so
-# this runs once for the whole report rather than once per electrode.
+# Evaluate to get the repository and every by-channel result. Every channel is
+# analyzed; `electrode_mask` only decides what gets drawn, so this runs once for
+# the whole report rather than once per electrode.
 pipeline$run(
   scheduler = "none",
   type = "smart",
   names = c(
     "repository",
+    "filter_freqz",
     "condition_groups_clean",
     "filtered_array",
     "aligned_array",
@@ -69,50 +65,182 @@ pipeline$run(
     "data_placeholder",
     "loaded_electrodes_clean",
     "data_by_channel_condition",
-    "data_crp_by_channel"
+    "data_crp_by_channel",
+    "data_crp_param_alpha_prime",
+    "data_crp_param_snr",
+    "data_crp_param_expl_var"
   ),
   return_values = FALSE
 )
 
-
 repository <- pipeline$read("repository")
 brain <- ravecore::rave_brain(repository$subject)
+filter_freqz <- pipeline$read(var_names = "filter_freqz")
 erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
 erp_results_for_viewer <- as.data.frame(erp_results_for_viewer)
 condition_groups_clean <- pipeline$read("condition_groups_clean")
-data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
 data_by_channel_condition <- pipeline$read(var_names = "data_by_channel_condition")
-
-# Restrict to the loaded LFP channels the caller asked for
-analysis_electrodes <- intersect(analysis_electrodes,
-                                 pipeline$read("loaded_electrodes_clean"))
-
-mfrow <- get_mfrow(n = condition_groups_clean$n, mfrow = NULL, asp = 3)
-
-crp_fig_ratio <- mfrow[[1]] * length(analysis_electrodes) / 40
+data_crp_by_channel <- pipeline$read(var_names = "data_crp_by_channel")
+data_crp_param_alpha_prime <- pipeline$read(var_names = "data_crp_param_alpha_prime")
+data_crp_param_snr <- pipeline$read(var_names = "data_crp_param_snr")
+data_crp_param_expl_var <- pipeline$read(var_names = "data_crp_param_expl_var")
 ```
 
-```{r, handle_params_if_missing, include=FALSE}
-# `%||%` is a base R operator since 4.0
-# plots_to_include <- params$plots_to_include %||% c(
-#   "over_time_by_electrode",
-#   "by_frequency_over_time",
-#   "over_time_by_trial",
-#   "over_time_by_condition"
-# )
-# 
+```{r resolve_report_options, include=FALSE}
+# `electrode_mask` is what every `plot_data_*()` calls it: a plot-time channel
+# selection, not a pipeline input. Nothing downstream of the pipeline depends on
+# it, so the report never writes it back into the settings.
+electrode_mask <- params$electrode_mask
+if (length(electrode_mask)) {
+  electrode_mask <- dipsaus::parse_svec(electrode_mask)
+}
+if (!length(electrode_mask)) {
+  electrode_mask <- repository$electrode_list
+}
+# Restrict to the loaded LFP channels the caller asked for
+electrode_mask <- sort(intersect(electrode_mask,
+                                 pipeline$read("loaded_electrodes_clean")))
+
+# A param left unset falls back to the user's stored preference. Reading is all
+# the report may do: `use_*(value)` writes `value` into the *global* on-disk
+# preference store, and a background report job has no business rewriting the
+# user's settings. `fallback` stays a promise, so a preference is only read when
+# it is actually needed.
+param_or <- function(value, fallback) {
+  if (length(value) && !all(is.na(value))) { return(value) }
+  fallback
+}
+
+# Which graphics options the caller actually supplied. Recorded so the
+# Parameters section below can say where each value came from.
+GRAPHICS_OPTIONS <- c(
+  "cex", "channel_annotation", "trial_sort_by", "plot_space",
+  "plot_space_is_percentile", "crp_annotations", "crp_scale_back",
+  "flip_y", "discrete_colormap", "continuous_colormap"
+)
+param_supplied <- vapply(GRAPHICS_OPTIONS, function(nm) {
+  value <- params[[nm]]
+  isTRUE(length(value) > 0 && !all(is.na(value)))
+}, FALSE)
+
+# A colormap preference stores a palette *name*, so the param is a name too.
+# An unknown one warns and falls back rather than aborting the whole report.
+resolve_colormap_name <- function(value, fallback, choices, what) {
+  name <- as.character(param_or(value, fallback))[[1]]
+  if (isTRUE(name %in% choices)) { return(name) }
+  warning(sprintf(
+    "Unknown %s colormap `%s`; using `%s` instead. Available: %s",
+    what, name, fallback, paste(choices, collapse = ", ")
+  ))
+  fallback
+}
+
 time_range <- params$time_range %||% c(NA, NA)
 if (length(time_range) != 2 || all(is.na(time_range))) {
   time_range <- c(NA, NA)
 }
-crp_annotations <- isTRUE(as.logical(params$crp_annotations))
 vertical_marks <- as.numeric(params$vertical_marks %||% 0)
 
-channel_annotation_style <- use_channel_annotation_style()
-cex <- use_cex()
-trial_sort_by <- use_trial_sort_by()
+cex <- as.numeric(param_or(params$cex, use_cex()))
+channel_annotation_style <- match.arg(
+  as.character(param_or(params$channel_annotation, use_channel_annotation_style())),
+  choices = OPTIONS_CHAN_ANNOT
+)
+trial_sort_by <- match.arg(
+  as.character(param_or(params$trial_sort_by, use_trial_sort_by())),
+  choices = OPTIONS_TRIAL_SORT
+)
 
-by_elec_space <- use_plot_space_resolved()
+# The stored spacing is a percentage in percentile mode and micro-volts
+# otherwise; `resolve_plot_space()` owns that conversion and, unlike
+# `use_plot_space(value)`, takes an override without persisting it.
+plot_space_value <- max(0, as.numeric(param_or(params$plot_space, use_plot_space())))
+plot_space_is_pct <- isTRUE(as.logical(
+  param_or(params$plot_space_is_percentile, use_plot_space_is_percentile())))
+by_elec_space <- resolve_plot_space(plot_space_value, plot_space_is_pct)
+
+crp_annotations <- isTRUE(as.logical(
+  param_or(params$crp_annotations, use_show_crp_decoration())))
+crp_scale_back <- isTRUE(as.logical(
+  param_or(params$crp_scale_back, use_crp_scale_back())))
+flip_y <- isTRUE(as.logical(param_or(params$flip_y, use_flipped_y())))
+
+discrete_colormap_name <- resolve_colormap_name(
+  params$discrete_colormap, use_discrete_colormap()$name,
+  names(ravepipeline::DISCRETE_COLORMAPS(preview = FALSE)), "discrete")
+continuous_colormap_name <- resolve_colormap_name(
+  params$continuous_colormap, use_continuous_colormap()$name,
+  names(ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE)), "continuous")
+
+discrete_colors <- ravepipeline::DISCRETE_COLORMAPS(discrete_colormap_name)
+continuous_colors <- ravepipeline::CONTINUOUS_COLORMAPS(continuous_colormap_name)
+
+# A rejected colormap param fell back to the preference, so the Parameters table
+# below must not go on crediting the param it refused
+param_supplied[["discrete_colormap"]] <- identical(
+  discrete_colormap_name, as.character(params$discrete_colormap %||% "")[[1]])
+param_supplied[["continuous_colormap"]] <- identical(
+  continuous_colormap_name, as.character(params$continuous_colormap %||% "")[[1]])
+```
+
+```{r figure_helpers, include=FALSE}
+# Historical report sizing: 0.3in of drawing height per stacked channel, per
+# panel row. `asp` must match the `get_mfrow()` call inside the plot function
+# being sized -- 4 for `plot_data_by_channel_condition_multiline()`, 3 for every
+# other by-channel figure.
+fig_height_by_channel <- function(asp = 3, per_channel = 0.3, max_height = 60) {
+  n_rows <- get_mfrow(n = condition_groups_clean$n, mfrow = NULL, asp = asp)[[1]]
+  min(max(n_rows * per_channel * length(electrode_mask), 4), max_height)
+}
+
+# Per-electrode figure heights: the overlay is a single panel, the two trial
+# figures are one panel per condition group.
+fig_height_electrode_overlay <- 4.5
+fig_height_electrode_trial <-
+  get_mfrow(n = condition_groups_clean$n, mfrow = NULL, asp = 3)[[1]] * 4
+
+# The resolved options bound once, so the per-electrode loop and its child
+# template stay readable.
+plot_electrode_overlay <- function(electrode) {
+  plot_data_by_channel_condition_overlay(
+    x                  = data_by_channel_condition,
+    electrode_mask     = electrode,
+    channel_annotation = channel_annotation_style,
+    cex                = cex,
+    vertical_marks     = vertical_marks,
+    time_range         = time_range,
+    space              = by_elec_space$space,
+    space_mode         = by_elec_space$space_mode,
+    col                = discrete_colors,
+    flip_y             = flip_y
+  )
+}
+
+plot_electrode_butterfly <- function(x) {
+  plot_data_by_trial_channel_condition_butterfly(
+    x              = x,
+    vertical_marks = vertical_marks,
+    crp            = crp_annotations,
+    time_range     = time_range,
+    cex            = cex,
+    space          = by_elec_space$space,
+    space_mode     = by_elec_space$space_mode
+  )
+}
+
+plot_electrode_heatmap <- function(x) {
+  plot_data_by_trial_channel_condition_heatmap(
+    x              = x,
+    sort_by        = trial_sort_by,
+    space          = by_elec_space$space,
+    space_mode     = by_elec_space$space_mode,
+    time_range     = time_range,
+    cex            = cex,
+    crp            = crp_annotations,
+    col            = continuous_colors,
+    vertical_marks = vertical_marks
+  )
+}
 ```
 
 ---
@@ -120,23 +248,125 @@ title: "Subject (Univariate) Voltage Analysis Report"
 date: |
   Project & subject: ``r repository$subject$subject_id`` <br />
   <small><i>
-    Generated by  [RAVE](https://rave.wiki) at `r format(Sys.time(), '%a %X, %b %d, %Y')` 
+    Generated by  [RAVE](https://rave.wiki) at `r format(Sys.time(), '%a %X, %b %d, %Y')`
   </i></small>
 ---
 
 
-## Filters
+## Parameters
 
+Everything needed to reproduce this report: the pipeline inputs it was run with,
+the graphics options it was rendered with, the signal filters that were applied,
+and the condition groups the trials were split into.
+
+### Pipeline settings
 
 ```{r}
-try({
-  filter_freqz <- pipeline$run("filter_freqz")
-  plot(filter_freqz)
-  print(filter_freqz)
-})
+# `condition_groups` and `filter_configurations` are nested and get tables of
+# their own below
+settings_display <- settings[
+  !names(settings) %in% c("condition_groups", "filter_configurations")]
+settings_display <- settings_display[!vapply(
+  settings_display, function(v) { inherits(v, "key_missing") }, FALSE)]
+settings_display <- settings_display[order(names(settings_display))]
+
+knitr::kable(
+  caption = "Pipeline inputs (`settings.yaml`)",
+  row.names = FALSE,
+  data.frame(
+    check.names = FALSE,
+    row.names = NULL,
+    Setting = names(settings_display),
+    Value = vapply(settings_display, function(v) {
+      v <- unlist(v)
+      if (!length(v)) { return("") }
+      paste(format(v, trim = TRUE), collapse = ", ")
+    }, "")
+  )
+)
 ```
 
-## Condition groups
+### Report options
+
+```{r}
+# Where each option came from: a value the caller passed to the report, or the
+# user preference it fell back to
+option_source <- function(name) {
+  if (isTRUE(param_supplied[[name]])) { "report parameter" } else { "user preference" }
+}
+
+knitr::kable(
+  caption = "Report parameters and graphics options",
+  row.names = FALSE,
+  data.frame(
+    check.names = FALSE,
+    row.names = NULL,
+    Option = c("electrode_mask", "time_range", "vertical_marks", GRAPHICS_OPTIONS),
+    Value = c(
+      dipsaus::deparse_svec(electrode_mask),
+      paste(ifelse(is.na(time_range), "auto", format(time_range)), collapse = " ~ "),
+      paste(vertical_marks, collapse = ", "),
+      format(cex),
+      channel_annotation_style,
+      trial_sort_by,
+      format(plot_space_value),
+      format(plot_space_is_pct),
+      format(crp_annotations),
+      format(crp_scale_back),
+      format(flip_y),
+      discrete_colormap_name,
+      continuous_colormap_name
+    ),
+    Source = c(
+      if (length(params$electrode_mask)) { "report parameter" } else { "all loaded channels" },
+      if (length(params$time_range)) { "report parameter" } else { "full epoch" },
+      "report parameter",
+      unname(vapply(GRAPHICS_OPTIONS, option_source, ""))
+    )
+  )
+)
+```
+
+### Signal filters
+
+```{r}
+filter_configurations <- as.list(settings$filter_configurations)
+
+if (length(filter_configurations)) {
+  knitr::kable(
+    caption = "Filters applied, in order",
+    row.names = FALSE,
+    do.call(rbind, lapply(seq_along(filter_configurations), function(ii) {
+      config <- as.list(filter_configurations[[ii]])
+      type <- as.character(config$type %||% "")
+      config$type <- NULL
+      data.frame(
+        check.names = FALSE,
+        row.names = NULL,
+        Step = ii,
+        Type = type,
+        Parameters = if (length(config)) {
+          paste(sprintf("%s = %s", names(config), vapply(config, function(v) {
+            paste(unlist(v), collapse = ", ")
+          }, "")), collapse = "; ")
+        } else { "" }
+      )
+    }))
+  )
+}
+```
+
+```{r}
+# `xlim` is the pass/stop band range `get_filter_freqz()` tracked while building
+# the filters -- without it the response is drawn over the full Nyquist range
+# and the configured band is a sliver
+if (!is.null(filter_freqz)) {
+  plot(filter_freqz, xlim = filter_freqz$xlim)
+  print(filter_freqz)
+}
+```
+
+### Condition groups
 
 ```{r}
 knitr::kable(caption = "Condition group settings", data.frame(
@@ -151,13 +381,15 @@ knitr::kable(caption = "Condition group settings", data.frame(
 
 ## Canonical response statistics
 
-* `t_val`: statistics on whether ERP is significant
-* `resp_strength`: average response strength in micro-volts compared to canonical shape
-* `tau`: estimated ERP offset (in seconds)
-* `var_explain`: $R^2$ canonical shape vs the total trial variation
+```{r, results='asis'}
+# Generated from `CRP_VIEWER_METRICS`, the single source of truth for which
+# metrics reach the viewer and how they are described, so this list cannot drift
+# out of step with the columns below
+cat(sprintf("* `%s`: %s\n", names(CRP_VIEWER_METRICS),
+            unlist(CRP_VIEWER_METRICS, use.names = FALSE)), sep = "")
+```
 
-
-<button class="btn btn-primary btn-xs collapsed" data-toggle="collapse" data-target="#htmlwidget_container" aria-expanded="false"> Show/Hide 3D Viewer </button>  
+<button class="btn btn-primary btn-xs collapsed" data-toggle="collapse" data-target="#htmlwidget_container" aria-expanded="false"> Show/Hide 3D Viewer </button>
 
 ```{r}
 #| layout: l-screen-insert-right
@@ -165,16 +397,16 @@ knitr::kable(caption = "Condition group settings", data.frame(
 #| fig.width: 10
 
 if (!is.null(brain)) {
-  
+
   controllers <- list()
   brain$set_electrode_values(erp_results_for_viewer)
-  
+
   nms <- names(erp_results_for_viewer)
-  nms <- nms[startsWith(nms, "t_val")]
+  nms <- nms[startsWith(nms, "t_proj")]
   if (length(nms)) {
     controllers[["Display Data"]] <- nms[[1]]
   }
-  
+
   brain$plot(
     control_display = FALSE,
     side_display = FALSE,
@@ -189,105 +421,155 @@ if (!is.null(brain)) {
 
 ```
 
+### Results table
+
 ```{r}
 #| layout: l-screen-insert-right
-#| rows.print: 10
 
-nms <- names(erp_results_for_viewer)
-nms <- unique(c(
-  "Subject", "Electrode",
-  nms[startsWith(nms, "t_val")], 
-  nms[startsWith(nms, "resp_strength")], 
-  nms[startsWith(nms, "tau")], 
-  nms))
-df <- as.data.frame(structure(
-  names = nms,
-  lapply(nms, function(nm) {
-    if (nm %in% c("Electrode", "Subject")) {
-      return(erp_results_for_viewer[[nm]])
-    } else {
-      x <- erp_results_for_viewer[[nm]]
-      if (is.numeric(x)) {
-        return(round(x, 2))
-      }
-      return(x)
-    }
-  })
-))
-names(df) <- nms
-# Define your stats and conditions
-is_grouped <- grepl("\\(", nms)
-stat_name  <- sub(" \\(.*\\)$", "", nms)
-condition  <- sub(".*\\((.*)\\)$", "\\1", nms)
+# Same numbers the viewer paints on the electrodes, laid out metric-major with
+# one sub-column per condition. The layout, the two-row header sketch and the
+# per-metric precision all come from `shared-viewer_table.R`, which is what the
+# module's own "Results Table" tab uses -- so the two cannot drift apart.
+erp_tbl <- erp_results_for_viewer[
+  erp_results_for_viewer$Electrode %in% electrode_mask, , drop = FALSE]
 
-top_row    <- list()
-bottom_row <- list()
-group_start_cols <- c()
+layout <- crp_viewer_table_layout(names(erp_tbl))
 
-border_style <- "border-left: 2px solid #aaa;"
-
-i <- 1
-while (i <= length(nms)) {
-  if (!is_grouped[i]) {
-    top_row[[length(top_row) + 1]] <- htmltools::tags$th(rowspan = 2, nms[i])
-    i <- i + 1
-  } else {
-    s <- stat_name[i]
-    j <- i
-    while (j <= length(nms) && is_grouped[j] && stat_name[j] == s) j <- j + 1
-
-    # border on the group header
-    top_row[[length(top_row) + 1]] <- htmltools::tags$th(
-      colspan = j - i, s, style = border_style
-    )
-    group_start_cols <- c(group_start_cols, nms[i])
-
-    for (k in i:(j - 1)) {
-      # border only on the first sub-column of each group
-      bdr <- if (k == i) border_style else NULL
-      bottom_row[[length(bottom_row) + 1]] <- htmltools::tags$th(
-        condition[k], style = bdr
-      )
-    }
-    i <- j
-  }
+# A metric can be absent for some conditions (e.g. `onset` when CRP onset
+# detection is disabled); fill so the header stays rectangular
+for (nm in setdiff(layout$columns, names(erp_tbl))) {
+  erp_tbl[[nm]] <- NA_real_
 }
 
-sketch <- htmltools::withTags(table(
-  thead(
-    tr(top_row),
-    tr(bottom_row)
-  )
-))
+electrode_table <- repository$electrode_table
+labels <- as.character(electrode_table$Label)[
+  match(erp_tbl$Electrode, electrode_table$Electrode)]
 
-# Pre-round floats in R
-df_display <- df
-float_cols <- sapply(df, is.numeric) & !sapply(df, is.integer)
-df_display[float_cols] <- lapply(df_display[float_cols], round, digits = 2)
+leading <- data.frame(
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  Electrode = erp_tbl$Electrode,
+  Label = labels
+)
+leading_names <- names(leading)
+tbl <- cbind(leading, erp_tbl[, layout$columns, drop = FALSE])
 
-DT::formatStyle(
-  DT::datatable(
-    df_display,
-    container = sketch,
-    options = list(scrollX = TRUE, columnDefs = list(
-      list(targets = "_all", className = "dt-center")
-    )),
-    rownames = FALSE
+# Precision is decided per metric group over all of its conditions pooled, so
+# the conditions of one metric stay aligned instead of each column picking its
+# own decimals
+digits_by_group <- vapply(layout$groups, function(group) {
+  crp_viewer_table_digits(unlist(tbl[, group$columns, drop = FALSE]))
+}, integer(1L))
+
+# The vertical rule between metric groups is drawn on the first column of each
+# group; the header side of it comes from the container sketch
+group_starts <- vapply(layout$groups, function(group) {
+  group$columns[[1L]]
+}, character(1L))
+
+datatable_options <- list(
+  # No `l`/`p` in `dom`: every selected electrode is listed at once, so there is
+  # no page-length menu or pager to show. `scrollY` keeps that list from running
+  # away with the page -- in the module this table lives in its own scrolling
+  # tab, here it has to make its own.
+  dom = "Bfrti",
+  buttons = list(
+    list(extend = "copy", text = "Copy", title = ""),
+    list(extend = "csv", text = "CSV", title = "",
+         filename = "voltage-explorer-crp-results")
   ),
-  columns = group_start_cols,
-  `border-left` = "2px solid #aaa"
+  scrollX = TRUE,
+  scrollY = "70vh",
+  scrollCollapse = TRUE,
+  fixedColumns = list(leftColumns = length(leading_names)),
+  paging = FALSE,
+  columnDefs = list(list(className = "dt-center", targets = "_all"))
+)
+
+if (length(layout$groups)) {
+  dt <- DT::datatable(
+    tbl,
+    rownames = FALSE,
+    container = crp_viewer_table_container(layout, leading_names),
+    extensions = c("FixedColumns", "Buttons"),
+    options = datatable_options
+  )
+} else {
+  # No metric columns to group; a grouped header would be malformed
+  dt <- DT::datatable(
+    tbl,
+    rownames = FALSE,
+    extensions = c("FixedColumns", "Buttons"),
+    options = datatable_options
+  )
+}
+
+# `DT::formatRound()` takes one `digits` per call, so one call per distinct
+# precision. Only metric columns are touched, so `Electrode` -- an identifier
+# rather than a measurement -- stays unrounded.
+for (digits in unique(digits_by_group)) {
+  columns <- unlist(
+    lapply(layout$groups[digits_by_group == digits], `[[`, "columns"),
+    use.names = FALSE
+  )
+  dt <- DT::formatRound(dt, columns = columns, digits = digits)
+}
+
+if (length(group_starts)) {
+  dt <- DT::formatStyle(dt, columns = group_starts,
+                        `border-left` = "1px solid #adb5bd")
+}
+dt
+```
+
+## Mean ERP by channel
+
+Voltage averaged over the trials of each condition group.
+
+### Stacked traces
+
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 4)}
+plot_data_by_channel_condition_multiline(
+  x                  = data_by_channel_condition,
+  electrode_mask     = electrode_mask,
+  channel_annotation = channel_annotation_style,
+  cex                = cex,
+  vertical_marks     = vertical_marks,
+  time_range         = time_range,
+  space              = by_elec_space$space,
+  space_mode         = by_elec_space$space_mode,
+  col                = discrete_colors,
+  flip_y             = flip_y
+)
+```
+
+### Heat map
+
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 3)}
+plot_data_by_channel_condition_heatmap(
+  x                  = data_by_channel_condition,
+  electrode_mask     = electrode_mask,
+  channel_annotation = channel_annotation_style,
+  cex                = cex,
+  vertical_marks     = vertical_marks,
+  time_range         = time_range,
+  space              = by_elec_space$space,
+  space_mode         = by_elec_space$space_mode,
+  col                = continuous_colors,
+  flip_y             = flip_y
 )
 ```
 
 ## ERP canonical responses
 
-<details>
-  <summary>Multi-line plot:</summary>
-  
-```{r, fig.width=12, fig.height = crp_fig_ratio * 12}
+The canonical shape `CRP` fitted to each channel, per condition group.
+
+### Stacked traces
+
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 3)}
 plot_data_crp_by_channel_multiline(
   x                  = data_crp_by_channel,
-  electrode_mask     = analysis_electrodes,
+  electrode_mask     = electrode_mask,
   channel_annotation = channel_annotation_style,
   cex                = cex,
   crp                = crp_annotations,
@@ -295,20 +577,18 @@ plot_data_crp_by_channel_multiline(
   time_range         = time_range,
   space              = by_elec_space$space,
   space_mode         = by_elec_space$space_mode,
-  scale_back         = use_crp_scale_back()
+  col                = discrete_colors,
+  flip_y             = flip_y,
+  scale_back         = crp_scale_back
 )
 ```
 
-</details>
+### Heat map
 
-<details>
-  <summary>Heat-map plot:</summary>
-  
-
-```{r, fig.width=12, fig.height = crp_fig_ratio * 12}
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 3)}
 plot_data_crp_by_channel_heatmap(
   x                  = data_crp_by_channel,
-  electrode_mask     = analysis_electrodes,
+  electrode_mask     = electrode_mask,
   channel_annotation = channel_annotation_style,
   cex                = cex,
   crp                = crp_annotations,
@@ -316,70 +596,104 @@ plot_data_crp_by_channel_heatmap(
   time_range         = time_range,
   space              = by_elec_space$space,
   space_mode         = by_elec_space$space_mode,
-  scale_back         = use_crp_scale_back()
+  col                = continuous_colors,
+  flip_y             = flip_y,
+  scale_back         = crp_scale_back
 )
 ```
 
-</details>
+## Trial-level CRP parameters
+
+Each `CRP` fit parameter as a trial by channel heat map, one panel per condition
+group, with the per-channel mean and its standard error alongside.
+
+```{r, include=FALSE}
+plot_crp_param <- function(x) {
+  plot_data_crp_param_by_trial_channel_heatmap(
+    x                  = x,
+    electrode_mask     = electrode_mask,
+    sort_by            = trial_sort_by,
+    channel_annotation = channel_annotation_style,
+    cex                = cex,
+    space              = by_elec_space$space,
+    space_mode         = by_elec_space$space_mode,
+    col                = continuous_colors
+  )
+}
+```
+
+### Fitted amplitude (`al_p`)
+
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 3)}
+plot_crp_param(data_crp_param_alpha_prime)
+```
+
+### Signal-to-noise ratio (`snr`)
+
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 3)}
+plot_crp_param(data_crp_param_snr)
+```
+
+### Variance explained (`expl_var`)
+
+```{r, fig.width=12, fig.height = fig_height_by_channel(asp = 3)}
+plot_crp_param(data_crp_param_expl_var)
+```
 
 ## Per-electrode results
 
 ```{r, message=FALSE, warning=FALSE, results='asis', fig.show='asis'}
-figure_root <- ravepipeline::dir_create2(file.path(pipeline$pipeline_path, "figures"))
-
-# The pipeline already ran over every channel; per-electrode figures are a plot-time
-# mask (`data_by_channel_condition`) or a cheap single-channel extraction
-# (`data_by_trial_channel_condition`) -- no pipeline re-run inside this loop.
+# The pipeline already ran over every channel; per-electrode figures are a
+# plot-time mask (`data_by_channel_condition`) or a cheap single-channel
+# extraction (`prepare_data_by_trial_channel_condition()`) -- no pipeline re-run
+# inside this loop.
 aligned_array <- pipeline$read("aligned_array")
 data_placeholder <- pipeline$read("data_placeholder")
 crp_settings <- pipeline$read("crp_settings")
 
-for (electrode in analysis_electrodes) {
+# The three figures need different heights -- the overlay is one panel, the two
+# trial figures are one panel per condition group -- and a chunk option applies
+# to every figure in its chunk. So each electrode is knitted as a child document
+# instead, which gives every figure a chunk of its own. The chunks are left
+# unlabelled so knitr's auto-labelling keeps them unique across iterations.
+per_electrode_template <- c(
+  "### Electrode {{electrode}} - {{label}}",
+  "",
+  "```{r, fig.width=12, fig.height={{h_overlay}}}",
+  "plot_electrode_overlay({{electrode}})",
+  "```",
+  "",
+  "```{r, fig.width=12, fig.height={{h_trial}}}",
+  "plot_electrode_butterfly(elec_data)",
+  "```",
+  "",
+  "```{r, fig.width=12, fig.height={{h_trial}}}",
+  "plot_electrode_heatmap(elec_data)",
+  "```",
+  ""
+)
+
+for (electrode in electrode_mask) {
   row <- repository$electrode_table[
     repository$electrode_table$Electrode == electrode, ]
 
-  data_by_trial_channel_condition <- prepare_data_by_trial_channel_condition(
+  elec_data <- prepare_data_by_trial_channel_condition(
     electrode = electrode,
     aligned_array = aligned_array,
     data_placeholder = data_placeholder,
     crp_settings = crp_settings
   )
 
-  cat(sprintf("\n\n### Electrode %d - %s\n\n", electrode, row$Label))
-
-  plot_data_by_channel_condition_overlay(
-    x                  = data_by_channel_condition,
-    electrode_mask     = electrode,
-    channel_annotation = channel_annotation_style,
-    cex                = cex,
-    vertical_marks     = vertical_marks,
-    time_range         = time_range,
-    space              = by_elec_space$space,
-    space_mode         = by_elec_space$space_mode,
-    flip_y             = FALSE
-  )
-
-  plot_data_by_trial_channel_condition_butterfly(
-    x = data_by_trial_channel_condition,
-    vertical_marks = vertical_marks,
-    crp = crp_annotations,
-    time_range = time_range,
-    cex = cex,
-    space = by_elec_space$space,
-    space_mode = by_elec_space$space_mode
-  )
-
-  plot_data_by_trial_channel_condition_heatmap(
-    x              = data_by_trial_channel_condition,
-    sort_by        = trial_sort_by,
-    space          = by_elec_space$space,
-    space_mode     = by_elec_space$space_mode,
-    time_range     = time_range,
-    cex            = cex,
-    crp            = crp_annotations,
-    vertical_marks = vertical_marks
-  )
+  cat(knitr::knit_child(
+    text = knitr::knit_expand(
+      text = per_electrode_template,
+      electrode = electrode,
+      label = as.character(row$Label),
+      h_overlay = fig_height_electrode_overlay,
+      h_trial = fig_height_electrode_trial
+    ),
+    quiet = TRUE,
+    envir = environment()
+  ), sep = "\n")
 }
 ```
-
-

@@ -229,14 +229,23 @@ use_plot_space_is_percentile <- function(value = KEY_MISSING) {
 # otherwise, while the plots take a (space, space_mode) pair. Every caller that
 # needs that pair -- the plot defaults, the module server, the report -- goes
 # through here so the conversion exists once.
-use_plot_space_resolved <- function() {
-  value <- max(0, use_plot_space())
-  if (isTRUE(use_plot_space_is_percentile())) {
+#
+# Both arguments default to the stored preference but can be overridden without
+# persisting anything, which is what the report needs: it renders with
+# caller-supplied graphics options, but `use_plot_space(value)` would write
+# `value` into the user's global preference store, and a background report job
+# has no business doing that.
+resolve_plot_space <- function(value = use_plot_space(),
+                               is_percentile = use_plot_space_is_percentile()) {
+  value <- max(0, as.numeric(value))
+  if (isTRUE(as.logical(is_percentile))) {
     list(space = value / 100, space_mode = "quantile")
   } else {
     list(space = value, space_mode = "absolute")
   }
 }
+
+use_plot_space_resolved <- function() { resolve_plot_space() }
 
 # ---- CRP analysis preferences ------------------------------------------------
 # time_step

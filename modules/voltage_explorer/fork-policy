@@ -7,3 +7,7 @@
 [report]
 ^build
 ^main\.html$
+^report-.*\.html$
+^report-.*_files/
+^reports/
+^Rplots\.pdf$
