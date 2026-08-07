@@ -1,4 +1,4 @@
-analysis_electrodes: 14-16,20,23-26,35-39,41,45-46,48-49,52-58,60,63,65-66,68-70,72,74-78,81-83
+analysis_electrodes: '13-31,33-63,65-84 '
 analysis_event: Trial Onset
 analysis_ranges: ~
 condition_groups:
@@ -21,19 +21,8 @@ condition_groups:
     conditions:
     - last_v
     - drive_v
-  '4':
-    label: V2
-    conditions:
     - known_v
     - meant_v
-  '5':
-    label: V3
-    conditions:
-    - AdriveVlast
-  '6':
-    label: V4
-    conditions:
-    - AknownVmeant
 crp_detection_window:
 - -0.2
 - 1.0

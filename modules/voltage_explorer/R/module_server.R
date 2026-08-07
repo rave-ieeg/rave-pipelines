@@ -1376,6 +1376,12 @@ module_server <- function(input, output, session, ...) {
 
   # ---- Export Configurations: voltage report ------------------------------
 
+  # Every input in the report modal is named after the `params:` entry of
+  # `report-univariate.Rmd` it fills, so `params` below is a mechanical
+  # translation and the two cannot drift apart.
+  report_param_id <- function(name) { sprintf("report_param_%s", name) }
+  report_param <- function(name) { input[[report_param_id(name)]] }
+
   # Open the report modal, pre-filled with the current plot configuration
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -1390,11 +1396,20 @@ module_server <- function(input, output, session, ...) {
       if (length(tr) != 2 || all(is.na(tr))) { tr <- full_range }
       tr[is.na(tr)] <- full_range[is.na(tr)]
 
+      # The modal must reproduce what the user is looking at, so each option
+      # prefers the live sidebar input and only falls back to the stored
+      # preference when that input has never been set. Reading is all it may do:
+      # the `get_*()` reactives above persist their input via `use_*(value)`,
+      # but opening an export dialog has no business rewriting preferences.
+      active <- function(value, fallback) {
+        if (length(value) && !all(is.na(value))) { value } else { fallback }
+      }
+
       shiny::showModal(
         session = session,
         shiny::modalDialog(
           title = "Generate Voltage Report",
-          size = "s", easyClose = FALSE,
+          size = "l", easyClose = FALSE,
           footer = shiny::tagList(
             shiny::modalButton("Cancel"),
             shiny::actionButton(
@@ -1403,23 +1418,150 @@ module_server <- function(input, output, session, ...) {
             )
           ),
 
-          shiny::textInput(
-            ns("report_electrodes"), "Electrodes",
-            value = dipsaus::deparse_svec(repository$electrode_list),
-            placeholder = "e.g. 1-10,15"
+          shiny::p(paste(
+            "The report is rendered with the options below, pre-filled from the",
+            "current plot configuration. Nothing here is saved back into your",
+            "preferences."
+          )),
+
+          ravedash::group_box(
+            title = "Scope",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shiny::textInput(
+                ns(report_param_id("electrode_mask")), "Electrodes",
+                value = dipsaus::deparse_svec(
+                  get_electrode_mask() %||% repository$electrode_list),
+                placeholder = "e.g. 1-10,15"
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::sliderInput(
+                ns(report_param_id("time_range")), "Plot range (s)",
+                min = full_range[[1]], max = full_range[[2]],
+                value = tr, step = 0.01
+              )
+            )
           ),
-          shiny::sliderInput(
-            ns("report_time_range"), "Plot range (s)",
-            min = full_range[[1]], max = full_range[[2]],
-            value = tr, step = 0.01
+
+          # `preview = FALSE` matters: bare `*_COLORMAPS()` defaults `preview`
+          # to `TRUE` and plots as a side effect.
+          ravedash::group_box(
+            title = "Colors",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shidashi::colormapSelectInput(
+                inputId = ns(report_param_id("discrete_colormap")),
+                label = "Condition colors",
+                colormaps = ravepipeline::DISCRETE_COLORMAPS(preview = FALSE),
+                selected = active(input$discrete_colormap,
+                                  use_discrete_colormap()$name),
+                continuous = FALSE
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shidashi::colormapSelectInput(
+                inputId = ns(report_param_id("continuous_colormap")),
+                label = "Heatmap colors",
+                colormaps = ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE),
+                selected = active(input$continuous_colormap,
+                                  use_continuous_colormap()$name),
+                continuous = TRUE
+              )
+            )
           ),
-          shiny::checkboxInput(
-            ns("report_crp"), "CRP annotations",
-            value = isTRUE(input$mean_erp_crp)
+
+          ravedash::group_box(
+            title = "Plot max / spacing",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shiny::numericInput(
+                ns(report_param_id("plot_space")), "Max",
+                value = active(input$plot_space_value, use_plot_space()),
+                min = 0, step = 1
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              style = "margin-top: 37px;",
+              shiny::checkboxInput(
+                ns(report_param_id("plot_space_is_percentile")), "Max is %",
+                value = isTRUE(as.logical(active(
+                  input$plot_space_is_percentile, use_plot_space_is_percentile())))
+              )
+            )
           ),
-          shiny::numericInput(
-            ns("report_vmarks"), "Vertical marks (s)",
-            value = input$plot_onset_mark %||% 0, step = 0.01
+
+          ravedash::group_box(
+            title = "Annotations",
+            class = "row",
+
+            shiny::column(
+              width = 6L,
+              shiny::numericInput(
+                ns(report_param_id("cex")), "Text size (cex)",
+                value = active(input$plot_cex, use_cex()),
+                min = 0.5, max = 3, step = 0.1
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::numericInput(
+                ns(report_param_id("vertical_marks")), "Onset mark (s)",
+                value = active(input$plot_onset_mark, 0), step = 0.01
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::selectInput(
+                ns(report_param_id("channel_annotation")), "Channel",
+                choices = OPTIONS_CHAN_ANNOT,
+                selected = active(input$channel_annotation,
+                                  use_channel_annotation_style())
+              )
+            ),
+            shiny::column(
+              width = 6L,
+              shiny::selectInput(
+                ns(report_param_id("trial_sort_by")), "Sort trials by",
+                choices = OPTIONS_TRIAL_SORT,
+                selected = active(input$trial_sort_by, use_trial_sort_by())
+              )
+            ),
+            shiny::column(
+              width = 12L,
+              shiny::checkboxInput(
+                ns(report_param_id("crp_annotations")), "Show CRP decoration",
+                value = isTRUE(as.logical(active(input$mean_erp_crp,
+                                                 use_show_crp_decoration())))
+              )
+            ),
+            shiny::column(
+              width = 12L,
+              shiny::checkboxInput(
+                ns(report_param_id("crp_scale_back")),
+                "Scale canonical to \U00B5V",
+                value = isTRUE(as.logical(active(input$crp_scale_back,
+                                                 use_crp_scale_back())))
+              )
+            ),
+            # No sidebar counterpart -- the module's "Flip y-axis" input is
+            # commented out, so the report modal is where this is configurable
+            shiny::column(
+              width = 12L,
+              shiny::checkboxInput(
+                ns(report_param_id("flip_y")), "Flip y-axis",
+                value = isTRUE(as.logical(use_flipped_y()))
+              )
+            )
           )
         )
       )
@@ -1437,23 +1579,44 @@ module_server <- function(input, output, session, ...) {
       repository <- pipeline$read("repository")
       subject <- repository$subject
 
-      electrodes <- trimws(input$report_electrodes %||% "")
+      electrodes <- trimws(report_param("electrode_mask") %||% "")
       if (!nzchar(electrodes)) {
         # default: all loaded electrodes
         electrodes <- dipsaus::deparse_svec(repository$electrode_list)
       }
-      analysis_electrodes <- dipsaus::deparse_svec(dipsaus::parse_svec(electrodes))
+      electrode_mask <- dipsaus::deparse_svec(dipsaus::parse_svec(electrodes))
 
+      # An emptied numeric input reads back as NA. Every other option treats NA
+      # as "unset" and falls back to a preference on the report side, but
+      # `vertical_marks` has no preference to fall back to, so pin it here.
+      vertical_marks <- as.numeric(report_param("vertical_marks") %||% 0)
+      vertical_marks <- vertical_marks[!is.na(vertical_marks)]
+      if (!length(vertical_marks)) { vertical_marks <- 0 }
+
+      # The modal supplies every declared param, so the report is fully
+      # described by what the user just saw -- nothing falls back to the
+      # preference store on the report side. Names must match the `params:`
+      # block of `report-univariate.Rmd` exactly: `rmarkdown::render()` aborts
+      # on any param it did not declare.
       job_id <- pipeline$generate_report(
         "univariateVoltage",
         subject = subject,
         output_format = "html_document",
         theme = "spacelab",
         params = list(
-          analysis_electrodes = analysis_electrodes,
-          time_range          = input$report_time_range,
-          crp_annotations     = isTRUE(input$report_crp),
-          vertical_marks      = input$report_vmarks %||% 0
+          electrode_mask           = electrode_mask,
+          time_range               = as.numeric(report_param("time_range")),
+          vertical_marks           = vertical_marks,
+          cex                      = as.numeric(report_param("cex")),
+          channel_annotation       = as.character(report_param("channel_annotation")),
+          trial_sort_by            = as.character(report_param("trial_sort_by")),
+          plot_space               = as.numeric(report_param("plot_space")),
+          plot_space_is_percentile = isTRUE(report_param("plot_space_is_percentile")),
+          crp_annotations          = isTRUE(report_param("crp_annotations")),
+          crp_scale_back           = isTRUE(report_param("crp_scale_back")),
+          flip_y                   = isTRUE(report_param("flip_y")),
+          discrete_colormap        = as.character(report_param("discrete_colormap")),
+          continuous_colormap      = as.character(report_param("continuous_colormap"))
         ),
         code_folding = "none"
       )
