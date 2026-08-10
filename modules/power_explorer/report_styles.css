@@ -6,7 +6,7 @@ d-article.d-article-with-toc {
   contain: none;
 }
 
-d-article.d-article-with-toc .d-contents-float {
+.d-article-with-toc .d-contents-float {
   position: relative;
   z-index: 50;
   height: 1px;
@@ -17,9 +17,8 @@ d-article.d-article-with-toc .d-contents-float {
   max-width: 20%;
 }
 
-d-article #TOC {
+#TOC {
   position: fixed;
-  transform: translateX(-100%);
   background: #ebebeb;
   padding: 10px;
   border-radius: 5px;
@@ -31,9 +30,17 @@ d-article #TOC {
   -ms-overflow-style: none;
 }
 
+.main-container > .row > .col-xs-12.col-sm-4.col-md-3 {
+  float: right !important;
+}
+
+.main-container > .row > .toc-content.col-xs-12.col-sm-8.col-md-9 {
+  float: left !important;
+}
+
 /* Hide the ToC when resized to mobile or tablet:  480px, 768px, 900px */
 @media screen and (max-width: 999px) {
-  d-article.d-article-with-toc .d-contents-float {
+  .d-article-with-toc .d-contents-float {
     position: relative;
     height: unset;
     max-height: 500px;
@@ -42,7 +49,7 @@ d-article #TOC {
     width: 100%;
     justify-self: left;
   }
-  d-article #TOC {
+  #TOC {
     position: relative;
     transform: none;
     width: 100%;
@@ -51,7 +58,7 @@ d-article #TOC {
   }
 }
 
-d-article ul li {
+ul li {
   margin-top: 0;
   margin-bottom: 0;
 }

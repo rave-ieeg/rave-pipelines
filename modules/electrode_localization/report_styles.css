@@ -19,7 +19,6 @@ d-article.d-article-with-toc {
 
 #TOC {
   position: fixed;
-  transform: translateX(-100%);
   background: #ebebeb;
   padding: 10px;
   border-radius: 5px;
@@ -29,6 +28,14 @@ d-article.d-article-with-toc {
   overflow-y: scroll;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.main-container > .row > .col-xs-12.col-sm-4.col-md-3 {
+  float: right !important;
+}
+
+.main-container > .row > .toc-content.col-xs-12.col-sm-8.col-md-9 {
+  float: left !important;
 }
 
 /* Hide the ToC when resized to mobile or tablet:  480px, 768px, 900px */
