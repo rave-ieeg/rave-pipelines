@@ -80,12 +80,12 @@ module_server <- function(input, output, session, ...) {
         ravepipeline::logger("Scheduled: ", pipeline$pipeline_name,
                              level = "debug", reset_timer = TRUE)
 
-        if (is.null(local_data$erp_results_for_viewer)) {
-          erp_results_for_viewer_signature <- NA
-        } else {
-          pipeline_meta <- pipeline$meta("erp_results_for_viewer")
-          erp_results_for_viewer_signature <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
-        }
+        # if (is.null(local_data$erp_results_for_viewer)) {
+        #   erp_results_for_viewer_signature <- NA
+        # } else {
+        #   pipeline_meta <- pipeline$meta("erp_results_for_viewer")
+        #   erp_results_for_viewer_signature <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
+        # }
 
         pipeline$run(
           scheduler = "none",
@@ -106,11 +106,11 @@ module_server <- function(input, output, session, ...) {
           return_values = FALSE
         )
 
-        pipeline_meta <- pipeline$meta("erp_results_for_viewer")
-        erp_results_for_viewer_signature2 <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
-        if (!identical(erp_results_for_viewer_signature2, erp_results_for_viewer_signature)) {
-          trigger_3dviewer <- TRUE
-        }
+        # pipeline_meta <- pipeline$meta("erp_results_for_viewer")
+        # erp_results_for_viewer_signature2 <- pipeline_meta$data[pipeline_meta$name == "erp_results_for_viewer"]
+        # if (!identical(erp_results_for_viewer_signature2, erp_results_for_viewer_signature)) {
+        #   trigger_3dviewer <- TRUE
+        # }
 
         ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name,
                              level = "debug")
@@ -126,11 +126,12 @@ module_server <- function(input, output, session, ...) {
         erp_results_for_viewer <- pipeline$read(var_names = "erp_results_for_viewer")
         local_data$erp_results_for_viewer <- erp_results_for_viewer
 
-        if (trigger_3dviewer) {
-          local_reactives$update_3dviewer <- Sys.time()
-        } else {
-          local_reactives$update_3dviewer_proxy <- Sys.time()
-        }
+        local_reactives$update_3dviewer_proxy <- Sys.time()
+        # if (trigger_3dviewer) {
+        #   local_reactives$update_3dviewer <- Sys.time()
+        # } else {
+        #   local_reactives$update_3dviewer_proxy <- Sys.time()
+        # }
       },
       error = function(e) {
 
@@ -168,7 +169,7 @@ module_server <- function(input, output, session, ...) {
         error = function(e) NULL
       )
       if (!is.data.frame(erp_tbl)) { return() }
-      choices <- crp_filter_choices(names(erp_tbl))
+      choices <- selector_filter_choices(names(erp_tbl))
       dipsaus::updateCompoundInput2(
         session = session,
         inputId = "crp_channel_filter",
@@ -185,47 +186,25 @@ module_server <- function(input, output, session, ...) {
   # whether the loaded data is valid and initialize the UI inputs
   shiny::bindEvent(
     ravedash::safe_observe({
-      loaded_flag <- ravedash::watch_data_loaded()
-      if (!loaded_flag) {
-        return()
-      }
-      new_repository <- pipeline$read("repository")
-      if (!inherits(new_repository, "rave_prepare_subject_voltage_with_epochs")) {
-        ravepipeline::logger(
-          "Repository read from the pipeline, but it is not an instance of `rave_prepare_subject_voltage_with_epochs`. Abort initialization",
-          level = "warning"
-        )
-        return()
-      }
-      ravepipeline::logger(
-        "Repository read from the pipeline; initializing the module UI",
-        level = "debug"
+
+      new_repository <- ravedash::check_new_repository_loaded(
+        component_container = component_container,
+        pipeline = pipeline,
+        repository_class = "rave_prepare_subject_voltage_with_epochs",
+        session = session
       )
 
-      # check if the repository has the same subject as current one
-      old_repository <- component_container$data$repository
-      if (inherits(old_repository, "rave_prepare_subject_voltage_with_epochs")) {
-        if (
-          !attr(loaded_flag, "force") &&
-            identical(old_repository$signature, new_repository$signature)
-        ) {
-          ravepipeline::logger(
-            "The repository data remain unchanged ({new_repository$subject$subject_id}), skip initialization",
-            level = "debug",
-            use_glue = TRUE
-          )
-          return()
-        }
-      }
-
       # Reset preset UI & data
-      component_container$reset_data()
-      component_container$data$repository <- new_repository
-      component_container$initialize_with_new_data()
+      # component_container$reset_data()
+      # component_container$data$repository <- new_repository
+      # component_container$initialize_with_new_data()
       local_data$erp_results_for_viewer <- NULL
-      local_reactives$crp_filter_selection <- NULL
-
       local_data$loaded_electrodes_clean <- pipeline$read("loaded_electrodes_clean")
+
+      local_reactives$selector_filter_selection <- NULL
+      local_reactives$update_outputs <- FALSE
+      local_reactives$update_3dviewer <- Sys.time()
+
       shiny::updateSelectInput(
         session = session,
         inputId = "by_cond_channel_selector",
@@ -283,89 +262,6 @@ module_server <- function(input, output, session, ...) {
                                  inputId = "analysis_event",
                                  selected = analysis_event)
       }, delay = 0.5)
-
-      # # Compute epoch time range (used for slider bounds and clamping)
-      # time_range <- tryCatch(
-      #   range(unlist(new_repository$time_windows), na.rm = TRUE),
-      #   error = function(e) c(-0.5, 1)
-      # )
-      #
-      # # Read saved filter_configurations from pipeline settings
-      # filter_configs <- pipeline$get_settings("filter_configurations")
-      # if (!is.list(filter_configs)) { filter_configs <- list() }
-      # fc_types <- vapply(filter_configs, function(fc) as.character(fc$type %||% ""), character(1L))
-      #
-      # # Restore remove_drift_method from filter_configurations
-      # drift_method_val <- if ("detrend" %in% fc_types && "demean" %in% fc_types) {
-      #   "detrend+demean"
-      # } else if ("detrend" %in% fc_types) {
-      #   "detrend"
-      # } else if ("demean" %in% fc_types) {
-      #   "demean"
-      # } else {
-      #   "none"
-      # }
-      # shiny::updateSelectInput(session = session, inputId = "remove_drift_method",
-      #                          selected = drift_method_val)
-      #
-      # # Restore enable_baseline_method checkbox and baseline_window slider
-      # bl_entries <- Filter(function(fc) identical(fc$type, "baseline"), filter_configs)
-      # shiny::updateCheckboxInput(session = session, inputId = "enable_baseline_method",
-      #                            value = length(bl_entries) > 0L)
-      # if (length(bl_entries)) {
-      #   saved_win <- as.numeric(unlist(bl_entries[[1L]]$windows))
-      #   if (length(saved_win) == 2L && all(is.finite(saved_win))) {
-      #     bl_value <- pmax(pmin(saved_win, time_range[[2L]]), time_range[[1L]])
-      #   } else {
-      #     bl_value <- c(time_range[[1L]], min(0, time_range[[2L]]))
-      #   }
-      # } else {
-      #   bl_value <- c(time_range[[1L]], min(0, time_range[[2L]]))
-      # }
-      # shiny::updateSliderInput(
-      #   session = session,
-      #   inputId = "baseline_window",
-      #   min   = time_range[[1L]],
-      #   max   = time_range[[2L]],
-      #   value = bl_value
-      # )
-      #
-      #
-      # # Split decimate entries into pre-filter and post-filter by their position
-      # # relative to signal filter entries in the ordered config list.
-      # signal_fc_idxs  <- which(!fc_types %in% c("detrend", "demean", "decimate", "baseline"))
-      # first_signal_idx <- if (length(signal_fc_idxs)) min(signal_fc_idxs) else length(fc_types) + 1L
-      # decimate_idxs    <- which(fc_types == "decimate")
-      # pre_dec_entries  <- filter_configs[decimate_idxs[decimate_idxs < first_signal_idx]]
-      # post_dec_entries <- filter_configs[decimate_idxs[decimate_idxs >= first_signal_idx]]
-      #
-      # # Restore pre_downsample_factor
-      # if (length(pre_dec_entries)) {
-      #   shiny::updateNumericInput(session = session,  inputId = "pre_downsample_factor",
-      #                             value = max(1L, as.integer(pre_dec_entries[[1L]]$by %||% 1L)))
-      # } else {
-      #   shiny::updateNumericInput(session = session,  inputId = "pre_downsample_factor",  value = 1L)
-      # }
-      #
-      # # Restore post_downsample_factor
-      # if (length(post_dec_entries)) {
-      #   shiny::updateNumericInput(session = session,  inputId = "post_downsample_factor",
-      #                             value = max(1L, as.integer(post_dec_entries[[1L]]$by %||% 1L)))
-      # } else {
-      #   shiny::updateNumericInput(session = session,  inputId = "post_downsample_factor",  value = 1L)
-      # }
-      #
-      #
-      # # Restore signal_filter_configurations (FIR/IIR only; excludes meta types)
-      # meta_types <- c("detrend", "demean", "decimate", "baseline")
-      # signal_fcs <- Filter(function(fc) !isTRUE(fc$type %in% meta_types), filter_configs)
-      # dipsaus::updateCompoundInput2(
-      #   session = session,
-      #   inputId = "signal_filter_configurations",
-      #   value   = signal_fcs,
-      #   ncomp   = max(0L, length(signal_fcs))
-      # )
-
 
       update_filter_configurations()
       update_crp_parameters()
@@ -499,14 +395,15 @@ module_server <- function(input, output, session, ...) {
   # nowhere else. `$<-` copies, so the table held in `local_data` is left alone
   # -- but its `value_ranges` attribute must still be read before this is
   # called, as both callers do.
-  with_crp_filter_column <- function(erp_tbl, selection) {
+  with_selector_filter_column <- function(erp_tbl, selection) {
     if (!is.data.frame(erp_tbl) || !nrow(erp_tbl)) { return(erp_tbl) }
-    erp_tbl$crp_filter <- if (is.null(selection)) {
+    erp_tbl$selector_filter <- if (is.null(selection)) {
       rep(TRUE, nrow(erp_tbl))
     } else {
       erp_tbl$Electrode %in% selection
     }
-    erp_tbl
+    print(erp_tbl)
+    as.data.frame(erp_tbl)
   }
 
   shiny::bindEvent(
@@ -529,14 +426,21 @@ module_server <- function(input, output, session, ...) {
       # `bindEvent()` isolates this handler, so reading the selection adds no
       # dependency -- the button's `update_3dviewer_proxy` bump re-runs it.
       brain_proxy$set_electrode_data(
-        data = with_crp_filter_column(erp_results_for_viewer,
-                                      local_reactives$crp_filter_selection),
+        data = with_selector_filter_column(erp_results_for_viewer,
+                                      local_reactives$selector_filter_selection),
         palettes = palettes,
         value_ranges = value_ranges,
         clear_first = TRUE,
         update_display = FALSE,
         override = TRUE
       )
+
+      brain_proxy$set_controllers(list(
+        "Threshold Data" = "selector_filter"
+      ))
+      brain_proxy$set_controllers(list(
+        "Threshold Range" = "TRUE|true"
+      ))
     }),
     get_colormaps(),
     local_reactives$update_3dviewer_proxy,
@@ -665,7 +569,7 @@ module_server <- function(input, output, session, ...) {
     )
     if (!is.data.frame(erp_tbl)) { return(NULL) }
     tryCatch({
-      crp_filter_electrodes(erp_tbl, filters)
+      selector_filter_electrodes(erp_tbl, filters)
     }, error = function(e) { NULL })
   })
 
@@ -677,9 +581,9 @@ module_server <- function(input, output, session, ...) {
       selection <- get_crp_channel_selection()
 
       # Remember the selection: it is what the results table reports pass/fail
-      # against, and what the viewer's `crp_filter` variable is built from
+      # against, and what the viewer's `selector_filter` variable is built from
       # (NULL = no active filter, all pass)
-      local_reactives$crp_filter_selection <- selection
+      local_reactives$selector_filter_selection <- selection
 
       # Writing the selector redraws every by-channel figure via get_electrode_mask()
       shiny::updateTextInput(
@@ -690,11 +594,11 @@ module_server <- function(input, output, session, ...) {
         )
       )
 
-      # Repaint the viewer's electrode values, `crp_filter` among them, without
+      # Repaint the viewer's electrode values, `selector_filter` among them, without
       # a full re-render
       local_reactives$update_3dviewer_proxy <- Sys.time()
     }),
-    input$crp_filter_apply,
+    input$selector_filter_apply,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
@@ -1757,17 +1661,16 @@ module_server <- function(input, output, session, ...) {
 
       if (is.null(brain)) { return() }
 
-      erp_results_for_viewer <- local_data$erp_results_for_viewer
-      value_ranges <- as.list(attr(erp_results_for_viewer, "value_ranges"))
-
-      cmap <- use_continuous_colormap()
-      palettes <- structure(
-        names = names(value_ranges),
-        lapply(names(value_ranges), function(nm) {
-          cmap$colors
-        })
-      )
-
+      # erp_results_for_viewer <- local_data$erp_results_for_viewer
+      # value_ranges <- as.list(attr(erp_results_for_viewer, "value_ranges"))
+      #
+      # cmap <- use_continuous_colormap()
+      # palettes <- structure(
+      #   names = names(value_ranges),
+      #   lapply(names(value_ranges), function(nm) {
+      #     cmap$colors
+      #   })
+      # )
 
       controllers <- list(
         "Show Time" = FALSE,
@@ -1776,34 +1679,34 @@ module_server <- function(input, output, session, ...) {
         # selector" hide the channels that failed. The controller value names
         # the JSON level, not the R one; with no filter every electrode is TRUE,
         # so the default view shows everything.
-        "Threshold Data" = "crp_filter",
-        "Threshold Range" = "true"
+        "Threshold Data" = "selector_filter",
+        "Threshold Range" = "TRUE|true"
       )
 
-      if (is.data.frame(erp_results_for_viewer)) {
-        # `isolate()`: a plain read would re-render the whole viewer -- camera
-        # reset and all -- on every press of the button, which is exactly what
-        # the proxy repaint exists to avoid
-        erp_results_for_viewer <- with_crp_filter_column(
-          erp_results_for_viewer,
-          shiny::isolate(local_reactives$crp_filter_selection)
-        )
-        brain$set_electrode_values(erp_results_for_viewer)
-
-        nms <- names(erp_results_for_viewer)
-        nms <- nms[startsWith(nms, "t_proj")]
-        if (length(nms)) {
-          current_controller <- shiny::isolate(brain_proxy$get_controllers())
-          controllers[["Display Data"]] <- current_controller[["Display Data"]] %||% nms[[1]]
-        }
-      }
+      # if (is.data.frame(erp_results_for_viewer)) {
+      #   # `isolate()`: a plain read would re-render the whole viewer -- camera
+      #   # reset and all -- on every press of the button, which is exactly what
+      #   # the proxy repaint exists to avoid
+      #   erp_results_for_viewer <- with_selector_filter_column(
+      #     erp_results_for_viewer,
+      #     shiny::isolate(local_reactives$selector_filter_selection)
+      #   )
+      #   brain$set_electrode_values(erp_results_for_viewer)
+      #
+      #   nms <- names(erp_results_for_viewer)
+      #   nms <- nms[startsWith(nms, "t_proj")]
+      #   if (length(nms)) {
+      #     current_controller <- shiny::isolate(brain_proxy$get_controllers())
+      #     controllers[["Display Data"]] <- current_controller[["Display Data"]] %||% nms[[1]]
+      #   }
+      # }
       brain$render(
         outputId = "brain_viewer",
         session = session,
         show_modal = FALSE,
-        controllers = controllers,
-        value_ranges = value_ranges,
-        palettes = palettes
+        controllers = controllers
+        # value_ranges = value_ranges,
+        # palettes = palettes
       )
     })
   )
@@ -1857,7 +1760,7 @@ module_server <- function(input, output, session, ...) {
 
   reactive_crp_viewer_table <- shiny::reactive({
     .output_ready()
-    tbl <- build_crp_viewer_table(local_reactives$crp_filter_selection)
+    tbl <- build_crp_viewer_table(local_reactives$selector_filter_selection)
     shiny::validate(
       shiny::need(
         is.data.frame(tbl),
@@ -1879,7 +1782,7 @@ module_server <- function(input, output, session, ...) {
     session = session,
     download_function = function(con, params, ...) {
       tbl <- build_crp_viewer_table(
-        shiny::isolate(local_reactives$crp_filter_selection))
+        shiny::isolate(local_reactives$selector_filter_selection))
       utils::write.csv(tbl, file = con, row.names = FALSE)
     },
     expr = DT::renderDataTable({

@@ -17,7 +17,7 @@
 # `column_names`: character vector of the wide table's column names.
 # `metrics`: named list mapping metric name -> description. Its names are the
 #   metric whitelist and its order is the display order; columns whose metric is
-#   not listed are ignored, which is how `Electrode`, `Subject` and `crp_filter`
+#   not listed are ignored, which is how `Electrode`, `Subject` and `selector_filter`
 #   drop out without an explicit exclusion list.
 #
 # Returns a list with

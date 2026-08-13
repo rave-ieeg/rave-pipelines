@@ -11,7 +11,7 @@
 # condition groups change.
 #
 # The two namespaces cannot collide: a real column always contains " (", and no
-# `CRP_VIEWER_METRICS` entry is named "all" or "any". `crp_filter_electrodes()`
+# `CRP_VIEWER_METRICS` entry is named "all" or "any". `selector_filter_electrodes()`
 # tries an exact column match first regardless.
 #
 # Both functions are pure (no Shiny, no pipeline access) so they can be unit
@@ -21,7 +21,7 @@
 # Choices for a filter row's metric dropdown. Every entry reads as what it
 # filters on -- "all:al_p", "any:al_p", "al_p (A)" -- so the dropdown needs no
 # separate labels. Aggregates come first: they are what most filters want.
-crp_filter_choices <- function(column_names, metrics = CRP_VIEWER_METRICS) {
+selector_filter_choices <- function(column_names, metrics = CRP_VIEWER_METRICS) {
 
   layout <- crp_viewer_table_layout(column_names, metrics = metrics)
 
@@ -62,7 +62,7 @@ crp_filter_choices <- function(column_names, metrics = CRP_VIEWER_METRICS) {
 # `erp_tbl`: data.frame with an `Electrode` column plus metric columns.
 # `filters`: list of components, each `list(name = <choice>, criteria = <code>,
 # threshold = <text "T1" or "T1, T2">, operator = "and"/"or")`. `name` is a
-# column of `erp_tbl` or an aggregate from `crp_filter_choices()`. Criteria codes
+# column of `erp_tbl` or an aggregate from `selector_filter_choices()`. Criteria codes
 # (matching the 3D viewer threshold methods, with their boundary conventions):
 #   eq v=T1, abs_lt |v|<T1, abs_gte |v|>=T1, lt v<T1, gte v>=T1,
 #   in v in [T1,T2], not_in v not in [T1,T2]
@@ -75,7 +75,7 @@ crp_filter_choices <- function(column_names, metrics = CRP_VIEWER_METRICS) {
 # can still be carried by another condition. Returns the passing electrode
 # numbers, or NULL when there is no usable table or no active filter (-> plot
 # all).
-crp_filter_electrodes <- function(erp_tbl, filters) {
+selector_filter_electrodes <- function(erp_tbl, filters) {
   if (!is.data.frame(erp_tbl) || !nrow(erp_tbl) || !length(filters)) {
     return(NULL)
   }

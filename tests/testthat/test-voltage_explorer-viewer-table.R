@@ -54,7 +54,7 @@ test_that("crp_viewer_table_layout keeps only registry metrics", {
 
   # identifier columns and unlisted metrics both drop out, no exclusion list
   layout <- crp_viewer_table_layout(c(
-    "Electrode", "Subject", "crp_filter", "Hemisphere",
+    "Electrode", "Subject", "selector_filter", "Hemisphere",
     "coef (A)", "al_p (A)"
   ), metrics = METRICS)
 

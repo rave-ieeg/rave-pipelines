@@ -607,7 +607,7 @@ module_html <- function() {
                 shiny::column(
                   width = 12L,
                   shiny::actionButton(
-                    inputId = ns("crp_filter_apply"),
+                    inputId = ns("selector_filter_apply"),
                     label = "Send to electrode selector",
                     width = "100%"
                   )

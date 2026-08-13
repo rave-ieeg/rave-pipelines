@@ -107,7 +107,7 @@ loader_server <- function(input, output, session, ...) {
       # Use `as_promise=TRUE` to make result as a promise
       res <- pipeline$run(
         as_promise = TRUE,
-        names = "repository",
+        names = c("repository", "loaded_electrodes_clean"),
         async = FALSE
       )
 
