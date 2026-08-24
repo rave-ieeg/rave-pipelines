@@ -1,6 +1,8 @@
 [codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = .git,.gitignore,.gitattributes,package-lock.json,*.css,.codespellrc
+skip = .git,.git-meta,.gitignore,.gitattributes,package-lock.json,*.css,*.min.*,*-min.*,*.map,*.svg,*.pdf,.codespellrc,./www/highlightjs,./www/shidashi,./modules/project_overview/report-export.html
 check-hidden = true
-# ignore-regex = 
-# ignore-words-list =
+# ignore-regex =
+# NAx - variable prefix "NAx%d" for unmatched electrode indices (not a typo)
+# mis - variable abbreviation for missing/mismatched items in R code
+ignore-words-list = nax,mis
