@@ -2604,7 +2604,7 @@ module_server <- function(input, output, session, ...){
       job_promise <- ravepipeline::as.promise(job_id)
 
       # return a promise that allows the job to pop up notifications once done
-      # Thie reactive return a promise or shiny will not recognize
+      # This reactive return a promise or shiny will not recognize
       handling_promise <- job_promise$then(
         onFulfilled = function(path) {
           params <- as.list(attr(path, "params"))

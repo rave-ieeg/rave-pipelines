@@ -1003,7 +1003,7 @@ new_shift_array <- function() {
       #
       # # When the environment is dirty, fork will need to serialize
       # # a lot of other things
-      # # This can be simulated with runing all the profiling examples
+      # # This can be simulated with running all the profiling examples
       # # without GC() and come back and rerun
       #  user  system elapsed  <- with dimnames=FALSE
       # 0.305   1.262   9.546
