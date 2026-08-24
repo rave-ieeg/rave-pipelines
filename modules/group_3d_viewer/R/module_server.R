@@ -14,7 +14,7 @@ module_server <- function(input, output, session, ...) {
   local_data$has_template <- FALSE
   local_data$template_needs_update <- FALSE
 
-  # get server tools to tweek
+  # get server tools to tweak
   server_tools <- get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed

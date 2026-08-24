@@ -143,7 +143,7 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
       missing_electrodes <- signal_loaded_electrodes[!signal_loaded_electrodes %in% plan_table$Electrode]
       if ( length(missing_electrodes) ) {
         stop(
-          sprintf("Previously in the signal imorting modules, there were %s channels imported. Those channels are %s. However, the following channels are missing from the plan: %s. Each imported channel must have a corresponding entry in the plan list, even they are not intended for localization.",
+          sprintf("Previously in the signal importing modules, there were %s channels imported. Those channels are %s. However, the following channels are missing from the plan: %s. Each imported channel must have a corresponding entry in the plan list, even they are not intended for localization.",
                   length(signal_loaded_electrodes),
                   dipsaus::deparse_svec(signal_loaded_electrodes),
                   dipsaus::deparse_svec(missing_electrodes))

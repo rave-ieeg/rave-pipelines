@@ -162,7 +162,7 @@ module_server <- function(input, output, session, ...) {
     ravedash::clear_notifications(class = ns("notification"))
   }
 
-  # get server tools to tweek
+  # get server tools to tweak
   server_tools <- get_default_handlers(session = session)
 
   # Register event: main pipeline need to run

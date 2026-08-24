@@ -493,7 +493,7 @@
 #         cols <- cols[!cols %in% names(tbl)]
 #
 #         if(length(cols)) {
-#           stop("electrodes.csv is mising the following column(s): ",
+#           stop("electrodes.csv is missing the following column(s): ",
 #                paste(cols, collapse = ", "))
 #         }
 #

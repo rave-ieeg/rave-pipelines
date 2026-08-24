@@ -53,7 +53,7 @@ rave_option_server <- function(input, output, session) {
       "  OS type:         ", session_info$platform, "\n",
       "  OS name:         ", session_info$running, "\n",
       "  File separator:  ", .Platform$file.sep, "\n",
-      "  Endianess:       ", .Platform$endian, "\n",
+      "  Endianness:       ", .Platform$endian, "\n",
 
       "\nR information\n",
       "  Version:         ", session_info$R.version$version.string, "\n",

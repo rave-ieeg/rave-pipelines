@@ -752,7 +752,7 @@ wrap_data = function(data, ...){
     group_info = group_info
   )
 
-  ## by default we use the f1 setttings
+  ## by default we use the f1 settings
   ll[names(f1_analysis_settings)] = f1_analysis_settings
 
   vals = list(...)

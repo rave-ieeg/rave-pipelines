@@ -108,13 +108,13 @@ pipeline$read(c("subject", "filter_settings"))
 
 ### 2. How does RAVE pipeline work
 
-Most data analysis scripts contain the following componets:
+Most data analysis scripts contain the following components:
 
 - Code to load external libraries, utility functions
 - Set inputs, global data
 - Run analyses and generate outputs, for example, data loading & cleaning, intermediate analysis, data & graphs export
 
-RAVE data pipeline manages these three componets separately (see figure below). 
+RAVE data pipeline manages these three components separately (see figure below). 
 
 <img width="100%" alt="image" src="https://user-images.githubusercontent.com/8163576/226494805-f7004824-9392-441b-97e4-a3c70835fe1e.png">
 <caption>Structures of RAVE 2.0 pipeline (right) and how RAVE uses the pipeline files to generate analysis script (left)</caption>
@@ -192,7 +192,7 @@ subject <- raveio::RAVESubject$new(
 
 Within the ` ``` `, the script asks RAVE to generate a variable `subject` using `project_name` and `subject_code`. These variables are "undeclared" for this block (if you directly run this block, you will get variable not found errors). 
 
-Where do these undeclared vairables come from? The answer is they come from previous "targets" or from `settings.yaml`. In this case, `project_name` and `subject_code` are defined in `settings.yaml`.
+Where do these undeclared variables come from? The answer is they come from previous "targets" or from `settings.yaml`. In this case, `project_name` and `subject_code` are defined in `settings.yaml`.
 
 (TODO: add more)
 
@@ -219,7 +219,7 @@ RAVE will compile and translate the script into `module/my_module_id/make-electr
 
 **Caveats**
 
-1. Each code block generates only one variable. RAVE pipeline will drop all the other temporary variables when exiting current block. Therefore, all the undefined variables must come from previous targets or pipline inputs only
+1. Each code block generates only one variable. RAVE pipeline will drop all the other temporary variables when exiting current block. Therefore, all the undefined variables must come from previous targets or pipeline inputs only
 2. A code block does not need to end with the target variable. However, the target variable must be declared within the block.
 
 Take a look at the following case (containing 3 blocks). Suppose `project_name` and `subject_code` are defined in `settings.yaml`. Two of three contain errors.

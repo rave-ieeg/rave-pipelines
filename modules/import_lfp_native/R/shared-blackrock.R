@@ -876,7 +876,7 @@ parse__with_string_key <- function(conn, section_specs, n_items,
     p2_length <- item$.bytes - initial_read
 
     if (p2_length < 0) {
-      stop("Wrong specification: data packet size is not enough to aquire packet key/ID. To obtain the key, it requires [", initial_read, "] bytes, but the packet size is: [", item$.bytes, "]")
+      stop("Wrong specification: data packet size is not enough to acquire packet key/ID. To obtain the key, it requires [", initial_read, "] bytes, but the packet size is: [", item$.bytes, "]")
     }
     if (length(p2_length)) {
       data_part2 <- readBin(conn, what = "raw", n = p2_length,

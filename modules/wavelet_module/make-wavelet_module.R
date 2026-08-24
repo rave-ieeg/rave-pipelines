@@ -182,7 +182,7 @@ rm(._._env_._.)
                 }
                 if (length(cycles) != 2) {
                   if (length(freqs) != length(cycles)) {
-                    stop("The wavelet kernel table lengths are inconsistent: the lenth of `Cycles` must be either 2 (a range on which wavelet cycles that will be interpolated log-linearly), or the same length as `Frequency`.")
+                    stop("The wavelet kernel table lengths are inconsistent: the length of `Cycles` must be either 2 (a range on which wavelet cycles that will be interpolated log-linearly), or the same length as `Frequency`.")
                   }
                 }
                 if (any(is.na(cycles) | cycles <= 1)) {
@@ -217,7 +217,7 @@ rm(._._env_._.)
                   }
                   if (length(cycles) != 2) {
                     if (length(freqs) != length(cycles)) {
-                      stop("The wavelet kernel table lengths are inconsistent: the lenth of `Cycles` must be either 2 (a range on which wavelet cycles that will be interpolated log-linearly), or the same length as `Frequency`.")
+                      stop("The wavelet kernel table lengths are inconsistent: the length of `Cycles` must be either 2 (a range on which wavelet cycles that will be interpolated log-linearly), or the same length as `Frequency`.")
                     }
                   }
                   if (any(is.na(cycles) | cycles <= 1)) {

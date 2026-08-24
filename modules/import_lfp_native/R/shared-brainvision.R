@@ -313,7 +313,7 @@ read_eeg_data <- function(header, path = NULL) {
   resolution <- as.numeric(header$channels$resolution)
 
   if (length(resolution) != nrow(s)) {
-    # not likely, but in case this happends, stop loudly, don't give
+    # not likely, but in case this happens, stop loudly, don't give
     # wrong results
     stop("Number of channels does not match with data read from the file.")
   }
