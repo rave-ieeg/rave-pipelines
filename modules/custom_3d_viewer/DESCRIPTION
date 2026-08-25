@@ -14,5 +14,5 @@ Description:
     from a 'CSV' file (opened by Excel). Please check the 'URL' for manual.
 BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: 
-    https://beauchamplab.github.io/raveio/reference/rave_brain.html, 
+    https://rave.wiki/ravecore/reference/rave_brain.html, 
     https://dipterix.org/threeBrain/

@@ -16,6 +16,6 @@ Description:
     'Python', and 'R'. Please see 'URL' for the functions used in this module.
 BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: 
-    https://beauchamplab.github.io/raveio/reference/validate_subject.html,
-    https://beauchamplab.github.io/raveio/reference/rave_subject_format_conversion.html,
-    https://beauchamplab.github.io/raveio/reference/rave_export.html
+    https://rave.wiki/ravecore/reference/validate_subject.html,
+    https://rave.wiki/ravecore/reference/rave_legacy_subject_format_conversion.html,
+    https://rave.wiki/ravecore/reference/archive_subject.html
