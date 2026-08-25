@@ -63,7 +63,7 @@ bibentry(bibtype = "Article",
          author = c(as.person("A. M. Dale"),
                     as.person("B. Fischl"),
                     as.person("M. I. Sereno")),
-         header       = "[FreeSurfer] If you use FreeSurfer (recon-all), cite one of the followings:",
+         header       = "[FreeSurfer] If you use FreeSurfer (recon-all), cite one of the following:",
          textVersion = "[4][FreeSurfer] Dale, A.M., Fischl, Bruce, Sereno, M.I., (1999). Cortical Surface-Based Analysis I: Segmentation and Surface\nReconstruction. NeuroImage 9(2):179-194"
 )
 

@@ -6,7 +6,7 @@ DEFAULT_VOLTAGE_UNIT <- "MicroVolt"
 
 #' Apply filters to matrix of signals
 #' @param signals vector or matrix where each column is a time-series
-#' @param type one of the followings `demean`, `detrend`, `decimate`,
+#' @param type one of the following `demean`, `detrend`, `decimate`,
 #' or "method" in `ravetools::design_filter`, or `fir` (short for `fir_kaiser`),
 #' and `iir` for `butter`
 #' @param ... passed to the methods. For `decimate`, use `by` (integer) indicate
@@ -586,6 +586,6 @@ filter_repository <- function(repository, filter_configurations) {
     do_filter()
   }
 
-  # re-wrap incase anything has changed
+  # re-wrap in case anything has changed
   ravepipeline::RAVEFileArray$new(filtered_array$`@impl`)
 }

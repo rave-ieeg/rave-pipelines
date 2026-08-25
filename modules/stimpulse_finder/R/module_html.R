@@ -86,7 +86,7 @@ module_html <- function() {
 
                     shidashi::flex_break(),
 
-                    shidashi::flex_item(shiny::tags$label(class = "control-label", "Find/clear pulses throghout the recording block")),
+                    shidashi::flex_item(shiny::tags$label(class = "control-label", "Find/clear pulses throughout the recording block")),
                     shidashi::flex_break(),
 
                     shidashi::flex_item(
@@ -109,7 +109,7 @@ module_html <- function() {
                     )
 
 
-                  ), # intial finder .row
+                  ), # initial finder .row
 
                   ravedash::flex_group_box(
 

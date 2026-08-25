@@ -10,7 +10,7 @@ module_server <- function(input, output, session, ...) {
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
 
-  # get server tools to tweek
+  # get server tools to tweak
   server_tools <- get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
@@ -168,7 +168,7 @@ module_server <- function(input, output, session, ...) {
     time_points <- repository$time_points
     frequencies <- repository$frequency
 
-    data <- collapsed_data[[1]]$collasped$range_1
+    data <- collapsed_data[[1]]$collapsed$range_1
     image(t(data$freq_time), x = time_points[data$cube_index$Time], y = frequencies[data$cube_index$Frequency])
 
   })

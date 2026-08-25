@@ -10,7 +10,7 @@ module_server <- function(input, output, session, ...) {
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
 
-  # get server tools to tweek
+  # get server tools to tweak
   # ravedash::module_server_common(module_id = module_id, check_data_loaded = check_data_loaded, )
   server_tools <- ravedash::get_default_handlers(session = session)
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)

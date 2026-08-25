@@ -2396,7 +2396,7 @@ module_server <- function(input, output, session, ...){
 
       df <- local_data$results$over_time_by_electrode_dataframe
       if(is.null(df)) {
-        return(threeBrain::threejs_brain(title = "No data availalble. Check box 'Calculate electrode over time (movie maker)' in Global Plot Options"))
+        return(threeBrain::threejs_brain(title = "No data available. Check box 'Calculate electrode over time (movie maker)' in Global Plot Options"))
       } else {
         brain$set_electrode_values(df)
         res <- build_palettes_and_ranges_for_omnibus_data(df)
@@ -2604,7 +2604,7 @@ module_server <- function(input, output, session, ...){
       job_promise <- ravepipeline::as.promise(job_id)
 
       # return a promise that allows the job to pop up notifications once done
-      # Thie reactive return a promise or shiny will not recognize
+      # This reactive return a promise or shiny will not recognize
       handling_promise <- job_promise$then(
         onFulfilled = function(path) {
           params <- as.list(attr(path, "params"))

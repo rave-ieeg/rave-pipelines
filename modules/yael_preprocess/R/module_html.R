@@ -572,7 +572,7 @@ module_html <- function() {
                         label = "DOF",
                         choices = c(
                           "6 (rigid body)",
-                          "7 (gloabl rescale)",
+                          "7 (global rescale)",
                           "9 (traditional)",
                           "12 (affine)"
                         ),

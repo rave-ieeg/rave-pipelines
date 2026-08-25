@@ -133,7 +133,7 @@ use_channel_annotation_style <- function(value = KEY_MISSING) {
 
 
 # use_channel_annotation_style("short")
-# ravepipeline:::construct_preference_validator(pref_channel_annotation_style$metadat)("assqwdwq", pipeline)
+# ravepipeline:::construct_preference_validator(pref_channel_annotation_style$metadata)("assqwdwq", pipeline)
 
 # ---- Preference: sort trial by number or condition ---------------------------
 pref_trial_sort_by <- ravepipeline::define_preference_multichoice(

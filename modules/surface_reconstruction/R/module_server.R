@@ -43,7 +43,7 @@ module_server <- function(input, output, session, ...) {
 
   gray_colors <- gray.colors(256, 0, 1)
 
-  # get server tools to tweek
+  # get server tools to tweak
   server_tools <- get_default_handlers(session = session)
 
 
@@ -53,7 +53,7 @@ module_server <- function(input, output, session, ...) {
       loaded_flag <- ravedash::watch_data_loaded()
       if (!loaded_flag) { return() }
 
-      # There is not too many interaction, so update everytime
+      # There is not too many interaction, so update every time
       check_result <- pipeline$read(var_names = "check_result")
       print(check_result)
       cmd_tools <- pipeline$read(var_names = "cmd_tools")

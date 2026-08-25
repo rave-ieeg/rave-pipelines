@@ -752,7 +752,7 @@ wrap_data = function(data, ...){
     group_info = group_info
   )
 
-  ## by default we use the f1 setttings
+  ## by default we use the f1 settings
   ll[names(f1_analysis_settings)] = f1_analysis_settings
 
   vals = list(...)
@@ -1003,7 +1003,7 @@ new_shift_array <- function() {
       #
       # # When the environment is dirty, fork will need to serialize
       # # a lot of other things
-      # # This can be simulated with runing all the profiling examples
+      # # This can be simulated with running all the profiling examples
       # # without GC() and come back and rerun
       #  user  system elapsed  <- with dimnames=FALSE
       # 0.305   1.262   9.546

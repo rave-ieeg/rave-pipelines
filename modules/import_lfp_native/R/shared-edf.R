@@ -1,4 +1,4 @@
-# readin edf file format
+# reading edf file format
 
 check_edf <- function() {
   if (!dipsaus::package_installed("edfReader")) {

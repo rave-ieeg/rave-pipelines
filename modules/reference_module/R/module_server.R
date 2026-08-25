@@ -11,7 +11,7 @@ module_server <- function(input, output, session, ...) {
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
 
-  # get server tools to tweek
+  # get server tools to tweak
   server_tools <- get_default_handlers(session = session)
 
   error_notification <- function(e) {
@@ -2206,7 +2206,7 @@ module_server <- function(input, output, session, ...) {
   #   shiny::validate(
   #     shiny::need(
   #       is.list(ginfo),
-  #       message = "No refernce group selected"
+  #       message = "No reference group selected"
   #     )
   #   )
   #   subject <- ginfo$subject
