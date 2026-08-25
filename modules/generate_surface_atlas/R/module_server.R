@@ -398,9 +398,6 @@ module_server <- function(input, output, session, ...) {
             "\nPlease choose another name."
           )
         }
-        # for(f in expected_paths) {
-        #   raveio::backup_file(f, remove = FALSE, quiet = TRUE)
-        # }
       }
       run_pipeline(target = "save_atlas")
     }, error_wrapper = "alert"),

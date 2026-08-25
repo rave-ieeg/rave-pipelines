@@ -215,10 +215,6 @@ module_server <- function(input, output, session, ...) {
           }
           pipeline$fork(fork_path)
 
-          # RAVE 1.0 is over... We do not need them anymore
-          # raveio::with_future_parallel({
-          #   raveio::rave_subject_format_conversion(subject = subject)
-          # })
           dipsaus::close_alert2()
           dipsaus::shiny_alert2(
             title = "Done!",

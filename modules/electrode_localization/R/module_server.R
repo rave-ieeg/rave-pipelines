@@ -62,76 +62,9 @@ module_server <- function(input, output, session, ...) {
 
   })
 
-
-  finalize_electrode_table <- function() {
-
-    # final_results <- pipeline$read('localization_result_final')
-    # subject <- component_container$data$subject
-    # electrode_table <- final_results$electrode_table
-    # electrode_table$SubjectCode <- subject$subject_code
-    # ct_table <- final_results$ct_table
-    #
-    # raveio::save_meta2(
-    #   data = electrode_table,
-    #   meta_type = "electrodes",
-    #   project_name = subject$project_name,
-    #   subject_code = subject$subject_code
-    # )
-    # brain <- component_container$data$brain
-    # if(length(final_results$prototype_definitions)) {
-    #   proto_defs <- final_results$prototype_definitions
-    #   for(nm in names(proto_defs)) {
-    #     target_path <- file.path(brain$base_path, "RAVE", "geometry", sprintf("%s.json", nm))
-    #     writeLines(proto_defs[[nm]], target_path)
-    #   }
-    # }
-    # ct_tablepath <- file.path(subject$meta_path, "electrodes_in_ct.csv")
-    # if(is.data.frame(ct_table) && nrow(ct_table)) {
-    #   utils::write.csv(ct_table, file = ct_tablepath, row.names = FALSE)
-    # } else if(file.exists(ct_tablepath)) {
-    #   unlink(ct_tablepath)
-    # }
-    #
-    # # backup unsaved.csv as it's not useful anymore
-    # unlink(file.path(subject$meta_path, "electrodes_unsaved.csv"))
-    # unlink(file.path(subject$meta_path, "geometry_unsaved.json"))
-    #
-    # # also save it to subject custom-data path so users can view the results with colors
-    # custom_path <- file.path(subject$preprocess_settings$raw_path,
-    #                          "rave-imaging", "custom-data")
-    # custom_path <- raveio::dir_create2(custom_path)
-    # raveio::save_fst(electrode_table, path = file.path(custom_path, sprintf("%s-electrodes.fst", subject$project_name)))
-    #
-    # # Save BIDS-compatible
-    # bids <- raveio::convert_electrode_table_to_bids(subject)
-    #
-    # # sub-<label>[_ses-<label>][_acq-<label>][_space-<label>]_coordsystem.json
-    # bids_prefix <- sprintf("sub-%s_space-%s", subject$subject_code, bids$meta$iEEGCoordinateSystem)
-    # utils::write.table(
-    #   x = bids$table,
-    #   file = file.path(subject$meta_path, sprintf("%s_electrodes.tsv", bids_prefix)),
-    #   sep = "\t",
-    #   na = "n/a",
-    #   row.names = FALSE
-    # )
-    # raveio::save_json(
-    #   x = bids$meta,
-    #   serialize = FALSE,
-    #   auto_unbox = TRUE,
-    #   con = file.path(
-    #     subject$meta_path,
-    #     sprintf("%s_coordsystem.json", bids_prefix)
-    #   )
-    # )
-
-
-
-  }
-
   shiny::bindEvent(
     ravedash::safe_observe(error_wrapper = "notification", {
 
-      # finalize_electrode_table()
       ravepipeline::logger("Check and save electrode table to subject.", level = "trace")
 
       ravedash::clear_notifications()
@@ -391,66 +324,6 @@ module_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  reload_plan <- function() {
-    # subject <- component_container$data$subject
-    # if(is.null(subject)) {
-    #   local_data$plan_list <- NULL
-    # }
-    # plan_file <- file.path(subject$meta_path, "electrodes_unsaved.csv")
-    # if(!file.exists(plan_file)) {
-    #   local_data$plan_list <- NULL
-    # }
-    #
-    # local_data$plan_list <- read_plan_list( plan_file, strict = TRUE, instantiate = TRUE )
-    # table <- raveio::safe_read_csv(plan_file)
-    # if(!"Interpolation" %in% names(table)) {
-    #   table$Interpolation <- "default"
-    # }
-    # if(!"Prototype" %in% names(table)) {
-    #   table$Prototype <- ""
-    # }
-    #
-    # plan_list <- split(table, ~ LabelPrefix + Dimension + LocationType)
-    # plan_list <- plan_list[vapply(plan_list, function(x) { nrow(x) > 0 }, FALSE)]
-    # # calculate layout & add geometries
-    # brain <- component_container$data$brain
-    # plan_list <- structure(
-    #   lapply(plan_list, function(sub) {
-    #     if (!grepl("^[0-9,x. ]+$", sub$Interpolation[[1]])) {
-    #       sub$Interpolation <- as.character(max(tryCatch({
-    #         dim <- as.integer(dipsaus::parse_svec(sub$Dimension[[1]], sep = "[,x]", unique = FALSE))
-    #         dim <- dim[!is.na(dim)]
-    #         if (length(dim) > 1) {
-    #           dim[[1]] - 2L
-    #         } else {
-    #           nrow(sub) - 2L
-    #         }
-    #       }, error = function(e) {
-    #         nrow(sub) - 2L
-    #       }), 1))
-    #     }
-    #
-    #     if ( nrow(sub) > 0 && !identical(sub$Prototype[[1]], "") ) {
-    #       # try to load existing geometry
-    #       prototype <- brain$electrodes$add_geometry(
-    #         label_prefix = sub$LabelPrefix[[1]],
-    #         prototype_name = sub$Prototype[[1]]
-    #       )
-    #       if (!is.null(prototype)) {
-    #         channel_numbers <- table$Electrode[table]
-    #         prototype$set_contact_channels(sub$Electrode, sub$ContactOrder)
-    #       }
-    #     }
-    #     sub
-    #   }),
-    #   names = names(plan_list)
-    # )
-    #
-    # local_data$plan_list <- plan_list[order(vapply(plan_list, function(x) { as.integer(min(x$Electrode)) }, FUN.VALUE = 1L))]
-    # local_data$plan_list
-  }
-
-
   shiny::bindEvent(
     ravedash::safe_observe({
       loaded_flag <- ravedash::watch_data_loaded()
@@ -481,7 +354,6 @@ module_server <- function(input, output, session, ...) {
       component_container$data$fslut <- fslut
 
       # load plan table
-      # reload_plan()
       local_data$plan_list <- read_plan_list( plan_file, brain = brain, strict = TRUE, instantiate = TRUE )
       lapply(local_data$plan_list, function(group_info) {
         prototype <- group_info$prototype

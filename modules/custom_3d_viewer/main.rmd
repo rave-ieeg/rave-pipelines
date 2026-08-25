@@ -227,11 +227,6 @@ path_datatable <- switch(
       target = saved_target
     )
     
-    # local({
-    #   raveio:::activate_pipeline(pipepath)
-    #   targets::tar_path(name = saved_target)
-    # })
-    
   },
   {
     NULL

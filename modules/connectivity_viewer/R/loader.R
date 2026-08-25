@@ -73,7 +73,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
           #     shiny::selectInput(
           #       inputId = ns("loader_project_name"),
           #       label = "Select a project to load electrodes from",
-          #       choices = c("[Auto]", "[Upload]", "[None]", raveio::get_projects(FALSE)),
+          #       choices = c("[Auto]", "[Upload]", "[None]", ravecore::get_projects(FALSE)),
           #       selected = pipeline$get_settings("project_name"),
           #       multiple = FALSE
           #     ),

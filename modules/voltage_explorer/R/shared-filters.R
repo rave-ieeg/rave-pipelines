@@ -219,18 +219,6 @@ apply_filters_to_signals <- function(signals, filter_configs) {
   signals_dim <- dim(signals)
   niter <- signals_dim[[2]]
 
-  # res <- raveio::lapply_async(seq_len(niter), function(ii) {
-  #   slice <- signals[, ii, ]
-  #   for(config in filter_configs) {
-  #     call <- as.call(c(
-  #       list(quote(apply_filter), signals = quote(slice), sample_rate = sample_rate),
-  #       config
-  #     ))
-  #     signals <- eval(call)
-  #   }
-  #   as.numeric(signals)
-  # }, callback = I)
-
   signals <- signals[drop = TRUE]
   for (config in filter_configs) {
     # config = filter_configs[[3]]
