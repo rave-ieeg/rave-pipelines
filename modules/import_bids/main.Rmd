@@ -125,12 +125,12 @@ subject_root <- file.path(raw_path, subject_code)
 migrate_result_path <- file.path(subject_root, "conf-BIDS_import.yaml")
 
 if (!dir.exists(subject_root)) {
-  raveio::dir_create2(subject_root)
+  ravepipeline::dir_create2(subject_root)
 }
 
 if (file.exists(migrate_result_path)) {
   migrate_result <- tryCatch({
-    as.list(raveio::load_yaml(migrate_result_path))
+    as.list(ravepipeline::load_yaml(migrate_result_path))
   }, error = function(e) {
     list()
   })
@@ -165,11 +165,11 @@ if (any(migrate_plan$Planned)) {
       dst_path <- file.path(subject_root, plan_table$Block[[ii]])
       if (file.exists(dst_path)) {
         if (backup) {
-          raveio::backup_file(dst_path, remove = TRUE)
+          ravecore::backup_file(dst_path, remove = TRUE)
         }
       }
       unlink(dst_path, recursive = TRUE)
-      raveio::dir_create2(dst_path)
+      ravepipeline::dir_create2(dst_path)
       
       for (jj in seq_along(dtypes)) {
         src_abspath <- src_files[[jj]]
@@ -200,7 +200,7 @@ if (any(migrate_plan$Planned)) {
     migrate_result$migrates,
     res
   )
-  raveio::save_yaml(migrate_result, file = migrate_result_path)
+  ravepipeline::save_yaml(migrate_result, file = migrate_result_path)
 }
 ```
 

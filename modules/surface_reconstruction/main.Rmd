@@ -15,9 +15,9 @@ ravepipeline::pipeline_setup_rmd("surface_reconstruction")
 
 ```{rave check_commandline_tools, language = "R", export = "cmd_tools", cue = "always"}
 
-default_dcm2niix_path <- raveio:::cmd_dcm2niix(error_on_missing = FALSE)
+default_dcm2niix_path <- ravecore::cmd_dcm2niix(error_on_missing = FALSE)
 dcm2niix <- tryCatch({
-  dcm2niix <- raveio::normalize_commandline_path(
+  dcm2niix <- ravecore::normalize_commandline_path(
     path = dcm2niix_path, 
     unset = default_dcm2niix_path
   )
@@ -29,9 +29,9 @@ dcm2niix <- tryCatch({
   dcm2niix
 }, error = function(e) { NULL })
 
-default_fs_path <- raveio:::cmd_freesurfer_home(error_on_missing = FALSE)
+default_fs_path <- ravecore::cmd_freesurfer_home(error_on_missing = FALSE)
 freesurfer <- tryCatch({
-  freesurfer <- raveio::normalize_commandline_path(
+  freesurfer <- ravecore::normalize_commandline_path(
     path = freesurfer_path, 
     unset = default_fs_path,
     type = "freesurfer"
@@ -45,9 +45,9 @@ freesurfer <- tryCatch({
 }, error = function(e) { NULL })
 
 
-default_fsl_path <- raveio:::cmd_fsl_home(error_on_missing = FALSE)
+default_fsl_path <- ravecore::cmd_fsl_home(error_on_missing = FALSE)
 flirt <- tryCatch({
-  fsl <- raveio::normalize_commandline_path(
+  fsl <- ravecore::normalize_commandline_path(
     path = fsl_path,
     type = "fsl",
     unset = default_fsl_path
@@ -62,9 +62,9 @@ flirt <- tryCatch({
   flirt
 }, error = function(e) { NULL })
 
-default_afni_path <- raveio:::cmd_afni_home(error_on_missing = FALSE)
+default_afni_path <- ravecore::cmd_afni_home(error_on_missing = FALSE)
 afni <- tryCatch({
-  afni <- raveio::normalize_commandline_path(
+  afni <- ravecore::normalize_commandline_path(
     path = afni_path,
     type = "afni",
     unset = default_afni_path
@@ -88,7 +88,7 @@ cmd_tools <- list(
 ```
 
 ```{rave load_subject, language = "R", export = "subject", format = "rave-subject"}
-subject <- raveio::RAVESubject$new(
+subject <- ravecore::RAVESubject$new(
   project_name = project_name, 
   subject_code = subject_code,
   strict = FALSE
@@ -181,7 +181,7 @@ if ( length(mri_path) ) {
   if (file.exists(acpc_mri_dir)) {
     unlink(acpc_mri_dir, recursive = TRUE)
   }
-  raveio::dir_create2(acpc_mri_dir)
+  ravepipeline::dir_create2(acpc_mri_dir)
   
   # RNifti is available since RNiftyReg depends on it
   mri <- RNifti::readNifti(mri_path, internal = TRUE)
@@ -207,7 +207,7 @@ Command-line script to import T1 MR images. If the images are `DICOM` slices, us
 
 ```{rave import_T1_MRI, export = "import_T1", cue = "always", echo=FALSE}
 import_T1 <- tryCatch({
-  raveio::cmd_run_dcm2niix(
+  ravecore::cmd_run_dcm2niix(
     subject = subject,
     src_path = check_result$path_mri,
     type = "MRI",
@@ -243,7 +243,7 @@ Command-line script to import CT images. If the images are `DICOM` slices, use `
 
 ```{rave import_CT, export = "import_CT", cue = "always", echo=FALSE}
 import_CT <- tryCatch({
-  raveio::cmd_run_dcm2niix(
+  ravecore::cmd_run_dcm2niix(
     subject = subject,
     src_path = check_result$path_ct,
     type = "CT",
@@ -305,7 +305,7 @@ image_segmentation <- tryCatch({
         "-autorecon2-cp", "-autorecon2-wm", "-autorecon2-pial"
       )
       flag <- params$segmentation$flag %OF% autorecon_flags
-      raveio::cmd_run_recon_all(
+      ravecore::cmd_run_freesurfer_recon_all(
         subject = subject,
         mri_path = mri_path,
         args = flag,
@@ -316,7 +316,7 @@ image_segmentation <- tryCatch({
       )
     },
     "recon-all-clinical.sh" = {
-      raveio::cmd_run_recon_all_clinical(
+      ravecore::cmd_run_freesurfer_recon_all_clinical(
         subject = subject,
         mri_path = mri_path,
         overwrite = overwrite,
@@ -326,7 +326,7 @@ image_segmentation <- tryCatch({
       )
     },
     "YAEL+recon-all" = {
-      raveio::cmd_run_yael_preprocess(
+      ravecore::cmd_run_yael_preprocess(
         subject_code = subject$subject_code,
         t1w_path = mri_path, 
         normalize_template = c("mni_icbm152_nlin_asym_09b", "mni_icbm152_nlin_asym_09a", "mni_icbm152_nlin_asym_09c"),
@@ -336,12 +336,12 @@ image_segmentation <- tryCatch({
       )
     },
     "ants-preprocessing" = {
-      raveio::cmd_run_r(
+      ravecore::cmd_run_r(
         dry_run = TRUE,
         verbose = FALSE,
         quoted = TRUE, 
         expr = bquote({
-          subject <- raveio::as_rave_subject(.(subject$subject_id))
+          subject <- ravecore::as_rave_subject(.(subject$subject_id))
           
           mri_src <- .(mri_path)
           ants_dirpath <- file.path(subject$preprocess_settings$raw_path, "rave-imaging", "ants")
@@ -359,7 +359,7 @@ image_segmentation <- tryCatch({
             file.path(subject$preprocess_settings$raw_path,
                       "rave-imaging",
                       "derivative")
-          raveio::dir_create2(deriv_path)
+          ravepipeline::dir_create2(deriv_path)
           file.copy(
             from = mri_src,
             to = file.path(deriv_path, .(sprintf("MRI_RAW.%s", mri_postfix))),
@@ -382,12 +382,12 @@ image_segmentation <- tryCatch({
       )
     },
     {
-      raveio::cmd_run_r(
+      ravecore::cmd_run_r(
         dry_run = TRUE,
         verbose = FALSE,
         quoted = TRUE, 
         expr = bquote({
-          subject <- raveio::as_rave_subject(.(subject$subject_id))
+          subject <- ravecore::as_rave_subject(.(subject$subject_id))
           image_path <- file.path(subject$preprocess_settings$raw_path, "rave-imaging")
           
           mri_src <- .(mri_path)
@@ -395,7 +395,7 @@ image_segmentation <- tryCatch({
           mri_dst <- file.path(mri_dirpath, .(sprintf("brain.%s", mri_postfix)))
           
           # make sure dir exists
-          raveio::dir_create2(mri_dirpath)
+          ravepipeline::dir_create2(mri_dirpath)
           
           file.copy(
             from = mri_src,
@@ -408,7 +408,7 @@ image_segmentation <- tryCatch({
           
           # Backup, also used by coreg
           deriv_path <- file.path(image_path, "derivative")
-          raveio::dir_create2(deriv_path)
+          ravepipeline::dir_create2(deriv_path)
           file.copy(
             from = mri_src,
             to = file.path(deriv_path, .(sprintf("MRI_RAW.%s", mri_postfix))),
@@ -473,7 +473,7 @@ coreg_flirt <- tryCatch({
     stop("Please choose a valid CT Nifti file under ", ct_root)
   }
   
-  raveio::cmd_run_flirt(
+  ravecore::cmd_run_fsl_flirt(
     subject = subject,
     mri_path = mri_path,
     ct_path = ct_path,
@@ -514,7 +514,7 @@ coreg_nipy <- tryCatch({
     stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
   }
   
-  raveio::cmd_run_nipy_coreg(
+  ravecore::cmd_run_nipy_coreg(
     subject = subject,
     mri_path = mri_path,
     ct_path = ct_path,
@@ -555,7 +555,7 @@ coreg_niftyreg <- tryCatch({
     stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
   }
   
-  raveio::cmd_run_niftyreg_coreg(
+  ravecore::cmd_run_niftyreg_coreg(
     subject = subject,
     mri_path = mri_path,
     ct_path = ct_path,
@@ -592,7 +592,7 @@ coreg_ants <- tryCatch({
     stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
   }
   
-  raveio::cmd_run_ants_coreg(
+  ravecore::cmd_run_ants_coreg(
     subject = subject,
     mri_path = mri_path,
     ct_path = ct_path,
@@ -641,7 +641,7 @@ coreg_3dallineate <- tryCatch({
     stop("Please choose a valid CT Nifti file under ", ct_root)
   }
   
-  raveio::cmd_run_3dAllineate(
+  ravecore::cmd_run_3dAllineate(
     subject = subject,
     mri_path = mri_path,
     ct_path = ct_path,
