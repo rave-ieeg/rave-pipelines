@@ -13,7 +13,7 @@ test_that("Notch filter", {
     normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "notch_filter"))
   )
 
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
   # skip_if(all(subject2$preprocess_settings$notch_filtered))
   if(getOption("rave.test.fastforward", FALSE)) {
     skip_if(all(subject2$preprocess_settings$notch_filtered))
@@ -49,8 +49,8 @@ test_that("Notch filter", {
     pipeline$run(names = 'apply_notch')
   }
 
-  subject1 <- raveio::as_rave_subject("test1/KC", strict = FALSE)
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
 
   expect_equal(
     subject1$preprocess_settings$notch_filtered,
@@ -69,8 +69,8 @@ test_that("Notch filter", {
     path1 <- file.path(subject1$preprocess_path, "voltage", sprintf("electrode_%d.h5", electrode))
     path2 <- file.path(subject2$preprocess_path, "voltage", sprintf("electrode_%d.h5", electrode))
     for(block in blocks) {
-      d1 <- raveio::load_h5(path1, name = sprintf("notch/%s", block))
-      d2 <- raveio::load_h5(path2, name = sprintf("notch/%s", block))
+      d1 <- ieegio::io_read_h5(path1, name = sprintf("notch/%s", block))
+      d2 <- ieegio::io_read_h5(path2, name = sprintf("notch/%s", block))
       expect_equal(d1[], d2[], label = sprintf("voltage data after notch filters: electrode [%d] block [%s]",
                                                electrode, block))
     }

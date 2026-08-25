@@ -34,7 +34,7 @@ test_that("import native formats", {
   if(!tools$has_raw_cache()) {
     tools$collect_raw_voltage(force = TRUE)
   }
-  subject1 <- raveio::as_rave_subject("test1/KC", strict = FALSE)
+  subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
 
   # RAVE 2.0 import
   pipeline$set_settings(
@@ -50,7 +50,7 @@ test_that("import native formats", {
     import_blocks__session_block = blocks
   )
   pipeline$run('subject')
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
   expect_length(subject2$preprocess_settings$data_imported, length(electrodes))
 
   future::plan('sequential')
@@ -65,10 +65,10 @@ test_that("import native formats", {
   }
 
 
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
 
-  v1 <- raveio::validate_subject(subject = "test1/KC", version = 1, verbose = FALSE)
-  v2 <- raveio::validate_subject(subject = "test2/KC", version = 2, verbose = FALSE)
+  v1 <- ravecore::validate_subject(subject = "test1/KC", version = 1, verbose = FALSE)
+  v2 <- ravecore::validate_subject(subject = "test2/KC", version = 2, verbose = FALSE)
 
   expect_true(v1$voltage_data$voltage_preprocessing$valid)
   expect_true(v2$voltage_data$voltage_preprocessing$valid)
@@ -83,10 +83,10 @@ test_that("import native formats", {
 
     path1 <- file.path(subject1$preprocess_path, "voltage", sprintf("electrode_%d.h5", electrode))
     path2 <- file.path(subject2$preprocess_path, "voltage", sprintf("electrode_%d.h5", electrode))
-    raveio::h5_names(path2)
+    ieegio::io_h5_names(path2)
     for(block in blocks) {
-      d1 <- raveio::load_h5(path1, name = sprintf("raw/%s", block))
-      d2 <- raveio::load_h5(path2, name = sprintf("raw/%s", block))
+      d1 <- ieegio::io_read_h5(path1, name = sprintf("raw/%s", block))
+      d2 <- ieegio::io_read_h5(path2, name = sprintf("raw/%s", block))
       expect_equal(d1[], d2[], label = sprintf("raw voltage: electrode [%d] block [%s]",
                                                electrode, block))
     }
