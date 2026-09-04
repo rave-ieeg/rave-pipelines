@@ -55,27 +55,3 @@ serialize_filearray <- function(object, data_path) {
   normalizePath(object$.filebase, winslash = "/")
 }
 
-# ---- RAVEVariable, RAVEVariableCollections --------------------
-unserialize_constrained <- function(data_path) {
-
-  raveio <- asNamespace("raveio")
-  env <- new.env(parent = raveio)
-
-  # relative to this file
-  source("./R/shared-class.R", local = env)
-
-  config <- readRDS(data_path)
-  raveio$restore_list(config, env = env)
-
-}
-
-serialize_constrained <- function(object, data_path) {
-
-  raveio <- asNamespace("raveio")
-
-  saveRDS(raveio$store_list(object), data_path)
-
-  normalizePath(data_path, winslash = "/")
-
-}
-

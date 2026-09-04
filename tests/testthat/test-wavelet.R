@@ -16,7 +16,7 @@ test_that("Wavelet", {
     normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "wavelet_module"))
   )
 
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
   # skip_if(all(subject2$preprocess_settings$notch_filtered))
   if(getOption("rave.test.fastforward", FALSE)) {
     skip_if(all(subject2$preprocess_settings$has_wavelet))
@@ -62,8 +62,8 @@ test_that("Wavelet", {
     pipeline$run(names = 'clear_cache')
   }
 
-  subject1 <- raveio::as_rave_subject("test1/KC", strict = FALSE)
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
 
   expect_equal(
     subject1$preprocess_settings$has_wavelet,
@@ -93,10 +93,10 @@ test_that("Wavelet", {
 
     path1 <- file.path(subject1$data_path, "power", sprintf("%d.h5", electrode))
     path2 <- file.path(subject2$data_path, "power", sprintf("%d.h5", electrode))
-    raveio::h5_names(path2)
+    ieegio::io_h5_names(path2)
     for(block in blocks) {
-      d1 <- raveio::load_h5(path1, name = sprintf("raw/power/%s", block))
-      d2 <- raveio::load_h5(path2, name = sprintf("raw/power/%s", block))
+      d1 <- ieegio::io_read_h5(path1, name = sprintf("raw/power/%s", block))
+      d2 <- ieegio::io_read_h5(path2, name = sprintf("raw/power/%s", block))
       expect_equal(d1[], d2[], label = sprintf("wavelet power: electrode [%d] block [%s]",
                                                electrode, block))
     }
@@ -104,8 +104,8 @@ test_that("Wavelet", {
     path1 <- file.path(subject1$data_path, "phase", sprintf("%d.h5", electrode))
     path2 <- file.path(subject2$data_path, "phase", sprintf("%d.h5", electrode))
     for(block in blocks) {
-      d1 <- raveio::load_h5(path1, name = sprintf("raw/phase/%s", block))
-      d2 <- raveio::load_h5(path2, name = sprintf("raw/phase/%s", block))
+      d1 <- ieegio::io_read_h5(path1, name = sprintf("raw/phase/%s", block))
+      d2 <- ieegio::io_read_h5(path2, name = sprintf("raw/phase/%s", block))
       expect_equal(d1[], d2[], label = sprintf("wavelet phase: electrode [%d] block [%s]",
                                                electrode, block))
     }
@@ -120,7 +120,7 @@ test_that("Wavelet quick (float+downsample)", {
   # use test3/KC
 
   # import data
-  subject2 <- raveio::as_rave_subject('test3/KC', strict = FALSE)
+  subject2 <- ravecore::as_rave_subject('test3/KC', strict = FALSE)
   if(!length(subject2$electrodes) || !all(subject2$data_imported)) {
 
     pipeline <- ravepipeline::pipeline(pipeline_name = "import_lfp_native",
@@ -142,7 +142,7 @@ test_that("Wavelet quick (float+downsample)", {
   }
 
   # notch
-  subject2 <- raveio::as_rave_subject('test3/KC', strict = FALSE)
+  subject2 <- ravecore::as_rave_subject('test3/KC', strict = FALSE)
   if(!all(subject2$notch_filtered)) {
     pipeline <- ravepipeline::pipeline(
       pipeline_name = "notch_filter",
@@ -159,12 +159,12 @@ test_that("Wavelet quick (float+downsample)", {
   }
 
   # wavelet
-  subject2 <- raveio::as_rave_subject('test3/KC', strict = FALSE)
+  subject2 <- ravecore::as_rave_subject('test3/KC', strict = FALSE)
   pipeline <- ravepipeline::pipeline(
     pipeline_name = "wavelet_module",
     paths = file.path(rstudioapi::getActiveProject(), "modules")
   )
-  subject1 <- raveio::as_rave_subject("test1/KC", strict = FALSE)
+  subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
   frequencies <- subject1$preprocess_settings$wavelet_params$frequencies
   cycles <- subject1$preprocess_settings$wavelet_params$cycle
   if(!all(subject2$has_wavelet)) {
@@ -184,8 +184,8 @@ test_that("Wavelet quick (float+downsample)", {
     pipeline$run(names = 'clear_cache')
   }
 
-  subject1 <- raveio::as_rave_subject("test1/KC", strict = FALSE)
-  subject2 <- raveio::as_rave_subject("test3/KC", strict = FALSE)
+  subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test3/KC", strict = FALSE)
 
   expect_equal(
     subject2$preprocess_settings$wavelet_params$precision,
@@ -214,10 +214,10 @@ test_that("Wavelet quick (float+downsample)", {
 
     path1 <- file.path(subject1$data_path, "power", sprintf("%d.h5", electrode))
     path2 <- file.path(subject2$data_path, "power", sprintf("%d.h5", electrode))
-    raveio::h5_names(path2)
+    ieegio::io_h5_names(path2)
     for(block in blocks) {
-      d1 <- raveio::load_h5(path1, name = sprintf("raw/power/%s", block))
-      d2 <- raveio::load_h5(path2, name = sprintf("raw/power/%s", block))
+      d1 <- ieegio::io_read_h5(path1, name = sprintf("raw/power/%s", block))
+      d2 <- ieegio::io_read_h5(path2, name = sprintf("raw/power/%s", block))
 
       # normalize signals
       s1 <- d1[]
@@ -232,8 +232,8 @@ test_that("Wavelet quick (float+downsample)", {
     path1 <- file.path(subject1$data_path, "phase", sprintf("%d.h5", electrode))
     path2 <- file.path(subject2$data_path, "phase", sprintf("%d.h5", electrode))
     for(block in blocks) {
-      d1 <- raveio::load_h5(path1, name = sprintf("raw/phase/%s", block))
-      d2 <- raveio::load_h5(path2, name = sprintf("raw/phase/%s", block))
+      d1 <- ieegio::io_read_h5(path1, name = sprintf("raw/phase/%s", block))
+      d2 <- ieegio::io_read_h5(path2, name = sprintf("raw/phase/%s", block))
       # normalize signals
       s1 <- d1[]
       s2 <- d2[]

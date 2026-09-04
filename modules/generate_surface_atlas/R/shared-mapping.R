@@ -62,7 +62,7 @@ map_to_template_thinfilm <- function(subject, template = "fsaverage", volumetric
 
 
   # ---- Preview the results -----------------------------------------------------
-  # brain <- raveio::rave_brain(subject = subject)
+  # brain <- ravecore::rave_brain(subject = subject)
   #
   # # To view the electrodes on template, use "sphere" shape to represent contacts
   # brain$set_electrodes(electrode_table, priority = "sphere")

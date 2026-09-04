@@ -11,8 +11,8 @@ test_that("reference", {
     normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "reference_module"))
   )
 
-  subject1 <- raveio::as_rave_subject("test1/KC", strict = FALSE)
-  subject2 <- raveio::as_rave_subject("test2/KC", strict = FALSE)
+  subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
+  subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
 
   # check if reference data are the same
   ref_path1 <- file.path(subject1$reference_path, "ref_6-7,14-15,22-23,30-31,38-39.h5")
@@ -23,19 +23,19 @@ test_that("reference", {
 
   if(!file.exists(ref_path2)) {
     # generate reference data
-    raveio::generate_reference(subject = subject2$subject_id, electrodes = subject2$electrodes)
+    ravecore::generate_reference(subject = subject2$subject_id, electrodes = subject2$electrodes)
   }
 
   blocks <- subject1$blocks
 
   # check data
   for(block in blocks) {
-    d1 <- raveio::load_h5(ref_path1, name = sprintf("voltage/%s", block))
-    d2 <- raveio::load_h5(ref_path2, name = sprintf("voltage/%s", block))
+    d1 <- ieegio::io_read_h5(ref_path1, name = sprintf("voltage/%s", block))
+    d2 <- ieegio::io_read_h5(ref_path2, name = sprintf("voltage/%s", block))
     expect_equal(d1[], d2[], label = sprintf("voltage data in reference: block [%s]", block))
 
-    d1 <- raveio::load_h5(ref_path1, name = sprintf("wavelet/coef/%s", block))
-    d2 <- raveio::load_h5(ref_path2, name = sprintf("wavelet/coef/%s", block))
+    d1 <- ieegio::io_read_h5(ref_path1, name = sprintf("wavelet/coef/%s", block))
+    d2 <- ieegio::io_read_h5(ref_path2, name = sprintf("wavelet/coef/%s", block))
     expect_equal(d1[], d2[],
                  label = sprintf("wavelet data in reference: block [%s]", block),
                  tolerance = 1e-5)
@@ -44,7 +44,7 @@ test_that("reference", {
 
   # check referenced signal
   repo1 <- rave::rave_prepare(subject1$subject_id, 14, "KCaOutlier", c(1, 2), attach = FALSE)
-  repo2 <- raveio::prepare_subject_power(subject2, 14, 'default', 'KCaOutlier', c(-1,2))
+  repo2 <- ravecore::prepare_subject_power_with_epochs(subject2, 14, 'default', 'KCaOutlier', c(-1,2))
 
   p1 <- repo1$module_tools$get_power(referenced = TRUE)
   p2 <- repo2$power$LFP$data_list$e_14

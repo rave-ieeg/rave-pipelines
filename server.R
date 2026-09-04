@@ -8,12 +8,10 @@ if (FALSE) {
 }
 
 
-if (system.file(package = "raveio") != "") {
-  if (dir.exists("./_pipelines")) {
-    ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(raveio:::R_user_dir("raveio", "data"), "pipelines")))
-  } else {
-    ravepipeline::pipeline_root(c(".", file.path(raveio:::R_user_dir("raveio", "data"), "pipelines")))
-  }
+if (dir.exists("./_pipelines")) {
+  ravepipeline::pipeline_root(c("./_pipelines", ".", file.path(tools::R_user_dir("raveio", "data"), "pipelines")))
+} else {
+  ravepipeline::pipeline_root(c(".", file.path(tools::R_user_dir("raveio", "data"), "pipelines")))
 }
 
 if (file.exists("prelaunch.R")) {
@@ -122,7 +120,7 @@ server <- function(input, output, session) {
                   !is.na(jupyter_confpath) &&
                   file.exists(jupyter_confpath)
               ) {
-                jupyter_conf <- raveio::load_yaml(jupyter_confpath)
+                jupyter_conf <- ravepipeline::load_yaml(jupyter_confpath)
                 port <- as.integer(jupyter_conf$port)
                 if (isTRUE(!is.na(port) & port >= 1024 & port <= 65535)) {
                   re$port <- port
@@ -230,7 +228,7 @@ server <- function(input, output, session) {
                   async = TRUE
                 )
 
-                raveio::save_yaml(
+                ravepipeline::save_yaml(
                   list(
                     host = host,
                     port = jupyter_port

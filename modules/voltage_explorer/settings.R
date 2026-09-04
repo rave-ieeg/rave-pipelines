@@ -1,6 +1,6 @@
 # Build a sample settings.yaml for debugging
 # ravepipeline::pipeline_setup_rmd("voltage_explorer")
-# dput(as.list(raveio::load_yaml("./settings.yaml")))
+# dput(as.list(ravepipeline::load_yaml("./settings.yaml")))
 
 setwd(file.path(rstudioapi::getActiveProject(), "modules/voltage_explorer"))
 settings <- list(
@@ -85,4 +85,4 @@ settings <- list(
 
 )
 
-raveio::save_yaml(x = settings, file = "./settings.yaml")
+ravepipeline::save_yaml(x = settings, file = "./settings.yaml")

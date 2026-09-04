@@ -25,13 +25,13 @@ condition_groups:
     - meant_v
 crp_detection_window:
 - 0.01
-- 1.0
+- 3.0
 crp_onset_border: disabled
 crp_remove_artifacts: yes
 crp_threshold_quantile: 98.0
 crp_time_step: 5
 epoch_choice: auditory_onset
-epoch_choice__trial_ends: 2
+epoch_choice__trial_ends: 3
 epoch_choice__trial_ends_rel_to_event: ~
 epoch_choice__trial_starts: -1
 epoch_choice__trial_starts_rel_to_event: ~

@@ -24,7 +24,7 @@ Imports:
     filearray,
     future,
     jsonlite,
-    raveio,
+    ravecore,
     ravetools,
     ravedash,
     readNSx,

@@ -1,6 +1,11 @@
 # UI components for loader
 loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
+  overlay_types0 <- as.character(unlist(pipeline$get_settings("overlay_types")))
+  surface_types0 <- as.character(unlist(pipeline$get_settings("surface_types")))
+  annot_types0 <- as.character(unlist(pipeline$get_settings("annot_types")))
+  streamline_types0 <- as.character(unlist(pipeline$get_settings("streamline_types")))
+
   shiny::div(
     class = "container",
     shiny::fluidRow(
@@ -92,8 +97,8 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               shiny::selectInput(
                 inputId = ns("loader_volume_types"),
                 label = "Additional volumes",
-                choices = c("aparc.DKTatlas+aseg", "aparc.a2009s+aseg"),
-                selected = as.character(unlist(pipeline$get_settings("overlay_types"))),
+                choices = unique(c("aparc.DKTatlas+aseg", "aparc.a2009s+aseg", overlay_types0)),
+                selected = overlay_types0,
                 multiple = TRUE
               )
             ),
@@ -102,8 +107,8 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               shiny::selectInput(
                 inputId = ns("loader_surface_types"),
                 label = "Additional surface types",
-                choices = c("smoothwm", "inflated", "white", "pial-outer-smooth"),
-                selected = as.character(unlist(pipeline$get_settings("surface_types"))),
+                choices = unique(c("smoothwm", "inflated", "white", "pial-outer-smooth", surface_types0)),
+                selected = surface_types0,
                 multiple = TRUE
               )
             ),
@@ -112,8 +117,18 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               shiny::selectInput(
                 inputId = ns("loader_annot_types"),
                 label = "Additional surface annotations/measurements",
-                choices = character(0L),
-                selected = as.character(unlist(pipeline$get_settings("annot_types"))),
+                choices = as.character(annot_types0),
+                selected = annot_types0,
+                multiple = TRUE
+              )
+            ),
+            shidashi::flex_break(),
+            shidashi::flex_item(
+              shiny::selectInput(
+                inputId = ns("loader_streamline_types"),
+                label = "Additional streamlines",
+                choices = unique(c("default/*", streamline_types0)),
+                selected = streamline_types0,
                 multiple = TRUE
               )
             ),
@@ -242,103 +257,27 @@ loader_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  get_electrode_coordinates <- shiny::reactive({
+  get_subject_imaging_info <- shiny::reactive({
     project_name <- loader_project$get_sub_element_input()
     subject_code <- loader_subject$get_sub_element_input()
     if (!length(project_name) || !length(subject_code)) {
       return()
     }
 
-    subject <- ravecore::RAVESubject$new(project_name = project_name,
-                                         subject_code = subject_code,
-                                         strict = FALSE)
-
-    electrode_table <- tryCatch(
-      {
-        subject$get_electrode_table(warn = FALSE)
-      }, error = function(e) {
-        NULL
-      }
+    imaging_info <- subject_imaging_info(
+      project_name = project_name,
+      subject_code = subject_code,
+      electrode_table = local_reactives$electrode_table,
+      electrode_source_type = paste(input$loader_electrode_source, collapse = "")
     )
 
-    source_type <- paste(input$loader_electrode_source, collapse = "")
+    imaging_info
 
-    # shiny::selectInput(
-    #   inputId = ns("loader_electrode_source"),
-    #   label = "Select a source of electrode coordinates",
-    #   choices = c(
-    #     "Subject meta directory - electrodes.csv",
-    #     "File upload - auto",
-    #     "File upload - Scanner RAS",
-    #     "File upload - tk-registered (FreeSurfer) RAS",
-    #     "File upload - MNI152 RAS"
-    #   ),
-    #   selected = "Project",
-    #   multiple = FALSE
-    # ),
-
-    coordinate_sys <- ""
-
-    switch(
-      source_type,
-      "File upload - auto" = {
-        electrode_table <- local_reactives$electrode_table
-        if (is.data.frame(electrode_table) && all(c("Coord_x", "Coord_y", "Coord_z") %in% names(electrode_table))) {
-          electrode_table$x <- electrode_table$Coord_x
-          electrode_table$y <- electrode_table$Coord_y
-          electrode_table$z <- electrode_table$Coord_z
-        }
-        coordinate_sys <- "tkrRAS"
-      },
-      "File upload - Scanner RAS" = {
-        electrode_table <- local_reactives$electrode_table
-        coordinate_sys <- "ScannerRAS"
-      },
-      "File upload - tk-registered (FreeSurfer) RAS" = {
-        electrode_table <- local_reactives$electrode_table
-        coordinate_sys <- "tkrRAS"
-      },
-      "File upload - MNI152 RAS" = {
-        electrode_table <- local_reactives$electrode_table
-        coordinate_sys <- "MNI152"
-      }
-    )
-    if (!is.data.frame(electrode_table)) { return() }
-    nms <- names(electrode_table)
-    if (
-      !all(c("Coord_x", "Coord_y", "Coord_z") %in% nms) &&
-      !all(c("x", "y", "z") %in% nms)
-    ) {
-      return()
-    }
-    if (!"Electrode" %in% nms) {
-      if ("Channel" %in% nms) {
-        electrode_table$Electrode <- electrode_table$Channel
-      } else {
-        electrode_table$Electrode <- seq_len(nrow(electrode_table))
-      }
-    }
-    electrode_table$Electrode <- as.integer(electrode_table$Electrode)
-    if (!"Label" %in% nms) {
-      if ("name" %in% nms) {
-        electrode_table$Label <- electrode_table$name
-      } else {
-        electrode_table$Label <- sprintf("Electrode%04d", electrode_table$Electrode)
-      }
-    }
-    # remove these two reserved columns in case they are inconsistent
-    electrode_table$Subject <- NULL
-    electrode_table$SubjectCode <- NULL
-
-    list(
-      coordinate_table = electrode_table,
-      coordinate_sys = coordinate_sys
-    )
   })
 
   output$loader_electrode_table <- DT::renderDT({
 
-    coords <- get_electrode_coordinates()
+    coords <- get_subject_imaging_info()
 
     coordinate_table <- coords$coordinate_table
     nms <- names(coordinate_table)
@@ -388,7 +327,7 @@ loader_server <- function(input, output, session, ...) {
     ravedash::safe_observe({
       # gather information from preset UIs
 
-      coords <- get_electrode_coordinates()
+      coords <- get_subject_imaging_info()
 
       # Save the variables into pipeline settings file
       pipeline$save_data(
@@ -403,6 +342,7 @@ loader_server <- function(input, output, session, ...) {
         overlay_types = input$loader_volume_types,
         surface_types = input$loader_surface_types,
         annot_types = input$loader_annot_types,
+        streamline_types = input$loader_streamline_types,
         use_spheres = input$loader_use_spheres,
         override_radius = input$loader_override_radius,
         use_template = input$loader_use_template,
@@ -464,6 +404,41 @@ loader_server <- function(input, output, session, ...) {
     input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      imaging_info <- get_subject_imaging_info()
+      if (!length(imaging_info)) { return() }
+
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "loader_volume_types",
+        choices = imaging_info$volumes,
+        selected = input$loader_volume_types
+      )
+
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "loader_surface_types",
+        choices = imaging_info$surfaces,
+        selected = input$loader_surface_types
+      )
+
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "loader_annot_types",
+        choices = imaging_info$annotations,
+        selected = input$loader_annot_types
+      )
+
+      shiny::updateSelectInput(
+        session = session,
+        inputId = "loader_streamline_types",
+        choices = imaging_info$streamlines,
+        selected = input$loader_streamline_types
+      )
+    }),
+    get_subject_imaging_info(), ignoreNULL = TRUE, ignoreInit = FALSE
+  )
 
 
 }
