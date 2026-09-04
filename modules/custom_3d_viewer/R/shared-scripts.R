@@ -19,6 +19,7 @@ load_brain_from_subject_code <- function(
     overlay_types = NULL,
     surface_types = NULL,
     annot_types = NULL,
+    streamline_types = NULL,
 
     use_spheres = FALSE,
     override_radius = NA,
@@ -61,22 +62,25 @@ load_brain_from_subject_code <- function(
     surfaces = surface_types,
     overlays = overlay_types,
     annotations = annot_types,
+    streamlines = streamline_types,
     include_electrodes = include_electrodes
   )
   if ( use_template ) {
     if (is.null(brain)) {
       template <- threeBrain::merge_brain(
-        template_surface_types = surface_types
-        # template_atlas_types = overlay_types,
-        # template_annotation_types = annot_types
+        template_surface_types = surface_types,
+        template_atlas_types = overlay_types,
+        template_annotation_types = annot_types,
+        temnplate_streamline_types = streamline_types
       )
       brain <- template$template_object
     } else {
       template <- threeBrain::merge_brain(
         brain,
-        template_surface_types = surface_types
-        # template_atlas_types = overlay_types,
-        # template_annotation_types = annot_types
+        template_surface_types = surface_types,
+        template_atlas_types = overlay_types,
+        template_annotation_types = annot_types,
+        temnplate_streamline_types = streamline_types
       )
     }
   } else {
@@ -118,6 +122,7 @@ load_brain_from_subject_code <- function(
     surface_types = brain$surface_types,
     overlay_types = overlay_types,
     annot_types = annot_types,
+    streamline_types = streamline_types,
     use_spheres = use_spheres,
     override_radius = override_radius
   )

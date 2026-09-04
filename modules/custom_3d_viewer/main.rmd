@@ -69,6 +69,7 @@ loaded_brain <- load_brain_from_subject_code(
   overlay_types = overlay_types,
   surface_types = surface_types,
   annot_types = annot_types,
+  streamline_types = streamline_types,
   
   use_spheres = use_spheres,
   override_radius = override_radius,
