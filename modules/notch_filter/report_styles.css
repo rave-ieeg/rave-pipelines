@@ -24,6 +24,7 @@ d-article.d-article-with-toc {
   border-radius: 5px;
   box-sizing: border-box;
   top: 2em;
+  left: 0;
   max-height: calc(100vh - 4em);
   overflow-y: scroll;
   scrollbar-width: none;
