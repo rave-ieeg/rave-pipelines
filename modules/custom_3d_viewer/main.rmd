@@ -58,11 +58,11 @@ brain <- ravecore::rave_brain(subject)
 brain$plot()
 ```
 
-```{rave get_valid_project_name, language = "R", export = "loaded_brain", cue = "always", collapse=FALSE}
+```{r get_valid_project_name, engine = "rave", export = "loaded_brain_info", cue = "always", collapse=FALSE}
 #| code-fold: true
 #| code-summary: "Show a complicated implementation"
 
-loaded_brain <- load_brain_from_subject_code(
+loaded_brain_info <- load_brain_from_subject_code(
   subject_code = subject_code, 
   project_name = project_name,
   
@@ -113,7 +113,7 @@ if (!isTRUE(controllers[["Show Panels"]])) {
   controllers[["Show Panels"]] <- FALSE
 }
     
-initial_brain_widget <- loaded_brain$brain$plot(
+initial_brain_widget <- loaded_brain_info$brain$plot(
   show_modal = FALSE,
   background = background,
   controllers = controllers,
@@ -154,7 +154,7 @@ initial_brain_widget <- loaded_brain$brain$plot(
 ```
 
 ```{r, echo=FALSE, out.width="100%", out.height="500px"}
-loaded_brain$brain$plot()
+loaded_brain_info$brain$plot()
 ```
 
 ## 2. Render electrodes with values and colors
@@ -193,7 +193,7 @@ if (!length(data_source)) { data_source <- "None" }
 path_datatable <- switch(
   data_source,
   "Uploads" = {
-    subject <- get_brain_subject(loaded_brain)
+    subject <- get_brain_subject(loaded_brain_info)
     get_subject_imaging_datapath(
       uploaded_source,
       subject_code = subject$subject_code,
@@ -214,12 +214,12 @@ path_datatable <- switch(
     }
     
     pipepath <- get_subject_imaging_datapath(
-      saved_pipeline, subject_code = loaded_brain$subject_code,
+      saved_pipeline, subject_code = loaded_brain_info$subject_code,
       project_name = project_name, type = "pipeline"
     )
     if (!length(pipepath) || is.na(pipepath) || !dir.exists(pipepath)) {
       stop("Cannot find saved pipeline under the subject [",
-           project_name, "/", loaded_brain$subject_code, "]: ",
+           project_name, "/", loaded_brain_info$subject_code, "]: ",
            saved_pipeline)
     }
     
@@ -302,9 +302,9 @@ if (is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
   if ("Subject" %in% nms) {
     template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", default = "N27")
     
-    if (!identical(loaded_brain$brain$subject_code, 
+    if (!identical(loaded_brain_info$brain$subject_code, 
                   template_subject)) {
-      loaded_datatable <- loaded_datatable[loaded_datatable$Subject %in% loaded_brain$brain$subject_code, ]
+      loaded_datatable <- loaded_datatable[loaded_datatable$Subject %in% loaded_brain_info$brain$subject_code, ]
     }
   }
   
@@ -360,14 +360,14 @@ if (is.data.frame(loaded_datatable) && "Electrode" %in% nms) {
   # loaded_datatable <- loaded_datatable[, !invalids, with = FALSE]
   
   if (nrow(loaded_datatable)) {
-    loaded_brain$brain$set_electrode_values(loaded_datatable)
+    loaded_brain_info$brain$set_electrode_values(loaded_datatable)
   } else {
     nms <- NULL
   }
 }
   
 brain_with_data <- list(
-  brain = loaded_brain$brain,
+  brain = loaded_brain_info$brain,
   variables = nms
 )
 ```
@@ -478,6 +478,7 @@ brain_widget <- brain_with_data$brain$plot(
 )
 
 ```
+
 
 ## Build, Visualize, & Run
 

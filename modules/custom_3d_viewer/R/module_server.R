@@ -13,6 +13,66 @@ module_server <- function(input, output, session, ...) {
   # Local non-reactive values, used to store static variables
   local_data <- dipsaus::fastmap2()
 
+  # Objects selected for analysis: the membership and the order live in the
+  # `object_selector_list` input; this map only resolves a key back to the
+  # object description that produced it
+  local_data$selected_object_map <- dipsaus::fastmap2()
+
+  selected_object_key <- function(info) {
+    sprintf("%s_%s", info$type,
+            substr(dipsaus::digest(list(info)), 1, 12))
+  }
+
+  # Object descriptions behind the current input value, in display order
+  get_selected_objects <- function() {
+    keys <- input$object_selector_list
+    if (!length(keys)) { return(list()) }
+    return(local_data$selected_object_map[keys])
+  }
+
+  # Opens the parameter modal for whichever analysis is currently selected
+  # in `analysis_selector`. The modal body is built entirely from that
+  # analysis's own `$ui` list (see R/shared-analysis_registry.R) -- no
+  # per-analysis UI code lives here. Pre-fills with the last-saved
+  # parameters when the selected analysis matches what was last run.
+  open_analysis_modal <- function() {
+    # TODO: FIXME
+    analyzer <- get_analysis_definition(input$analysis_selector)
+    if (!length(analyzer)) { return() }
+
+    # analyzer <- streamline_collision_detection_analyzer
+    shiny::showModal(shiny::modalDialog(
+      title = analyzer$label,
+      analyzer$render_inputs(pipeline = pipeline),
+      footer = shiny::tagList(
+        shiny::modalButton("Cancel"),
+        dipsaus::actionButtonStyled(
+          inputId = ns("analysis_param_run"),
+          label = "Run",
+          icon = ravedash::shiny_icons$arrow_right
+        )
+      )
+    ))
+  }
+
+  # ---- register analysis shiny components ------
+  streamline_collision_detection_analyzer$set_collect_inputs_from_shiny(
+    collect_func = function(session) {
+      input_names <- streamline_collision_detection_analyzer$input_names
+      inputs <- shiny::isolate({
+        structure(
+          names = input_names,
+          lapply(input_names, function(input_name) {
+            session$input[[streamline_collision_detection_analyzer$get_id(input_name)]]
+          })
+        )
+      })
+      inputs$objects <- get_selected_objects()
+      inputs
+    }
+  )
+
+
   # get server tools to tweak
   server_tools <- ravedash::get_default_handlers(session = session)
 
@@ -193,25 +253,23 @@ module_server <- function(input, output, session, ...) {
       loaded_flag <- ravedash::watch_data_loaded()
       if (!loaded_flag) { return() }
 
+      loaded_brain_info <- pipeline$read("loaded_brain_info")
 
-
-      loaded_data <- pipeline$read("loaded_brain")
-
-      if (!is.list(loaded_data)) {
+      if (!is.list(loaded_brain_info)) {
         ravepipeline::logger("Data read from the pipeline, but it is not a list. Abort initialization", level = "warning")
         return()
       }
       ravepipeline::logger("Data read from the pipeline; initializing the module UI", level = "debug")
 
       # check if the repository has the same subject as current one
-      old_data <- component_container$data$loaded_brain
+      old_data <- component_container$data$loaded_brain_info
       if (is.list(old_data)) {
 
         if (
-          identical(old_data$project_name, loaded_data$project_name) &&
-          identical(old_data$subject_code, loaded_data$subject_code) &&
-          identical(old_data$electrode_table, loaded_data$electrode_table) &&
-          setequal(old_data$surface_types, loaded_data$surface_types)
+          identical(old_data$project_name, loaded_brain_info$project_name) &&
+          identical(old_data$subject_code, loaded_brain_info$subject_code) &&
+          identical(old_data$electrode_table, loaded_brain_info$electrode_table) &&
+          setequal(old_data$surface_types, loaded_brain_info$surface_types)
         ) {
           ravepipeline::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
           return()
@@ -226,13 +284,70 @@ module_server <- function(input, output, session, ...) {
 
       # Reset preset UI & data
       component_container$reset_data()
-      component_container$data$loaded_brain <- loaded_data
+      component_container$data$loaded_brain_info <- loaded_brain_info
       local_reactives$brain_widget <- pipeline$read("initial_brain_widget")
       component_container$initialize_with_new_data()
 
       # TODO Reset outputs
+      electrode_table <- loaded_brain_info$electrode_table
+      shiny::updateSelectizeInput(
+        session = session,
+        inputId = "object_selector_electrode",
+        choices = structure(
+          names = c(
+            "[Double-click electrode]",
+            sprintf("%s [Ch %d]", electrode_table$Label, electrode_table$Electrode)
+          ),
+          c("", as.character(electrode_table$Electrode))
+        ),
+        server = TRUE
+      )
+
+      surfaces <- unlist(lapply(loaded_brain_info$brain$surface_types, function(surface_type) {
+        sprintf(c("%s [lh]", "%s [rh]"), surface_type)
+      }))
+      shiny::updateSelectizeInput(
+        session = session,
+        inputId = "object_selector_surface",
+        choices = surfaces,
+        server = TRUE
+      )
+
+
+      volumes <- loaded_brain_info$brain$atlas_types$name
+      shiny::updateSelectizeInput(
+        session = session,
+        inputId = "object_selector_volume",
+        choices = c("[Current active overlay]", volumes),
+        server = TRUE
+      )
+
+
+      streamlines <- as.character(loaded_brain_info$brain$streamline_types)
+      streamline_groups <- vapply(strsplit(streamlines, "/"), "[[", FUN.VALUE = "", 1L)
+
+      streamlines <- c(
+        sprintf("%s/*", sort(unique(streamline_groups))),
+        streamlines
+      )
+      shiny::updateSelectizeInput(
+        session = session,
+        inputId = "object_selector_streamlines",
+        choices = c("[Current active streamlines]", streamlines),
+        server = TRUE
+      )
+
+      # clear_selected_objects()
+      local_data$selected_object_map <- dipsaus::fastmap2()
+      shidashi::updateObjectListInput(
+        session = session,
+        inputId = "object_selector_list",
+        choices = list()
+      )
+      local_data$analyzer_results <- NULL
 
       local_reactives$update_outputs <- Sys.time()
+      local_reactives$analyzer_updated <- Sys.time()
       local_reactives$viewer_selection <- NULL
 
 
@@ -246,8 +361,8 @@ module_server <- function(input, output, session, ...) {
     loaded_flag <- ravedash::watch_data_loaded()
     if (!loaded_flag) { return() }
 
-    loaded_brain <- component_container$data$loaded_brain
-    subject <- get_brain_subject(loaded_brain)
+    loaded_brain_info <- component_container$data$loaded_brain_info
+    subject <- get_brain_subject(loaded_brain_info)
     if (is.null(subject)) { return() }
 
     root_path <- get_subject_imaging_datapath(
@@ -294,12 +409,12 @@ module_server <- function(input, output, session, ...) {
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      loaded_brain <- component_container$data$loaded_brain
-      if (length(loaded_brain$subject_code) != 1) {
+      loaded_brain_info <- component_container$data$loaded_brain_info
+      if (length(loaded_brain_info$subject_code) != 1) {
         return()
       }
 
-      subject <- get_brain_subject(loaded_brain)
+      subject <- get_brain_subject(loaded_brain_info)
       if (is.null(subject)) { return() }
 
 
@@ -429,10 +544,10 @@ module_server <- function(input, output, session, ...) {
         return()
       }
 
-      # loaded_data <- pipeline$read("loaded_brain")
-      loaded_data <- component_container$data$loaded_brain
-      subject_code <- loaded_data$subject_code
-      electrode_table <- loaded_data$electrode_table
+      # loaded_brain_info <- pipeline$read("loaded_brain_info")
+      loaded_brain_info <- component_container$data$loaded_brain_info
+      subject_code <- loaded_brain_info$subject_code
+      electrode_table <- loaded_brain_info$electrode_table
       if (!is.data.frame(electrode_table)) { return(NULL) }
       if (length(subject_code) != 1) {
         subject_code <- "N27"
@@ -521,10 +636,10 @@ module_server <- function(input, output, session, ...) {
     loaded_flag <- ravedash::watch_data_loaded()
     if (!loaded_flag) { return() }
 
-    loaded_brain <- component_container$data$loaded_brain
-    if (!length(loaded_brain$subject_code) == 1) { return() }
+    loaded_brain_info <- component_container$data$loaded_brain_info
+    if (!length(loaded_brain_info$subject_code) == 1) { return() }
 
-    subject_code <- loaded_brain$subject_code
+    subject_code <- loaded_brain_info$subject_code
     candidates <- get_projects_with_scode(subject_code = subject_code, refresh = TRUE)
 
     selected <- c(
@@ -554,17 +669,17 @@ module_server <- function(input, output, session, ...) {
       loaded_flag <- ravedash::watch_data_loaded()
       if (!loaded_flag) { return() }
 
-      loaded_brain <- component_container$data$loaded_brain
-      if (length(loaded_brain$subject_code) != 1) {
+      loaded_brain_info <- component_container$data$loaded_brain_info
+      if (length(loaded_brain_info$subject_code) != 1) {
         return()
       }
 
       project_name <- input$data_source_project
       if (length(project_name) != 1 || project_name %in% c("", ".", "/")) { return() }
-      subject_code <- loaded_brain$subject_code
+      subject_code <- loaded_brain_info$subject_code
 
       root_path <- get_subject_imaging_datapath(
-        subject_code = loaded_brain$subject_code,
+        subject_code = loaded_brain_info$subject_code,
         project_name = project_name,
         type = "pipeline"
       )
@@ -610,8 +725,8 @@ module_server <- function(input, output, session, ...) {
       loaded_flag <- ravedash::watch_data_loaded()
       if (!loaded_flag) { return() }
 
-      loaded_brain <- component_container$data$loaded_brain
-      if (length(loaded_brain$subject_code) != 1) {
+      loaded_brain_info <- component_container$data$loaded_brain_info
+      if (length(loaded_brain_info$subject_code) != 1) {
         return()
       }
 
@@ -621,11 +736,11 @@ module_server <- function(input, output, session, ...) {
       pipepath <- input$data_source_pipeline
       if (length(pipepath) != 1 || pipepath %in% c(".", "")) { return() }
 
-      subject_code <- loaded_brain$subject_code
+      subject_code <- loaded_brain_info$subject_code
 
       pipepath <- get_subject_imaging_datapath(
         pipepath,
-        subject_code = loaded_brain$subject_code,
+        subject_code = loaded_brain_info$subject_code,
         project_name = project_name,
         type = "pipeline"
       )
@@ -667,8 +782,8 @@ module_server <- function(input, output, session, ...) {
       loaded_flag <- ravedash::watch_data_loaded()
       if (!loaded_flag) { return() }
 
-      # loaded_brain <- pipeline$read("loaded_brain")
-      loaded_brain <- component_container$data$loaded_brain
+      # loaded_brain_info <- pipeline$read("loaded_brain_info")
+      loaded_brain_info <- component_container$data$loaded_brain_info
 
 
       if ( identical(input$data_source, "Uploads") ) {
@@ -858,6 +973,157 @@ module_server <- function(input, output, session, ...) {
     }),
     input$flip_viewer_status,
     ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # Collect current highlighted information
+  object_selected <- shiny::debounce(
+    millis = 200,
+    shiny::bindEvent(
+      shiny::reactive({
+        tryCatch(
+          {
+            parse_object_selector(
+              object_type = paste(input$object_selector, collapse = ""),
+              proxy = proxy,
+              loaded_brain_info = component_container$data$loaded_brain_info,
+              object_selector_electrode = input$object_selector_electrode,
+              object_selector_surface = input$object_selector_surface,
+              object_selector_volume = input$object_selector_volume,
+              object_selector_streamlines = input$object_selector_streamlines
+            )
+          },
+          error = function(e) {
+            e
+          }
+        )
+      }),
+      input$object_selector,
+      input$object_selector_electrode,
+      input$object_selector_surface,
+      input$object_selector_volume,
+      input$object_selector_streamlines,
+      proxy$mouse_event_double_click,
+      proxy$controllers,
+      ignoreInit = FALSE, ignoreNULL = FALSE
+    )
+  )
+
+  # The repurposed "Configure & Run..." button reopens the modal for
+  # whatever analysis is currently selected (e.g. if it was dismissed via
+  # Cancel/Esc without changing the dropdown value)
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      open_analysis_modal()
+    }, error_wrapper = "alert"),
+    input$analysis_configure,
+    ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+
+  # The modal's own "Run" button: persist the selected objects & analysis
+  # parameters to settings.yaml, then run the pipeline target so the
+  # analysis is reproducible outside Shiny too.
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      analyzer <- get_analysis_definition(input$analysis_selector)
+      if (!length(analyzer)) {
+        shiny::removeModal()
+        stop("Unknown analysis name. Please choose an analysis to run.")
+        return()
+      }
+
+      # TODO: ravedash::shiny_alert2()
+
+      # analyzer <- streamline_collision_detection_analyzer
+      result <- analyzer$run(
+        pipeline = pipeline,
+        session = session,
+        visualization_method = "html"
+      )
+      local_data$analyzer_results <- list(
+        # result is HTML
+        result = result,
+        analyzer = analyzer
+      )
+      local_reactives$analyzer_updated <- Sys.time()
+      
+
+      shiny::removeModal()
+      
+    }, error_wrapper = "notification"),
+    input$analysis_param_run,
+    ignoreInit = TRUE, ignoreNULL = TRUE
+  )
+
+  # HTML report from the last analysis run; `local_data` is not reactive, so
+  # `analyzer_updated` is what re-renders this output
+  shidashi::register_output(
+    expr = shiny::renderUI({
+      local_reactives$analyzer_updated
+      result <- local_data$analyzer_results$result
+      shiny::validate(
+        shiny::need(
+          length(result) > 0,
+          message = "No analysis results yet. Add objects under \"Quick analysis\", then click \"Configure & Run...\"."
+        )
+      )
+      result
+    }),
+    outputId = "analysis_results",
+    description = "HTML report from the most recent quick analysis (see `analysis_selector`).",
+    download_type = "no-download"
+  )
+
+  shidashi::register_output(
+    expr = shiny::renderText({
+      info <- object_selected()
+      if (inherits(info, "error")) {
+        return(paste(info$message, collapse = ""))
+      }
+      info$format
+    }),
+    outputId = "object_selector_text",
+    description = paste0(
+      "Preview of object selected; click on `object_selector_add` button to ",
+      "add selected object to a list of selected objects for analysis."
+    ),
+    download_type = "no-download"
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      info <- object_selected()
+      if (inherits(info, "error")) {
+        ravedash::show_notification(
+          title = "Error",
+          type = "danger",
+          close = TRUE,
+          autohide = TRUE,
+          message = paste(c("Unable to add object(s): ", info$message), collapse = "")
+        )
+        return()
+      }
+
+      map <- local_data$selected_object_map
+      key <- selected_object_key(info)
+      map[[key]] <- info
+
+      # The input is the source of truth for membership and order; re-adding an
+      # object that is already listed keeps its current position
+      keys <- c(input$object_selector_list, key)
+      keys <- keys[!duplicated(keys)]
+
+      shidashi::updateObjectListInput(
+        session = session,
+        inputId = "object_selector_list",
+        choices = structure(
+          as.list(keys),
+          names = vapply(keys, function(k) { map[[k]]$format }, "")
+        )
+      )
+    }),
+    input$object_selector_add,
+    ignoreInit = TRUE,
+    ignoreNULL = TRUE
   )
 
   shiny::bindEvent(

@@ -25,12 +25,12 @@ check_data_loaded <- function(first_time = FALSE) {
   }
 
   tryCatch({
-    loaded_brain <- pipeline$read("loaded_brain")
+    loaded_brain_info <- pipeline$read("loaded_brain_info")
 
-    has_electrode <- is.data.frame(loaded_brain$electrode_table)
+    has_electrode <- is.data.frame(loaded_brain_info$electrode_table)
 
-    msg <- sprintf("%s, electrodes [%s]", loaded_brain$subject_code,
-                   ifelse(has_electrode, nrow(loaded_brain$electrode_table),
+    msg <- sprintf("%s, electrodes [%s]", loaded_brain_info$subject_code,
+                   ifelse(has_electrode, nrow(loaded_brain_info$electrode_table),
                           "missing"))
 
     ravedash::fire_rave_event("loader_message", msg)

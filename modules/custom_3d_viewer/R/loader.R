@@ -361,7 +361,7 @@ loader_server <- function(input, output, session, ...) {
 
       res <- pipeline$run(
         as_promise = TRUE,
-        names = c("loaded_brain", "initial_brain_widget"),
+        names = c("loaded_brain_info", "initial_brain_widget"),
         scheduler = "none",
         type = "vanilla",
         callr_function = NULL

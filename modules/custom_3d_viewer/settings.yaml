@@ -1,4 +1,43 @@
-annot_types: ~
+analysis_inputs_streamline_collision_detection:
+  mode_x: auto
+  radius: 20
+analysis_objects:
+- type: electrode
+  format: Electrode LA1398 [ch 1398]
+  names: LA1398
+  channel: 1398
+- type: streamlines
+  format: 'Streamlines [n=20]: "basalganglia/ansa_lenticularis_L" "basalganglia/ansa_lenticularis_R"
+    ...'
+  names:
+  - basalganglia/ansa_lenticularis_L
+  - basalganglia/ansa_lenticularis_R
+  - basalganglia/cerebellothalamic_L
+  - basalganglia/cerebellothalamic_R
+  - basalganglia/lenticular_fasciculus_L
+  - basalganglia/lenticular_fasciculus_R
+  - basalganglia/medial_lemniscus_L
+  - basalganglia/medial_lemniscus_R
+  - basalganglia/motorHDP_CF_R
+  - basalganglia/motorHDP_Collateral_R
+  - basalganglia/motorHDP_L
+  - basalganglia/motorHDP_R
+  - basalganglia/motorIC_L
+  - basalganglia/motorIC_R
+  - basalganglia/pallidosubthalamic_L
+  - basalganglia/pallidosubthalamic_R
+  - basalganglia/pallidothalamic_L
+  - basalganglia/pallidothalamic_R
+  - basalganglia/subthalamopallidal_L
+  - basalganglia/subthalamopallidal_R
+annot_types:
+- label/aparc.a2005s.annot
+- label/aparc.a2009s.annot
+- label/Fun_Channels.curv
+- label/High_Gamma_Power.curv
+- label/junk.curv
+- label/MyData.curv
+- label/oasis.chubs.annot
 controllers: []
 coordinate_sys: ''
 data_source: Uploads
@@ -6,15 +45,18 @@ data_source_pipeline: power_explorer/power_explorer-22_09_03-22_54_46
 data_source_pipeline_target: omnibus_results
 data_source_project: demo
 main_camera: []
-overlay_types: ~
+overlay_types: aparc.DKTatlas+aseg
 override_radius: .na
 project_name: YAEL
 shiny_outputId: custom_3d_viewer-viewer_ready
 streamline_types:
 - default/*
 - alic/*
+- basalganglia/*
 subject_code: CIT168
-surface_types: ~
+surface_types:
+- inflated
+- white
 uploaded_source: YAEL-electrodes.fst
 use_spheres: no
 use_template: no

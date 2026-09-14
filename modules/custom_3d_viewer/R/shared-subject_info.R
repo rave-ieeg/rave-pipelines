@@ -127,3 +127,232 @@ subject_imaging_info <- function(
     streamlines = streamlines
   )
 }
+
+# This is an UI-side function
+parse_object_selector <- function(
+  object_type = c("Electrode", "Mesh surface", "3D volume", "Streamlines"),
+  proxy, loaded_brain_info, 
+  object_selector_electrode = NULL,
+  object_selector_surface = NULL,
+  object_selector_volume = NULL,
+  object_selector_streamlines = NULL
+) {
+  # object_type <- paste(input$object_selector, collapse = "")
+  # controllers <- proxy$controllers
+  # loaded_brain_info <- component_container$data$loaded_brain_info
+  object_type <- match.arg(object_type)
+
+  if (missing(loaded_brain_info)) {
+    loaded_brain_info <- pipeline$read("loaded_brain_info")
+  }
+
+  controllers <- proxy$controllers
+  mouse_event_double_click <- as.list(proxy$mouse_event_double_click)
+
+  switch (
+    object_type,
+    "Electrode" = {
+      electrode <- paste(object_selector_electrode, collapse = "")
+      if (!is.na(electrode) && nzchar(electrode)) {
+        electrode <- as.integer(electrode)
+      } else {
+        electrode <- NA
+      }
+      if (is.na(electrode)) {
+        info <- mouse_event_double_click
+        # Check highlighted electrode
+        if (!isTRUE(info$is_electrode)) {
+          return(simpleError("Please click on an electrode from the viewer"))
+        }
+        electrode <- as.integer(info$electrode_number)
+      }
+      electrode_table <- loaded_brain_info$electrode_table
+      info <- electrode_table[electrode_table$Electrode == electrode, ]
+      if (nrow(info) == 0) {
+        return(simpleError("Cannot find electrode information from the coordinate table"))
+      } else {
+        info <- info[1, ]
+      }
+      return(list(
+        type = "electrode",
+        format = sprintf("Electrode %s [ch %s]", info$Label, info$Electrode),
+        names = info$Label,
+        channel = info$Electrode
+      ))
+    },
+    "Mesh surface" = {
+      surface_name <- paste(object_selector_surface, collapse = "")
+      if (!nzchar(surface_name)) {
+        return(simpleError("No surface selected"))
+      }
+      if (endsWith(surface_name, "[lh]")) {
+        hemisphere <- "left"
+      } else {
+        hemisphere <- "right"
+      }
+
+      surface_name <- gsub(" \\[[lr]h\\]$", "", surface_name)
+
+      if (!isTRUE(surface_name %in% loaded_brain_info$brain$surface_types)) {
+        return(simpleError(sprintf("Unknown surface selected: %s", surface_name)))
+      }
+
+      return(list(
+        type = "surface",
+        format = sprintf("Surface %s [%s hemisphere]", surface_name, hemisphere),
+        names = surface_name,
+        hemisphere = hemisphere
+      ))
+
+      # surfaces <- unlist(lapply(loaded_brain_info$brain$surface_types, function(surface_type) {
+      #   sprintf(c("%s [lh]", "%s [rh]"), surface_type)
+      # }))
+    },
+    "3D volume" = {
+      volume_name <- paste(object_selector_volume, collapse = "")
+      if (volume_name %in% c("[Current active overlay]", "")) {
+        volume_name <- controllers[["Voxel Type"]]
+      }
+      brain <- loaded_brain_info$brain
+      volume <- brain$atlases[brain$atlas_types$name %in% volume_name]
+      if (!length(volume)) {
+        return(simpleError("No overlay is active"))
+      }
+      volume <- volume[[1]]
+
+      if (volume$object$color_format == "RGBAFormat") {
+        data_type <- "categorical annotation"
+      } else {
+        data_type <- "continuous measurement"
+      }
+
+      return(list(
+        type = "volume",
+        format = sprintf("Overlay %s [%s]", volume$atlas_type, data_type),
+        names = volume$atlas_type
+      ))
+    },
+    "Streamlines" = {
+      all_streamline_names <- loaded_brain_info$brain$streamline_types
+      streamline_names <- paste(object_selector_streamlines, collapse = "")
+      if (streamline_names %in% c("[Current active streamlines]", "")) {
+        # Check actives
+        streamline_names <- all_streamline_names[vapply(all_streamline_names, function(name) {
+          isTRUE(controllers[[sprintf("Show: %s", name)]])
+        }, FUN.VALUE = FALSE)]
+      } else if (endsWith(streamline_names, "*")) {
+        streamline_names <- gsub("*", "", streamline_names, fixed = TRUE)
+        streamline_names <- all_streamline_names[startsWith(all_streamline_names, streamline_names)]
+      }
+      return(list(
+        type = "streamlines",
+        format = sprintf(
+          "Streamlines [n=%d]: %s",
+          length(streamline_names),
+          utils::capture.output(utils::str(streamline_names, give.head = FALSE))
+        ),
+        names = streamline_names
+      ))
+    }
+  )
+}
+
+# do.call(resolve_object_by_info, info)
+resolve_object_by_info <- function(
+  brain, type = c("volume", "surface", "electrode", "streamlines"),
+  names, ...
+) {
+
+  # DIPSAUS DEBUG START
+  # brain <- ravecore::rave_brain("YAEL/CIT168", streamlines = "alic/*")
+  type <- match.arg(type)
+  if (!is.character(names) || !length(names)) {
+    return(list())
+  }
+  args <- list(...)
+  switch(
+    type,
+    "volume" = {
+      # return(list(
+      #   type = "volume",
+      #   format = sprintf("Overlay %s [%s]", volume$atlas_type, data_type),
+      #   names = volume$atlas_type
+      # ))
+      # names <- "aparc_a2009s_aseg"
+      names <- names[names %in% brain$atlas_types$name]
+      volumes <- brain$atlases[names]
+      
+      return(
+        structure(
+          names = names,
+          lapply(volumes, function(volume) {
+            # volume$object$color_format
+            path <- volume$group$group_data$volume_data$absolute_path
+            ieegio::as_ieegio_volume(path)
+          })
+        )
+      )
+    },
+    "electrode" = {
+      coord_table <- brain$electrodes$raw_table
+
+      if (length(args$channel)) {
+        rows <- coord_table[coord_table$Electrode %in% args$channel, , drop = FALSE]
+      } else {
+        rows <- coord_table[coord_table$Label %in% names, , drop = FALSE]
+      }
+      
+      return(rows)
+    },
+    "surface" = {
+      # Surface names length is always 1
+      # names <- "pial"
+      surface_name <- names[1]
+      surface_group <- brain$surfaces[[surface_name]]
+      if (!length(surface_group)) {
+        return(list())
+      }
+      hemisphere <- args$hemisphere %||% "left"
+      surface <- switch(
+        hemisphere,
+        "left" = {
+          data_name <- sprintf("free_vertices_FreeSurfer Left Hemisphere - pial (%s)", brain$subject_code)
+          path <- surface_group$group$group_data[[data_name]]$absolute_path
+          ieegio::as_ieegio_surface(path)
+        },
+        "right" = {
+          data_name <- sprintf("free_vertices_FreeSurfer Right Hemisphere - pial (%s)", brain$subject_code)
+          path <- surface_group$group$group_data[[data_name]]$absolute_path
+          ieegio::as_ieegio_surface(path)
+        },
+        stop("Invalid hemisphere: ", hemisphere)
+      )
+
+      return(surface)
+    },
+    "streamlines" = {
+      # Names are explicitly specified, rather than wildcard matching
+      names <- names[names %in% brain$streamline_types]
+      streamlines <- structure(
+        names = names,
+        lapply(names, function(name) {
+          # name <- names[[1]]
+          streamline <- brain$streamlines[[name]]
+          paths <- streamline$group$group_data[[streamline$object$data_key]]
+          ieegio::as_ieegio_streamlines(paths$absolute_path)
+        })
+      )
+      return(streamlines)
+    }
+  )
+}
+
+
+resolve_analysis_object <- function(brain, analysis_objects) {
+  lapply(analysis_objects, function(info) {
+    info$brain <- brain
+    info$object <- do.call(resolve_object_by_info, info)
+    info$brain <- NULL
+    info
+  })
+}

@@ -17,7 +17,10 @@ rm(._._env_._.)
     quote({
         yaml::read_yaml(settings_path)
     }), deps = "settings_path", cue = targets::tar_cue("always")), 
-    input_use_template = targets::tar_target_raw("use_template", 
+    input_analysis_inputs_streamline_collision_detection = targets::tar_target_raw("analysis_inputs_streamline_collision_detection", 
+        quote({
+            settings[["analysis_inputs_streamline_collision_detection"]]
+        }), deps = "settings"), input_use_template = targets::tar_target_raw("use_template", 
         quote({
             settings[["use_template"]]
         }), deps = "settings"), input_use_spheres = targets::tar_target_raw("use_spheres", 
@@ -71,10 +74,71 @@ rm(._._env_._.)
         }), deps = "settings"), input_annot_types = targets::tar_target_raw("annot_types", 
         quote({
             settings[["annot_types"]]
-        }), deps = "settings"), get_valid_project_name = targets::tar_target_raw(name = "loaded_brain", 
+        }), deps = "settings"), input_analysis_objects = targets::tar_target_raw("analysis_objects", 
+        quote({
+            settings[["analysis_objects"]]
+        }), deps = "settings"), `__Collect_analysis_inputs-streamline_collision_detection` = targets::tar_target_raw(name = "analysis_cleaned_inputs_streamline_collision_detection", 
         command = quote({
             .__target_expr__. <- quote({
-                loaded_brain <- load_brain_from_subject_code(subject_code = subject_code, 
+                analysis_cleaned_inputs_streamline_collision_detection <- streamline_collision_detection_analyzer[["@collect_inputs_from_pipeline"]](settings)
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(analysis_cleaned_inputs_streamline_collision_detection)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_cleaned_inputs_streamline_collision_detection", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "analysis_cleaned_inputs_streamline_collision_detection", 
+            target_expr = quote({
+                {
+                  analysis_cleaned_inputs_streamline_collision_detection <- streamline_collision_detection_analyzer[["@collect_inputs_from_pipeline"]](settings)
+                }
+                analysis_cleaned_inputs_streamline_collision_detection
+            }), target_depends = c("analysis_inputs_streamline_collision_detection", 
+            "settings")), deps = c("analysis_inputs_streamline_collision_detection", 
+        "settings"), cue = targets::tar_cue("thorough"), pattern = NULL, 
+        iteration = "list"), `__Build_analysis_result-streamline_collision_detection` = targets::tar_target_raw(name = "analysis_results_streamline_collision_detection", 
+        command = quote({
+            .__target_expr__. <- quote({
+                analysis_results_streamline_collision_detection <- local({
+                  self <- streamline_collision_detection_analyzer
+                  cleaned_inputs <- analysis_cleaned_inputs_streamline_collision_detection
+                  dep_vars <- list(loaded_brain_info = loaded_brain_info)
+                  value_processed <- self$`@preprocess_data`(value = cleaned_inputs, 
+                    pipeline_targets = dep_vars)
+                  self$`@analyze_data`(value_processed = value_processed)
+                })
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(analysis_results_streamline_collision_detection)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "analysis_results_streamline_collision_detection", 
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
+            target_export = "analysis_results_streamline_collision_detection", 
+            target_expr = quote({
+                {
+                  analysis_results_streamline_collision_detection <- local({
+                    self <- streamline_collision_detection_analyzer
+                    cleaned_inputs <- analysis_cleaned_inputs_streamline_collision_detection
+                    dep_vars <- list(loaded_brain_info = loaded_brain_info)
+                    value_processed <- self$`@preprocess_data`(value = cleaned_inputs, 
+                      pipeline_targets = dep_vars)
+                    self$`@analyze_data`(value_processed = value_processed)
+                  })
+                }
+                analysis_results_streamline_collision_detection
+            }), target_depends = c("analysis_cleaned_inputs_streamline_collision_detection", 
+            "loaded_brain_info")), deps = c("analysis_cleaned_inputs_streamline_collision_detection", 
+        "loaded_brain_info"), cue = targets::tar_cue("thorough"), 
+        pattern = NULL, iteration = "list"), get_valid_project_name = targets::tar_target_raw(name = "loaded_brain_info", 
+        command = quote({
+            .__target_expr__. <- quote({
+                loaded_brain_info <- load_brain_from_subject_code(subject_code = subject_code, 
                   project_name = project_name, overlay_types = overlay_types, 
                   surface_types = surface_types, annot_types = annot_types, 
                   streamline_types = streamline_types, use_spheres = use_spheres, 
@@ -83,22 +147,22 @@ rm(._._env_._.)
             })
             tryCatch({
                 eval(.__target_expr__.)
-                return(loaded_brain)
+                return(loaded_brain_info)
             }, error = function(e) {
-                asNamespace("ravepipeline")$resolve_pipeline_error(name = "loaded_brain", 
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "loaded_brain_info", 
                   condition = e, expr = .__target_expr__.)
             })
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
-            target_export = "loaded_brain", target_expr = quote({
+            target_export = "loaded_brain_info", target_expr = quote({
                 {
-                  loaded_brain <- load_brain_from_subject_code(subject_code = subject_code, 
+                  loaded_brain_info <- load_brain_from_subject_code(subject_code = subject_code, 
                     project_name = project_name, overlay_types = overlay_types, 
                     surface_types = surface_types, annot_types = annot_types, 
                     streamline_types = streamline_types, use_spheres = use_spheres, 
                     override_radius = override_radius, coordinate_sys = coordinate_sys, 
                     use_template = use_template)
                 }
-                loaded_brain
+                loaded_brain_info
             }), target_depends = c("subject_code", "project_name", 
             "overlay_types", "surface_types", "annot_types", 
             "streamline_types", "use_spheres", "override_radius", 
@@ -136,7 +200,7 @@ rm(._._env_._.)
                 if (!isTRUE(controllers[["Show Panels"]])) {
                   controllers[["Show Panels"]] <- FALSE
                 }
-                initial_brain_widget <- loaded_brain$brain$plot(show_modal = FALSE, 
+                initial_brain_widget <- loaded_brain_info$brain$plot(show_modal = FALSE, 
                   background = background, controllers = controllers, 
                   start_zoom = zoom_level, custom_javascript = glue::glue("\n    // Remove the focus box\n    if ( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if ( window.Shiny ) {\n      window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                     .open = "{{", .close = "}}"))
@@ -178,15 +242,15 @@ rm(._._env_._.)
                   if (!isTRUE(controllers[["Show Panels"]])) {
                     controllers[["Show Panels"]] <- FALSE
                   }
-                  initial_brain_widget <- loaded_brain$brain$plot(show_modal = FALSE, 
+                  initial_brain_widget <- loaded_brain_info$brain$plot(show_modal = FALSE, 
                     background = background, controllers = controllers, 
                     start_zoom = zoom_level, custom_javascript = glue::glue("\n    // Remove the focus box\n    if ( canvas.focus_box ) {\n      canvas.focus_box.visible = false;\n    }\n    \n    // set camera\n    canvas.mainCamera.position.set(\n      {{ position[[1]] }} , \n      {{ position[[2]] }} , \n      {{ position[[3]] }}\n    );\n    canvas.mainCamera.up.set(\n      {{ up[[1]] }} , \n      {{ up[[2]] }} , \n      {{ up[[3]] }}\n    )\n    canvas.mainCamera.updateProjectionMatrix();\n\n    // Let shiny know the viewer is ready\n    if ( window.Shiny ) {\n      window.Shiny.setInputValue(\"{{ shiny_outputId }}\", \"{{Sys.time()}}\");\n    }\n\n    // Force render one frame (update the canvas)\n    canvas.needsUpdate = true;\n    ", 
                       .open = "{{", .close = "}}"))
                 }
                 initial_brain_widget
             }), target_depends = c("shiny_outputId", "controllers", 
-            "main_camera", "loaded_brain")), deps = c("shiny_outputId", 
-        "controllers", "main_camera", "loaded_brain"), cue = targets::tar_cue("always"), 
+            "main_camera", "loaded_brain_info")), deps = c("shiny_outputId", 
+        "controllers", "main_camera", "loaded_brain_info"), cue = targets::tar_cue("always"), 
         pattern = NULL, iteration = "list"), find_data_path = targets::tar_target_raw(name = "path_datatable", 
         command = quote({
             .__target_expr__. <- quote({
@@ -194,7 +258,7 @@ rm(._._env_._.)
                   data_source <- "None"
                 }
                 path_datatable <- switch(data_source, Uploads = {
-                  subject <- get_brain_subject(loaded_brain)
+                  subject <- get_brain_subject(loaded_brain_info)
                   get_subject_imaging_datapath(uploaded_source, 
                     subject_code = subject$subject_code, project_name = subject$project_name, 
                     type = "uploads")
@@ -209,12 +273,12 @@ rm(._._env_._.)
                     stop("Trying to get saved pipeline, but no pipeline name nor target has been given. Please assign a valid [data_source_pipeline] & [data_source_pipeline_target] variable. If you are running in RAVE's web interface, make sure the pipeline is set with no errors.")
                   }
                   pipepath <- get_subject_imaging_datapath(saved_pipeline, 
-                    subject_code = loaded_brain$subject_code, 
+                    subject_code = loaded_brain_info$subject_code, 
                     project_name = project_name, type = "pipeline")
                   if (!length(pipepath) || is.na(pipepath) || 
                     !dir.exists(pipepath)) {
                     stop("Cannot find saved pipeline under the subject [", 
-                      project_name, "/", loaded_brain$subject_code, 
+                      project_name, "/", loaded_brain_info$subject_code, 
                       "]: ", saved_pipeline)
                   }
                   structure(pipepath, target = saved_target)
@@ -236,7 +300,7 @@ rm(._._env_._.)
                     data_source <- "None"
                   }
                   path_datatable <- switch(data_source, Uploads = {
-                    subject <- get_brain_subject(loaded_brain)
+                    subject <- get_brain_subject(loaded_brain_info)
                     get_subject_imaging_datapath(uploaded_source, 
                       subject_code = subject$subject_code, project_name = subject$project_name, 
                       type = "uploads")
@@ -251,12 +315,12 @@ rm(._._env_._.)
                       stop("Trying to get saved pipeline, but no pipeline name nor target has been given. Please assign a valid [data_source_pipeline] & [data_source_pipeline_target] variable. If you are running in RAVE's web interface, make sure the pipeline is set with no errors.")
                     }
                     pipepath <- get_subject_imaging_datapath(saved_pipeline, 
-                      subject_code = loaded_brain$subject_code, 
+                      subject_code = loaded_brain_info$subject_code, 
                       project_name = project_name, type = "pipeline")
                     if (!length(pipepath) || is.na(pipepath) || 
                       !dir.exists(pipepath)) {
                       stop("Cannot find saved pipeline under the subject [", 
-                        project_name, "/", loaded_brain$subject_code, 
+                        project_name, "/", loaded_brain_info$subject_code, 
                         "]: ", saved_pipeline)
                     }
                     structure(pipepath, target = saved_target)
@@ -265,10 +329,10 @@ rm(._._env_._.)
                   })
                 }
                 path_datatable
-            }), target_depends = c("data_source", "loaded_brain", 
+            }), target_depends = c("data_source", "loaded_brain_info", 
             "uploaded_source", "data_source_project", "data_source_pipeline", 
             "data_source_pipeline_target")), deps = c("data_source", 
-        "loaded_brain", "uploaded_source", "data_source_project", 
+        "loaded_brain_info", "uploaded_source", "data_source_project", 
         "data_source_pipeline", "data_source_pipeline_target"
         ), cue = targets::tar_cue("always"), pattern = NULL, 
         iteration = "list"), load_data_table = targets::tar_target_raw(name = "brain_with_data", 
@@ -316,10 +380,11 @@ rm(._._env_._.)
                   if ("Subject" %in% nms) {
                     template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", 
                       default = "N27")
-                    if (!identical(loaded_brain$brain$subject_code, 
+                    if (!identical(loaded_brain_info$brain$subject_code, 
                       template_subject)) {
                       loaded_datatable <- loaded_datatable[loaded_datatable$Subject %in% 
-                        loaded_brain$brain$subject_code, ]
+                        loaded_brain_info$brain$subject_code, 
+                        ]
                     }
                   }
                   if ("Time" %in% names(loaded_datatable)) {
@@ -371,12 +436,12 @@ rm(._._env_._.)
                   }, FALSE)
                   nms <- nms[!invalids]
                   if (nrow(loaded_datatable)) {
-                    loaded_brain$brain$set_electrode_values(loaded_datatable)
+                    loaded_brain_info$brain$set_electrode_values(loaded_datatable)
                   } else {
                     nms <- NULL
                   }
                 }
-                brain_with_data <- list(brain = loaded_brain$brain, 
+                brain_with_data <- list(brain = loaded_brain_info$brain, 
                   variables = nms)
             })
             tryCatch({
@@ -433,10 +498,11 @@ rm(._._env_._.)
                     if ("Subject" %in% nms) {
                       template_subject <- ravepipeline::raveio_getopt("threeBrain_template_subject", 
                         default = "N27")
-                      if (!identical(loaded_brain$brain$subject_code, 
+                      if (!identical(loaded_brain_info$brain$subject_code, 
                         template_subject)) {
                         loaded_datatable <- loaded_datatable[loaded_datatable$Subject %in% 
-                          loaded_brain$brain$subject_code, ]
+                          loaded_brain_info$brain$subject_code, 
+                          ]
                       }
                     }
                     if ("Time" %in% names(loaded_datatable)) {
@@ -488,19 +554,19 @@ rm(._._env_._.)
                     }, FALSE)
                     nms <- nms[!invalids]
                     if (nrow(loaded_datatable)) {
-                      loaded_brain$brain$set_electrode_values(loaded_datatable)
+                      loaded_brain_info$brain$set_electrode_values(loaded_datatable)
                     } else {
                       nms <- NULL
                     }
                   }
-                  brain_with_data <- list(brain = loaded_brain$brain, 
+                  brain_with_data <- list(brain = loaded_brain_info$brain, 
                     variables = nms)
                 }
                 brain_with_data
             }), target_depends = c("path_datatable", "data_source", 
-            "loaded_brain")), deps = c("path_datatable", "data_source", 
-        "loaded_brain"), cue = targets::tar_cue("always"), pattern = NULL, 
-        iteration = "list"), render_viewer = targets::tar_target_raw(name = "brain_widget", 
+            "loaded_brain_info")), deps = c("path_datatable", 
+        "data_source", "loaded_brain_info"), cue = targets::tar_cue("always"), 
+        pattern = NULL, iteration = "list"), render_viewer = targets::tar_target_raw(name = "brain_widget", 
         command = quote({
             .__target_expr__. <- quote({
                 force(shiny_outputId)
