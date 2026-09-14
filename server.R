@@ -51,7 +51,6 @@ server <- function(input, output, session) {
       )
 
       # query_string <- "/?type=widget&output_id=aaaa&rave_id=NAXzMcGKxoqwFeCjswfX"
-      query_list <- httr::parse_url(query_string)
 
       parse_env <- new.env(parent = globalenv())
       resource <- shidashi::load_module(

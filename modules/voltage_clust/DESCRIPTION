@@ -13,3 +13,5 @@ Description: Clustering event-related potentials (ERP) using non-negative
     matrix factorization to extract basis profile curves
 BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://github.com/rave-ieeg/rave-pipelines
+Imports:
+    cluster

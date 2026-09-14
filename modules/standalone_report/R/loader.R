@@ -19,10 +19,11 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 # Server functions for loader
 loader_server <- function(input, output, session, ...) {
 
-  # query_string <- "/?type=widget&output_id=plot_overall&rave_id=Pnd8MuxNVsZGcbrRWn8G&module=standalone_viewer"
+  # query_string <- "127.0.0.1:17283/?type=widget&output_id=plot_overall&rave_id=Pnd8MuxNVsZGcbrRWn8G&module=standalone_viewer"
   query_string <- session$clientData$url_search
 
-  query_list <- httr::parse_url(query_string)
+  query_list <- shiny::parseQueryString(sub("^[^?]*\\?", "", query_string))
+  # query_list <- httr::parse_url(query_string)
 
   local_data <- dipsaus::fastmap2()
 
@@ -30,13 +31,13 @@ loader_server <- function(input, output, session, ...) {
   output$viewer <- shiny::renderUI({
     # ..../test/DemoSubject/reports/report-diagnostics_datetime-250811T165425_notch_filter/report.html
     # determine the type
-    is_snapshot <- identical(as.character(query_list$query$snapshot), "1")
+    is_snapshot <- identical(as.character(query_list$snapshot), "1")
     if ( is_snapshot ) {
       # 127.0.0.1:17283/?type=widget&project_name=demo&module=standalone_report&snapshot=1
-      project_name <- query_list$query$project_name
+      project_name <- query_list$project_name
       project <- ravecore::as_rave_project(project_name)
 
-      snapshot_path <- paste(query_list$query$path, collapse = "")
+      snapshot_path <- paste(query_list$path, collapse = "")
       snapshot_path <- strsplit(snapshot_path, "[/|\\\\~]+")[[1]]
       snapshot_path <- paste(snapshot_path[grepl("^[a-zA-Z0-9]", snapshot_path)],
                              collapse = .Platform$file.sep)
@@ -57,9 +58,9 @@ loader_server <- function(input, output, session, ...) {
       shiny::tags$iframe(src = query_string, srcdoc = srcdoc, class = "fill no-marging no-padding no-border display-block")
     } else {
       # report
-      project_name <- query_list$query$project_name
-      subject_code <- query_list$query$subject_code
-      report_filename <- query_list$query$report_filename
+      project_name <- query_list$project_name
+      subject_code <- query_list$subject_code
+      report_filename <- query_list$report_filename
       # project_name <- "test"
       # subject_code <- "DemoSubject"
       # report_filename <- "report-diagnostics_datetime-250811T165425_notch_filter"
@@ -74,7 +75,7 @@ loader_server <- function(input, output, session, ...) {
       if (length(report_filename)) {
         report_html <- file.path(subject$report_path, report_filename, "report.html")
       } else {
-        report_name <- query_list$query$report_name
+        report_name <- query_list$report_name
         reports <- list.files(
           subject$report_path,
           pattern = sprintf("^report-%s_datetime-[0-9]{6}T[0-9]{6}_", report_name)

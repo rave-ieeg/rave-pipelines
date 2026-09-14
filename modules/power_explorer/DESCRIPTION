@@ -24,4 +24,8 @@ Imports:
     stringi,
     data.table,
     ravedash,
-    lmtest
+    lmtest,
+    car,
+    emmeans,
+    lmerTest,
+    reshape2

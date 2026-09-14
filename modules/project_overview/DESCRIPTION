@@ -15,9 +15,10 @@ Description:
 BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: https://github.com/rave-ieeg/rave-pipelines
 Imports:
-  promises,
-  DT,
-  threeBrain,
-  htmltools,
-  data.table,
-  rmarkdown
+    promises,
+    DT,
+    threeBrain,
+    htmltools,
+    data.table,
+    rmarkdown,
+    reshape2

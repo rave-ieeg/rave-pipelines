@@ -16,3 +16,5 @@ BugReports: https://github.com/orgs/rave-ieeg/discussions
 URL: 
     https://rave.wiki/ravecore/reference/rave_brain.html, 
     https://dipterix.org/threeBrain/
+Imports:
+    DT
