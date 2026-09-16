@@ -267,9 +267,16 @@ module_server <- function(input, output, session, ...) {
 
         if (
           identical(old_data$project_name, loaded_brain_info$project_name) &&
-          identical(old_data$subject_code, loaded_brain_info$subject_code) &&
-          identical(old_data$electrode_table, loaded_brain_info$electrode_table) &&
-          setequal(old_data$surface_types, loaded_brain_info$surface_types)
+            identical(old_data$subject_code, loaded_brain_info$subject_code) &&
+            identical(old_data$electrode_table, loaded_brain_info$electrode_table) &&
+
+            setequal(old_data$surface_types, loaded_brain_info$surface_types) &&
+            setequal(old_data$overlay_types, loaded_brain_info$overlay_types) &&
+            setequal(old_data$annot_types, loaded_brain_info$annot_types) &&
+            setequal(old_data$streamline_types, loaded_brain_info$streamline_types) &&
+
+            identical(old_data$use_spheres, loaded_brain_info$use_spheres) &&
+            identical(as.double(old_data$override_radius), as.double(loaded_brain_info$override_radius))
         ) {
           ravepipeline::logger("The loaded data remain unchanged, skip initialization", level = "debug", use_glue = TRUE)
           return()
