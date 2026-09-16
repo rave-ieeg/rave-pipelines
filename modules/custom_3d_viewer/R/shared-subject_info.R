@@ -110,7 +110,7 @@ subject_imaging_info <- function(
 
   volumes <- unique(c("aparc.DKTatlas+aseg", "aparc.a2009s+aseg", brain$available_atlases))
 
-  surfaces <- c("smoothwm", "inflated", "white", "pial-outer-smooth", brain$available_surfaces)
+  surfaces <- c("smoothwm", "inflated", "white", "pial-outer-smoothed", brain$available_surfaces)
   surfaces <- unique(surfaces[!tolower(surfaces) %in% c("pial", "pial.t1")])
 
   streamlines <- unique(c("default/*", brain$available_streamlines))

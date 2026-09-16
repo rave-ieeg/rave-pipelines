@@ -27,7 +27,7 @@ The loader UI (`R/loader.R`, `R/aaa-presets.R`) collects:
 | `loader_electrode_source` | Source of electrode coordinates (meta directory or file upload in various coordinate systems) |
 | `loader_electrode_tbl_upload` | CSV file upload for custom electrode coordinates |
 | `loader_volume_types` | Additional volume overlays to load (e.g., `aparc.DKTatlas+aseg`, `aparc.a2009s+aseg`). Atlas/parcellation files are sourced from `rave-imaging/fs/mri/` (`.nii`, `.nii.gz`, or `.mgz`). |
-| `loader_surface_types` | Additional surface types to load (e.g., `smoothwm`, `inflated`, `white`, `pial-outer-smooth`) |
+| `loader_surface_types` | Additional surface types to load (e.g., `smoothwm`, `inflated`, `white`, `pial-outer-smoothed`) |
 | `loader_annot_types` | Additional surface annotations/measurements |
 | `loader_use_spheres` | Whether to use sphere contacts instead of prototypes |
 | `loader_override_radius` | Override contact radius (requires sphere contacts enabled) |
@@ -60,7 +60,7 @@ Settings are stored in `settings.yaml`. Access via `pipeline$get_settings()` and
 | `project_name` | string | `"[Auto]"` | RAVE project name (`[Auto]` for auto-detection) |
 | `subject_code` | string | `"DemoSubject"` | Subject identifier |
 | `coordinate_sys` | string | `""` | Coordinate system used for electrodes: `"tkrRAS"`, `"ScannerRAS"`, `"MNI152"`, `"MNI305"` |
-| `surface_types` | string[] | `["smoothwm", "inflated", "white", "pial-outer-smooth"]` | Surface types to load (pial and sphere.reg are always loaded) |
+| `surface_types` | string[] | `["smoothwm", "inflated", "white", "pial-outer-smoothed"]` | Surface types to load (pial and sphere.reg are always loaded) |
 | `overlay_types` | string | `"aparc+aseg"` | Atlas/volume overlay type |
 | `annot_types` | string/null | `null` | Surface annotations to load |
 | `use_spheres` | logical | `FALSE` | Use sphere contacts instead of prototype geometry |
@@ -277,7 +277,7 @@ Controllers can be set programmatically via `brain$plot(controllers = list(...))
 | Controller | Type | Values | Description |
 |------------|------|--------|-------------|
 | `Surface Material` | select | `"MeshPhysicalMaterial"`, `"MeshLambertMaterial"` | Surface lighting model |
-| `Surface Type` | select | `"pial"`, `"white"`, `"smoothwm"`, `"inflated"`, `"pial-outer-smooth"` | Active surface type |
+| `Surface Type` | select | `"pial"`, `"white"`, `"smoothwm"`, `"inflated"`, `"pial-outer-smoothed"` | Active surface type |
 | `Clipping Plane` | boolean | `TRUE`/`FALSE` | Enable surface clipping |
 | `Left Hemisphere` | select | `"normal"`, `"hidden"`, `"wireframe"` | Left hemisphere display mode |
 | `Right Hemisphere` | select | `"normal"`, `"hidden"`, `"wireframe"` | Right hemisphere display mode |

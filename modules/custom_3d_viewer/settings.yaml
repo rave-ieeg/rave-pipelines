@@ -31,13 +31,8 @@ analysis_objects:
   - basalganglia/subthalamopallidal_L
   - basalganglia/subthalamopallidal_R
 annot_types:
-- label/aparc.a2005s.annot
 - label/aparc.a2009s.annot
-- label/Fun_Channels.curv
 - label/High_Gamma_Power.curv
-- label/junk.curv
-- label/MyData.curv
-- label/oasis.chubs.annot
 controllers: []
 coordinate_sys: ''
 data_source: Uploads
@@ -49,14 +44,12 @@ overlay_types: aparc.DKTatlas+aseg
 override_radius: .na
 project_name: YAEL
 shiny_outputId: custom_3d_viewer-viewer_ready
-streamline_types:
-- default/*
-- alic/*
-- basalganglia/*
-subject_code: CIT168
+streamline_types: default/*
+subject_code: Precision012
 surface_types:
 - inflated
 - white
+- pial-outer-smoothed
 uploaded_source: YAEL-electrodes.fst
 use_spheres: no
 use_template: no

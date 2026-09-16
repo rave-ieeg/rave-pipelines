@@ -98,7 +98,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               shiny::selectInput(
                 inputId = ns("loader_surface_types"),
                 label = "Additional surface types",
-                choices = c("sphere.reg", "inflated", "white", "smoothwm", "pial-outer-smooth"),
+                choices = c("sphere.reg", "inflated", "white", "smoothwm", "pial-outer-smoothed"),
                 selected = local({
                   v <- pipeline$get_settings("surface_types")
                   if (!length(v)) {

@@ -107,7 +107,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               shiny::selectInput(
                 inputId = ns("loader_surface_types"),
                 label = "Additional surface types",
-                choices = unique(c("smoothwm", "inflated", "white", "pial-outer-smooth", surface_types0)),
+                choices = unique(c("smoothwm", "inflated", "white", "pial-outer-smoothed", surface_types0)),
                 selected = surface_types0,
                 multiple = TRUE
               )
