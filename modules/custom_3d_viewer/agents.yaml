@@ -31,13 +31,19 @@ tools:
   enabled:
   - Plan
   - Execute
-- name: shiny_query_ui_result
+- name: shiny_output_result
   category:
   - exploratory
   enabled:
   - Plan
   - Execute
-- name: trigger_rave_analysis
+- name: trigger_load_data
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
+- name: trigger_analysis
   category:
   - destructive
   enabled:

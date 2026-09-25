@@ -41,13 +41,42 @@ two categories of operations:
 
 ## Module tools (recommended)
 
-| Script | Purpose |
+| Tool | Purpose |
 |--------|---------|
-| shiny_input_info | obtain input information |
-| shiny_input_update | Update input from module UI |
-| shiny_output_info | get output information |
-| shiny_query_ui | get HTML elements (mostly output) by css selector |
-| trigger_rave_analysis | trigger module to "run-analysis" |
+| shiny_input_info | obtain shiny-app HTML input information |
+| shiny_input_update | Update shiny-app input from module UI |
+| shiny_output_info | get shiny-app HTML output information |
+| shiny_query_ui | get HTML elements by css selector |
+| shiny_output_result | get a registered output's rendered content by ID, even in a hidden tab or collapsed card |
+| trigger_load_data | trigger RAVE module to load data for analysis |
+| trigger_analysis | trigger RAVE module to run analysis |
+
+## How to call the scripts
+
+Scripts run through the `skill_run__rave-module` tool. The examples in this
+skill are written as the shell command each call stands for. Turn a command
+into a tool call like this:
+
+- `file_name` is the script name, the word after `Rscript`
+- `args` holds every word after the script name, one item per word, in the
+  same order
+- drop the shell quotes: a JSON value is one item, as-is
+
+| Shell command | `skill_run__rave-module` arguments |
+|---|---|
+| `Rscript get_targets.R power_explorer` | `file_name: "get_targets.R"`, `args: ["power_explorer"]` |
+| `Rscript get_results.R power_explorer --target=omnibus_results` | `file_name: "get_results.R"`, `args: ["power_explorer", "--target=omnibus_results"]` |
+| `Rscript run.R notch_filter --targets=apply_notch,diagnostic_plots` | `file_name: "run.R"`, `args: ["notch_filter", "--targets=apply_notch,diagnostic_plots"]` |
+| `Rscript set_inputs.R notch_filter '{"subject_code":"YAB"}'` | `file_name: "set_inputs.R"`, `args: ["notch_filter", "{\"subject_code\":\"YAB\"}"]` |
+
+- Every script takes the module ID first (`power_explorer`, `notch_filter`,
+  ...). A call that leaves out a required argument is refused, and the reply
+  shows the script's usage (`<x>` required, `[x]` optional). The list at the
+  end of this readme shows every script's usage.
+- Never put `Rscript`, a path, or `action` in `args`, and never pack several
+  words into one item (`["power_explorer --target=x"]` is wrong).
+- Reference files are read with `skill_load__rave-module`, not run:
+  `action: "reference"`, `file_name: "references/power_explorer.md"`.
 
 ## Pipeline Scripts 
 
@@ -62,19 +91,21 @@ two categories of operations:
 
 ### Usage
 
+Written as shell commands; see "How to call the scripts" above.
+
 Read-only ops:
 
 **Read current settings:**
 
-    action='script', file_name='set_inputs.R', args=['notch_filter']
+    Rscript set_inputs.R notch_filter
 
 **List targets and status:**
 
-    action='script', file_name='get_targets.R', args=['notch_filter']
+    Rscript get_targets.R notch_filter
     
 **Read a target result:**
 
-    action='script', file_name='get_results.R', args=['notch_filter', '--target=apply_notch']
+    Rscript get_results.R notch_filter --target=apply_notch
 
 Destructive/Dangerous ops: 
 
@@ -82,15 +113,15 @@ Destructive/Dangerous ops:
 
 **Update settings:**
 
-    action='script', file_name='set_inputs.R', args=['notch_filter', '{"subject_code":"YAB","project_name":"demo"}']
+    Rscript set_inputs.R notch_filter '{"subject_code":"YAB","project_name":"demo"}'
 
 **Run all targets:**
 
-    action='script', file_name='run.R', args=['notch_filter']
+    Rscript run.R notch_filter
 
 **Run specific targets:**
 
-    action='script', file_name='run.R', args=['notch_filter', '--targets=apply_notch,diagnostic_plots']
+    Rscript run.R notch_filter --targets=apply_notch,diagnostic_plots
 
 
 ---
@@ -120,29 +151,31 @@ accessible (no user data, settings, or cached results).
 
 ### Usage
 
+Written as shell commands; see "How to call the scripts" above.
+
 **List all source files:**
 
-    action='script', file_name='list_source_files.R', args=['notch_filter']
+    Rscript list_source_files.R notch_filter
 
 **Read file (first 200 lines, with line numbers):**
 
-    action='script', file_name='read_source_file.R', args=['notch_filter', '--file=DESCRIPTION']
+    Rscript read_source_file.R notch_filter --file=DESCRIPTION
 
 **Read file starting from line 50:**
 
-    action='script', file_name='read_source_file.R', args=['notch_filter', '--file=R/module_server.R', '--start=50']
+    Rscript read_source_file.R notch_filter --file=R/module_server.R --start=50
 
 **Read file with custom line count:**
 
-    action='script', file_name='read_source_file.R', args=['notch_filter', '--file=main.Rmd', '--start=1', '--nlines=100']
+    Rscript read_source_file.R notch_filter --file=main.Rmd --start=1 --nlines=100
 
 **Search for pattern with context:**
 
-    action='script', file_name='grep_source_file.R', args=['notch_filter', '--file=R/module_server.R', '--pattern=bindEvent']
+    Rscript grep_source_file.R notch_filter --file=R/module_server.R --pattern=bindEvent
 
 **Search with custom context (5 lines before, 20 after):**
 
-    action='script', file_name='grep_source_file.R', args=['notch_filter', '--file=R/module_html.R', '--pattern=sliderInput', '--before=5', '--after=20']
+    Rscript grep_source_file.R notch_filter --file=R/module_html.R --pattern=sliderInput --before=5 --after=20
 
 ### Output Format
 
@@ -187,9 +220,13 @@ accessible (no user data, settings, or cached results).
 
 ## Reference Files
 
-Module-specific documentation is available via `action='reference'`:
+Module-specific documentation is read with `skill_load__rave-module`
+(`action: "reference"`):
 
-    action='reference', file_name='notch_filter.md'
+    skill_load__rave-module  action: "reference", file_name: "references/notch_filter.md"
+
+Add `pattern` to grep a reference, or `line_start` / `n_lines` to page
+through it.
 
 Each module reference has the following contents: (you can `grep` the reference)
 

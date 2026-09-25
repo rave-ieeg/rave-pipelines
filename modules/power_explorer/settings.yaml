@@ -1,19 +1,19 @@
-analysis_electrodes: 14-18
+analysis_electrodes: '13-16,24 '
 analysis_settings:
   '1':
-    label: VisStart
+    label: HighGamma
     event: Trial Onset
     time:
     - 0
-    - 0.5
+    - 1
     frequency_dd: Select one
     frequency:
-    - 65
-    - 165
+    - 70
+    - 150
 baseline_settings:
   window:
-  - - -0.5
-    - 0.0
+  - - -1
+    - 0
   scope: Per frequency, trial, and electrode
   unit_of_analysis: '% Change Power'
 condition_variable: Condition
@@ -25,12 +25,12 @@ custom_roi_type: Filter only
 custom_roi_variable: none
 electrode_export_data_type: tensor
 electrode_export_file_type: HDF5
-electrodes_to_export: 14-18
+electrodes_to_export: ''
 electrodes_to_export_roi_categories: ~
 electrodes_to_export_roi_name: none
 enable_custom_ROI: no
 enable_second_condition_groupings: no
-epoch_choice: YAB_aayushi
+epoch_choice: auditory_onset
 epoch_choice__load_single_trial: no
 epoch_choice__trial_ends: 2
 epoch_choice__trial_ends_rel_to_event: Trial Onset
@@ -38,30 +38,24 @@ epoch_choice__trial_starts: -1
 epoch_choice__trial_starts_rel_to_event: Trial Onset
 first_condition_groupings:
   '1':
-    label: All Conditions
+    label: Auditory
     conditions:
-    - AdriveVlast
-    - AknownVmeant
-    - AlastVknown
-    - AmeantVdrive
     - drive_a
-    - drive_av
-    - drive_v
     - known_a
-    - known_av
-    - known_v
     - last_a
-    - last_av
-    - last_v
     - meant_a
+  '2':
+    label: AudioVisual
+    conditions:
+    - drive_av
+    - known_av
+    - last_av
     - meant_av
-    - meant_v
-    - press_AV
 frequencies_to_export: Collapsed, Analysis window(s) only
-loaded_electrodes: 1-32
+loaded_electrodes: 13-16,24
 omnibus_includes_all_electrodes: no
-project_name: congruency
-reference_name: default_CAR
+project_name: demo
+reference_name: default
 second_condition_groupings:
   '1':
     label: ML
@@ -69,7 +63,7 @@ second_condition_groupings:
   '2':
     label: VL
     conditions: []
-subject_code: YAB
+subject_code: DemoSubject
 time_censor:
   enabled: no
   window:

@@ -31,13 +31,19 @@ tools:
   enabled:
   - Plan
   - Execute
-- name: shiny_query_ui_result
+- name: shiny_output_result
   category:
   - exploratory
   enabled:
   - Plan
   - Execute
-- name: trigger_rave_analysis
+- name: trigger_load_data
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
+- name: trigger_analysis
   category:
   - destructive
   enabled:
@@ -108,9 +114,9 @@ parameters:
     |------|-----|
     | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
     | Read/change UI | shiny_input_info |
-    | Inspect outputs | shiny_output_info, shiny_query_ui |
+    | Inspect outputs | shiny_output_info, shiny_output_result, shiny_query_ui |
     | Pipeline state | `rave-module`: get_targets, get_results |
-    | Run pipeline | trigger_rave_analysis |
+    | Run pipeline | trigger_analysis |
     | Find relative paper | `search-papers`: search_pubmed |
 
     ## Guidelines
