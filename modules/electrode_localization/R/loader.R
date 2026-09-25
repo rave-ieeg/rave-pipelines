@@ -161,12 +161,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
             )
           ),
           footer = shiny::tagList(
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Load subject",
-              type = "primary",
-              width = "100%"
-            )
+            ravedash::load_data_button(label = "Load subject", width = "100%")
           )
         )
       )
@@ -733,10 +728,13 @@ loader_server <- function(input, output, session, ...) {
   }
 
 
-  # Triggers the event when `input$loader_ready_btn` is changed
-  # i.e. loader button is pressed
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when `ravedash::load_data_button()` is clicked, or through
+  # `server_tools$trigger_script("load_data")` (e.g. from MCP tools).
+  # Invalid inputs stop the script, so the loader stays open
+  server_tools <- ravedash::get_default_handlers(session = session)
+  server_tools$set_script(
+    "load_data",
+    {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
         ids = c(
@@ -746,8 +744,7 @@ loader_server <- function(input, output, session, ...) {
       )
 
       if (!loader_project$sv$is_valid() || !loader_subject$sv$is_valid()) {
-        loading_error("Invalid project/subject.")
-        return()
+        stop("Invalid project/subject.")
       }
 
       # add your own input values to the settings file
@@ -758,19 +755,16 @@ loader_server <- function(input, output, session, ...) {
                                          strict = FALSE)
       fs_path <- subject$freesurfer_path
       if (length(fs_path) == 0 || is.na(fs_path) || !dir.exists(fs_path)) {
-        loading_error("Cannot find surface/volume reconstruction directory. Please at least run FreeSurfer autorecon1 (only ~10 min)")
-        return()
+        stop("Cannot find surface/volume reconstruction directory. Please at least run FreeSurfer autorecon1 (only ~10 min)")
       }
 
       check_path <- function(fname, type) {
         if (length(fname) != 1 || is.na(fname) || fname == "") {
-          loading_error(sprintf("Invalid %s file. Please specify or upload your own.", type))
-          return(NULL)
+          stop(sprintf("Invalid %s file. Please specify or upload your own.", type))
         }
         fpath <- file.path(fs_path, "..", "coregistration", fname)
         if (!file.exists(fpath)) {
-          loading_error(sprintf("Invalid %s path. Please check or upload your own.", type))
-          return(NULL)
+          stop(sprintf("Invalid %s path. Please check or upload your own.", type))
         }
         file.path("{subject$freesurfer_path}", "..", "coregistration", fname)
       }
@@ -783,24 +777,17 @@ loader_server <- function(input, output, session, ...) {
         paste(input$loader_method),
         "Re-sampled CT" = {
           path_ct <- check_path(input$loader_ct_fname, "CT")
-          if (is.null(path_ct)) { return() }
         },
         "FSL transform + Raw CT + MRI" = {
           path_ct <- check_path(input$loader_ct_fname, "CT")
-          if (is.null(path_ct)) { return() }
           path_mri <- check_path(input$loader_mri_fname, "MRI")
-          if (is.null(path_mri)) { return() }
           path_transform <- check_path(input$loader_transform_fname, "transform matrix")
-          if (is.null(path_transform)) { return() }
           transform_space <- "fsl"
         },
         "CT (IJK) to MR (RAS) transform + Raw CT" = {
           path_ct <- check_path(input$loader_ct_fname, "CT")
-          if (is.null(path_ct)) { return() }
           path_mri <- check_path(input$loader_mri_fname, "MRI")
-          if (is.null(path_mri)) { return() }
           path_transform <- check_path(input$loader_transform_fname, "transform matrix")
-          if (is.null(path_transform)) { return() }
           transform_space <- "ijk2ras"
         }
       )
@@ -815,18 +802,7 @@ loader_server <- function(input, output, session, ...) {
         .list = settings
       )
 
-      dipsaus::shiny_alert2(
-        title = "Loading in progress",
-        text = "Loading the viewer and CT file. It will take a while if this is the first time.",
-        icon = "info",
-        auto_close = FALSE, buttons = FALSE
-      )
-
-      on.exit({
-        Sys.sleep(0.5)
-        dipsaus::close_alert2()
-      }, after = TRUE, add = TRUE)
-      res <- pipeline$run(
+      pipeline$run(
         as_promise = FALSE,
         async = FALSE,
         names = c("plan_list", "pial_envelope", "brain", "localize_data",
@@ -835,10 +811,6 @@ loader_server <- function(input, output, session, ...) {
         scheduler = "none"
       )
 
-      dipsaus::close_alert2()
-
-      # Let the module know the data has been changed
-      ravedash::fire_rave_event("data_changed", Sys.time())
       ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code
@@ -846,9 +818,14 @@ loader_server <- function(input, output, session, ...) {
         project_name = project_name,
         subject_code = subject_code
       )
-
-    }, error_wrapper = "alert"),
-    input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
+    },
+    binding_event = "load_data",
+    # Let the module know the data has been changed
+    dispatch_event = "data_changed",
+    alert_params = list(
+      title = "Loading in progress",
+      text = "Loading the viewer and CT file. It will take a while if this is the first time."
+    )
   )
 
 

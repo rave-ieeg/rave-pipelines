@@ -224,105 +224,99 @@ module_server <- function(input, output, session, ...) {
     )
   })
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    # Collect input data
+    local_reactives$table_preview <- NULL
 
-      # Collect input data
-      local_reactives$table_preview <- NULL
+    brain <- component_container$data$brain
+    # geom_names <- names(brain$electrodes$geometries)
+    # geometry_definitions <- structure(names = geom_names, lapply(geom_names, function(gname) {
+    #   geometry <- brain$electrodes$geometries[[gname]]
+    #   if (!inherits(geometry, "ElectrodePrototype")) {
+    #     return(NULL)
+    #   }
+    #   geometry$as_json(flattern = TRUE)
+    # }))
+    localization_list <- lapply(local_data$plan_list, function(group_info) {
+      group_table <- group_info$group_table
+      prototype <- group_info$prototype
+      if (!is.null(prototype)) {
+        attr(group_table, "prototype") <- prototype$as_list(flattern = TRUE)
+      }
+      group_table
+    })
+    pipeline$set_settings(
+      localization_list = localization_list
+    )
 
-      brain <- component_container$data$brain
-      # geom_names <- names(brain$electrodes$geometries)
-      # geometry_definitions <- structure(names = geom_names, lapply(geom_names, function(gname) {
-      #   geometry <- brain$electrodes$geometries[[gname]]
-      #   if (!inherits(geometry, "ElectrodePrototype")) {
-      #     return(NULL)
-      #   }
-      #   geometry$as_json(flattern = TRUE)
-      # }))
-      localization_list <- lapply(local_data$plan_list, function(group_info) {
-        group_table <- group_info$group_table
-        prototype <- group_info$prototype
-        if (!is.null(prototype)) {
-          attr(group_table, "prototype") <- prototype$as_list(flattern = TRUE)
-        }
-        group_table
-      })
-      pipeline$set_settings(
-        localization_list = localization_list
-      )
+    results <- pipeline$run(
+      as_promise = FALSE,
+      scheduler = "none",
+      type = "vanilla",
+      callr_function = NULL,
+      async = FALSE,
+      names = c("localization_result_initial")
+    )
 
-      results <- pipeline$run(
-        as_promise = FALSE,
-        scheduler = "none",
-        type = "vanilla",
-        callr_function = NULL,
-        async = FALSE,
-        names = c("localization_result_initial")
-      )
+    ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = "debug")
 
-      ravepipeline::logger("Fulfilled: ", pipeline$pipeline_name, " - localization_result_initial", level = "debug")
+    morph_mri_exists <- pipeline$read("morph_mri_exists")
+    table_preview <- pipeline$read("localization_result_initial")
+    local_reactives$table_preview <- table_preview$electrode_table
 
-      morph_mri_exists <- pipeline$read("morph_mri_exists")
-      table_preview <- pipeline$read("localization_result_initial")
-      local_reactives$table_preview <- table_preview$electrode_table
+    shidashi::clear_notifications(class = "pipeline-error")
 
-      shidashi::clear_notifications(class = "pipeline-error")
+    ravedash::show_notification(
+      message = "Current localization is staged (temporarily saved). Next time, the localization will start from here.",
+      title = "Staged!",
+      type = "info",
+      icon = ravedash::shiny_icons$save,
+      delay = 2000
+    )
 
-      ravedash::show_notification(
-        message = "Current localization is staged (temporarily saved). Next time, the localization will start from here.",
-        title = "Staged!",
-        type = "info",
-        icon = ravedash::shiny_icons$save,
-        delay = 2000
-      )
+    shiny::showModal(shiny::modalDialog(
+      title = "Electrode table",
+      easyClose = FALSE,
+      size = "xl",
+      shiny::div(
+        class = "overflow-auto max-height-vh70",
+        DT::dataTableOutput(ns("electrode_table_preview"), width = "auto")
+      ),
+      footer = shiny::tagList(
+        shiny::column(
+          width = 12L,
 
-      shiny::showModal(shiny::modalDialog(
-        title = "Electrode table",
-        easyClose = FALSE,
-        size = "xl",
-        shiny::div(
-          class = "overflow-auto max-height-vh70",
-          DT::dataTableOutput(ns("electrode_table_preview"), width = "auto")
-        ),
-        footer = shiny::tagList(
-          shiny::column(
-            width = 12L,
-
-            shiny::div(
-              shiny::checkboxGroupInput(
-                inputId = ns("postprocess_opt"),
-                label = "Post-process options:",
-                inline = FALSE,
-                choiceNames = c(
-                  "Surface mapping to inflated brain & fsaverage",
-                  "Non-linear MNI152 coordinates",
-                  "Burn electrodes to T1w MRI"
-                ),
-                choiceValues = c(
-                  "nonlinear_surface_mapping",
-                  "nonlinear_volumetric_mapping",
-                  "burn_electrodes_to_t1"
-                )
+          shiny::div(
+            shiny::checkboxGroupInput(
+              inputId = ns("postprocess_opt"),
+              label = "Post-process options:",
+              inline = FALSE,
+              choiceNames = c(
+                "Surface mapping to inflated brain & fsaverage",
+                "Non-linear MNI152 coordinates",
+                "Burn electrodes to T1w MRI"
+              ),
+              choiceValues = c(
+                "nonlinear_surface_mapping",
+                "nonlinear_volumetric_mapping",
+                "burn_electrodes_to_t1"
               )
-            ),
-
-            shiny::div(
-              class = "float-right",
-              shiny::modalButton("Dismiss"),
-              dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
             )
+          ),
+
+          shiny::div(
+            class = "float-right",
+            shiny::modalButton("Dismiss"),
+            dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
           )
-
         )
-      ))
 
-      return()
+      )
+    ))
 
-    }, error_wrapper = "notification"),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+  }, alert_params = list(text = "Temporarily saving the current electrodes to generate the coordinate table"))
 
   shiny::bindEvent(
     ravedash::safe_observe({
