@@ -162,6 +162,16 @@ function _captureVisualContentSync(el) {
   // --- composite all candidates with relative positioning -------------------
   const containerRect = el.getBoundingClientRect();
 
+  // An element with no layout (e.g. an output that `shiny_output_result`
+  // rendered inside a hidden tab) has 0x0 rects, so drawing at the rects
+  // would give a blank image: use the candidates' own sizes instead
+  const hidden = containerRect.width === 0 && containerRect.height === 0;
+  if (hidden && candidates.length === 1 && candidates[0].type === 'img') {
+    const parts = candidates[0].src.split(',');
+    const mime = (parts[0] || '').replace(/^data:/, '').replace(/;base64$/, '') || 'image/png';
+    if (parts[1]) return { image_data: parts[1], image_type: mime };
+  }
+
   // Use the container's dimensions for the composite canvas
   const w = Math.round(containerRect.width) || Math.max(...candidates.map(c => c.w));
   const h = Math.round(containerRect.height) || Math.max(...candidates.map(c => c.h));
@@ -173,12 +183,20 @@ function _captureVisualContentSync(el) {
   for (let i = candidates.length - 1; i >= 0; i--) {
     const item = candidates[i];
     const itemRect = item.el.getBoundingClientRect();
-    const dx = itemRect.left - containerRect.left;
-    const dy = itemRect.top - containerRect.top;
+    let dx = itemRect.left - containerRect.left;
+    let dy = itemRect.top - containerRect.top;
+    let dw = itemRect.width;
+    let dh = itemRect.height;
+    if (hidden) {
+      dx = 0;
+      dy = 0;
+      dw = item.w;
+      dh = item.h;
+    }
     if (item.type === 'canvas') {
-      ctx.drawImage(canvasTo2D(item.el), dx, dy, itemRect.width, itemRect.height);
+      ctx.drawImage(canvasTo2D(item.el), dx, dy, dw, dh);
     } else {
-      ctx.drawImage(item.el, dx, dy, itemRect.width, itemRect.height);
+      ctx.drawImage(item.el, dx, dy, dw, dh);
     }
   }
 

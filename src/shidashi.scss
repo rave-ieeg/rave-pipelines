@@ -1480,6 +1480,15 @@ body.shidashi-card-maximized {
     }
   }
 
+  // AI agent pin toggle (added by JS for modules with agent tools)
+  .btn-ai-pin {
+    &.active, &.active:hover, &.active:focus {
+      background-color: var(--bs-primary, #{$primary});
+      border-color: var(--bs-primary, #{$primary});
+      color: #fff;
+    }
+  }
+
   // Go-top button (chevron-up)
   .btn-go-top {
     order: 1; // appears on top in column-reverse
@@ -1586,6 +1595,32 @@ body.shidashi-card-maximized {
     // Make .dropdown-menu-right work like .dropdown-menu-end in BS5
     right: 0;
     left: auto;
+  }
+
+  // AI agent pin toggle (placeholder in the Controllers menu, shown by JS
+  // for modules with agent tools)
+  .btn-ai-pin {
+    &.active, &.active:hover, &.active:focus {
+      background-color: var(--bs-primary, #{$primary});
+      border-color: var(--bs-primary, #{$primary});
+      color: #fff;
+    }
+  }
+
+  // The Controllers menu is usually closed: mark the caret while pinned
+  body.shidashi-ai-pinned & .dropdown-toggle-split {
+    color: var(--bs-primary, #{$primary});
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0.35rem;
+      right: 0.3rem;
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 50%;
+      background-color: var(--bs-primary, #{$primary});
+    }
   }
 
   &.left {

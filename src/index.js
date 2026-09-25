@@ -214,6 +214,94 @@ class ShidashiApp {
     });
   }
 
+  // ---------- AI agent targeting (MCP) ----------
+
+  /**
+   * Tell Shiny that the user is using this module page, so AI agent tool
+   * calls without an explicit target run here. Reported on interaction
+   * (throttled), when the dashboard shell activates this tab, and on load
+   * when the page is visible. Module pages only; the shell is not a target.
+   */
+  _initFocusReporting() {
+    let lastReport = 0;
+    const report = (force) => {
+      const now = Date.now();
+      if (!force && now - lastReport < 2000) return;
+      lastReport = now;
+      this.ensureShiny((shiny) => {
+        shiny.setInputValue('@shidashi_focus@', now, { priority: 'event' });
+      });
+    };
+    ['pointerdown', 'keydown', 'focusin'].forEach((type) => {
+      document.addEventListener(type, () => report(false),
+                                { capture: true, passive: true });
+    });
+    window.addEventListener('message', (evt) => {
+      if (evt.origin !== window.location.origin) return;
+      if (evt.data?.type === 'shidashi.module_activated') report(true);
+    });
+    // Hidden iframes (inactive tabs) have no size
+    if (document.visibilityState === 'visible' &&
+        window.innerWidth > 0 && window.innerHeight > 0) {
+      report(true);
+    }
+  }
+
+  /**
+   * Show the pin toggle and reflect its state. A pinned tab receives AI
+   * agent tool calls even when the user works in another tab; pinning one
+   * tab unpins the others (handled in R).
+   *
+   * A `.btn-ai-pin` placeholder already on the page (e.g. the hidden one in
+   * the ravedash footer's Controllers menu) is used when present; otherwise
+   * the toggle is added next to the floating buttons.
+   */
+  _setAiPinState(pinned) {
+    let btn = document.querySelector('.btn-ai-pin');
+    if (!btn) {
+      let container = document.querySelector('.shidashi-back-to-top');
+      if (!container) {
+        container = document.createElement('div');
+        container.className = 'shidashi-back-to-top';
+        document.body.appendChild(container);
+      }
+      btn = document.createElement('a');
+      btn.href = '#';
+      btn.className = 'btn btn-default btn-ai-pin';
+      btn.setAttribute('role', 'button');
+      btn.innerHTML = '<i class="fas fa-thumbtack" aria-hidden="true"></i>';
+      container.appendChild(btn);
+    }
+    if (!btn.dataset.shidashiPinBound) {
+      btn.dataset.shidashiPinBound = 'true';
+      btn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        const next = !btn.classList.contains('active');
+        this.ensureShiny((shiny) => {
+          shiny.setInputValue('@shidashi_ai_pin@', next, { priority: 'event' });
+        });
+      });
+    }
+    // Placeholders ship hidden: only pages with agent tools get this message
+    btn.hidden = false;
+    btn.classList.toggle('active', !!pinned);
+    btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    document.body.classList.toggle('shidashi-ai-pinned', !!pinned);
+
+    const label = pinned
+      ? 'AI agent tool calls run in this tab. Click to unpin.'
+      : 'Pin this tab: AI agent tool calls will run here.';
+    btn.setAttribute('aria-label', label);
+    // A Bootstrap tooltip keeps its own copy of the title
+    const tooltip = window.bootstrap?.Tooltip?.getInstance(btn);
+    if (tooltip) {
+      btn.setAttribute('data-bs-original-title', label);
+      tooltip.setContent({ '.tooltip-inner': label });
+    } else {
+      btn.title = label;
+    }
+  }
+
   // ---------- Event system ----------
 
   broadcastEvent(type, message = {}) {
@@ -993,6 +1081,138 @@ class ShidashiApp {
     return { type: dataType, header, data };
   }
 
+  // ---------- Query UI (MCP) ----------
+
+  /**
+   * A size for an output that has no layout (inside a hidden tab or a
+   * collapsed card), so shiny can draw it: the width of the nearest
+   * ancestor that has a layout, and the output's own height if set in px,
+   * else that ancestor's height (within reason).
+   */
+  _fallbackOutputSize(el) {
+    let width = 0;
+    let height = 0;
+    for (let p = el.parentElement; p && !width; p = p.parentElement) {
+      const rect = p.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+    }
+    const ownHeight = getComputedStyle(el).height;
+    if (/px$/.test(ownHeight) && parseFloat(ownHeight) > 0) {
+      height = parseFloat(ownHeight);
+    }
+    if (!(width >= 100)) width = 600;
+    if (!(height >= 200)) height = 400;
+    return {
+      width: Math.round(width),
+      height: Math.round(Math.min(height, 1200))
+    };
+  }
+
+  /**
+   * Resolve true once `el` loses the `recalculating` class, or false after
+   * `timeoutMs`.
+   */
+  _waitRecalculated(el, timeoutMs) {
+    return new Promise((resolve) => {
+      if (!el.classList.contains('recalculating')) {
+        resolve(true);
+        return;
+      }
+      let timer = null;
+      const observer = new MutationObserver(() => {
+        if (!el.classList.contains('recalculating')) {
+          observer.disconnect();
+          clearTimeout(timer);
+          // shiny drops the class before it renders the value
+          setTimeout(() => resolve(true), 50);
+        }
+      });
+      observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+      timer = setTimeout(() => {
+        observer.disconnect();
+        resolve(false);
+      }, timeoutMs);
+    });
+  }
+
+  /**
+   * Answer a `query_ui` request for `el`: an image (canvas, data-URI image,
+   * or SVG content, composited into one PNG) or the HTML, with a short note
+   * for the agent.
+   */
+  _answerQuery(el, params) {
+    // A missing flag (older R) keeps the old behavior: capture images
+    const transformImage = params.transform_image !== false;
+
+    // The element's opening tag gives context without repeating its content
+    const outer = el.outerHTML;
+    const openingTag = outer.slice(0, outer.indexOf('>') + 1);
+    const cs = getComputedStyle(el);
+
+    // Why an element may be empty or out of date
+    const notes = [];
+    const laidOut = el.getClientRects().length > 0;
+    if (!laidOut && cs.display !== 'none') {
+      if (params.rendered) {
+        // `shiny_output_result` rendered it for this request
+        notes.push('The output is not shown on the page (it is inside a hidden tab or a collapsed card), but it was rendered for this request. Content that the browser draws, such as canvases or htmlwidgets, may be blank while hidden.');
+      } else {
+        notes.push('The element is not shown on the page (it is inside a hidden tab or a collapsed card), so it may be empty or out of date.');
+      }
+    }
+    if (el.classList.contains('recalculating')) {
+      notes.push('The output is waiting to be recalculated; shiny does not render hidden outputs.');
+    }
+    if (el.classList.contains('shiny-output-error')) {
+      const message = (el.textContent || '').trim().slice(0, 300);
+      notes.push('The output shows an error or a message instead of a value' +
+                 (message ? ': ' + message : '.'));
+    }
+
+    // R trims long HTML (max_chars), so the full content is sent
+    const reply = (fields) => {
+      const note = notes.concat(fields.note ? [fields.note] : []).join(' ');
+      Shiny.setInputValue(params.input_id, Object.assign({
+        request_id: params.request_id,
+        type: 'html',
+        html: '',
+        image_data: '',
+        image_type: '',
+        laid_out: laidOut
+      }, fields, { note: note }), { priority: 'event' });
+    };
+
+    if (cs.display === 'none') {
+      reply({ type: 'hidden', html: el.innerHTML,
+              note: 'The element is hidden (display: none). ' + openingTag });
+      return;
+    }
+
+    const replyHTML = () => {
+      const styleNote = 'Computed styles: display=' + cs.display +
+        ', width=' + cs.width + ', height=' + cs.height +
+        ', visibility=' + cs.visibility + ', overflow=' + cs.overflow +
+        ', position=' + cs.position;
+      reply({ html: el.innerHTML, note: openingTag + ' ' + styleNote });
+    };
+
+    if (!transformImage) {
+      replyHTML();
+      return;
+    }
+
+    // Canvas / data-URI image / SVG content, composited into one PNG
+    captureVisualContent(el).then((visual) => {
+      if (visual) {
+        reply({ type: 'image', image_data: visual.image_data,
+                image_type: visual.image_type, note: openingTag });
+      } else {
+        replyHTML();
+      }
+    }).catch(replyHTML);
+  }
+
   // ---------- Card tool click delegation ----------
 
   _bindCardTools() {
@@ -1110,6 +1330,9 @@ class ShidashiApp {
     const iframeContainer = document.querySelector('.shidashi-content');
     if (iframeContainer) {
       this.iframeManager = new IFrameManager(iframeContainer);
+    } else {
+      // A module page (in an iframe or standalone) can be an AI agent target
+      this._initFocusReporting();
     }
 
     // Restore theme
@@ -1669,6 +1892,13 @@ class ShidashiApp {
       }
     });
 
+
+    // --- AI agent pin toggle (sent only for modules with agent tools) ---
+
+    this.shinyHandler('ai_pin_state', (params) => {
+      this._setAiPinState(!!params.pinned);
+    });
+
     // --- Module token registration (for chatbot) ---
 
     this.shinyHandler('register_module_token', (params) => {
@@ -1822,63 +2052,71 @@ class ShidashiApp {
 
     // --- Query UI handler (MCP) ---
 
+    this.shinyHandler('prepare_output', (params) => {
+      // params: { selector, request_id, input_id, needs_size }
+      // Step 1 of `shiny_output_result`: find the output, and give it a
+      // size if it has never been shown (shiny sizes plots from the browser)
+      const selector = params.selector;
+      const requestId = params.request_id;
+      const inputId = params.input_id;
+      if (!selector || !requestId || !inputId) return;
+
+      const reply = (fields) => {
+        Shiny.setInputValue(inputId, Object.assign({
+          request_id: requestId,
+          type: 'prepared',
+          note: ''
+        }, fields), { priority: 'event' });
+      };
+
+      const el = document.querySelector(selector);
+      if (!el) {
+        reply({ type: 'not_found', note: "No element matched selector: '" + selector + "'" });
+        return;
+      }
+
+      const rect = el.getBoundingClientRect();
+      const reportsSize = el.classList.contains('shiny-plot-output') ||
+        el.classList.contains('shiny-image-output') ||
+        el.classList.contains('shiny-report-size');
+      let fallbackSize = null;
+      if (params.needs_size && reportsSize && el.id &&
+          rect.width === 0 && rect.height === 0) {
+        fallbackSize = this._fallbackOutputSize(el);
+        // Sent before the reply, so R has the size before the output runs;
+        // shiny sends the real size once the output is shown
+        Shiny.setInputValue('.clientdata_output_' + el.id + '_width', fallbackSize.width);
+        Shiny.setInputValue('.clientdata_output_' + el.id + '_height', fallbackSize.height);
+      }
+      reply({ laid_out: el.getClientRects().length > 0, fallback_size: fallbackSize });
+    });
+
     this.shinyHandler('query_ui', (params) => {
-      // params: { selector, request_id, input_id }
+      // params: { selector, request_id, input_id, transform_image, wait_ms }
       const selector = params.selector;
       const requestId = params.request_id;
       const inputId = params.input_id;
       if (!selector || !requestId || !inputId) return;
 
       const el = document.querySelector(selector);
-      const ret = {
-        request_id: requestId,
-        type: 'not_found',
-        html: '',
-        image_data: '',
-        image_type: '',
-        note: "No element matched selector: '" + selector + "'"
-      };
-
       if (!el) {
-        Shiny.setInputValue(inputId, ret, { priority: 'event' });
+        Shiny.setInputValue(inputId, {
+          request_id: requestId,
+          type: 'not_found',
+          note: "No element matched selector: '" + selector + "'"
+        }, { priority: 'event' });
         return;
       }
 
-      // Try to extract canvas / image / SVG content (async)
-      captureVisualContent(el).then((visual) => {
-        let outerHTML = el.outerHTML;
-        if ( outerHTML.length > 300 ) {
-          outerHTML = `${ outerHTML.slice(0, 300) }...| (${ outerHTML.length - 300 } chars truncated)`;
-        }
-
-        if (visual) {
-          ret.type = 'image';
-          ret.note = outerHTML;
-          ret.image_type = visual.image_type;
-
-          console.log(ret);
-          ret.image_data = visual.image_data;
-        } else {
-          // Default: return outerHTML with computed style note
-          const cs = getComputedStyle(el);
-          const styleNote = 'HTML element. Computed styles: display=' + cs.display +
-            ', width=' + cs.width + ', height=' + cs.height +
-            ', visibility=' + cs.visibility + ', overflow=' + cs.overflow +
-            ', position=' + cs.position;
-
-          ret.type = 'html';
-          ret.html = outerHTML;
-          ret.note = styleNote;
-          console.log(ret);
-        }
-        Shiny.setInputValue(inputId, ret, { priority: 'event' });
-
-        // immediately reset the input
-        setTimeout(() => {
-          Shiny.setInputValue(inputId, null, { priority: 'event' });
-        }, 50);
-
-      });
+      // With `wait_ms`, answer once the output has finished recalculating
+      const waitMs = Number(params.wait_ms) || 0;
+      if (waitMs > 0 && el.classList.contains('recalculating')) {
+        this._waitRecalculated(el, waitMs).then(() => {
+          this._answerQuery(el, params);
+        });
+        return;
+      }
+      this._answerQuery(el, params);
     });
 
     this.shinyHandler('show_notification', (params) => {
