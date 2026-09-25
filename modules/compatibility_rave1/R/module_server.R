@@ -11,7 +11,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
 
   shiny::bindEvent(
@@ -29,39 +29,35 @@ module_server <- function(input, output, session, ...) {
   )
 
   # Register event: validate subject
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when the run-analysis button is clicked, or through
+  # `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    subject <- component_container$data$subject
+    version <- as.character(input$validation_version) %OF% c(2, 1)
+    mode <- input$validation_mode %OF% c("normal", "basic")
 
-      subject <- component_container$data$subject
-      version <- as.character(input$validation_version) %OF% c(2, 1)
-      mode <- input$validation_mode %OF% c("normal", "basic")
+    local_reactives$validation_results <- NULL
 
-      local_reactives$validation_results <- NULL
+    if (mode == "normal") {
+      dipsaus::shiny_alert2(
+        title = "Validation in progress...",
+        text = "Please wait...",
+        icon = "info",
+        auto_close = FALSE, buttons = FALSE
+      )
+      Sys.sleep(0.5)
+      on.exit({
+        dipsaus::close_alert2()
+      }, add = TRUE, after = FALSE)
+    }
+    validation_results <- ravecore::validate_subject(
+      subject = subject$subject_id,
+      method = mode,
+      version = as.integer(version))
 
-      if (mode == "normal") {
-        dipsaus::shiny_alert2(
-          title = "Validation in progress...",
-          text = "Please wait...",
-          icon = "info",
-          auto_close = FALSE, buttons = FALSE
-        )
-        Sys.sleep(0.5)
-        on.exit({
-          dipsaus::close_alert2()
-        }, add = TRUE, after = FALSE)
-      }
-      validation_results <- ravecore::validate_subject(
-        subject = subject$subject_id,
-        method = mode,
-        version = as.integer(version))
-
-      local_reactives$validation_results <- validation_results
-      return()
-
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    local_reactives$validation_results <- validation_results
+    return()
+  })
 
   shiny::bindEvent(
     ravedash::safe_observe({
