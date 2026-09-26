@@ -14,7 +14,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
   # This is used by auto-recalculation feature
@@ -35,91 +35,87 @@ module_server <- function(input, output, session, ...) {
 
   }
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when the run-analysis button is clicked, or through
+  # `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    synced_controllers <- c(
+      "Display Coordinates", "Show Panels", "Slice Brightness", "Slice Mode",
+      "Coronal (P - A)", "Axial (I - S)", "Sagittal (L - R)",
+      "Overlay Coronal", "Overlay Axial", "Overlay Sagittal",
+      "Frustum Near", "Frustum Far",
 
-      synced_controllers <- c(
-        "Display Coordinates", "Show Panels", "Slice Brightness", "Slice Mode",
-        "Coronal (P - A)", "Axial (I - S)", "Sagittal (L - R)",
-        "Overlay Coronal", "Overlay Axial", "Overlay Sagittal",
-        "Frustum Near", "Frustum Far",
+      # "Voxel Display", "Voxel Opacity",
+      "Voxel Min", "Voxel Max", "Voxel Label",
 
-        # "Voxel Display", "Voxel Opacity",
-        "Voxel Min", "Voxel Max", "Voxel Label",
+      "Surface Material", "Surface Type", "Clipping Plane",
+      "Left Hemisphere", "Right Hemisphere",
+      "Left Opacity", "Right Opacity",
+      "Left Mesh Clipping", "Right Mesh Clipping",
+      "Surface Color", "Blend Factor", "Sigma", "Decay", "Range Limit",
 
-        "Surface Material", "Surface Type", "Clipping Plane",
-        "Left Hemisphere", "Right Hemisphere",
-        "Left Opacity", "Right Opacity",
-        "Left Mesh Clipping", "Right Mesh Clipping",
-        "Surface Color", "Blend Factor", "Sigma", "Decay", "Range Limit",
+      "Surface Mapping", "Volume Mapping", "Visibility",
+      "Electrode Shape", "Outlines", "Text Scale", "Text Visibility",
 
-        "Surface Mapping", "Volume Mapping", "Visibility",
-        "Electrode Shape", "Outlines", "Text Scale", "Text Visibility",
+      "Display Data", "Display Range",
+      "Threshold Data", "Threshold Range", "Threshold Method",
+      "Additional Data",
 
-        "Display Data", "Display Range",
-        "Threshold Data", "Threshold Range", "Threshold Method",
-        "Additional Data",
+      "Show Legend", "Show Time", "Highlight Box", "Info Text", "Time"
+    )
 
-        "Show Legend", "Show Time", "Highlight Box", "Info Text", "Time"
+    controllers <- pipeline$get_settings("controllers", default = list())
+
+    proxy_controllers <- as.list(proxy$controllers)
+    background <- proxy_controllers[["Background Color"]]
+    if (length(background) != 1) {
+      theme <- shiny::isolate(ravedash::current_shiny_theme())
+      background <- theme$background
+    }
+    controllers[["Background Color"]] <- dipsaus::col2hexStr(background)
+
+    # voxel_type <- proxy_controllers[["Voxel Display"]]
+    # if(isTRUE(voxel_type %in% brain$atlas_types)) {
+    #   controllers[["Voxel Display"]] <- voxel_type
+    #   controllers[["Voxel Opacity"]] <- proxy_controllers[["Voxel Opacity"]]
+    # }
+
+    proxy_controllers <- proxy_controllers[
+      names(proxy_controllers) %in% synced_controllers]
+
+    for (nm in names(proxy_controllers)) {
+      controllers[[nm]] <- proxy_controllers[[nm]]
+    }
+
+    main_camera <- pipeline$get_settings("main_camera", default = list())
+    proxy_main_camera <- proxy$main_camera
+    if (all(c("position", "zoom", "up") %in% names(proxy_main_camera))) {
+      main_camera <- proxy_main_camera
+    }
+
+    data_source <- input$data_source
+    settings <- list()
+    if (identical(data_source, "Uploads")) {
+      settings <- list(
+        uploaded_source = input$uploaded_source
       )
-
-      controllers <- pipeline$get_settings("controllers", default = list())
-
-      proxy_controllers <- as.list(proxy$controllers)
-      background <- proxy_controllers[["Background Color"]]
-      if (length(background) != 1) {
-        theme <- shiny::isolate(ravedash::current_shiny_theme())
-        background <- theme$background
-      }
-      controllers[["Background Color"]] <- dipsaus::col2hexStr(background)
-
-      # voxel_type <- proxy_controllers[["Voxel Display"]]
-      # if(isTRUE(voxel_type %in% brain$atlas_types)) {
-      #   controllers[["Voxel Display"]] <- voxel_type
-      #   controllers[["Voxel Opacity"]] <- proxy_controllers[["Voxel Opacity"]]
-      # }
-
-      proxy_controllers <- proxy_controllers[
-        names(proxy_controllers) %in% synced_controllers]
-
-      for (nm in names(proxy_controllers)) {
-        controllers[[nm]] <- proxy_controllers[[nm]]
-      }
-
-      main_camera <- pipeline$get_settings("main_camera", default = list())
-      proxy_main_camera <- proxy$main_camera
-      if (all(c("position", "zoom", "up") %in% names(proxy_main_camera))) {
-        main_camera <- proxy_main_camera
-      }
-
-      data_source <- input$data_source
-      settings <- list()
-      if (identical(data_source, "Uploads")) {
-        settings <- list(
-          uploaded_source = input$uploaded_source
-        )
-      } else if (identical(data_source, "Saved pipelines/modules")) {
-        settings <- list(
-          data_source_project = input$data_source_project,
-          data_source_pipeline = input$data_source_pipeline,
-          data_source_pipeline_target = input$data_source_pipeline_target
-        )
-      }
-
-      pipeline$set_settings(
-        data_source = input$data_source,
-        controllers = controllers,
-        main_camera = main_camera,
-        shiny_outputId = ns("viewer_ready"),
-        .list = settings
+    } else if (identical(data_source, "Saved pipelines/modules")) {
+      settings <- list(
+        data_source_project = input$data_source_project,
+        data_source_pipeline = input$data_source_pipeline,
+        data_source_pipeline_target = input$data_source_pipeline_target
       )
+    }
 
-      # regenerate_viewer()
+    pipeline$set_settings(
+      data_source = input$data_source,
+      controllers = controllers,
+      main_camera = main_camera,
+      shiny_outputId = ns("viewer_ready"),
+      .list = settings
+    )
 
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    # regenerate_viewer()
+  })
 
 
   # (Optional) check whether the loaded data is valid

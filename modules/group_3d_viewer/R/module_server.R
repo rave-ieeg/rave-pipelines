@@ -15,7 +15,7 @@ module_server <- function(input, output, session, ...) {
   local_data$template_needs_update <- FALSE
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
   # This is used by auto-recalculation feature
@@ -247,23 +247,17 @@ module_server <- function(input, output, session, ...) {
   )
 
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    local_data$template_needs_update <- TRUE
+    if (!local_data$has_template) {
+      generate_viewer()
+      return()
+    }
 
-      local_data$template_needs_update <- TRUE
-      if (!local_data$has_template) {
-        generate_viewer()
-        return()
-      }
-
-      update_viewer()
-
-
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    update_viewer()
+  })
 
   value_table_example <- shiny::reactive({
     tryCatch({

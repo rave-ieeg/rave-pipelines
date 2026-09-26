@@ -12,7 +12,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Brain proxy
   brain_proxy <- threeBrain::brain_proxy(outputId = "viewer3d", session = session)
@@ -137,77 +137,72 @@ module_server <- function(input, output, session, ...) {
     }
   }
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    value_name <- input$value_name
 
-      value_name <- input$value_name
-
-      if (value_name %in% c("[None]", "[Subject]")) {
-        ravedash::shiny_alert2(
-          title = "Invalid data value name",
-          icon = "error",
-          danger_mode = TRUE,
-          auto_close = TRUE,
-          buttons = "OK",
-          text = sprintf(
-            "Invalid data name `%s`. Please choose a valid data from input `Data name` before exporting.",
-            value_name
-          )
+    if (value_name %in% c("[None]", "[Subject]")) {
+      ravedash::shiny_alert2(
+        title = "Invalid data value name",
+        icon = "error",
+        danger_mode = TRUE,
+        auto_close = TRUE,
+        buttons = "OK",
+        text = sprintf(
+          "Invalid data name `%s`. Please choose a valid data from input `Data name` before exporting.",
+          value_name
         )
-        return()
-      }
+      )
+      return()
+    }
 
-      shiny::showModal(
-        shiny::modalDialog(
-          title = "Widget: export group atlas",
-          size = "m",
-          easyClose = FALSE,
-          footer = shiny::tagList(
-            shiny::modalButton("Cancel"),
-            dipsaus::actionButtonStyled(
-              inputId = ns("btn_export"),
-              label = "Export",
-              icon = ravedash::shiny_icons$download
-            )
-          ),
+    shiny::showModal(
+      shiny::modalDialog(
+        title = "Widget: export group atlas",
+        size = "m",
+        easyClose = FALSE,
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          dipsaus::actionButtonStyled(
+            inputId = ns("btn_export"),
+            label = "Export",
+            icon = ravedash::shiny_icons$download
+          )
+        ),
 
-          shiny::fluidRow(
-            shiny::column(
-              width = 12L,
+        shiny::fluidRow(
+          shiny::column(
+            width = 12L,
 
-              shiny::textInput(
-                inputId = ns("atlas_name"),
-                label = "Atlas name",
-                value = "",
-                width = "100%",
-                placeholder = value_name
-              ),
-              shiny::p(shiny::tags$small(
-                sprintf(
-                  "leave it blank to use the default name: `%s`. The atlas name must only contain letters, digits, under_scores",
-                  value_name
-                )
-              ))
+            shiny::textInput(
+              inputId = ns("atlas_name"),
+              label = "Atlas name",
+              value = "",
+              width = "100%",
+              placeholder = value_name
             ),
-            shiny::column(
-              width = 12L,
-              shiny::checkboxGroupInput(
-                inputId = ns("export_options"),
-                label = "Additional options",
-                choices = c(
-                  "Overwrite existing files (if exists)"
-                )
+            shiny::p(shiny::tags$small(
+              sprintf(
+                "leave it blank to use the default name: `%s`. The atlas name must only contain letters, digits, under_scores",
+                value_name
+              )
+            ))
+          ),
+          shiny::column(
+            width = 12L,
+            shiny::checkboxGroupInput(
+              inputId = ns("export_options"),
+              label = "Additional options",
+              choices = c(
+                "Overwrite existing files (if exists)"
               )
             )
           )
         )
       )
-
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    )
+  })
 
 
   # check whether the loaded data is valid and update/initialize inputs

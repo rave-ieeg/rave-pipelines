@@ -28,12 +28,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
           ),
 
           footer = shiny::tagList(
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Load subject",
-              type = "primary",
-              width = "100%"
-            )
+            ravedash::load_data_button(label = "Load subject", width = "100%")
           )
 
         )
@@ -47,10 +42,12 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 # Server functions for loader
 loader_server <- function(input, output, session, ...) {
 
-  # Triggers the event when `input$loader_ready_btn` is changed
-  # i.e. loader button is pressed
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when `ravedash::load_data_button()` is clicked, or through
+  # `server_tools$trigger_script("load_data")` (e.g. from MCP tools)
+  server_tools <- ravedash::get_default_handlers(session = session)
+  server_tools$set_script(
+    "load_data",
+    {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
         ids = c(
@@ -63,47 +60,20 @@ loader_server <- function(input, output, session, ...) {
       pipeline$set_settings(template_name = input$loader_template_name,
                             .list = settings)
 
-      ravedash::shiny_alert2(
-        title = "Checking template & project information",
-        text = "The script might need to download template brain if missing. Please be patient...",
-        icon = "info",
-        auto_close = FALSE,
-        buttons = FALSE
+      pipeline$run(
+        as_promise = FALSE,
+        names = c("template_info", "subject_codes_filtered"),
+        scheduler = "none",
+        type = "callr"
       )
-
-      tryCatch(
-        {
-          pipeline$run(
-            as_promise = FALSE,
-            names = c("template_info", "subject_codes_filtered"),
-            scheduler = "none",
-            type = "callr"
-          )
-          Sys.sleep(0.5)
-          ravedash::close_alert2(session = session)
-
-          ravedash::fire_rave_event("data_changed", Sys.time())
-        },
-        error = function(e) {
-
-          Sys.sleep(0.5)
-          ravedash::close_alert2(session = session)
-
-          ravedash::shiny_alert2(
-            title = "Errors",
-            text = paste(
-              "Found an error while loading the template data:\n\n",
-              paste(e$message, collapse = "\n")
-            ),
-            icon = "error",
-            danger_mode = TRUE,
-            auto_close = FALSE
-          )
-        }
-      )
-
-    }),
-    input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
+    },
+    binding_event = "load_data",
+    # Let the module know the data has been changed
+    dispatch_event = "data_changed",
+    alert_params = list(
+      title = "Checking template & project information",
+      text = "The script might need to download template brain if missing. Please be patient..."
+    )
   )
 
 }
