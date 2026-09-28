@@ -247,32 +247,33 @@ Module-specific documentation is read with `skill_load__rave-module`
 Add `pattern` to grep a reference, or `line_start` / `n_lines` to page
 through it.
 
-Each module reference has the following contents: (you can `grep` the reference)
+Each module reference is a **usage manual** for operating the module and
+interpreting its results (not a technical spec). It has the following sections
+(you can `grep` the reference):
 
 ```
 # {module_name} Module Reference
 
-Brief description of what the module does.
+Brief description of what the module does + one-line prerequisite.
 
-## 1. Pipeline Interface
+## Table of contents
 
-### 1.1 Prerequisites
-### 1.2 Pipeline Settings
-### 1.3 Key Targets
+## Step-by-step guide
+### 1. Load data
+### 2. Analysis inputs
+### 3. Outputs
 
-## 2. Module UI Interface
+## Common procedures
 
-### 2.1 Input Components
-### 2.2 UI to Pipeline Mapping
-### 2.3 Pipeline Execution Flow
-### 2.4 Outputs and Visualizations
+## Caveats
 
-## 3. Data Export and Reports
+## Run the pipeline without the UI
 
-### 3.1 Reading Pipeline Results in R
-### 3.2 Built-in Export Functions
-### 3.3 Available Reports
+## Drive the module with MCP tools
 ```
+
+See `references/TEMPLATE.md` for the authoring template. For low-level
+implementation details, read the module source instead (see below).
 
 ---
 

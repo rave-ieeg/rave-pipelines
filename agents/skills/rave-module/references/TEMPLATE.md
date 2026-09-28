@@ -1,315 +1,137 @@
-# Module Reference Documentation Template
-
-This document provides guidelines for writing comprehensive RAVE module reference documentation.
-
----
-
-## Document Structure
-
-Each module reference should follow this structure: (you can grep the reference)
-
-```
 # {module_name} Module Reference
 
-Brief description of what the module does.
+<!--
+AUTHORING GUIDE (delete this comment when done)
 
-## 1. Pipeline Interface
+This reference is a USAGE MANUAL for end users and AI agents, not a technical
+spec. Explain how to *operate* the module and *interpret* its results, not how
+it is implemented. Keep the section headings below unchanged so every module
+reference stays consistent and greppable. Replace every {placeholder} and
+remove the guidance comments before publishing.
+-->
 
-### 1.1 Prerequisites
-### 1.2 Pipeline Settings
-### 1.3 Key Targets
+{One to three sentences: what the module does and what the user gets out of it.}
 
-## 2. Module UI Interface
+**Prerequisite:** {One sentence naming the module or data that must come first.
+Example: "This module analyzes power spectrograms; run the Wavelet module first
+so the power data exist." Write "None" if there is no prerequisite.}
 
-### 2.1 Input Components
-### 2.2 UI to Pipeline Mapping
-### 2.3 Pipeline Execution Flow
-### 2.4 Outputs and Visualizations
+## Table of contents
 
-## 3. Data Export and Reports
+* [Step-by-step guide](#step-by-step-guide)
+* [Common procedures](#common-procedures)
+* [Caveats](#caveats)
+* [Run the pipeline without the UI](#run-the-pipeline-without-the-ui)
+* [Drive the module with MCP tools](#drive-the-module-with-mcp-tools)
 
-### 3.1 Reading Pipeline Results in R
-### 3.2 Built-in Export Functions
-### 3.3 Available Reports
-```
+## Step-by-step guide
 
----
+### 1. Load data
 
-# Section Guidelines
+Step 1: {Choose the RAVE project and subject in the loader screen.}
+Step 2: {Any other loader inputs, e.g. epoch, reference, electrodes. Delete if none.}
+Step 3: Click the "{Load subject}" button to load the data.
 
-## 1. Pipeline Interface
+### 2. Analysis inputs
 
-RAVE pipeline infrastructure is offered by R package `ravepipeline`, can be found on CRAN or source repo at https://github.com/dipterix/ravebuiltins
+The key inputs are on the left panel. For each input, give the label the user
+sees, what it controls, its default, and a sensible example:
 
-The package allows a separation of code and UI logics, allowing the analyses to be done without shiny code. A typical pipeline starts with `main.Rmd` in a form of code blocks, typically starts with `{rave, export="<target_name>", ...}`. The target name, is the key variable name that should be extracted from the enclosing code block. A `target_name` is immutable and can be used/depended by the subsequential code blocks.
+* **{Input label}** — {What it controls.} Default `{value}`. Example: `{example}`.
+* {Repeat for each input.}
 
-The `main.Rmd` file is designed to be user-friendly. The interpreted make file is stored at `make-{module_id}.R`. This file reveals the underlying logics on how `ravepipeline` runs the pipeline and underlying dependency network between target variables. 
+{If the module has a run/apply action, name the button and describe what happens
+when it is clicked, e.g. a validation check, a confirmation dialog, or saving
+results to disk.}
 
+### 3. Outputs
 
-> If you cannot see `make-{module_id}.R`, this means the module is interactive shiny application only, and does not use RAVE pipeline, even though sometimes `main.Rmd` and `settings.yaml` are used.
+Describe each output and how the user should read it to interpret results:
 
+* **{Output name}** — {What it shows and how to interpret it.}
+* {Repeat for each output.}
 
-When running a pipeline, `ravepipeline` 
+## Common procedures
 
-1. loads the shared helper functions from `R/shared-*.R` for R scripts and `py/` for Python modules. 
-2. The helper functions will be available throughout the pipeline. 
-3. The pipeline loads the user-inputs from `settings.yaml`. 
-4. Based on the user's build targets, `ravepipeline` calculates the target variables to run, and execute them in sequential order. 
-  - If a target's inputs are unchanged and `cue` is not `"always"`, then the target does not need to update and the variable will be skipped (use cache)
-5. User can use `pipeline$read()` to load the calculated results
+{One line introducing the task recipes below. Each recipe is a short sequence of
+steps for one concrete goal; reuse the step-by-step guide instead of repeating
+it.}
 
+### Procedure — {task name}
 
-### 1.1 Prerequisites
+Step 1: ...
+Step 2: ...
 
-Describe requirements before using this module:
+### Procedure — {another task}
 
-- **Required prior modules**: What preprocessing steps must be completed? Best to provide those module IDs & labels if exist
-- **Data requirements**: What data must exist (imported signals, epochs, etc.)?
-- **Loader components**: What does the loader UI collect?
+Steps 1-2: reuse [Procedure — {task name}](#procedure--task-name).
+Step 3: {Only the steps that differ.}
 
-Example format:
+## Caveats
 
-| Requirement | Description |
-|-------------|-------------|
-| Imported signals | Raw LFP signals must be imported via "Import Signals" module |
-| Project/Subject | Valid RAVE project and subject must exist |
+* {A lesson, gotcha, or constraint the user should know before or after running.}
+* {Repeat as needed.}
 
----
+## Run the pipeline without the UI
 
-### 1.2 Pipeline Settings
+<!-- 
+Keep this section only if the module ships a pipeline (you will see code such as `pipeline$run()` 
+from the server code; do not use file existence of main.Rmd for deciding if the pipeline exists); 
+delete otherwise. 
+-->
 
-Document all keys in `settings.yaml`: these variables can be obtained via `pipeline$get_settings()` and set via `pipeline$set_settings()`. 
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `setting_name` | type | value | What it controls |
-
-For nested objects, create subsections:
-
-#### nested_object_name
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-
----
-
-### 1.3 Key Targets
-
-Document pipeline targets from `main.Rmd`:
-
-| Target | Dependencies | Export | Description |
-|--------|--------------|--------|-------------|
-| `target_name` | dep1, dep2 | exported_var | What it computes |
-
-Include:
-- **Exported variable name**: What you can read via `pipeline$read()`
-- **Data type**: What the result contains
-- **Side effects**: File writes, setting changes
-- **When to run**: Conditions for running this target
-
-The built target script is located at `make-{module_id}.R`. If this file exists, you can fine more implementation details and dependency tree among the targets. 
-
----
-
-## 2. Module UI Interface
-
-RAVE UI is built on top of `ravedash` package (see https://github.com/dipterix/ravedash). The UI uses `shidashi`, a modular based `shiny` framework. 
-
-The module UI logics are stored at `R/` folder, typically `R/module_html.R`, `R/module_server.R`, and `loader.R`. However, this file convention is a convention, not a must. For example, the "import_signals" does not follow this convention. 
-
-When rendering the shiny module, `shidashi` sources all the R/ scripts, and make those variables available to its template builder. The builder parses `module-ui.html` and calls all the expressions wrapped by `{{ }}`. The parsed result serves as UI, and server component is stored at `server.R` under the module folder.
-
-`ravedash` separates the module app into a loader and a main contents. The loader UI ensures that the pre-requisites are satisfied. Here is how the UI works in general:
-
-1. An user clicks on loading the the content, 
-2. A loader shiny observer set initial inputs to the pipeline and run to load a data repository
-3. If 2 passes, then trigger `ravedash::fire_rave_event('data_changed', Sys.time())` to notify `ravedash` that loader is triggered
-4. `ravedash` runs `check_data_loaded` for validation
-5. Once validator returns `TRUE`, `ravedash` fires `data_loaded` event
-6. All the observers watching `ravedash::watch_data_loaded()` will be triggered
-  - These observers initialize the input UIs in the main contents
-  - In the meanwhile, the loading screen will be dismissed and main UI will be presented
-7. Users configure the analysis parameters, then click on `Run Analysis` button at the bottom-right of the screen
-8. A run-analysis flag will be triggered (`server_tools$run_analysis_flag`)
-9. All observers watching `server_tools$run_analysis_flag()` will execute. If the module contains a pipeline, these observers will
-  - set pipeline inputs and run pipeline
-  - Load the pipeline data back, trigger update output flag
-  - The output renderers render the outputs
-
-There could be other logics not offered by `ravedash`, those should work under general `shiny` framework.
-
-
-### 2.1 Input Components
-
-Document all UI inputs from `R/module_html.R`:
-
-| inputId | Type | Label | Default | Notes |
-|---------|------|-------|---------|-------|
-| `input_name` | widget type | "Label" | default | validation rules |
-
-Group by UI section (Filter Settings, Inspection, etc.)
-
-`input_name` should not contain module prefix (`ns()`, or shiny namespace). For example `"btn"`, not `"power_explorer--btn"` under `power_explorer` module.
-
-Many inputs don't have specific values at initialization. This is because their options require update once the data is loaded. Typically you can find a shiny observe expression that watches `ravedash::watch_data_loaded()`
-
-Some UI components are provided by `ravedash::preset_*`: those are common reused input output components across modules. Please request to show the function source code to see the implementation details. 
-
----
-
-### 2.2 UI to Pipeline Mapping
-
-Explain how UI inputs are transformed into pipeline settings:
-
-1. **Input validation rules** (from shinyvalidate)
-2. **Conversion formulas** (e.g., `lb = base_freq * times - bandwidth`)
-3. **Code reference**: Which function/lines perform the conversion
-
-Example:
-
-#### Frequency Calculation
-
-UI inputs:
-- `base_freq` = 60
-- `times` = "1,2,3" → [1, 2, 3]
-- `bandwidth` = "1,2,2" → [1, 2, 2]
-
-Pipeline settings:
-- `lowerbound` = [60×1 - 1, 60×2 - 2, 60×3 - 2] = [59, 118, 178]
-- `upperbound` = [60×1 + 1, 60×2 + 2, 60×3 + 2] = [61, 122, 182]
-
----
-
-### 2.3 Pipeline Execution Flow
-
-Document how/when the pipeline runs from the UI:
-
-1. **Goal**: What's the goal? (load repository, generate data for visualization, export data, ...)
-2. **Trigger**: What user action starts execution?
-3. **Targets run**: Which targets are executed?
-4. **Result**: Progress indicators, confirmations
-
-Example:
-
-#### Stage 1: Validation
-- **Trigger**: "Apply" button clicked
-- **Targets**: `filter_settings`, `channels_to_apply_filters`
-- **Result**: Confirmation dialog shown
-
-#### Stage 2: Execution  
-- **Trigger**: "Confirm" button clicked
-- **Targets**: `apply_notch`
-- **Result**: Data written, UI refreshed
-
----
-
-### 2.4 Outputs and Visualizations
-
-Document rendered outputs from `R/module_server.R`:
-
-| Output ID | Type | Description | Data Source |
-|-----------|------|-------------|-------------|
-| `plot_id` | plotOutput | What it shows | target or function |
-
-Include:
-- Interactive features (shiny brush, click, plotly integration, 3D viewer, ...)
-- Triggering reactives
-- Parameter controls
-
----
-
-### 3.1 Reading Pipeline Results in R
-
-Provide code examples for reading pipeline data:
+Reproduce the analysis in plain R, without the front-end, via the RAVE pipeline.
+Note that the pipeline settings may differ from the UI inputs: describe any
+conversion the UI performs before it writes `settings.yaml`.
 
 ```r
-# Using ravepipeline
-pipeline <- ravepipeline::pipeline("module_id", temporary = TRUE)
-result <- pipeline$read("target_name")
+# Load the pipeline
+pipeline <- ravepipeline::pipeline("{module_id}")
 
-# Direct H5 file access (if applicable)
-h5_path <- "path/to/electrode_1.h5"
-data <- ieegio::io_read_h5(h5_path, "data/path")
+# Set inputs (one per line; comment each so the mapping is clear)
+pipeline$set_settings(
+  {input_name1} = {value1},   # {what it means}
+  {input_name2} = {value2}    # {what it means}
+)
+
+# Build a target and read its result
+result <- pipeline$run("{target_name}")
+
+# Optional: reuse a module helper (from the shared env) to visualize the result
+env <- pipeline$shared_env()
+env${helper_function}(result)
 ```
 
-Document:
-- **Available targets**: What can be read
-- **Data structures**: What the result contains
-- **File locations**: Where data is stored persistently
+## Drive the module with MCP tools
 
-Use high-level RAVE packages as references if possible. Here is a list of core packages
+Operate the live module the same way a user would, following the step-by-step
+guide above. Each step names an MCP tool; call it as `tool("tool__NAME", arg =
+value)`. Be explicit about input IDs and values.
 
-- `ravecore`: Core RAVE packages to handle RAVE-specific file structure resolution (you might see another `raveio` somewhere, `raveio` is deprecated in favor of `ravecore` but many functions share in common)
-- `ravepipeline`, `ravedash` for pipeline and module UI respectively
-- `threeBrain`: 3D viewer engine
-- `filearray`: low-level file-based array for out-of-memory computation
-- `ieegio`: low-level neuroimaging format solutions - read/write signal data, imaging data files, HDF5 & matlab formats
-- `shidashi`: Modular UI framework that integrates AI agents
-- `rpymat`: Python integration for RAVE
-- `rpyANTs`: Python wrapper of `ANTsPyx` for RAVE (for some imaging registration and normalization)
+Run the interactive scripts in the same order the UI enforces (typically
+`load_data` first, then a validation step, then an apply/save step). Do not skip
+the validation step even if the apply step would run without it — validation is
+what checks the parameters before results are written. State the required order
+explicitly for this module so an agent cannot reorder or skip a step.
 
----
+### Load data
 
-### 3.2 Built-in Export Functions
+* Set a loader input: `tool("tool__shiny_input_update", inputId = "{loader_input_id}", value = "{value}")`
+* {Repeat for each loader input.}
+* Load the data: `tool("tool__module_interactive_script_run", name = "load_data")`
 
-Document download handlers and export functions:
+### Configure and run
 
-| Export | Format | Trigger | Contents |
-|--------|--------|---------|----------|
-| Diagnostic PDF | PDF | Download button | Description |
+* Inspect the current inputs: `tool("tool__shiny_input_info")`
+* Set an input: `tool("tool__shiny_input_update", inputId = "{input_id}", value = "{value}")`
+* {Repeat for each analysis input.}
+* {Validate / confirm step, if any:} `tool("tool__module_interactive_script_run", name = "{run_analysis}")`
+* {Apply / save step, if any — ask the user first:} `tool("tool__module_interactive_script_run", name = "{apply_script}")`
 
-Include:
-- File naming conventions
-- What parameters are included
-- Where files are saved
+### Inspect results
 
----
+* Read any shidashi-registered output with `tool("tool__shiny_output_result", outputId = "{registered output_id}")`.
+* For plain UI elements that are not registered outputs (e.g. a `uiOutput`
+  preview or a download link), read the DOM with
+  `tool("tool__shiny_query_ui", css_selector = "#{module_id}-{output_id}")`.
 
-### 3.3 Available Reports
-
-Document reports from `report-list.yaml`:
-
-| Report Name | Entry File | Description |
-|-------------|------------|-------------|
-| `report_id` | report-xxx.Rmd | What it generates |
-
-Include:
-- **How to generate**: UI button, automatic, or programmatic
-- **Parameters**: What settings affect output
-- **Output location**: Where reports are saved
-
----
-
-## Style Guidelines
-
-1. **Use tables** for structured information (settings, inputs, targets)
-2. **Include code examples** for programmatic access
-3. **Reference file locations** (R/file.R) when helpful
-4. **Document side effects** (file writes, setting changes)
-5. **Provide real examples** with actual values
-6. **Cross-reference** related packages, modules, and skill reference/ folder files when applicable
-
----
-
-## Example Workflow Section (Optional)
-
-For complex modules, include a typical workflow:
-
-## Typical Workflow
-
-1. **Load subject**
-   - Select project/subject in loader
-   - Verify data requirements met
-
-2. **Configure parameters**
-   - Set analysis parameters
-   - Review preview if available
-
-3. **Execute and verify**
-   - Click "Run" → Review confirmation
-   - Inspect outputs
-   - Check diagnostic plots
-
-4. **Export results**
-   - Download data files
-   - Generate formal report

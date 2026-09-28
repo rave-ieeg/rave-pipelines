@@ -19,7 +19,7 @@ loader_project <- ravedash::presets_loader_project()
 loader_subject <- ravedash::presets_loader_subject(checks = NULL)
 loader_sync1 <- ravedash::presets_loader_sync_project_subject(
   id = "loader_sync_from_import_project_subject",
-  from_module = "import_lfp_native",
+  from_module = "import_signals",
   project_varname = "import_setup__project_name",
   subject_varname = "import_setup__subject_code",
   label = "Sync subject from module [Import Signals -> Native Structure]"

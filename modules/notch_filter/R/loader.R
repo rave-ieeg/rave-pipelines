@@ -46,6 +46,10 @@ loader_server <- function(input, output, session, ...) {
   server_tools <- ravedash::get_default_handlers(session = session)
   server_tools$set_script(
     "load_data",
+    description = c(
+      "Load the imported signals of the project and subject chosen in the",
+      "loader (same as clicking 'Load subject')."
+    ),
     {
       # gather information from preset UIs
       settings <- tryCatch({

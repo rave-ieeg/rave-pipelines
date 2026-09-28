@@ -1,479 +1,216 @@
-# notch_filter Module Reference
+# Notch Filter Module Reference
 
-Removes electric line noise (e.g., 60 Hz and harmonics) from iEEG signals using notch filters. Displays Welch periodograms for before/after comparison and generates diagnostic reports.
+The Notch Filter module removes electric line noise (typically 60 Hz in the
+Americas or 50 Hz elsewhere, plus its harmonics) from imported iEEG/LFP voltage
+signals. It writes the cleaned signals back to the subject and shows before/after
+Welch periodograms so you can confirm the noise peaks are gone.
 
----
+**Prerequisite:** Import the subject's raw signals first with the **Import Signal
+Data** module (`import_signals`). At least one LFP electrode must be imported
+before this module can load the subject. (`import_signals` supersedes the legacy
+"Native Standard" / `import_lfp_native` and "BIDS Standard" / `import_bids`
+importers.)
 
-## 1. Pipeline Interface
+## Table of contents
 
-This module uses `ravepipeline` for computation. The pipeline definition is in `main.Rmd`, with the interpreted make file at `make-notch_filter.R` showing target dependencies.
+* [Step-by-step guide](#step-by-step-guide)
+* [Common procedures](#common-procedures)
+* [Caveats](#caveats)
+* [Run the pipeline without the UI](#run-the-pipeline-without-the-ui)
+* [Drive the module with MCP tools](#drive-the-module-with-mcp-tools)
 
-### 1.1 Prerequisites
+## Step-by-step guide
 
-| Requirement | Description |
-|-------------|-------------|
-| **Imported LFP signals** | Raw signals must be imported via `import_lfp_native` ("Import Signals → Native Structure") module. The subject's `data_imported` flag must be `TRUE` for at least one electrode. |
-| **Valid project/subject** | A RAVE project and subject must exist. |
+### 1. Load data
 
-#### Loader Components
+Step 1: In the loader screen, choose the RAVE **Project** and **Subject** you
+want to filter. (Optional: use "Sync from ..." to copy the project/subject from a
+recently used module.)
+Step 2: Click **"Load subject"**. The module loads the imported electrodes and
+shows the main panel. If loading fails, the most common cause is that the signals
+were never imported (see Prerequisite).
 
-The loader UI (`R/loader.R`, `R/aaa-presets.R`) collects:
+### 2. Analysis inputs
 
-| Component | Purpose |
-|-----------|---------|
-| `loader_project` | Project name selector |
-| `loader_subject` | Subject code selector |
-| `loader_sync1` | Sync from "Import Signals → Native Structure" module |
-| `loader_sync2` | Sync from recent project/subject selection |
+The filter settings are in the **"Frequencies and bandwidths"** card on the left:
 
-On successful load, the pipeline runs `imported_electrodes` target to validate data availability.
+* **Base frequency (Hz)** — the fundamental line-noise frequency. Default `60`
+  (Americas). Use `50` for Europe/Africa/most of Asia.
+* **x (Times)** — comma-separated multiples of the base frequency to remove, i.e.
+  which harmonics. Default `1,2,3` removes 60, 120, and 180 Hz.
+* **+- Bandwidth (Hz)** — comma-separated half-widths, one per multiple. Default
+  `1,2,2` gives ±1 Hz at 60 Hz, ±2 Hz at 120 Hz, ±2 Hz at 180 Hz. Must have the
+  same length as "x (Times)".
+* **Additional channel types** — optionally also filter `Spike` or `Auxiliary`
+  channels. LFP macro-channels are always filtered and cannot be removed here.
+  Adding other types is **discouraged**: in almost all cases you should notch
+  only LFP macro-channels, so leave this empty unless you have a specific reason.
 
----
+Below the inputs, a live **preview** lists the exact bands that will be removed
+(e.g. "Filter 1: 59.0Hz - 61.0Hz"). Check it before applying.
 
-### 1.2 Pipeline Settings
+Click **"Apply Notch filters"** to run. This does not filter immediately: it
+first validates the settings and opens a confirmation dialog listing the subject,
+the electrode channels, and the frequency bands. Click **"Confirm"** to apply and
+save, or **"Cancel"** to go back.
 
-Settings are stored in `settings.yaml`. Access via `pipeline$get_settings()` and update via `pipeline$set_settings()`.
+The **"Inspection"** card controls what the diagnostic plot shows (it does not
+change the filter):
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `project_name` | string | `"test"` | RAVE project name |
-| `subject_code` | string | `"DemoSubject"` | Subject identifier |
-| `notch_filter_lowerbound` | numeric[] | `[59, 118, 178]` | Lower bounds of notch bands (Hz) |
-| `notch_filter_upperbound` | numeric[] | `[61, 122, 182]` | Upper bounds of notch bands (Hz) |
-| `channel_types` | string[] | `["LFP"]` | Channel types to filter (LFP always included) |
-| `background` | string | `"#ffffff"` | Background color for plots |
-| `diagnostic_plot_path` | string | `"{subject$note_path}/notch_filter.pdf"` | Output path for diagnostic PDF (glue template) |
-| `diagnostic_plot_params` | object | See below | Parameters for diagnostic visualizations |
+* **Block** / **Electrode** — pick which recording block and electrode to inspect.
+* **Previous / Next** — step through electrodes.
+* **Window length (seconds)** — Welch periodogram window. Default `2`.
+* **Frequency limit** — maximum frequency shown. Default `300` Hz.
+* **Number of histogram bins** — FFT histogram bins. Default `60`.
 
-#### diagnostic_plot_params
+### 3. Outputs
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `window_length` | numeric | `2` | Welch periodogram window length (seconds) |
-| `max_frequency` | numeric | `300` | Maximum frequency to display (Hz) |
-| `histogram_bins` | numeric | `60` | Number of FFT histogram bins |
-| `background` | string | `"#ffffff"` | Plot background color |
-| `foreground` | string | `"#212529"` | Plot foreground color |
-| `font_size` | numeric | `2.0` | Font size multiplier |
-| `quiet` | logical | `FALSE` | Suppress progress messages |
+* **Notch - Inspect signals** (`signal_plot`) — a multi-panel diagnostic for the
+  selected block/electrode: the full voltage trace over time, two Welch
+  periodograms (linear and log-frequency) overlaying the **Original** (black) and
+  **Filtered** (red) spectra, and a voltage histogram. After filtering, the red
+  curve should dip at the base frequency and its harmonics while the rest of the
+  spectrum tracks the black curve. Use Block/Electrode and the Previous/Next
+  buttons to spot-check several channels.
+* **Download as PDF** — exports the diagnostic periodograms for every electrode
+  and block to a PDF.
+* **Diagnostic report** — after a successful apply, a "Notch Filter Diagnostic
+  Plots" report is generated in the background; open it from the module header's
+  report menu.
 
----
+## Common procedures
 
-### 1.3 Key Targets
+Short recipes for the most common tasks.
 
-Main targets defined in `main.Rmd`:
+### Procedure — Apply a standard 60 Hz notch (Americas)
 
-| Target | Export | Dependencies | Description |
-|--------|--------|--------------|-------------|
-| `load_subject` | `subject` | project_name, subject_code | Creates `RAVESubject` instance |
-| `check_imported_electrodes` | `imported_electrodes` | subject | Validates imported signals exist; returns electrode IDs |
-| `check_filter_settings` | `filter_settings` | notch_filter_lowerbound, notch_filter_upperbound | Validates lb/ub pairing; returns `list(lb, ub, domain)` |
-| `check_electrode_channels_to_filter` | `channels_to_apply_filters` | imported_electrodes, channel_types, subject | Filters electrode list by channel type |
-| `apply_Notch_filters` | `apply_notch` | subject, imported_electrodes, filter_settings, channels_to_apply_filters | **Main computation**: applies notch filters, writes to H5 |
-| `generate_diagnostic_plots` | `diagnostic_plots` | subject, imported_electrodes, diagnostic_plot_params, diagnostic_plot_path | Generates diagnostic PDF |
+Step 1: Load the subject (see [Step 1](#1-load-data)).
+Step 2: Set **Base frequency** = `60`, **x (Times)** = `1,2,3`, **+- Bandwidth** =
+`1,2,2` (removes 60/120/180 Hz).
+Step 3: Confirm the preview bands, click **"Apply Notch filters"**, review the
+dialog, and click **"Confirm"**.
+Step 4: Inspect a few electrodes in the plot to confirm the peaks are gone.
 
-> See `make-notch_filter.R` for detailed target dependency tree and implementation.
+### Procedure — Apply a 50 Hz notch (Europe / Asia)
 
-#### Target Details
+Steps 1-4: reuse [Procedure — Apply a standard 60 Hz notch](#procedure--apply-a-standard-60-hz-notch-americas),
+but set **Base frequency** = `50` (removes 50/100/150 Hz).
 
-**`apply_notch`** (main computation):
-- Reads raw signals from `raw/{block}` in each electrode H5 file
-- Applies `ravetools::notch_filter()` in parallel via `ravepipeline::lapply_jobs()`
-- Writes filtered signals to `notch/{block}` in each H5 file
-- Updates subject preprocess settings: `notch_filtered = TRUE`
-- Returns: `list(electrodes, filter_applied, bounds, timestamp)`
+### Procedure — Inspect a specific electrode/block
 
-**`diagnostic_plots`**:
-- Generates PDF with Welch periodograms (raw vs. filtered)
-- Skips if `diagnostic_plot_path` is empty
-- Returns: PDF file path or `FALSE` if skipped
+Step 1: In the **Inspection** card, choose the **Block** and **Electrode**.
+Step 2: Adjust **Window length**, **Frequency limit**, and **Number of histogram
+bins** to zoom in on the noise bands.
+Step 3: Use **Previous / Next** to compare neighboring electrodes.
 
-#### When to Run Each Target
+### Procedure — Export the diagnostic PDF
 
-| Situation | Targets to Run |
-|-----------|----------------|
-| Validate settings before applying | `filter_settings`, `channels_to_apply_filters` |
-| Apply notch filters | `apply_notch` |
-| Generate diagnostic PDF | `diagnostic_plots` |
-| Full pipeline | All targets (or just `apply_notch` which depends on others) |
+Step 1: Set the Inspection parameters you want reflected in the plots.
+Step 2: Click **"Download as PDF"**. The file is named
+`{project}-{subject}-Notch_filter_diagnostic_plots.pdf`.
 
----
+### Procedure — Re-run the filter with different settings
 
-## 2. Module UI Interface
+Step 1: Change the filter inputs.
+Step 2: Click **"Apply Notch filters"** and **"Confirm"** again. Re-running
+overwrites the previously filtered signals (see Caveats).
 
-The UI is built with `ravedash` and `shidashi`. Module UI logic is in `R/module_html.R`, `R/module_server.R`, and `R/loader.R`. The loader ensures prerequisites are met before showing main content.
+## Caveats
 
-### 2.1 Input Components
+* **Import first.** The module cannot load a subject until its raw LFP signals are
+  imported via the **Import Signal Data** module (`import_signals`). The legacy
+  `import_lfp_native` / `import_bids` importers also produce compatible data.
+* **Notch only LFP channels.** LFP macro-channels are always filtered. Adding
+  `Spike` or `Auxiliary` channel types is **discouraged** — in almost all cases
+  you should notch only LFP macro-channels. Only include other types if you have
+  a specific reason to filter them.
+* **Bandwidth length must match Times.** "+- Bandwidth" needs exactly as many
+  values as "x (Times)"; each lower bound must be below its upper bound.
+* **Re-running overwrites.** Applying the filter again replaces the previously
+  filtered data and updates the subject's `notch_filtered` flag. Filtering is not
+  cumulative.
+* **Match the frequency range to your analysis.** The defaults cover roughly
+  0-200 Hz, which suits most analyses. For high-frequency oscillations (HFO), add
+  higher harmonics so line noise is removed up to ~500 Hz.
+* **Apply is destructive.** "Confirm" writes filtered signals into the subject's
+  data directory. When driving via MCP, always ask the user before applying.
 
-Input IDs below are without the module namespace prefix (i.e., `"electrode"` not `"notch_filter--electrode"`).
+## Run the pipeline without the UI
 
-#### Filter Settings Section
-
-| inputId | Type | Label | Default | Notes |
-|---------|------|-------|---------|-------|
-| `notch_filter_base_freq` | numericInput | "Base frequency (Hz)" | `60` | Min: 1, Step: 1 |
-| `notch_filter_times` | textInput | "x (Times)" | `"1,2,3"` | Comma-separated multipliers |
-| `notch_filter_bandwidth` | textInput | "+- Bandwidth (Hz)" | `"1,2,2"` | Comma-separated half-widths |
-| `notch_filter_channel_types` | selectInput (multi) | "Additional channel types" | `character(0)` | Choices: "Spike", "Auxiliary" |
-| — | `ravedash::run_analysis_button` | "Apply Notch filters" | — | No input ID; runs script `run_analysis` via tool `module_interactive_script_run` (checks the settings, then asks to confirm) |
-
-#### Preview Output
-
-| outputId | Type | Description |
-|----------|------|-------------|
-| `notch_filter_preview` | uiOutput | Shows computed filter bands (e.g., "Filter 1: 59.0Hz - 61.0Hz") |
-
-#### Inspection Section
-
-| inputId | Type | Label | Default | Notes |
-|---------|------|-------|---------|-------|
-| `block` | selectInput | "Block" | — | Data block to inspect |
-| `electrode` | selectInput | "Electrode" | — | Electrode number |
-| `previous_electrode` | actionButton | "Previous" | — | Navigate electrodes |
-| `next_electrode` | actionButton | "Next" | — | Navigate electrodes |
-| `pwelch_winlen` | sliderInput | "Window length (seconds)" | `2` | Range: 0-4, Step: 0.1 |
-| `pwelch_freqlim` | sliderInput | "Frequency limit" | `300` | Range: 20-1000 (max updates dynamically) |
-| `pwelch_nbins` | sliderInput | "Number of histogram bins" | `60` | Range: 20-200, Step: 5 |
-
-#### Download
-
-| outputId | Type | Label |
-|----------|------|-------|
-| `download_as_pdf` | downloadLink | "Download as PDF" |
-
----
-
-### 2.2 UI to Pipeline Mapping
-
-#### Input Validation
-
-Validation rules (via `shinyvalidate::InputValidator`):
-
-| Input | Rule |
-|-------|------|
-| `notch_filter_base_freq` | Must be a positive number |
-| `notch_filter_times` | Comma/space-separated numerics |
-| `notch_filter_bandwidth` | Comma/space-separated numerics; length must match `times` |
-
-#### Frequency Conversion Formula
-
-The UI uses a simplified input format that gets converted to pipeline settings:
+The UI does not store the base frequency / times / bandwidth directly. It first
+converts them to explicit band edges and writes those to `settings.yaml`:
 
 ```
-center_frequencies = base_freq × times
-notch_filter_lowerbound = center_frequencies - bandwidth
-notch_filter_upperbound = center_frequencies + bandwidth
+center = base_freq * times
+notch_filter_lowerbound = center - bandwidth
+notch_filter_upperbound = center + bandwidth
 ```
 
-**Example:**
-
-| UI Input | Value |
-|----------|-------|
-| `base_freq` | 60 |
-| `times` | "1,2,3" → [1, 2, 3] |
-| `bandwidth` | "1,2,2" → [1, 2, 2] |
-
-| Pipeline Setting | Calculation | Result |
-|------------------|-------------|--------|
-| `notch_filter_lowerbound` | [60×1-1, 60×2-2, 60×3-2] | [59, 118, 178] |
-| `notch_filter_upperbound` | [60×1+1, 60×2+2, 60×3+2] | [61, 122, 182] |
-
-#### Channel Types
-
-- LFP channels are **always included**
-- Additional types from `notch_filter_channel_types` are appended
-- Combined list written to `channel_types` setting
-
----
-
-### 2.3 Pipeline Execution Flow
-
-#### Stage 0: Load Repository
-
-- **Goal**: Load subject data repository and validate prerequisites
-- **Trigger**: "Load subject" button in loader
-- **Script**: `load_data` (in `R/loader.R`)
-- **Targets**: `imported_electrodes`
-- **Result**: If successful, fires `data_changed` event → `check_data_loaded()` validates → main UI shown
+So the UI defaults (base `60`, times `1,2,3`, bandwidth `1,2,2`) become
+lowerbound `c(59, 118, 178)` and upperbound `c(61, 122, 182)`.
 
 ```r
-pipeline$run(names = "imported_electrodes", as_promise = FALSE)
-```
+# Load the pipeline
+pipeline <- ravepipeline::pipeline("notch_filter")
 
-#### Stage 1: Validation
-
-- **Goal**: Validate filter parameters before applying
-- **Trigger**: "Apply Notch filters" button clicked
-- **Script**: `run_analysis` (in `R/module_server.R`)
-- **Targets**: `filter_settings`, `channels_to_apply_filters`
-- **Result**: Shows confirmation dialog with subject ID, electrodes, and filter frequencies
-
-```r
-pipeline$run(
-  names = c("filter_settings", "channels_to_apply_filters"),
-  scheduler = "none", type = "vanilla",
-  callr_function = NULL, return_values = FALSE
-)
-```
-
-User clicks "Confirm" to proceed or "Cancel" to abort.
-
-#### Stage 2: Application
-
-- **Goal**: Apply notch filters and persist results
-- **Trigger**: "Confirm" button clicked in dialog
-- **Script**: `apply_notch_filter` (in `R/module_server.R`); running it directly skips the confirmation dialog
-- **Targets**: `apply_notch`
-- **Result**: Filtered data written to H5 files, diagnostic report auto-generated, UI refreshed
-
-```r
-pipeline$run(
-  names = "apply_notch",
-  scheduler = "none", type = "smart",
-  callr_function = NULL, return_values = FALSE
-)
-pipeline$fork_to_subject(subject)
-```
-
-After completion:
-- Forks pipeline to subject's data path (`pipeline$fork_to_subject(subject)`)
-- Refreshes the diagnostic plots, collapses the "Filter settings" card, and closes the dialog
-- Generates diagnostic report in background
-
----
-
-### 2.4 Outputs and Visualizations
-
-#### Primary Output: signal_plot
-
-| Property | Value |
-|----------|-------|
-| Output ID | `signal_plot` |
-| Type | `plotOutput` |
-| Function | `diagnose_notch_filters()` from `R/shared-diagnose_plot.R` |
-| Content | Side-by-side Welch periodograms (raw vs. filtered) |
-
-**Triggering reactives:**
-- `local_reactives$refresh` — triggers on data load or filter application
-- `input$block`, `input$electrode` — electrode/block selection changes
-- `input$pwelch_winlen`, `input$pwelch_freqlim`, `input$pwelch_nbins` — visualization param changes
-
-**Parameters:**
-- `blocks`: from `input$block`
-- `electrodes`: from `input$electrode`
-- `max_freq`: from `input$pwelch_freqlim`
-- `winlen`: from `input$pwelch_winlen`
-- `nbins`: from `input$pwelch_nbins`
-- `bg`, `fg`: from current Shiny theme via `ravedash::current_shiny_theme()`
-
-#### Preview Output: notch_filter_preview
-
-| Property | Value |
-|----------|-------|
-| Output ID | `notch_filter_preview` |
-| Type | `uiOutput` |
-| Content | HTML list of filter bands to apply |
-
-**Triggering reactives:**
-- `input$notch_filter_base_freq`, `input$notch_filter_times`, `input$notch_filter_bandwidth`
-
-Example output: "Filter 1: 59.0Hz - 61.0Hz", "Filter 2: 118.0Hz - 122.0Hz"
-
-#### UI State Changes
-
-- "Filter settings" card auto-collapses after successful filter application
-- Input fields are populated with previously saved parameters when `ravedash::watch_data_loaded()` fires
-
----
-
-## 3. Data Export and Reports
-
-### 3.1 Reading Pipeline Results in R
-
-#### Using ravepipeline
-
-```r
-# Load pipeline (use temporary = TRUE to avoid registry conflicts)
-pipeline <- ravepipeline::pipeline("notch_filter", temporary = TRUE)
-
-# Read apply_notch result
-result <- pipeline$read("apply_notch")
-# Returns: list(
-#   electrodes = integer vector,
-#   filter_applied = logical vector,
-#   bounds = list(lb = numeric, ub = numeric),
-#   timestamp = POSIXct
-# )
-
-# Read other targets
-subject <- pipeline$read("subject")
-imported_electrodes <- pipeline$read("imported_electrodes")
-filter_settings <- pipeline$read("filter_settings")
-```
-
-#### Using ravecore (High-Level)
-
-```r
-# Load subject via ravecore
-subject <- ravecore::RAVESubject$new(
-  project_name = "demo",
-  subject_code = "YAB"
+# Set inputs (band edges are explicit, not base/times/bandwidth)
+pipeline$set_settings(
+  project_name = "test2",                     # RAVE project
+  subject_code = "DemoSubject",               # subject to filter
+  notch_filter_lowerbound = c(59, 118, 178), # lower edges (Hz): 60/120/180 Hz bands
+  notch_filter_upperbound = c(61, 122, 182), # upper edges (Hz)
+  channel_types = "LFP"                      # LFP is always filtered
 )
 
-# Access preprocess settings
-subject$preprocess_settings$notch_filtered
-subject$preprocess_settings$notch_params
+# Apply the notch filters and write cleaned signals to the subject
+apply_notch <- pipeline$run("apply_notch")
+
+# Optional: generate the diagnostic periodograms (PDF)
+diagnostic_plots <- pipeline$run("diagnostic_plots")
 ```
 
-#### Direct H5 File Access (via ieegio)
+## Drive the module with MCP tools
 
-Filtered signals are stored in electrode H5 files:
+Operate the live module as a user would, following the step-by-step guide. Each
+step names an MCP tool; call it as `tool("tool__NAME", arg = value)`. The module
+registers three interactive scripts: `load_data`, `run_analysis` (validate and
+open the confirmation dialog), and `apply_notch_filter` (apply and save).
 
-```r
-# Path to electrode file
-h5_path <- file.path(subject$preprocess_path, "voltage", "electrode_1.h5")
+**Run these scripts in this exact order: `load_data` → `run_analysis` →
+`apply_notch_filter`.** Only `load_data` is available until the data are loaded;
+the other two need a loaded subject. Never skip `run_analysis`: it validates the
+filter parameters and opens the confirmation dialog. `apply_notch_filter` will
+still run if you skip `run_analysis`, but then the parameters are never reviewed
+before they are written to the subject.
 
-# Read filtered signal for a block
-filtered_signal <- ieegio::io_read_h5(h5_path, "notch/block001")
+### Load data
 
-# Read raw signal for comparison
-raw_signal <- ieegio::io_read_h5(h5_path, "raw/block001")
+* Set the project: `tool("tool__shiny_input_update", inputId = "loader_project_name", value = "test2")`
+* Set the subject: `tool("tool__shiny_input_update", inputId = "loader_subject_code", value = "DemoSubject")`
+* Load: `tool("tool__module_interactive_script_run", name = "load_data")`
 
-# List available data paths
-ieegio::io_h5_names(h5_path)
-```
+### Configure, then validate, then apply
 
-#### File Locations
+1. Inspect the current inputs: `tool("tool__shiny_input_info")`
+2. Set the base frequency: `tool("tool__shiny_input_update", inputId = "notch_filter_base_freq", value = "60")`
+3. Set the harmonics (times): `tool("tool__shiny_input_update", inputId = "notch_filter_times", value = "1,2,3")`
+4. Set the bandwidths: `tool("tool__shiny_input_update", inputId = "notch_filter_bandwidth", value = "1,2,2")`
+5. **Validate (required, do not skip):** `tool("tool__module_interactive_script_run", name = "run_analysis")` —
+   checks the parameters and opens the confirmation dialog.
+6. **Apply and save (ask the user first):** `tool("tool__module_interactive_script_run", name = "apply_notch_filter")`
 
-| Data | Location |
-|------|----------|
-| Raw signals | `{preprocess_path}/voltage/electrode_{n}.h5` → `raw/{block}` |
-| Filtered signals | `{preprocess_path}/voltage/electrode_{n}.h5` → `notch/{block}` |
-| Preprocess settings | `{preprocess_path}/rave.yaml` |
-| Diagnostic PDF | `{subject$note_path}/notch_filter.pdf` (default) |
+### Inspect results
+
+* Render a registered output: `tool("tool__shiny_output_result", outputId = "signal_plot")`
+* Change the inspected electrode: `tool("tool__shiny_input_update", inputId = "electrode", value = "14")`
+
+Read any shidashi-registered output with `tool__shiny_output_result` (here,
+`signal_plot`). The band preview and the "Download as PDF" link are plain UI
+elements, not shidashi-registered outputs, so read the preview with
+`tool("tool__shiny_query_ui", css_selector = "#notch_filter-notch_filter_preview")`.
 
 ---
 
-### 3.2 Built-in Export Functions
-
-#### PDF Download Handler
-
-| Property | Value |
-|----------|-------|
-| Output ID | `download_as_pdf` |
-| Filename | `{project_name}-{subject_code}-Notch_filter_diagnostic_plots.pdf` |
-| Format | PDF |
-
-**Contents:**
-- Welch periodograms for all imported electrodes across all blocks
-- Before (raw) and after (notch-filtered) comparison
-- Uses current UI settings for visualization parameters
-
-**Process:**
-1. Updates `diagnostic_plot_params` in pipeline settings with current UI values
-2. Runs targets: `diagnostic_plots`
-3. Copies generated PDF to download
-
----
-
-### 3.3 Available Reports
-
-From `report-list.yaml`:
-
-| Report Name | Entry File | Label |
-|-------------|------------|-------|
-| `diagnostics` | `report-diagnostics.Rmd` | "Notch Filter Diagnostic Plots" |
-
-#### Report: diagnostics
-
-**Content:**
-- HTML report with Welch periodograms
-- Shows before/after comparison for all electrodes and blocks
-- Includes filter parameters used
-
-**How to Generate:**
-
-1. **Automatic**: Generated in background after successful filter application
-2. **Manual**: Click "Generate reports" button in module header
-3. **Programmatic**:
-
-```r
-pipeline <- ravepipeline::pipeline("notch_filter", temporary = TRUE)
-ravedash::report_wizard$generate(
-  subject = pipeline$read("subject"),
-  report_name = "diagnostics"
-)
-```
-
-**Parameters:**
-- Uses `diagnostic_plot_params` from pipeline settings
-- Output location configurable via `diagnostic_plot_path`
-
----
-
-## Typical Workflow
-
-### Via UI
-
-1. **Load subject**
-   - Select project and subject in loader
-   - Verify "imported electrodes" count shown
-
-2. **Configure filter parameters**
-   - Set base frequency (60 Hz for US, 50 Hz for Europe)
-   - Set harmonics via "Times" (e.g., "1,2,3" for fundamental + 2 harmonics)
-   - Set bandwidths (e.g., "1,2,2" for ±1 Hz at 60 Hz, ±2 Hz at harmonics)
-   - Optionally include additional channel types (Spike, Auxiliary)
-
-3. **Apply filters**
-   - Click "Apply Notch filters"
-   - Review confirmation dialog (subject, electrodes, frequencies)
-   - Click "Confirm" to execute
-
-4. **Verify results**
-   - Inspect Welch periodograms in the Inspection panel
-   - Navigate electrodes with Previous/Next buttons
-   - Adjust visualization parameters (window length, frequency limit)
-
-5. **Export**
-   - Click "Download as PDF" for diagnostic plots
-   - Reports auto-generated; access via "Generate reports" button
-
-### Via Scripts
-
-```bash
-# Read current settings
-Rscript set_inputs.R notch_filter
-
-# Update settings
-Rscript set_inputs.R notch_filter '{"project_name":"demo","subject_code":"YAB"}'
-Rscript set_inputs.R notch_filter '{"notch_filter_lowerbound":[59,118,178],"notch_filter_upperbound":[61,122,182]}'
-
-# Check target status
-Rscript get_targets.R notch_filter
-
-# Run filters
-Rscript run.R notch_filter --targets=apply_notch
-
-# Generate diagnostics
-Rscript run.R notch_filter --targets=diagnostic_plots
-
-# Read results
-Rscript get_results.R notch_filter --target=apply_notch
-```
-
----
-
-## Notes
-
-- **Line noise frequencies:**
-  - 60 Hz (Americas, parts of Asia): bounds `[59,118,178]` / `[61,122,182]`
-  - 50 Hz (Europe, Africa, most of Asia): bounds `[49,98,148,198]` / `[51,102,152,202]`
-  - Typically the range is 0-200 Hz because most analyses focus on frequencies no more than 200 Hz. However, some HFO requires analysis up to 500 Hz
-
-
-- **Array validation:** Lower/upper bound arrays must have equal length, with each lower bound strictly less than the corresponding upper bound.
-
-- **Parallel processing:** The `apply_notch` target uses `ravepipeline::lapply_jobs()` for parallel electrode processing.
-
-- **Idempotent application:** Re-running the filter overwrites previous filtered data. The `notch_filtered` flag is updated in preprocess settings.
+For implementation details (pipeline targets, settings schema, data layout), read
+the module source with the `rave-module` skill: `main.Rmd`, `R/module_server.R`,
+and `make-notch_filter.R`.

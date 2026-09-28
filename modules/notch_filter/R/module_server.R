@@ -155,6 +155,7 @@ module_server <- function(input, output, session, ...) {
     ignoreInit = FALSE
   )
 
+  # ---- Select prev/next electrode for inspection ------------------------------------
   get_electrode <- shiny::bindEvent(
     shiny::reactive({
       if (!length(local_data$subject)) { return(integer()) }
@@ -226,7 +227,7 @@ module_server <- function(input, output, session, ...) {
   )
 
 
-  # check notch parameters
+  # ---- check notch parameters --------------------------------------------
   parameter_validator <- shinyvalidate::InputValidator$new(session = session)
   parameter_validator$add_rule(
     inputId = "notch_filter_base_freq",
@@ -320,155 +321,159 @@ module_server <- function(input, output, session, ...) {
     )
   }
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Check the notch filter settings, then ask the user to confirm (see
+  # `input$notch_confirm`); runs when the run-analysis button is clicked, or
+  # through `server_tools$trigger_script("run_analysis")`
 
-      tryCatch({
-        if (!parameter_validator$is_valid()) {
-          stop("The notch filter parameters are invalid. Please correct them")
-        }
-        # collect inputs and flush to pipeline settings.yaml
+  # DIPSAUS DEBUG START
+  # ravepipeline::pipeline_setup_rmd("notch_filter")
+  # source("modules/notch_filter/R/aa.R")
+  # shidashi::init_app()
+  # session <- shiny::MockShinySession$new()$makeScope("notch_filter")
+  # shiny::withReactiveDomain(session, {
+  #   server_tools <- ravedash::module_server_common("notch_filter", check_data_loaded = check_data_loaded, session = session)
+  # })
 
-        base_freq <- input$notch_filter_base_freq
-        mult_times <- input$notch_filter_times
-        bandwidths <- input$notch_filter_bandwidth
-        channel_types <- c("LFP", input$notch_filter_channel_types)
 
-        mult_times <- as.numeric(strsplit(mult_times, "[, ]+")[[1]])
-        bandwidths <- as.numeric(strsplit(bandwidths, "[, ]+")[[1]])
+  set_pipeline_inputs <- function() {
+    if (!parameter_validator$is_valid()) {
+      stop("The notch filter parameters are invalid. Please correct them")
+    }
 
-        center_frequencies <- base_freq * mult_times
-        notch_filter_lowerbound <- center_frequencies - bandwidths
-        notch_filter_upperbound <- center_frequencies + bandwidths
+    base_freq <- input$notch_filter_base_freq
+    mult_times <- input$notch_filter_times
+    bandwidths <- input$notch_filter_bandwidth
+    channel_types <- c("LFP", input$notch_filter_channel_types)
 
-        pipeline$set_settings(
-          notch_filter_lowerbound = notch_filter_lowerbound,
-          notch_filter_upperbound = notch_filter_upperbound,
-          channel_types = channel_types
-        )
+    mult_times <- as.numeric(strsplit(mult_times, "[, ]+")[[1]])
+    bandwidths <- as.numeric(strsplit(bandwidths, "[, ]+")[[1]])
 
-        res <- pipeline$run(
-          scheduler = "none",
-          type = "vanilla",
-          callr_function = NULL,
-          names = c("filter_settings", "channels_to_apply_filters"),
-          async = FALSE,
-          as_promise = TRUE
-        )
+    center_frequencies <- base_freq * mult_times
+    notch_filter_lowerbound <- center_frequencies - bandwidths
+    notch_filter_upperbound <- center_frequencies + bandwidths
 
-        res$promise$then(
-          onFulfilled = function(...) {
+    pipeline$set_settings(
+      notch_filter_lowerbound = notch_filter_lowerbound,
+      notch_filter_upperbound = notch_filter_upperbound,
+      channel_types = channel_types
+    )
 
-            subject <- pipeline$read(var_names = "subject")
-            filter_settings <- pipeline$read(var_names = "filter_settings")
-            channels_to_apply_filters <- pipeline$read(var_names = "channels_to_apply_filters")
+  }
 
-            shiny::showModal(shiny::modalDialog(
-              title = "Confirmation",
-              shiny::p("It is always a good idea to check before running Notch filters!"),
-              shiny::tags$ul(
-                shiny::tags$li(
-                  shiny::strong("Subject: "),
-                  subject$subject_id
-                ),
-                shiny::tags$li(
-                  shiny::strong("Electrode channels: "),
-                  dipsaus::deparse_svec(channels_to_apply_filters)
-                ),
-                shiny::tags$li(
-                  shiny::strong("Frequencies to remove: "),
-                  local({
-                    if (length(filter_settings$lb)) {
-                      shiny::tags$ul(
-                        lapply(
-                          sprintf("%.1fHz-%.1fHz", filter_settings$lb, filter_settings$ub),
-                          shiny::tags$li
-                        )
-                      )
-                    } else {
-                      "none (the signals will be copied as-is)"
-                    }
-                  })
+  server_tools$set_script(
+    name = "run_analysis", 
+    description = c(
+      "Analyze Notch filter parameters, raise errors if the parameters are incorrect.",
+      "The script will pop up a modal for confirmation. NOTICE: This script does not",
+      "actually apply Notch filters: script `apply_notch_filter` does."
+    ),
+    expr = {
+      set_pipeline_inputs()
+
+      pipeline$run(
+        scheduler = "none",
+        type = "vanilla",
+        callr_function = NULL,
+        names = c("filter_settings", "channels_to_apply_filters"),
+        return_values = FALSE
+      )
+
+      subject <- pipeline$read(var_names = "subject")
+      filter_settings <- pipeline$read(var_names = "filter_settings")
+      channels_to_apply_filters <- pipeline$read(
+        var_names = "channels_to_apply_filters"
+      )
+
+      shiny::showModal(shiny::modalDialog(
+        title = "Confirmation",
+        shiny::p(
+          "It is always a good idea to check before running Notch filters!"
+        ),
+        shiny::tags$ul(
+          shiny::tags$li(
+            shiny::strong("Subject: "),
+            subject$subject_id
+          ),
+          shiny::tags$li(
+            shiny::strong("Electrode channels: "),
+            dipsaus::deparse_svec(channels_to_apply_filters)
+          ),
+          shiny::tags$li(
+            shiny::strong("Frequencies to remove: "),
+            local({
+              if (length(filter_settings$lb)) {
+                shiny::tags$ul(
+                  lapply(
+                    sprintf(
+                      "%.1fHz-%.1fHz",
+                      filter_settings$lb,
+                      filter_settings$ub
+                    ),
+                    shiny::tags$li
+                  )
                 )
-              ),
-              footer = shiny::tagList(
-                shiny::modalButton("Cancel"),
-                dipsaus::actionButtonStyled(ns("notch_confirm"), "Confirm")
-              ),
-              size = "m", easyClose = FALSE
-            ))
-          },
-          onRejected = function(e) {
-            error_notification(e)
-          }
-        )
-
-      }, error = function(e) {
-        error_notification(e)
-      })
-
-
-    }),
-    input$notch_filter_btn,
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
+              } else {
+                "none (the signals will be copied as-is)"
+              }
+            })
+          )
+        ),
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          dipsaus::actionButtonStyled(ns("notch_confirm"), "Confirm")
+        ),
+        size = "m",
+        easyClose = FALSE
+      ))
+    }
   )
 
+
+  server_tools$set_script(
+    name = "apply_notch_filter",
+    description = "Apply Notch filter and save the results to RAVE subject directory",
+    alert_params = list(
+      title = "Applying Notch filters",
+      text = ravedash::be_patient_text()
+    ),
+    expr = {
+
+      set_pipeline_inputs()
+
+      pipeline$run(
+        names = "apply_notch",
+        scheduler = "none",
+        type = "smart",
+        callr_function = NULL,
+        return_values = FALSE
+      )
+      subject <- pipeline$read("subject")
+      pipeline$fork_to_subject(subject)
+
+      local_reactives$update_plots <- Sys.time()
+      
+      shidashi::card_operate(title = "Filter settings", method = "collapse")
+      shiny::removeModal(session = session)
+
+      ravedash::show_notification(
+        title = "Notch filters applied!",
+        message = "There is a report being generated at the background about the diagnostic plots. Please do not close RAVE. However, feel free dismissing this message and proceed on to the next modules.",
+        auto_close = TRUE,
+        buttons = list("Dismiss" = TRUE)
+      )
+          
+      try({
+        report_wizard$generate(subject = subject, "diagnostics")
+      })
+    }
+  )
+
+
+
   shiny::bindEvent(
     ravedash::safe_observe({
 
-      dipsaus::shiny_alert2(
-        title = "Applying Notch filters",
-        text = ravedash::be_patient_text(),
-        buttons = FALSE, auto_close = FALSE
-      )
-
-      res <- pipeline$run(names = "apply_notch",
-                          scheduler = "none",
-                          type = "smart",
-                          callr_function = NULL,
-                          async = FALSE,
-                          as_promise = TRUE)
-
-      res$promise$then(
-        onFulfilled = function(...) {
-
-          # copy the pipeline to subject's path
-          try({
-            subject <- pipeline$read("subject")
-            fork_path <- file.path(subject$pipeline_path, pipeline$pipeline_name)
-            ravecore::backup_file(fork_path, remove = TRUE)
-            pipeline$fork(fork_path)
-          })
-
-          dipsaus::close_alert2()
-          shiny::removeModal()
-          shidashi::card_operate(title = "Filter settings", method = "collapse")
-          dipsaus::shiny_alert2(
-            title = "Finished!",
-            icon = "success",
-            text = "Notch filters have been applied. There is a report being generated at the background about the diagnostic plots. Please do not close RAVE. However, feel free dismissing this message and proceed on to the next modules.",
-            auto_close = TRUE,
-            buttons = list("Dismiss" = TRUE)
-          )
-          local_reactives$update_plots <- Sys.time()
-          try({
-            report_wizard$generate(subject = subject, "diagnostics")
-          })
-        },
-        onRejected = function(e) {
-          dipsaus::close_alert2()
-          dipsaus::shiny_alert2(
-            title = "Error!",
-            icon = "error",
-            danger_mode = TRUE,
-            text = paste(e$message, collapse = "\n"),
-            auto_close = FALSE, buttons = list(
-              "Dismiss" = TRUE
-            )
-          )
-        }
-      )
+      server_tools$trigger_script("apply_notch_filter", with_alert = TRUE)
 
     }),
     input$notch_confirm,
@@ -478,7 +483,7 @@ module_server <- function(input, output, session, ...) {
   # Register outputs
   # MIGRATED from ravedash::register_output
   shidashi::register_output(
-    shiny::renderPlot({
+    shidashi::renderPlot2({
       electrode <- get_electrode()
       local_reactives$update_plots
 
