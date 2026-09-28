@@ -115,7 +115,7 @@ Input IDs below are without the module namespace prefix (i.e., `"electrode"` not
 | `notch_filter_times` | textInput | "x (Times)" | `"1,2,3"` | Comma-separated multipliers |
 | `notch_filter_bandwidth` | textInput | "+- Bandwidth (Hz)" | `"1,2,2"` | Comma-separated half-widths |
 | `notch_filter_channel_types` | selectInput (multi) | "Additional channel types" | `character(0)` | Choices: "Spike", "Auxiliary" |
-| `notch_filter_btn` | actionButton | "Apply Notch filters" | — | Triggers filter application |
+| — | `ravedash::run_analysis_button` | "Apply Notch filters" | — | No input ID; runs script `run_analysis` via tool `module_interactive_script_run` (checks the settings, then asks to confirm) |
 
 #### Preview Output
 
@@ -192,6 +192,7 @@ notch_filter_upperbound = center_frequencies + bandwidth
 
 - **Goal**: Load subject data repository and validate prerequisites
 - **Trigger**: "Load subject" button in loader
+- **Script**: `load_data` (in `R/loader.R`)
 - **Targets**: `imported_electrodes`
 - **Result**: If successful, fires `data_changed` event → `check_data_loaded()` validates → main UI shown
 
@@ -203,6 +204,7 @@ pipeline$run(names = "imported_electrodes", as_promise = FALSE)
 
 - **Goal**: Validate filter parameters before applying
 - **Trigger**: "Apply Notch filters" button clicked
+- **Script**: `run_analysis` (in `R/module_server.R`)
 - **Targets**: `filter_settings`, `channels_to_apply_filters`
 - **Result**: Shows confirmation dialog with subject ID, electrodes, and filter frequencies
 
@@ -210,7 +212,7 @@ pipeline$run(names = "imported_electrodes", as_promise = FALSE)
 pipeline$run(
   names = c("filter_settings", "channels_to_apply_filters"),
   scheduler = "none", type = "vanilla",
-  async = FALSE, as_promise = TRUE
+  callr_function = NULL, return_values = FALSE
 )
 ```
 
@@ -220,6 +222,7 @@ User clicks "Confirm" to proceed or "Cancel" to abort.
 
 - **Goal**: Apply notch filters and persist results
 - **Trigger**: "Confirm" button clicked in dialog
+- **Script**: `apply_notch_filter` (in `R/module_server.R`); running it directly skips the confirmation dialog
 - **Targets**: `apply_notch`
 - **Result**: Filtered data written to H5 files, diagnostic report auto-generated, UI refreshed
 
@@ -227,13 +230,14 @@ User clicks "Confirm" to proceed or "Cancel" to abort.
 pipeline$run(
   names = "apply_notch",
   scheduler = "none", type = "smart",
-  async = FALSE, as_promise = TRUE
+  callr_function = NULL, return_values = FALSE
 )
+pipeline$fork_to_subject(subject)
 ```
 
 After completion:
-- Updates `diagnostic_plot_params` from current UI values
-- Forks pipeline to subject's data path
+- Forks pipeline to subject's data path (`pipeline$fork_to_subject(subject)`)
+- Refreshes the diagnostic plots, collapses the "Filter settings" card, and closes the dialog
 - Generates diagnostic report in background
 
 ---

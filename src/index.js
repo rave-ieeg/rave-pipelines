@@ -1202,11 +1202,12 @@ class ShidashiApp {
       return;
     }
 
-    // Canvas / data-URI image / SVG content, composited into one PNG
+    // Visible canvases / images / SVGs, composited into one PNG
     captureVisualContent(el).then((visual) => {
       if (visual) {
         reply({ type: 'image', image_data: visual.image_data,
-                image_type: visual.image_type, note: openingTag });
+                image_type: visual.image_type,
+                note: [visual.note, openingTag].filter(Boolean).join(' ') });
       } else {
         replyHTML();
       }

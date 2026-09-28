@@ -32,7 +32,7 @@ two categories of operations:
 ### Data-flow (when a module wraps a pipeline)
 
 1. **Shiny UI inputs** — user-facing widgets
-2. **User clicks "Run Analysis"** — UI "reshapes" values into `settings.yaml`
+2. **User clicks "Run Analysis"** (script `run_analysis`) — UI "reshapes" values into `settings.yaml`
 3. **Pipeline targets** — reads `settings.yaml`, runs computation, produces results
 4. **UI outputs** — reads pipeline results and renders visualizations
 
@@ -48,8 +48,26 @@ two categories of operations:
 | shiny_output_info | get shiny-app HTML output information |
 | shiny_query_ui | get HTML elements by css selector |
 | shiny_output_result | get a registered output's rendered content by ID, even in a hidden tab or collapsed card |
-| trigger_load_data | trigger RAVE module to load data for analysis |
-| trigger_analysis | trigger RAVE module to run analysis |
+| module_interactive_script_list | list the module's interactive scripts (e.g. `load_data`, `run_analysis`) and whether the data are loaded |
+| module_interactive_script_inspect | show what an interactive script does: its description and R code |
+| module_interactive_script_run | run an interactive script, as if the user clicked its button |
+
+### Interactive scripts
+
+Modules register interactive scripts with `server_tools$set_script(name, expr)`
+(usually in `R/loader.R` and `R/module_server.R`). Each script runs the same
+code as a button in the module UI:
+
+- `load_data`: the load-data button in the loader (e.g. "Load subject")
+- `run_analysis`: the run-analysis button (e.g. "RAVE!")
+- module-specific scripts, e.g. `apply_notch_filter` in `notch_filter`
+
+Call `module_interactive_script_list` first, then
+`module_interactive_script_inspect` to read what a script does, then
+`module_interactive_script_run`. Run `load_data` first: every other script
+needs the data loaded. Scripts change the module state (UI inputs,
+`settings.yaml`, results), so ask the user before running one that saves
+results.
 
 ## How to call the scripts
 
@@ -211,6 +229,7 @@ Written as shell commands; see "How to call the scripts" above.
 
 - `pipeline$read(var_names)` — read pipeline target results
 - `pipeline$run(as_promise = TRUE)` — trigger pipeline execution
+- `server_tools$set_script(name, expr)` — register an interactive script (`load_data`, `run_analysis`, ...)
 - `ravedash::watch_data_loaded()` — react to data loading
 - `local_reactives` / `local_data` — module state management
 - `shiny::bindEvent` — reactive event bindings

@@ -37,17 +37,24 @@ tools:
   enabled:
   - Plan
   - Execute
-- name: trigger_load_data
+- name: module_interactive_script_list
   category:
-  - destructive
+  - exploratory
   enabled:
+  - Ask
   - Plan
   - Execute
-- name: trigger_analysis
+- name: module_interactive_script_inspect
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_run
   category:
   - destructive
   enabled:
-  - Plan
   - Execute
 skills:
 - name: search-papers
@@ -107,16 +114,16 @@ parameters:
     - **Execute**: + Modify settings and run pipelines
 
     ## Data Flow
-    UI inputs → [Apply button] → settings.yaml → pipeline targets → results → UI outputs
+    UI inputs → [Apply Notch filters → Confirm] → settings.yaml → pipeline targets → results → UI outputs
 
     ## Tools
     | Need | Use |
     |------|-----|
     | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
-    | Read/change UI | shiny_input_info |
+    | Read/change UI | shiny_input_info, shiny_input_update |
     | Inspect outputs | shiny_output_info, shiny_output_result, shiny_query_ui |
     | Pipeline state | `rave-module`: get_targets, get_results |
-    | Run pipeline | trigger_analysis |
+    | Load data, press module buttons | module_interactive_script_list, module_interactive_script_inspect, module_interactive_script_run (Execute mode) |
     | Find relative paper | `search-papers`: search_pubmed |
 
     ## Guidelines
@@ -125,4 +132,10 @@ parameters:
     - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
     - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)
     - Guide users through UI; use pipeline scripts only when asked
+    - Interactive scripts: `load_data` loads the subject; `run_analysis` only
+      checks the filter settings and opens the confirmation dialog;
+      `apply_notch_filter` applies the filters and writes the filtered signals
+      to the subject. Always ask the user before running `apply_notch_filter`.
+    - In Plan mode, `module_interactive_script_run` is not available: ask the
+      user to click the button instead (e.g. "Load subject")
 

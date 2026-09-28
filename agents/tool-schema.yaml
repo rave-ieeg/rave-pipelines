@@ -31,12 +31,49 @@ welcome: >
   RAVE (Reproducible Analysis and Visualization of iEEG) dashboard (https://rave.wiki). 
   Official repository on Github: `rave-ieeg/rave-pipelines`. 
 
+# The descriptions and arguments below mirror
+# agents/tools/module_interactive_script.R: keep them in sync.
 tools:
-- name: trigger_load_data
-  description: "Simulate UI button to trigger load-data: this core tool will drive RAVE to load data from loading screen and prepare the analysis screen."
+- name: module_interactive_script_list
+  description: |
+    List the interactive scripts registered by the module (names and
+    descriptions), and whether the data are loaded.
+    Unlike other tools, interactive scripts act on the live app session,
+    as if the user clicked the module's buttons, e.g. `load_data` (load
+    the data chosen in the loader) or `run_analysis` (run the analysis),
+    if the module has them.
+    Use `module_interactive_script_inspect` to check the details by name;
+    and `module_interactive_script_run` to execute script by name.
   inputSchema:
     type: object
-- name: trigger_analysis
-  description: "Simulate UI button to trigger run-analysis: this core tool will drive RAVE to save user's UI input into pipeline, execute, and display the analyses & visualizations in RAVE dashboard."
+- name: module_interactive_script_inspect
+  description: |
+    Inspect an interactive script: its description, whether it needs
+    the data loaded, whether it is running, and its R code.
+    Use `module_interactive_script_run` to execute script by name.
   inputSchema:
     type: object
+    properties:
+      name:
+        type: string
+        description: >-
+          Interactive script name, must be included from the result 
+          returned by tool `module_interactive_script_list`
+    required: [name]
+- name: module_interactive_script_run
+  description: |
+    Execute module interactive script by name, as if the user clicked the
+    corresponding button in the module (e.g. `load_data` or `run_analysis`).
+    Most interactive scripts have side-effects (e.g. change the UI inputs,
+    pipeline settings, or saved results): check what a script does with
+    `module_interactive_script_inspect` first.
+    All scripts except `load_data` need the data loaded first.
+  inputSchema:
+    type: object
+    properties:
+      name:
+        type: string
+        description: >-
+          Interactive script name, must be included from the result 
+          returned by tool `module_interactive_script_list`
+    required: [name]

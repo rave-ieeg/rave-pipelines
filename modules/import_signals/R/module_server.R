@@ -11,7 +11,7 @@ module_server <- function(input, output, session, ...) {
 #'   local_data <- dipsaus::fastmap2()
 #'
 #'   # get server tools to tweak
-#'   server_tools <- get_default_handlers(session = session)
+#'   server_tools <- ravedash::get_default_handlers(session = session)
 #'
 #'   # Run analysis once the following input IDs are changed
 #'   # This is used by auto-recalculation feature

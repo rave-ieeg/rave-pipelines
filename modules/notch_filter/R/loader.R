@@ -27,12 +27,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
             shiny::br(),
             loader_sync1$ui_func(),
             shiny::hr(),
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Load subject",
-              type = "primary",
-              width = "100%"
-            )
+            ravedash::load_data_button(label = "Load subject", width = "100%")
           )
 
         )
@@ -46,10 +41,12 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 # Server functions for loader
 loader_server <- function(input, output, session, ...) {
 
-  # Triggers the event when `input$loader_ready_btn` is changed
-  # i.e. loader button is pressed
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when `ravedash::load_data_button()` is clicked, or through
+  # `server_tools$trigger_script("load_data")` (e.g. from MCP tools)
+  server_tools <- ravedash::get_default_handlers(session = session)
+  server_tools$set_script(
+    "load_data",
+    {
       # gather information from preset UIs
       settings <- tryCatch({
         component_container$collect_settings(
@@ -69,10 +66,6 @@ loader_server <- function(input, output, session, ...) {
 
       pipeline$run(names = "imported_electrodes", as_promise = FALSE)
 
-      dipsaus::close_alert2()
-
-      # Let the module know the data has been changed
-      ravedash::fire_rave_event("data_changed", Sys.time())
       ravepipeline::logger("Data has been loaded loaded")
 
       # Save session-based state: project name & subject code
@@ -81,8 +74,11 @@ loader_server <- function(input, output, session, ...) {
         subject_code = settings$subject_code
       )
 
-    }, error_wrapper = "alert"),
-    input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
+    },
+    binding_event = "load_data",
+    # Let the module know the data has been changed
+    dispatch_event = "data_changed",
+    alert_params = list(title = "Loading in progress")
   )
 
 }
