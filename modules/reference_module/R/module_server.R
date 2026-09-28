@@ -12,7 +12,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   error_notification <- function(e) {
     if (!inherits(e, "condition")) {
@@ -105,6 +105,25 @@ module_server <- function(input, output, session, ...) {
     local_data$reference_data[[name]] <- re
     return(re)
 
+  }
+
+  # Check the channels to average for a new reference signal; returns the
+  # channel numbers or raises an error
+  validate_new_reference_channels <- function(text, subject) {
+    channels <- gsub("^ref_", "", paste(text, collapse = ""))
+    channels <- dipsaus::parse_svec(channels)
+    if (!length(channels)) {
+      stop("Cannot generate reference: no channel is entered (input `reference_channels_new`).")
+    }
+
+    misschan <- channels[!channels %in% subject$electrodes]
+    if (length(misschan)) {
+      stop(sprintf(
+        "Cannot generate reference. The following channels are invalid: %s",
+        dipsaus::deparse_svec(misschan)
+      ))
+    }
+    channels
   }
 
   voltage_data <- shiny::bindEvent(
@@ -462,8 +481,17 @@ module_server <- function(input, output, session, ...) {
         shiny::fluidRow(
           shiny::column(
             width = 4L,
-            shiny::textInput(ns("preview_save_name"), "Reference name",
-                             value = preview_save_name)
+            shidashi::register_input(
+              shiny::textInput(ns("preview_save_name"), "Reference name",
+                               value = preview_save_name),
+              inputId = "preview_save_name",
+              update = "shiny::updateTextInput",
+              description = paste(
+                "Name of the reference table to save: letters, digits, or underscore only.",
+                "Exists only while the output tab `Preview & Export` is active",
+                "(input `reference_output_tabset`). Script `save_reference` saves the table under this name."
+              )
+            )
           ),
           shiny::column(
             width = 8L,
@@ -471,42 +499,49 @@ module_server <- function(input, output, session, ...) {
                               container = function(...) {
                                 shiny::div(style = "margin-bottom: 0.5rem;", ...)
                               }),
-            dipsaus::actionButtonStyled(ns("preview_save_btn"), "Generate & save")
+            shidashi::register_input(
+              dipsaus::actionButtonStyled(ns("preview_save_btn"), "Generate & save"),
+              inputId = "preview_save_btn",
+              update = "dipsaus::updateActionButtonStyled",
+              description = "Click to save the reference table under the name in input `preview_save_name` (same as script `save_reference`)."
+            )
           )
         )
       }
     )
   })
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      data_loaded <- ravedash::watch_data_loaded()
+  server_tools$set_script(
+    name = "save_reference",
+    description = c(
+      "Save the reference table as `[subject]/meta/reference_<name>.csv`",
+      "(same as clicking 'Generate & save'), where <name> is input",
+      "`preview_save_name` (letters, digits, or underscore). An existing",
+      "reference with the same name is overwritten. Input `preview_save_name`",
+      "only exists while the output tab `Preview & Export` is active",
+      "(input `reference_output_tabset`)."
+    ),
+    expr = {
       repo <- component_container$data$repository
       subject <- repo$subject
-      if (!data_loaded || is.null(subject)) { return() }
+      if (is.null(subject)) {
+        stop("No subject is loaded. Please run script `load_data` first.")
+      }
 
       table <- local_reactives$reference_table
       if (!is.data.frame(table)) {
-        error_notification(list(
-          "Fatal error: reference table is missing..."
-        ))
-        return()
+        stop("Fatal error: reference table is missing...")
       }
 
-      name <- trimws(input$preview_save_name)
-      if (!length(name) || !nchar(name)) {
-        error_notification(list(
-          "Reference name cannot be blank"
-        ))
-        return()
+      name <- trimws(paste(input$preview_save_name, collapse = ""))
+      if (!nzchar(name)) {
+        stop("Reference name cannot be blank. Please activate output tab `Preview & Export` (input `reference_output_tabset`) and set input `preview_save_name`.")
       }
       if (!grepl("^[a-zA-Z0-9_]+$", name)) {
-        error_notification(list(
-          sprintf("A valid reference name can only contain letters (a-zA-Z), digits (0-9), or underscore (_). Please revise your current input: [%s]", name)
-        ))
-        return()
+        stop(sprintf("A valid reference name can only contain letters (a-zA-Z), digits (0-9), or underscore (_). Please revise your current input: [%s]", name))
       }
 
+      mode <- ifelse(name %in% subject$reference_names, "overwrite", "create")
       save_path <- file.path(subject$meta_path, sprintf("reference_%s.csv", name))
 
       table <- table[order(table$Electrode), ]
@@ -520,7 +555,15 @@ module_server <- function(input, output, session, ...) {
         buttons = list("OK" = TRUE)
       )
 
-    }),
+      sprintf("Reference [%s] saved to [subject]/meta/reference_%s.csv (mode: %s)",
+              name, name, mode)
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("save_reference")
+    }, error_wrapper = "notification"),
     input$preview_save_btn,
     ignoreNULL = TRUE,
     ignoreInit = TRUE
@@ -1319,12 +1362,28 @@ module_server <- function(input, output, session, ...) {
     ignoreInit = FALSE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "update_electrode_group",
+    description = c(
+      "Apply the electrode groups in input `electrode_group` (same as clicking",
+      "'Set groups'): validate the groups and rebuild the reference table.",
+      "This resets the reference settings of every group, so run it before",
+      "setting the reference of each group. Returns the group names."
+    ),
+    expr = {
 
       ravepipeline::logger("Applying changes to electrode groups", level = "trace")
 
       electrode_group <- input$electrode_group
+      if (!length(electrode_group)) {
+        stop("Input `electrode_group` is empty. Please set at least one group.")
+      }
+      for (group in electrode_group) {
+        group_name <- trimws(paste(group$name, collapse = ""))
+        if (nzchar(group_name) && !length(dipsaus::parse_svec(group$electrodes))) {
+          stop(sprintf("Electrode group [%s] has no electrode channels.", group_name))
+        }
+      }
       pipeline$set_settings(
         reference_name = "_unsaved",
         electrode_group = electrode_group,
@@ -1332,36 +1391,34 @@ module_server <- function(input, output, session, ...) {
       )
 
       res <- pipeline$run(
-        as_promise = TRUE,
         scheduler = "none", type = "vanilla",
         names = c(
           "electrode_group", "reference_group"),
       )
 
-      res$promise$then(
-        onFulfilled = function(...) {
-          tbl_new <- pipeline$read("reference_group")
-          tbl_new <- tbl_new[, c("Electrode", "Group")]
-          tbl_old <- shiny::isolate(local_reactives$reference_table)
-          # update
-          nms <- names(tbl_old)
-          tbl_old <- tbl_old[, nms[!nms %in% c("Group")]]
-          tbl_new <- merge(tbl_old, tbl_new, by = "Electrode", all.y = TRUE)
-          local_reactives$reference_table <- tbl_new
-          local_reactives$group_confirmed <- TRUE
-          shidashi::card_operate(title = "Electrode groups", method = "collapse")
-          shidashi::card_operate(title = "Reference settings", method = "expand")
+      tbl_new <- pipeline$read("reference_group")
+      tbl_new <- tbl_new[, c("Electrode", "Group")]
+      tbl_old <- shiny::isolate(local_reactives$reference_table)
+      # update
+      nms <- names(tbl_old)
+      tbl_old <- tbl_old[, nms[!nms %in% c("Group")]]
+      tbl_new <- merge(tbl_old, tbl_new, by = "Electrode", all.y = TRUE)
+      local_reactives$reference_table <- tbl_new
+      local_reactives$group_confirmed <- TRUE
+      shidashi::card_operate(title = "Electrode groups", method = "collapse")
+      shidashi::card_operate(title = "Reference settings", method = "expand")
 
-          shidashi::clear_notifications(class = ns("error_notif"))
-        },
-        onRejected = function(e) {
-          ravepipeline::logger_error_condition(e)
-          error_notification(e)
-        }
-      )
+      group_names <- unique(tbl_new$Group)
+      group_names[!is.na(group_names) & nzchar(group_names)]
+    }
+  )
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
 
-    }),
+      server_tools$trigger_script("update_electrode_group")
+
+    }, error_wrapper = "notification"),
     input$electrode_group_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -1401,41 +1458,49 @@ module_server <- function(input, output, session, ...) {
   )
 
 
+  server_tools$set_script(
+    name = "generate_reference",
+    description = c(
+      "Create a new reference signal as the average of the channels in input",
+      "`reference_channels_new` (e.g. 1-16,18-20), save it to the subject",
+      "(`ref_<channels>.h5`), and select it in input `reference_channels`",
+      "(same as confirming 'Generate'). Fill `reference_channels_new` by hand,",
+      "or with script `estimate_carla`, first; leave excluded channels out of",
+      "it. Returns the reference name."
+    ),
+    alert_params = list(
+      title = "Generating reference",
+      text = ravedash::be_patient_text()
+    ),
+    expr = {
+      repo <- component_container$data$repository
+      subject <- repo$subject
+      if (is.null(subject)) {
+        stop("No subject is loaded. Please run script `load_data` first.")
+      }
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
-
-      channels <- input$reference_channels_new
-      channels <- gsub("^ref_", "", channels)
-      channels <- dipsaus::parse_svec(channels)
+      channels <- validate_new_reference_channels(
+        input$reference_channels_new, subject)
 
       ravepipeline::logger("Generating reference channels from ", dipsaus::deparse_svec(channels), level = "trace")
 
-      repo <- component_container$data$repository
-      subject_id <- repo$subject$subject_id
-
       shidashi::clear_notifications()
-      dipsaus::shiny_alert2(title = "Generating reference", text = ravedash::be_patient_text(), auto_close = FALSE, buttons = FALSE)
-      on.exit({
-        dipsaus::close_alert2()
-        shiny::removeModal()
-      }, add = TRUE, after = TRUE)
 
       progress <- dipsaus::progress2(max = 2, shiny_auto_close = TRUE, title = "Overall progress")
       progress$inc("")
 
       ravepipeline::with_rave_parallel({
-        ravecore::generate_reference(subject = subject_id, electrodes = channels)
+        ravecore::generate_reference(subject = subject$subject_id, electrodes = channels)
       })
-
 
       shidashi::show_notification("Done!", title = "Success!", type = "success")
 
+      ref_name <- sprintf("ref_%s", dipsaus::deparse_svec(channels))
       ref_choices <- c(
         get_reference_options(),
         "[new reference]"
       )
-      selected <- sprintf("ref_%s", dipsaus::deparse_svec(channels)) %OF% ref_choices
+      selected <- ref_name %OF% ref_choices
 
       ravepipeline::logger("Updating `Reference to` ", selected, level = "trace")
       shiny::updateSelectInput(
@@ -1444,42 +1509,99 @@ module_server <- function(input, output, session, ...) {
         choices = ref_choices,
         selected = selected
       )
+      shiny::removeModal()
 
-
-    }),
-    input$reference_channels_btn2,
-    ignoreNULL = TRUE, ignoreInit = TRUE
+      ref_name
+    }
   )
 
   shiny::bindEvent(
     ravedash::safe_observe({
+      server_tools$trigger_script("generate_reference")
+    }, error_wrapper = "notification"),
+    input$reference_channels_btn2,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
 
-      # DIPSAUS DEBUG START
-      # ravecore::prepare_subject_bare0(
-      #   subject = "demo@bids:ds005953/01",reference_name = "_unsaved",
-      #   auto_exclude = FALSE
-      # ) -> repository
-      # input = list(
-      #   reference_carla_channels = "1-118", reference_carla_epoch = "default"
-      # )
-
-      # Need to use the channels to determine the
+  server_tools$set_script(
+    name = "estimate_carla",
+    description = c(
+      "Find the channels for a common average reference with least",
+      "anti-correlation (CARLA), and write them into input",
+      "`reference_channels_new` (same as 'Calculate' in the CARLA dialog).",
+      "Requires `reference_type` 'Common Average Reference' (or 'White-matter",
+      "Reference') and `reference_channels` '[new reference]', and a subject",
+      "with an epoch. The candidate channels are the ones in",
+      "`reference_channels_new` when it is not blank (enter them before each",
+      "run, e.g. all channels except the excluded ones); otherwise the dialog's",
+      "channels, or all LFP channels. Other parameters are the dialog values if",
+      "the dialog has been opened; otherwise its defaults: the first epoch,",
+      "0.01 to 1 s, 100 bootstrap samples, and all options on. This does not",
+      "create the reference signal: run script `generate_reference` next.",
+      "Returns the channels."
+    ),
+    alert_params = list(
+      title = "Calculating...",
+      text = "Calculating CAR channels with least anti-correlation. This will load the epoch'ed signal and compute the suggested channels for CAR reference. Good coffee will take time. Please wait..."
+    ),
+    expr = {
       repository <- component_container$data$repository
       subject <- repository$subject
+      if (is.null(subject)) {
+        stop("No subject is loaded. Please run script `load_data` first.")
+      }
+      if (!isTRUE(input$reference_type %in% reference_choices[c(2, 3)]) ||
+          !identical(input$reference_channels, "[new reference]")) {
+        stop("Please set input `reference_type` to 'Common Average Reference' (or 'White-matter Reference') and input `reference_channels` to '[new reference]' first. The channels found are written into input `reference_channels_new`.")
+      }
+      if (!length(subject$epoch_names)) {
+        stop(sprintf("CARLA needs epoch'ed signals, but subject [%s] has no epoch. Please create an epoch first, or enter the channels to average in input `reference_channels_new` and run script `generate_reference`.", subject$subject_id))
+      }
+
       lfp_channels <- subject$electrodes[subject$electrode_types %in% c("LFP")]
 
-      ch_input_carla <- dipsaus::parse_svec(paste(input$reference_carla_channels, collapse = ","))
+      # the CARLA dialog values; defaults when the dialog has never been opened
+      carla_inputs <- list(
+        channels = input$reference_carla_channels,
+        epoch = input$reference_carla_epoch,
+        pre = input$reference_carla_pre,
+        post = input$reference_carla_post,
+        n_bootstrap = input$reference_carla_n_bootstrap,
+        min_size = input$reference_carla_min_size,
+        others = input$reference_carla_others
+      )
+      if (is.null(carla_inputs$epoch)) {
+        carla_inputs <- list(
+          channels = NULL,
+          epoch = subject$epoch_names[[1]],
+          pre = 0.01,
+          post = 1,
+          n_bootstrap = 100L,
+          min_size = NA,
+          others = c("virtual_reference", "sensitive", "absolute_rank")
+        )
+      }
+
+      # Channels in `reference_channels_new` are the candidates (scripts only:
+      # people open the dialog with this box blank), so that channels
+      # excluded from the reference can be left out
+      candidates <- trimws(paste(input$reference_channels_new, collapse = ""))
+      if (nzchar(candidates)) {
+        carla_inputs$channels <- candidates
+      }
+
+      ch_input_carla <- dipsaus::parse_svec(paste(carla_inputs$channels, collapse = ","))
       ch_input_carla <- ch_input_carla[ch_input_carla %in% lfp_channels]
       if (!length(ch_input_carla)) {
         ch_input_carla <- lfp_channels
       }
 
-      epoch_name <- input$reference_carla_epoch
+      epoch_name <- carla_inputs$epoch
       if (!isTRUE(epoch_name %in% subject$epoch_names)) {
         stop("Epoch must not be empty for CARLA.")
       }
 
-      time_windows <- ravecore::validate_time_window(c(input$reference_carla_pre, input$reference_carla_post))
+      time_windows <- ravecore::validate_time_window(c(carla_inputs$pre, carla_inputs$post))
       time_windows <- time_windows[[1]]
       if (is.na(time_windows[[1]])) {
         time_windows[[1]] <- 0.01
@@ -1488,17 +1610,17 @@ module_server <- function(input, output, session, ...) {
         time_windows[[2]] <- 1
       }
 
-      n_bootstrap <- as.integer(input$reference_carla_n_bootstrap)
+      n_bootstrap <- as.integer(carla_inputs$n_bootstrap)
       if (!isTRUE(n_bootstrap > 0)) {
         n_bootstrap <- 100L
       }
 
-      min_size <- as.integer(input$reference_carla_min_size)
+      min_size <- as.integer(carla_inputs$min_size)
       if (!isTRUE(min_size > 0)) {
         min_size <- NULL
       }
 
-      misc <- input$reference_carla_others
+      misc <- carla_inputs$others
 
       virtual_reference <- "virtual_reference" %in% misc
       sensitive <- "sensitive" %in% misc
@@ -1517,19 +1639,6 @@ module_server <- function(input, output, session, ...) {
         )
       )
 
-      dipsaus::shiny_alert2(
-        "Calculating...",
-        text = "Calculating CAR channels with least anti-correlation. This will load the epoch'ed signal and compute the suggested channels for CAR reference. Good coffee will take time. Please wait...",
-        icon = "info",
-        auto_close = FALSE,
-        session = session,
-        buttons = FALSE
-      )
-      on.exit({
-        Sys.sleep(0.5)
-        dipsaus::close_alert2()
-      })
-
       carla_fit <- pipeline$run("carla_fit")
 
       car_channels <- dipsaus::deparse_svec(carla_fit$channels)
@@ -1541,7 +1650,14 @@ module_server <- function(input, output, session, ...) {
       )
       shiny::removeModal(session = session)
 
-    }),
+      car_channels
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("estimate_carla")
+    }, error_wrapper = "notification"),
     input$reference_carla_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -1669,23 +1785,7 @@ module_server <- function(input, output, session, ...) {
         return()
       }
 
-      channels <- gsub("^ref_", "", channels)
-      channels <- dipsaus::parse_svec(channels)
-
-      misschan <- channels[!channels %in% subject$electrodes]
-      if (length(misschan)) {
-        error_notification(list(message = sprintf(
-          "Cannot generate reference. The following channels are invalid: %s",
-          dipsaus::deparse_svec(misschan)
-        )))
-        return()
-      }
-
-      channels <- channels[channels %in% subject$electrodes]
-      if (!length(channels)) {
-        error_notification(list(message = "Cannot generate reference: none of the channels is valid"))
-        return()
-      }
+      channels <- validate_new_reference_channels(channels, subject)
       channels <- dipsaus::deparse_svec(channels)
 
       shiny::showModal(shiny::modalDialog(
@@ -1707,7 +1807,7 @@ module_server <- function(input, output, session, ...) {
         )
       ))
 
-    }),
+    }, error_wrapper = "notification"),
     input$reference_channels_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -1742,11 +1842,16 @@ module_server <- function(input, output, session, ...) {
 
             shiny::column(
               width = 12,
-              shiny::selectInput(
-                inputId = ns("reference_channels"),
-                label = "Reference to",
-                choices = ref_choices,
-                selected = ref_selection
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("reference_channels"),
+                  label = "Reference to",
+                  choices = ref_choices,
+                  selected = ref_selection
+                ),
+                inputId = "reference_channels",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = "Select an existing reference signal to use for this group. You can also create a new reference signal by selecting '[new reference]' and entering the channels to average."
               )
             ),
             shiny::uiOutput(ns("ref_generator")),
@@ -1756,10 +1861,15 @@ module_server <- function(input, output, session, ...) {
           shiny::fluidRow(
             shiny::column(
               width = 12,
-              dipsaus::actionButtonStyled(
-                inputId = ns("reference_btn"),
-                label = "Confirm changes & visualize",
-                width = "100%"
+              shidashi::register_input(
+                dipsaus::actionButtonStyled(
+                  inputId = ns("reference_btn"),
+                  label = "Confirm changes & visualize",
+                  width = "100%"
+                ),
+                inputId = "reference_btn",
+                description = "Confirm the changes to the reference settings for this group and visualize the results.",
+                update = "shiny::updateActionButton"
               )
             )
           )
@@ -1773,10 +1883,15 @@ module_server <- function(input, output, session, ...) {
 
           shiny::column(
             width = 12,
-            dipsaus::actionButtonStyled(
-              inputId = ns("bipolar_btn"),
-              label = "Open Bipolar reference editor",
-              width = "100%"
+            shidashi::register_input(
+              dipsaus::actionButtonStyled(
+                inputId = ns("bipolar_btn"),
+                label = "Open Bipolar reference editor",
+                width = "100%"
+              ),
+              inputId = "bipolar_btn",
+              description = "Open a table editor to edit the bipolar reference settings for this group.",
+              update = "shiny::updateActionButton"
             )
           )
         )
@@ -1788,10 +1903,15 @@ module_server <- function(input, output, session, ...) {
 
           shiny::column(
             width = 12,
-            dipsaus::actionButtonStyled(
-              inputId = ns("reference_btn"),
-              label = "Confirm changes & visualize",
-              width = "100%"
+            shidashi::register_input(
+              dipsaus::actionButtonStyled(
+                inputId = ns("reference_btn"),
+                label = "Confirm changes & visualize",
+                width = "100%"
+              ),
+              inputId = "reference_btn",
+              description = "Confirm the changes to the reference settings for this group and visualize the results.",
+              update = "shiny::updateActionButton"
             )
           )
         )
@@ -1842,7 +1962,8 @@ module_server <- function(input, output, session, ...) {
     if (!all(table$Type == reference_choices[4])) {
       table$Type <- reference_choices[4]
       table <- table[order(table$Electrode), ]
-      table$Reference <- c(sprintf("ref_%s", table$Electrode[-1]), "")
+      # the last channel in the group is typically outside of the brain
+      table$Reference <- c(sprintf("ref_%s", table$Electrode[-1]), "noref")
     }
     local_data$bipolar_table <- table
 
@@ -1992,17 +2113,37 @@ module_server <- function(input, output, session, ...) {
       # style = "margin: -5px;",
       shiny::column(
         width = 12L,
-        shiny::textInput(
-          inputId = ns("reference_channels_new"),
-          label = NULL,
-          placeholder = "Enter reference channels"
+        shidashi::register_input(
+          shiny::textInput(
+            inputId = ns("reference_channels_new"),
+            label = NULL,
+            placeholder = "Enter reference channels"
+          ),
+          inputId = "reference_channels_new",
+          description = paste(
+            "Enter the channels to average for the new reference signal (e.g. 1-100 for using channel 1 to 100 for calculating CAR). ",
+            "You can also leave this blank to calculate the channels with least anti-correlation using CARLA.",
+            "For agents: script `generate_reference` averages these channels; script `estimate_carla` uses them as",
+            "the CARLA candidates and replaces them with the channels it selects. Leave excluded channels out."
+          ),
+          update = "shiny::updateTextInput(value=value)"
         )
       ),
       shiny::column(
-        width = 12,
-        shiny::actionButton(
-          inputId = ns("reference_channels_btn"),
-          label = "Generate", width = "100%"
+        width = 12L,
+        shidashi::register_input(
+          shiny::actionButton(
+            inputId = ns("reference_channels_btn"),
+            label = "Generate", width = "100%"
+          ),
+          inputId = "reference_channels_btn",
+          description = paste(
+            "Open a dialog (for people): the CARLA dialog when `reference_channels_new` is blank,",
+            "otherwise a confirmation before generating the reference signal.",
+            "Agents should run script `estimate_carla` (find channels) and script",
+            "`generate_reference` (create the signal) instead."
+          ),
+          update = "shiny::updateActionButton"
         )
       )
     )
@@ -2296,74 +2437,97 @@ module_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "update_group_reference",
+    description = c(
+      "Apply the reference settings of the group chosen in input `group_name`",
+      "(inputs `reference_type` and `reference_channels`) and update the",
+      "reference table (same as clicking 'Confirm changes & visualize').",
+      "'Common Average Reference' and 'White-matter Reference' need an",
+      "existing `ref_*` signal in `reference_channels`; 'Bipolar Reference'",
+      "uses the bipolar table, where each channel references the next channel",
+      "of the group and the last channel gets 'noref'. Run it once per group.",
+      "Returns the group's references."
+    ),
+    expr = {
       ginfo <- current_group()
-      # list(
-      #   name = gname,
-      #   data = sub,
-      #   electrode_text = dipsaus::deparse_svec(sub$Electrode)
-      # )
+      if (!is.list(ginfo) || length(ginfo$name) != 1) {
+        stop("No reference group is chosen. Please run script `update_electrode_group` first, then choose a group in input `group_name`.")
+      }
+
+      ref_type <- input$reference_type
+      if (length(ref_type) != 1 || !ref_type %in% reference_choices) {
+        stop("Invalid reference type. Please set input `reference_type` to one of: ",
+             paste(sprintf("'%s'", reference_choices), collapse = ", "))
+      }
 
       ravepipeline::logger("Applying changes to reference group [{ginfo$name}]",
                        level = "trace", use_glue = TRUE)
 
-      ref_type <- input$reference_type
-      if (length(ref_type)) {
-
+      if (ref_type == reference_choices[[1]]) {
+        ref_signals <- "noref"
+      } else if (ref_type %in% reference_choices[c(2, 3)]) {
         ref_signals <- input$reference_channels
-        if (ref_type == reference_choices[[1]]) {
-          ref_signals <- "noref"
-        } else if (ref_type %in% reference_choices[4]) {
-          bipolar_table <- get_bipolar_table()
-          ref_signals <- bipolar_table$Reference
+        if (length(ref_signals) != 1 || !isTRUE(ref_signals %in% get_reference_options())) {
+          stop("The reference signal is not ready. Please choose an existing `ref_*` signal in input `reference_channels`, or create one: set `reference_channels` to '[new reference]', fill `reference_channels_new` (or run script `estimate_carla`), then run script `generate_reference`.")
         }
-
-        current_change <- list(
-          group_name = ginfo$name,
-          electrodes = ginfo$electrode_text,
-          reference_type = ref_type,
-          reference_signal = ref_signals
-        )
-
-        changes <- as.list(pipeline$get_settings("changes"))
-
-        # Make changes
-        dup <- vapply(changes, function(item) {
-          ginfo$name %in% item$group_name
-        }, FUN.VALUE = FALSE)
-        changes <- changes[!dup]
-        changes[[length(changes) + 1]] <- current_change
-
-
-        pipeline$set_settings(changes = changes)
+      } else {
+        bipolar_table <- get_bipolar_table()
+        if (!is.data.frame(bipolar_table)) {
+          stop("The bipolar table is not ready: ", bipolar_table)
+        }
+        # The pipeline assigns the references in its own row order
+        reference_group <- pipeline$read("reference_group")
+        rows <- reference_group$Electrode[reference_group$Electrode %in% bipolar_table$Electrode]
+        ref_signals <- bipolar_table$Reference[match(rows, bipolar_table$Electrode)]
       }
 
-      res <- pipeline$run(
-        as_promise = TRUE,
-        names = "reference_updated",
-        scheduler = "none",
-        type = "vanilla")
-
-      res$promise$then(
-        onFulfilled = function(...) {
-
-          updated_reftable <- pipeline$read("reference_updated")
-
-          local_reactives$reference_table <- updated_reftable
-
-          shiny::removeModal()
-
-          info_notification("Reference table updated. Updating the visualizations...")
-
-        }, onRejected = function(e) {
-
-          error_notification(e)
-
-        }
+      current_change <- list(
+        group_name = ginfo$name,
+        electrodes = ginfo$electrode_text,
+        reference_type = ref_type,
+        reference_signal = ref_signals
       )
 
-    }),
+      changes <- as.list(pipeline$get_settings("changes"))
+
+      # Make changes
+      dup <- vapply(changes, function(item) {
+        ginfo$name %in% item$group_name
+      }, FUN.VALUE = FALSE)
+      changes <- changes[!dup]
+      changes[[length(changes) + 1]] <- current_change
+
+      pipeline$set_settings(changes = changes)
+
+      pipeline$run(
+        names = "reference_updated",
+        scheduler = "none",
+        type = "vanilla",
+        return_values = FALSE
+      )
+
+      updated_reftable <- pipeline$read("reference_updated")
+      local_reactives$reference_table <- updated_reftable
+
+      shiny::removeModal()
+
+      info_notification("Reference table updated. Updating the visualizations...")
+
+      group_rows <- updated_reftable[updated_reftable$Group %in% ginfo$name, ]
+      group_rows <- group_rows[order(group_rows$Electrode), ]
+      sprintf(
+        "Group [%s]: %s (%s)", ginfo$name, ref_type,
+        paste(sprintf("%s: %s", group_rows$Electrode, group_rows$Reference),
+              collapse = ", ")
+      )
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("update_group_reference")
+    }, error_wrapper = "notification"),
     input$reference_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )

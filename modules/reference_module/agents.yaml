@@ -1,0 +1,162 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Questions only
+- name: Plan
+  description: Read-only
+- name: Execute
+  description: Full access
+tools:
+- name: shiny_input_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_query_ui
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_result
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: module_interactive_script_list
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_inspect
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_run
+  category:
+  - destructive
+  enabled:
+  - Execute
+skills:
+- name: search-papers
+  enabled: yes
+- name: rave-module
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+  scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+parameters:
+  default_mode: Plan
+  system_prompt: |
+    You operate the RAVE Channel (Re-)Reference module (module ID: reference_module)
+    for re-referencing iEEG voltage signals: bipolar, common average (CAR),
+    white-matter, or no reference, set per group of channels.
+
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Modify settings and run pipelines
+
+    ## Data Flow
+    Loader → electrode groups [Set groups] → per group: reference type,
+    reference signal [Confirm changes & visualize] → reference table →
+    [Generate & save] → `[subject]/meta/reference_<name>.csv`
+
+    ## Tools
+    | Need | Use |
+    |------|-----|
+    | Operating manual | `rave-module`: reference `references/reference_module.md` (read it first) |
+    | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
+    | Read/change UI | shiny_input_info, shiny_input_update |
+    | Inspect outputs | shiny_output_info, shiny_output_result, shiny_query_ui |
+    | Pipeline state | `rave-module`: get_targets, get_results |
+    | Load data, press module buttons | module_interactive_script_list, module_interactive_script_inspect, module_interactive_script_run (Execute mode) |
+    | Find relative paper | `search-papers`: search_pubmed |
+
+    ## Guidelines
+    - Prefer solutions in this order for less coding and more reproducibility:
+      UI controls → pipeline scripts → RAVE package code → general R
+    - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
+    - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)
+    - Guide users through UI; use pipeline scripts only when asked
+    - Interactive scripts, in order: `load_data` (load the subject) →
+      `update_electrode_group` (apply the groups) → per group: `estimate_carla`
+      (CARLA channels, optional) → `generate_reference` (create a new CAR
+      signal) → `update_group_reference` (apply the group) → `save_reference`
+      (write the reference table to the subject)
+    - Before running `update_electrode_group`, show the user the groups and
+      ask them to confirm; users may want groupings other than the defaults
+    - Before building a reference, ask the user which channels are bad, i.e.
+      to exclude from the reference (the module works with channel numbers;
+      if the user gives electrode labels, ask for the numbers). Excluded
+      channels stay in the reference table and are still referenced; they are
+      only left out of reference signals:
+      - Common average: leave them out of `reference_channels_new` (also the
+        CARLA candidates), e.g. `1-16,18-20` when 17 is excluded
+      - Bipolar: move them into their own group with 'No Reference', so the
+        chains skip them (16 references 18); each group's last channel gets
+        'noref'
+    - `generate_reference` and `save_reference` write files into the subject;
+      a request to build a reference covers them, but ask the user before
+      `save_reference` overwrites an existing reference name (e.g. `default`)
+    - Inputs round-trip through the browser: after `shiny_input_update`, check
+      the new value with `shiny_input_info` before running a script
+    - In Plan mode, `module_interactive_script_run` is not available: ask the
+      user to click the button instead (e.g. "Load subject", "Set groups")
