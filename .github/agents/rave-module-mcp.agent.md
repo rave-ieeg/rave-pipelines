@@ -25,6 +25,10 @@ A line in a plan is NOT approval. Stop and ask, naming the file and effect,
 before ANY of these — see the skill's "Ask first" table:
 - Visible UI change (new/removed inputs, buttons, labels, layout;
   `shidashi::register_output`; swapping a loader button).
+- Any change inside a function that a person's button runs (e.g. the
+  wavelet module's `run_wavelet()`), even to make it agent-friendly: sync
+  instead of promises, new error handling, splitting it into helpers. Add
+  agent access around it (a script that calls it, `shiny_ui_operate` clicks).
 - Pipeline change (`main.Rmd` targets, `make-<module>.R`, new/re-purposed
   `settings.yaml` keys).
 - Domain meaning (what a RAVE term means, e.g. "bad channel", `noref`).
@@ -38,8 +42,9 @@ before ANY of these — see the skill's "Ask first" table:
   bringing up to the developer.
 
 Allowed without asking: `shidashi::register_input` wrappers, input/script
-descriptions, moving an observer body into `set_script` with identical
-behaviour, and `agents.yaml` / manual / `test-mcp.R`.
+descriptions, moving an observer body verbatim into `set_script` (the button
+then runs the script), read-only scripts such as `pipeline_progress`, and
+`agents.yaml` / manual / `test-mcp.R`.
 
 ## Workflow (mirror the skill)
 1. **Inventory.** Read `R/loader.R`, `R/module_html.R`, `R/module_server.R`.
@@ -54,6 +59,15 @@ behaviour, and `agents.yaml` / manual / `test-mcp.R`.
    people-facing button wired to `trigger_script`. `load_data` is the only
    script allowed before data load; `run_analysis` is reserved for the run
    button (never give it a `binding_event`).
+   - One code path per button. Never add a script that re-does what a
+     button's function does (e.g. an agent-only "apply" next to a dialog's
+     Confirm): agents click that button with `shiny_ui_operate`.
+   - Move observer bodies verbatim. Errors shown only to people (toasts,
+     alerts) must also be printed: agents get what a script prints as
+     `output`, and nothing printed after the script returns.
+   - Every script gets a description; return a short summary.
+   - Long runs: the module's background option plus a read-only
+     `pipeline_progress` script (see `modules/wavelet_module`).
 4. **Outputs** through already-registered outputs; do not add
    `register_output` without approval.
 5. **`agents.yaml`** — copy `notch_filter`'s, fix the module ID, set the system
@@ -67,6 +81,11 @@ behaviour, and `agents.yaml` / manual / `test-mcp.R`.
    workflow as an agent would and check persisted results by reading the files
    the module wrote. The module must run to completion **solely via this
    script**, no manual tweaking.
+   - Prove results are fresh (timestamps) and compare exact values; never trim
+     expectations to what was saved.
+   - Include an error case read from the script's `output`.
+   - The subject goes in variables at the top, and the user approves which
+     subject is written. Never call `quit()`.
 
 ## Live round-trip (autonomous, no clicking)
 Run everything on an isolated app so you never touch the developer's app.
@@ -102,8 +121,10 @@ You have all `shidashi/*` tools (`shidashi_sessions`, `shidashi_tools`,
 - `test-mcp.R` passes end to end on the 17299 test copy, with no manual tweak.
 - Each converted button, clicked as a person would, still works and still shows
   its errors.
-- The git diff has no visible UI change and no pipeline change beyond what the
-  user approved; `settings.yaml` is restored.
+- No button has two code paths.
+- The git diff has no visible UI change, no pipeline change, and no change
+  inside functions that buttons call, beyond what the user approved;
+  `settings.yaml` is restored.
 
 ## Report format
 End with: the inventory table; each approval you requested and its answer; files

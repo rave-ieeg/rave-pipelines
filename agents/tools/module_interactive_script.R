@@ -4,6 +4,73 @@
 # modules register with `server_tools$set_script()` (e.g. `load_data`,
 # `run_analysis`)
 
+# Evaluate `expr` and collect what it prints, so a script can report to agents
+# by printing. Returns `value` (NULL on error), `error` (the condition, or
+# NULL), and `output`: stdout, then the message stream (message(), cli and
+# `targets` progress, warnings, and anything written to stderr, such as
+# `ravepipeline::logger()`), without ANSI codes, cut to the last `max_chars`
+# characters. The console still gets everything: stdout as it is printed, the
+# message stream once `expr` finishes.
+capture_script_output <- function(expr, max_chars = 3000) {
+  stdout_lines <- character()
+  message_lines <- character()
+  stdout_con <- textConnection("stdout_lines", open = "w", local = TRUE)
+  message_con <- textConnection("message_lines", open = "w", local = TRUE)
+
+  n_sinks <- sink.number()
+  message_sink <- sink.number(type = "message")
+  sink(stdout_con, split = TRUE)
+  sink(message_con, type = "message")
+
+  restored <- FALSE
+  restore <- function() {
+    if (restored) { return() }
+    restored <<- TRUE
+    if (message_sink == 2L) {
+      sink(type = "message")
+    } else {
+      sink(getConnection(message_sink), type = "message")
+    }
+    while (sink.number() > n_sinks) { sink() }
+    close(stdout_con)
+    close(message_con)
+  }
+  on.exit(restore(), add = TRUE)
+
+  # Messages go into the same buffer as raw stderr, in order; they are
+  # muffled so they are not written twice
+  write_message <- function(text) {
+    text <- paste(text, collapse = "")
+    if (!endsWith(text, "\n")) { text <- paste0(text, "\n") }
+    cat(text, file = message_con)
+  }
+  result <- withCallingHandlers(
+    tryCatch(
+      list(value = expr, error = NULL),
+      error = function(e) { list(value = NULL, error = e) }
+    ),
+    message = function(m) {
+      write_message(conditionMessage(m))
+      invokeRestart("muffleMessage")
+    },
+    warning = function(w) {
+      write_message(paste("Warning:", conditionMessage(w)))
+    }
+  )
+  restore()
+
+  if (length(message_lines)) {
+    writeLines(message_lines, con = stderr())
+  }
+
+  output <- trimws(cli::ansi_strip(paste(c(stdout_lines, message_lines), collapse = "\n")))
+  if (nchar(output) > max_chars) {
+    output <- paste0("...", substr(output, nchar(output) - max_chars + 1L, nchar(output)))
+  }
+  result$output <- output
+  result
+}
+
 module_interactive_script_list <- shidashi::mcp_wrapper(
 
   function(session) {
@@ -128,29 +195,38 @@ module_interactive_script_run <- shidashi::mcp_wrapper(
           }
         }
 
-        result <- tryCatch(
-          server_tools$trigger_script(name),
-          error = function(e) {
-            ravepipeline::logger_error_condition(e)
-            e
-          }
-        )
-        if (inherits(result, "error")) {
-          stop(sprintf("Script `%s` failed: %s", name, conditionMessage(result)))
+        # What the script prints goes to the agent as `output`
+        captured <- capture_script_output(server_tools$trigger_script(name))
+        if (!is.null(captured$error)) {
+          ravepipeline::logger_error_condition(captured$error)
+          stop(paste(c(
+            sprintf("Script `%s` failed: %s", name, conditionMessage(captured$error)),
+            if (nzchar(captured$output)) c("Console output:", captured$output)
+          ), collapse = "\n"))
         }
+        result <- captured$value
+        output <- captured$output
 
         note <- sprintf(
           "Script `%s` finished. The module's UI might be still reacting. Please give it 1 ~ 10 seconds to settle.",
           name
         )
+        reply <- list(note = note)
         # Only plain values can be sent back to agents: environments,
-        # promises, and large objects are left out
+        # promises, and large objects are summarized with `str()` instead
         if (is.atomic(result) && length(result) > 0 && length(result) <= 100) {
-          return(list(note = note, result = result))
+          reply$result <- result
+        } else if (!is.null(result)) {
+          reply$result <- "(Result omitted to save the agent context; its `str()` is at the end of `output`)"
+          output <- paste(c(
+            output, "str(result):",
+            utils::capture.output(utils::str(result, max.level = 1, list.len = 10))
+          ), collapse = "\n")
         }
-        # this will print str to stdout and sent to agent
-        str(result)
-        return(list(note = note, result = "(Result omitted to save the agent context; see stdout for snapshot)"))
+        if (nzchar(output)) {
+          reply$output <- output
+        }
+        reply
       },
       name = "module_interactive_script_run",
       description = paste(
@@ -159,7 +235,12 @@ module_interactive_script_run <- shidashi::mcp_wrapper(
         "Most interactive scripts have side-effects (e.g. change the UI inputs,",
         "pipeline settings, or saved results): check what a script does with",
         "`module_interactive_script_inspect` first.",
-        "All scripts except `load_data` need the data loaded first."
+        "All scripts except `load_data` need the data loaded first.",
+        "The reply has the script's return value (`result`) and what it printed",
+        "while it ran (`output`: console output, messages, pipeline progress, and",
+        "errors a module logs; the last 3000 characters). Read `output`: a script",
+        "can print an error and still finish. Anything the module prints after",
+        "the script returns (e.g. a dialog opening) is not included."
       ),
       arguments = list(
         name = ellmer::type_string(

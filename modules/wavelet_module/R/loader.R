@@ -79,6 +79,15 @@ loader_server <- function(input, output, session, ...) {
         project_name = settings$project_name,
         subject_code = settings$subject_code
       )
+
+      # Summary for agents: the sample rate bounds `pre_downsample` and the
+      # frequency range
+      sprintf(
+        "Loaded %s/%s: notch-filtered electrodes %s; sample rate %s Hz",
+        settings$project_name, settings$subject_code,
+        dipsaus::deparse_svec(pipeline$read("notch_filtered_electrodes")),
+        paste(unique(pipeline$read("sample_rates")), collapse = ", ")
+      )
     },
     binding_event = "load_data",
     # Let the module know the data has been changed

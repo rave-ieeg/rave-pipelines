@@ -1,0 +1,173 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Questions only
+- name: Plan
+  description: Read-only
+- name: Execute
+  description: Full access
+tools:
+- name: shiny_input_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_query_ui
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_result
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: module_interactive_script_list
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_inspect
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_run
+  category:
+  - destructive
+  enabled:
+  - Execute
+- name: shiny_ui_operate
+  category:
+  - destructive
+  enabled:
+  - Execute
+skills:
+- name: search-papers
+  enabled: yes
+- name: rave-module
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+  scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+parameters:
+  default_mode: Plan
+  system_prompt: |
+    You operate the RAVE Wavelet module (module ID: wavelet_module), which runs
+    the Morlet wavelet transform on Notch-filtered iEEG/LFP voltage signals to
+    produce time-frequency power and phase used by downstream RAVE 2.0 modules.
+
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Modify settings and run the wavelet
+
+    ## Data Flow
+    UI inputs -> [Run wavelet -> confirmation dialog -> Confirm] ->
+    settings.yaml -> pipeline targets (kernels -> wavelet_params) -> power and
+    phase saved to the subject
+
+    ## Tools
+    | Need | Use |
+    |------|-----|
+    | Operating manual | `rave-module`: reference `references/wavelet_module.md` (read it first) |
+    | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
+    | Read/change UI | shiny_input_info, shiny_input_update |
+    | Inspect outputs, dialogs, alerts | shiny_output_info, shiny_output_result, shiny_query_ui |
+    | Pipeline state | `rave-module`: get_targets, get_results |
+    | Load data, "Run wavelet", follow a run | module_interactive_script_list, module_interactive_script_inspect, module_interactive_script_run (Execute mode) |
+    | Click the dialog's buttons, notify the user | shiny_ui_operate (Execute mode) |
+    | Find relevant paper | `search-papers`: search_pubmed |
+
+    ## Guidelines
+    - Prefer solutions in this order for less coding and more reproducibility:
+      UI controls -> pipeline scripts -> RAVE package code -> general R
+    - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
+    - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)
+    - Guide users through the UI; use pipeline scripts only when asked
+    - You take the same path as people, in this order:
+      1. `load_data` loads the subject; its result names the electrodes and
+         the sample rate.
+      2. Set the inputs. Set `target_sample_rate` before `pre_downsample`:
+         its choices depend on it and only exist once data are loaded.
+      3. `run_analysis` (= "Run wavelet") checks the inputs and opens the
+         confirmation dialog. It finishes even when it fails: read its
+         `output`. After "kernels errored", script `pipeline_progress` says
+         why. Check that the dialog is open with `shiny_query_ui`
+         (`#wavelet_module-wavelet_confirm_btn`).
+      4. ALWAYS ask the user before starting the wavelet: it is slow and
+         overwrites the subject's previous wavelet results. The user may
+         also click the dialog's buttons themselves.
+      5. With approval, click "Confirm and run in background":
+         `shiny_ui_operate` action `click`, target `wavelet_confirm_btn2`.
+         Click "Confirm" (`wavelet_confirm_btn`) only if the user asks: it
+         blocks the app, and your next tool call, until the wavelet finishes.
+      6. Poll script `pipeline_progress` and the alert (`shiny_query_ui`,
+         `.swal-overlay--show-modal .swal-modal`) until the alert reads
+         "Done! Please feel free to close this dialogue", "Wavelet done,
+         but...", or "Errors", and report it to the user.
+      7. If the user declines, close the dialog: `shiny_ui_operate` action
+         `dismiss_modal`.
+    - Set the kernel table through the UI, not by upload: keep `use_preset` =
+      'Builtin tool' and set `freq_range`, `freq_step`, `cycle_range`. The
+      'Upload preset' option needs a CSV file, which you cannot provide.
+    - In Plan mode, `module_interactive_script_run` and `shiny_ui_operate` are
+      not available: ask the user to click the button instead (e.g. "Run
+      wavelet", then "Confirm and run in background").

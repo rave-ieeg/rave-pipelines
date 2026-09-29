@@ -68,12 +68,57 @@ tools:
     pipeline settings, or saved results): check what a script does with
     `module_interactive_script_inspect` first.
     All scripts except `load_data` need the data loaded first.
+    The reply has the script's return value (`result`) and what it printed
+    while it ran (`output`: console output, messages, pipeline progress, and
+    errors a module logs; the last 3000 characters). Read `output`: a script
+    can print an error and still finish. Anything the module prints after
+    the script returns (e.g. a dialog opening) is not included.
   inputSchema:
     type: object
     properties:
       name:
         type: string
         description: >-
-          Interactive script name, must be included from the result 
+          Interactive script name, must be included from the result
           returned by tool `module_interactive_script_list`
     required: [name]
+# Mirrors agents/tools/shiny_ui_operate.R: keep them in sync.
+- name: shiny_ui_operate
+  description: |
+    Operate the module page as a person would, for what `shiny_input_update`
+    cannot reach: buttons in a dialog that a script opened (e.g. 'Confirm'),
+    alert buttons, the dialog itself, and notifications.
+    Actions: `click` clicks `target`, a module input ID (e.g. a button ID;
+    it must be on the page) or a CSS selector (e.g. `.swal-button`);
+    `dismiss_modal` closes the open dialog, like its Cancel button;
+    `show_notification` shows `message` (with optional `title` and `type`)
+    until the user closes it or `remove_notification` removes it;
+    `remove_notification` removes the notifications with CSS class `target`
+    (all if empty).
+    The app reacts after this call returns: confirm the result with
+    `shiny_query_ui`. A click can start long or destructive work (e.g. a
+    dialog's Confirm button): ask the user first.
+  inputSchema:
+    type: object
+    properties:
+      action:
+        type: string
+        enum: [click, dismiss_modal, show_notification, remove_notification]
+        description: What to do.
+      target:
+        type: string
+        description: >-
+          `click`: a module input ID (without the module prefix) or a CSS
+          selector. `remove_notification`: the CSS class of the notifications
+          to remove, e.g. `<module_id>-agent_notification`; empty removes all.
+      message:
+        type: string
+        description: "`show_notification`: the text to show."
+      title:
+        type: string
+        description: "`show_notification`: the title."
+      type:
+        type: string
+        enum: [info, success, warning, danger]
+        description: "`show_notification`: the color. Default `info`."
+    required: [action]

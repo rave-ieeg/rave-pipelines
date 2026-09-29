@@ -114,6 +114,10 @@ the validation step even if the apply step would run without it — validation i
 what checks the parameters before results are written. State the required order
 explicitly for this module so an agent cannot reorder or skip a step.
 
+A script's reply has `result` (its return value) and `output` (what it printed
+while it ran). Say what `output` shows when the step fails, since some scripts
+finish anyway.
+
 ### Load data
 
 * Set a loader input: `tool("tool__shiny_input_update", inputId = "{loader_input_id}", value = "{value}")`
@@ -127,6 +131,10 @@ explicitly for this module so an agent cannot reorder or skip a step.
 * {Repeat for each analysis input.}
 * {Validate / confirm step, if any:} `tool("tool__module_interactive_script_run", name = "{run_analysis}")`
 * {Apply / save step, if any — ask the user first:} `tool("tool__module_interactive_script_run", name = "{apply_script}")`
+* {Dialog button, if a script opens a dialog — check that it is open, ask the user first:}
+  `tool("tool__shiny_query_ui", css_selector = "#{module_id}-{button_id}")`, then
+  `tool("tool__shiny_ui_operate", action = "click", target = "{button_id}")`
+* {Long run, if any — poll until it is done:} `tool("tool__module_interactive_script_run", name = "pipeline_progress")`
 
 ### Inspect results
 
