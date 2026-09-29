@@ -383,7 +383,7 @@ wait_until(function() on_page(dialog), "the confirmation dialog")
 operate("click", target = "wavelet_confirm_btn2")  # "Confirm and run in background"
 wait_wavelet(run1_start)
 check_saved(run1_start, precision = "float")
-operate("click", target = paste(alert, ".swal-button"))  # close the "Done!" alert
+operate("close_alert2")                            # close the "Done!" alert
 wait_until(function() !nzchar(alert_text()), "the alert to close")
 
 # ---- run 2: `run_analysis` and "Confirm" (writes!) ----------------------------
@@ -396,7 +396,7 @@ wait_until(function() on_page(dialog), "the confirmation dialog")
 operate("click", target = "wavelet_confirm_btn")
 wait_wavelet(run2_start)
 check_saved(run2_start, precision = "double")
-operate("click", target = paste(alert, ".swal-button"))
+operate("click", target = paste(alert, ".swal-button"))  # its OK button, as a person would
 wait_until(function() !nzchar(alert_text()), "the alert to close")
 
 cat("\nWavelet workflow passed. Restore `modules/wavelet_module/settings.yaml`",

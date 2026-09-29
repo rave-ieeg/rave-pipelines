@@ -18,26 +18,51 @@ module_html <- function() {
               ravedash::flex_group_box(
                 title = "Basic configurations",
                 shidashi::flex_item(
-                  shiny::numericInput(
-                    inputId = ns("target_sample_rate"),
-                    label = "Power sample rate (Hz):",
-                    value = 100,
-                    min = 1
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("target_sample_rate"),
+                      label = "Power sample rate (Hz):",
+                      value = 100,
+                      min = 1
+                    ),
+                    inputId = "target_sample_rate",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "[Numeric, Hz] The sample rate to which the wavelet power/phase coefficients are down-sampled after wavelet computation but before saving.",
+                      "Must be greater than 1. Default `100` (recommended). Read by script `run_analysis`."
+                    )
                   )
                 ),
                 shidashi::flex_item(
-                  shiny::selectInput(
-                    inputId = ns("pre_downsample"),
-                    label = "Down-sample before wavelet",
-                    choices = "1"
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("pre_downsample"),
+                      label = "Down-sample before wavelet",
+                      choices = "1"
+                    ),
+                    inputId = "pre_downsample",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "[Select, integer as string] Down-sample factor applied to the voltage signal BEFORE the wavelet (will affect Nyquist frequency).",
+                      "Choices are powers of two computed from the subject sample rate; `1` means no pre-down-sample.",
+                      "The available choices only appear after data are loaded. Read by script `run_analysis`."
+                    )
                   )
                 ),
                 shidashi::flex_break(),
                 shidashi::flex_item(
-                  shiny::checkboxInput(
-                    inputId = ns("precision"),
-                    label = "Use single float precision to speed up",
-                    value = FALSE
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("precision"),
+                      label = "Use single float precision to speed up",
+                      value = FALSE
+                    ),
+                    inputId = "precision",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "[Boolean] When `true`, the wavelet is computed in single (float) precision, which is faster;",
+                      "when `false` (default) it uses double precision. Read by script `run_analysis`."
+                    )
                   )
                 )
               ),
@@ -45,11 +70,20 @@ module_html <- function() {
               ravedash::flex_group_box(
                 title = "Frequency & cycle",
                 shidashi::flex_item(
-                  shiny::selectInput(
-                    inputId = ns("use_preset"),
-                    label = "Select method to generate wavelet parameters",
-                    choices = c("Builtin tool", "Upload preset"),
-                    selected = "Builtin tool"
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("use_preset"),
+                      label = "Select method to generate wavelet parameters",
+                      choices = c("Builtin tool", "Upload preset"),
+                      selected = "Builtin tool"
+                    ),
+                    inputId = "use_preset",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "[Select] How the wavelet kernel table (Frequency + Cycles) is generated: `Builtin tool`",
+                      "(default; use `freq_range`, `freq_step`, `cycle_range`) or `Upload preset` (needs a CSV upload,",
+                      "which agents cannot do). Agents should keep this at `Builtin tool`."
+                    )
                   )
                 ),
                 shidashi::flex_break(),
@@ -69,29 +103,57 @@ module_html <- function() {
 
                   shiny::conditionalPanel(
                     condition = sprintf("input['%s']==='Builtin tool'", ns("use_preset")),
-                    shiny::sliderInput(
-                      inputId = ns("freq_range"),
-                      label = "Frequency range",
-                      min = 1,
-                      max = 1000,
-                      value = c(2, 200),
-                      step = 1
+                    shidashi::register_input(
+                      shiny::sliderInput(
+                        inputId = ns("freq_range"),
+                        label = "Frequency range",
+                        min = 1,
+                        max = 1000,
+                        value = c(2, 200),
+                        step = 1
+                      ),
+                      inputId = "freq_range",
+                      update = "shiny::updateSliderInput",
+                      description = paste(
+                        "[Numeric length of two, Hz] Lower and upper frequency of the built-in kernel table, as `[low, high]`.",
+                        "Default `[2, 200]`. Its upper limit is capped by the subject sample rate / pre-down-sample.",
+                        "Used only when `use_preset` = `Builtin tool`."
+                      )
                     ),
-                    shiny::sliderInput(
-                      inputId = ns("freq_step"),
-                      label = "Frequency step size",
-                      min = 1,
-                      max = 40,
-                      value = 2,
-                      step = 1
+                    shidashi::register_input(
+                      shiny::sliderInput(
+                        inputId = ns("freq_step"),
+                        label = "Frequency step size",
+                        min = 1,
+                        max = 40,
+                        value = 2,
+                        step = 1
+                      ),
+                      inputId = "freq_step",
+                      update = "shiny::updateSliderInput",
+                      description = paste(
+                        "[Numeric, Hz] Spacing between consecutive frequencies in the built-in kernel table. Default `2`.",
+                        "For example, freq_range = `[2, 200]` and freq_step = `2` gives wavelet frequencies `2, 4, 6, ..., 200`.",
+                        "Used only when `use_preset` = `Builtin tool`."
+                      )
                     ),
-                    shiny::sliderInput(
-                      inputId = ns("cycle_range"),
-                      label = "Wavelet cycles",
-                      min = 1,
-                      max = 40,
-                      value = c(3, 20),
-                      step = 1
+                    shidashi::register_input(
+                      shiny::sliderInput(
+                        inputId = ns("cycle_range"),
+                        label = "Wavelet cycles",
+                        min = 1,
+                        max = 40,
+                        value = c(3, 20),
+                        step = 1
+                      ),
+                      inputId = "cycle_range",
+                      update = "shiny::updateSliderInput",
+                      description = paste(
+                        "[Integer length-2] Number of Morlet wavelet cycles at the lowest and highest frequency, as `[low, high]`.",
+                        "In between, log(cycles) is interpolated linearly in log(frequency) and rounded. Default `[3, 20]`.",
+                        "The pipeline rejects any cycle count of 1 or less, so the lower value must be at least 2.",
+                        "Used only when `use_preset` = `Builtin tool`."
+                      )
                     )
                   )
 

@@ -69,8 +69,9 @@ Allowed without asking:
   * `module_interactive_script_list` / `_inspect` / `_run` (`_run` in Execute mode only)
   * `shiny_ui_operate` (`agents/tools/shiny_ui_operate.R`; enable it in
     `agents.yaml`, Execute mode only): `click` a module input ID (e.g. a
-    dialog button) or a CSS selector (e.g. `.swal-button`), `dismiss_modal`,
-    `show_notification`, and `remove_notification` (by CSS class)
+    dialog button) or a CSS selector, `dismiss_modal`, `close_alert2` (runs
+    `dipsaus::close_alert2()`), `show_notification`, and
+    `remove_notification` (by CSS class)
 * **Inputs round-trip through the browser.** `shiny_input_update` calls the
   registered update function; the browser applies it and sends the value back.
   * A browser session with the module open is required.
@@ -288,7 +289,7 @@ cp "$SCRATCH/settings.yaml.bak" modules/<id>/settings.yaml
 | `Input ... is inactive or missing` | `renderUI` branch, modal, or tab footer not showing. Set the controlling input first (e.g. activate the tab). |
 | Groups arrive empty | Sent as an R list, or the installed shidashi decodes JSON into a data.frame. Send a JSON string; check `simplifyDataFrame = FALSE`. |
 | Compound input has one empty row after load | Initial value. Poll until the populated value arrives. |
-| "Error found!" dialog stays open | A script with `alert_params` failed. Someone must click Confirm, or the agent clicks it (`shiny_ui_operate`, `.swal-overlay--show-modal .swal-button`); say so in the manual. |
+| "Error found!" dialog stays open | A script with `alert_params` failed. Someone must click Confirm, or the agent closes it (`shiny_ui_operate` action `close_alert2`); say so in the manual. |
 | Output text is stale | Hidden outputs do not update. Activate the tab first. |
 | A script "succeeds", but nothing happened | The body caught the error and showed it only to people. Read `output`; if the error is not there, print it in the module's notification helper. |
 | `output` says "✖ <target> errored" without a reason | `ravepipeline` logs the target's code, not its message. A `pipeline_progress` script reads it from `targets::tar_meta(fields = "error")`. |

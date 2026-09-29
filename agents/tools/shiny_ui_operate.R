@@ -2,7 +2,7 @@
 #
 # Root-level MCP tool: operate the module page as a person would, for what
 # `shiny_input_update` cannot reach: buttons in a dialog that a script opened,
-# alert buttons, the dialog itself, and notifications. Enable it per module in
+# alerts, the dialog itself, and notifications. Enable it per module in
 # agents.yaml.
 
 shiny_ui_operate <- shidashi::mcp_wrapper(
@@ -50,6 +50,10 @@ shiny_ui_operate <- shidashi::mcp_wrapper(
             shiny::removeModal(session = session)
             "Closed the open dialog, if there was one (same as its Cancel button)."
           },
+          "close_alert2" = {
+            dipsaus::close_alert2(session = session)
+            "Closed the alert on the page, if there was one (e.g. 'Done!' or 'Errors')."
+          },
           "show_notification" = {
             if (!nzchar(message)) {
               stop("Action `show_notification` needs `message`.")
@@ -81,7 +85,7 @@ shiny_ui_operate <- shidashi::mcp_wrapper(
           },
           stop(sprintf(paste(
             "Unknown action `%s`. Use one of: click, dismiss_modal,",
-            "show_notification, remove_notification."
+            "close_alert2, show_notification, remove_notification."
           ), action))
         )
       },
@@ -89,10 +93,11 @@ shiny_ui_operate <- shidashi::mcp_wrapper(
       description = paste(
         "Operate the module page as a person would, for what `shiny_input_update`",
         "cannot reach: buttons in a dialog that a script opened (e.g. 'Confirm'),",
-        "alert buttons, the dialog itself, and notifications.",
+        "alerts, the dialog itself, and notifications.",
         "Actions: `click` clicks `target`, a module input ID (e.g. a button ID;",
         "it must be on the page) or a CSS selector (e.g. `.swal-button`);",
         "`dismiss_modal` closes the open dialog, like its Cancel button;",
+        "`close_alert2` closes the alert on the page (e.g. 'Done!' or 'Errors');",
         "`show_notification` shows `message` (with optional `title` and `type`)",
         "until the user closes it or `remove_notification` removes it;",
         "`remove_notification` removes the notifications with CSS class `target`",
@@ -103,7 +108,8 @@ shiny_ui_operate <- shidashi::mcp_wrapper(
       ),
       arguments = list(
         action = ellmer::type_enum(
-          values = c("click", "dismiss_modal", "show_notification", "remove_notification"),
+          values = c("click", "dismiss_modal", "close_alert2", "show_notification",
+                     "remove_notification"),
           description = "What to do."
         ),
         target = ellmer::type_string(

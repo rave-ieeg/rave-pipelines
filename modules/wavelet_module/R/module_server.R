@@ -15,6 +15,9 @@ module_server <- function(input, output, session, ...) {
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
   error_notification <- function(e) {
+    # Also print it: agents read what a script prints
+    ravepipeline::logger("Error found! ", paste(e$message, collapse = "\n"),
+                         level = "error")
     shidashi::show_notification(
       message = e$message,
       title = "Error found!",
@@ -138,7 +141,21 @@ module_server <- function(input, output, session, ...) {
     })
 
     return()
-  })
+  }, description = c(
+    "Same as clicking 'Run wavelet' (`wavelet_do_btn`): checks the wavelet",
+    "inputs (`target_sample_rate`, `pre_downsample`, `precision`, `use_preset`,",
+    "`freq_range`, `freq_step`, `cycle_range`), writes them to the pipeline",
+    "settings, builds the kernel table (pipeline target `kernels`), and opens",
+    "the confirmation dialog. It does NOT run the wavelet: the dialog's",
+    "'Confirm and run in background' (`wavelet_confirm_btn2`) and 'Confirm'",
+    "(`wavelet_confirm_btn`) buttons do; ask the user before clicking them",
+    "with `shiny_ui_operate`. The script finishes even when it fails, so read",
+    "its `output`: 'Error found! There are some invalid inputs' means an",
+    "input breaks the rule in its description (check with `shiny_input_info`);",
+    "'kernels errored' means the pipeline rejected the kernel table (script",
+    "`pipeline_progress` gives the reason). 'kernels completed' means the",
+    "dialog opens right after the script returns."
+  ))
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -146,6 +163,37 @@ module_server <- function(input, output, session, ...) {
     }),
     input$wavelet_do_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # Read-only: lets agents follow a run, e.g. after 'Confirm and run in
+  # background', and read why a pipeline target failed
+  server_tools$set_script(
+    name = "pipeline_progress",
+    description = c(
+      "Read-only. Progress of the latest pipeline run, one line per target:",
+      "'<target>: <progress>' (dispatched, completed, errored, skipped,",
+      "canceled), with the error message of errored targets, and when the",
+      "progress last changed. While the wavelet runs in the background it",
+      "shows 'wavelet_params: dispatched', then 'completed' or 'errored'; the",
+      "module then runs 'subject' and 'clear_cache' to finish saving."
+    ),
+    expr = {
+      progress <- as.data.frame(pipeline$progress("details"))
+      if (!nrow(progress)) {
+        return("The pipeline has not run yet.")
+      }
+      re <- sprintf("%s: %s", progress$name, progress$progress)
+      errored <- progress$progress == "errored"
+      if (any(errored)) {
+        errors <- as.data.frame(pipeline$with_activated(
+          targets::tar_meta(fields = "error", complete_only = TRUE)
+        ))
+        messages <- errors$error[match(progress$name[errored], errors$name)]
+        re[errored] <- paste(re[errored], "-", messages)
+      }
+      since <- as.data.frame(pipeline$progress("summary"))$since
+      c(re, sprintf("(progress last changed %s)", since))
+    }
   )
 
   run_wavelet <- function(async = FALSE) {

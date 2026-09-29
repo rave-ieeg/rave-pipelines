@@ -40,10 +40,15 @@ The wavelet settings are in the **"Wavelet settings"** card on the left.
 * **Power sample rate (Hz)** (`target_sample_rate`) — the sample rate that the
   wavelet coefficients are down-sampled to before saving. Default `100`. Must be
   greater than `1`.
-* **Down-sample before wavelet** (`pre_downsample`) — factor applied to the
-  voltage before the wavelet, to reduce computation. The choices are powers of
-  two derived from the subject's sample rate and the power sample rate; `1`
-  means no down-sampling. Changing the power sample rate resets the choices.
+* **Down-sample before wavelet** (`pre_downsample`) — the factor by which the
+  voltage is down-sampled before the wavelet, which then runs at
+  `raw sample rate / factor`. A larger factor runs faster, but the Nyquist
+  frequency after down-sampling must stay at least 2.5x the highest frequency
+  you analyze; choose it with
+  [Procedure — Choose the down-sample factor](#procedure--choose-the-down-sample-factor).
+  The choices are powers of two derived from the subject's sample rate and the
+  power sample rate; `1` means no down-sampling. Changing the power sample rate
+  resets the choices.
 * **Use single float precision to speed up** (`precision`) — when checked, the
   wavelet is computed in single (float) precision, which is faster; unchecked
   (default), in double precision.
@@ -55,8 +60,10 @@ The wavelet settings are in the **"Wavelet settings"** card on the left.
   sliders below; `Upload preset` reads a CSV file instead.
 * **Frequency range** (`freq_range`) — lowest and highest frequency of the
   table, e.g. `[2, 200]` Hz. Once the subject is loaded, the slider stops at the
-  Nyquist frequency of the down-sampled signal: sample rate / 2 / down-sample
-  factor.
+  Nyquist frequency after down-sampling (`raw sample rate / factor / 2`). That
+  stop is not a safe limit: the Nyquist must be at least twice the highest
+  frequency (see
+  [Procedure — Choose the down-sample factor](#procedure--choose-the-down-sample-factor)).
 * **Frequency step size** (`freq_step`) — spacing between frequencies, e.g. `2`
   Hz gives 2, 4, 6, ... Hz.
 * **Wavelet cycles** (`cycle_range`) — number of Morlet cycles at the lowest and
@@ -109,10 +116,77 @@ Step 4: Click **"Run wavelet"**, review the confirmation dialog, and click
 ### Procedure — Speed up a large subject
 
 Steps 1-3: reuse [Procedure — Run a standard wavelet](#procedure--run-a-standard-wavelet-2-200-hz).
-Step 4: Check **Use single float precision**, and/or set **Down-sample before
-wavelet** to `2` to halve the sample rate before the wavelet.
+Step 4: Check **Use single float precision**, and set **Down-sample before
+wavelet** to the largest suitable factor (see
+[Procedure — Choose the down-sample factor](#procedure--choose-the-down-sample-factor)).
 Step 5: Click **"Run wavelet"**, then **"Confirm and run in background"** so the
 app stays responsive while the wavelet runs.
+
+### Procedure — Choose the down-sample factor
+
+**Down-sample before wavelet** divides the sample rate before the wavelet runs.
+A larger factor makes the wavelet faster, but moves the Nyquist frequency closer
+to the frequencies you analyze, which spoils their power. Choose the factor in
+two steps: find the suitable factors for your frequency range, then pick one of
+them by recording length.
+
+Step 1: Find the suitable factors. Let `F` be the highest frequency you analyze
+(the top of **Frequency range**). Most power analyses stay below 200 Hz;
+high-frequency oscillation (HFO) studies may go up to 500 Hz. After
+down-sampling, the Nyquist frequency is `raw sample rate / factor / 2`.
+
+* It must be at least `2 × F`. Below that, the power at `F` is wrong: NEVER use
+  such a factor.
+* It should be at least `2.5 × F`, and `4 × F` leaves ample room. Factors that
+  meet this are suitable.
+
+So the largest suitable factor is the largest power of two that is at most
+`raw sample rate / (5 × F)`. For `F` = 200 Hz, the Nyquist should be at least
+500 Hz, i.e. a sample rate of at least 1000 Hz after down-sampling:
+
+| Raw sample rate | Factor | Nyquist after down-sampling | Maybe OK? |
+|---|---|---|---|
+| 2000 Hz | 1 | 1000 Hz (5 × F) | yes |
+| 2000 Hz | 2 | 500 Hz (2.5 × F) | yes, the largest |
+| 2000 Hz | 4 | 250 Hz (1.25 × F) | no: below 2 × F, the power is wrong |
+| 30000 Hz | 1, 2, 4, 8 | 15000 to 1875 Hz | yes |
+| 30000 Hz | 16 | 938 Hz (4.7 × F) | yes, the largest |
+| 30000 Hz | 32 | 469 Hz (2.3 × F) | no: below 2.5 × F |
+
+If not even factor `1` is suitable, use factor `1`; if its Nyquist is still
+below `2 × F`, lower the top of **Frequency range**. For example, HFO analysis
+up to 500 Hz calls for a sample rate of at least 2500 Hz. On 2000 Hz data,
+factor `1` gives a Nyquist of exactly `2 × F`, the bare minimum, so the power
+near 500 Hz is only just usable: tell the user.
+
+> IMPORTANT: notice this is a guidance on "safe" pre-down-sample rate. Many users prefer no pre-downsample at all (factor=1) to avoid any types of distortion. If user asked explicitly for this (no downsampling before wavelet), you should keep it in memory and always set this option to 1.
+
+Step 2: Pick by recording length. The wavelet's run time grows with the number
+of samples it processes, i.e. the recording length times
+`raw sample rate / factor`, so the largest suitable factor is the fastest.
+
+* A short recording, such as 5 minutes, runs fast enough with any suitable
+  factor.
+* For a recording over 30 minutes, use the largest suitable factor to save
+  time.
+
+The loader does not show the recording length. If you can run R, add up the
+samples of every block of one LFP electrode; otherwise ask the user.
+
+```r
+subject <- ravecore::as_rave_subject("test2/DemoSubject")
+electrode <- ravecore::new_electrode(
+  subject, subject$electrodes[subject$electrode_types == "LFP"][[1]])
+n_samples <- sapply(subject$blocks, function(block) {
+  length(electrode$load_blocks(block, "raw-voltage"))
+})
+sum(n_samples) / electrode$raw_sample_rate / 60   # recording length in minutes
+```
+
+For `test2/DemoSubject` this gives 646130 samples at 2000 Hz in its one block,
+about 5.4 minutes: factor `1` or `2` both work.
+
+> The length of signals does not matter: RAVE ravetools::morlet_wavelet function handles large, out-of-memory wavelet pretty well. The time matters. Sometimes user may want to peak into the data for quick decision (they will set frequency step to be greater than 5 Hz with float precision), then they just want to see coarse results. Higher pre-downsample rate speeds up the calculation. 
 
 ### Procedure — Use a custom frequency/cycle table
 
@@ -135,9 +209,12 @@ wavelet"** and confirm.
   `[subject]/pipelines/wavelet_module` after backing it up. A failed run leaves
   those electrodes without wavelet results.
 * **Power sample rate must exceed 1.** `target_sample_rate <= 1` is rejected.
-* **Frequency ceiling.** The top of **Frequency range** cannot exceed the
-  Nyquist frequency of the (down-sampled) signal; the slider caps itself after
-  the subject loads and whenever the down-sample factor changes.
+* **Down-sampling and the frequency range.** After down-sampling, the Nyquist
+  frequency (`raw sample rate / factor / 2`) must be at least twice the highest
+  analyzed frequency, and should be 2.5 times or more; otherwise the power at
+  the top frequencies is wrong. The **Frequency range** slider stops at the
+  Nyquist itself, so it does not enforce this (see
+  [Procedure — Choose the down-sample factor](#procedure--choose-the-down-sample-factor)).
 * **Cycles.** The pipeline rejects any cycle count of `1` or less, so the lower
   value of **Wavelet cycles** must be at least `2`.
 * **Long-running.** The wavelet can take a long time. "Confirm" makes the whole
@@ -223,7 +300,14 @@ while it ran). `run_analysis` finishes even when it fails, so always read its
    (`Upload preset` needs a CSV upload, which an agent cannot do.)
 3. Set the power sample rate first: `tool("tool__shiny_input_update", inputId = "target_sample_rate", value = "100")`
    (it resets the `pre_downsample` choices).
-4. Set the down-sample factor: `tool("tool__shiny_input_update", inputId = "pre_downsample", value = "1")`
+4. Set the down-sample factor: `tool("tool__shiny_input_update", inputId = "pre_downsample", value = "1")`.
+   Choose it with
+   [Procedure — Choose the down-sample factor](#procedure--choose-the-down-sample-factor).
+   The largest suitable factor is the largest power of two that is at most
+   `raw sample rate / (5 × F)`, where `F` is the top of the frequency range you
+   will set and the raw sample rate is in the `load_data` result. Use it for a
+   recording over 30 minutes; for a short one, any suitable factor works. If
+   you do not know the recording length, ask the user.
 5. Set the precision: `tool("tool__shiny_input_update", inputId = "precision", value = "false")`
 6. Set the frequency range: `tool("tool__shiny_input_update", inputId = "freq_range", value = "[2, 200]")`
 7. Set the frequency step: `tool("tool__shiny_input_update", inputId = "freq_step", value = "2")`
@@ -268,7 +352,7 @@ while it ran). `run_analysis` finishes even when it fails, so always read its
     failed; the message says why.
   * "Errors": the wavelet failed; the message says why.
 
-  The final alert stays until someone clicks its button:
-  `tool("tool__shiny_ui_operate", action = "click", target = ".swal-overlay--show-modal .swal-button")`.
+  The final alert stays until someone closes it:
+  `tool("tool__shiny_ui_operate", action = "close_alert2")`.
 * Tell the user something in the app: `tool("tool__shiny_ui_operate", action = "show_notification", message = "...")`;
   remove it with `tool("tool__shiny_ui_operate", action = "remove_notification", target = "wavelet_module-agent_notification")`.

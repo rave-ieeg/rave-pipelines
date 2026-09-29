@@ -87,10 +87,11 @@ tools:
   description: |
     Operate the module page as a person would, for what `shiny_input_update`
     cannot reach: buttons in a dialog that a script opened (e.g. 'Confirm'),
-    alert buttons, the dialog itself, and notifications.
+    alerts, the dialog itself, and notifications.
     Actions: `click` clicks `target`, a module input ID (e.g. a button ID;
     it must be on the page) or a CSS selector (e.g. `.swal-button`);
     `dismiss_modal` closes the open dialog, like its Cancel button;
+    `close_alert2` closes the alert on the page (e.g. 'Done!' or 'Errors');
     `show_notification` shows `message` (with optional `title` and `type`)
     until the user closes it or `remove_notification` removes it;
     `remove_notification` removes the notifications with CSS class `target`
@@ -103,7 +104,7 @@ tools:
     properties:
       action:
         type: string
-        enum: [click, dismiss_modal, show_notification, remove_notification]
+        enum: [click, dismiss_modal, close_alert2, show_notification, remove_notification]
         description: What to do.
       target:
         type: string
