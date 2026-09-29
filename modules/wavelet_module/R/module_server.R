@@ -11,7 +11,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
   report_wizard <- ravedash::create_report_wizard(pipeline = pipeline, session = session)
 
   error_notification <- function(e) {
@@ -53,96 +53,98 @@ module_server <- function(input, output, session, ...) {
   # --------------------------------------------------------
 
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    tryCatch({
+      if (!sv$is_valid()) {
+        stop("There are some invalid inputs. Please fix them before applying wavelet")
+      }
 
-      tryCatch({
-        if (!sv$is_valid()) {
-          stop("There are some invalid inputs. Please fix them before applying wavelet")
-        }
+      # collect information
+      tbl <- kernel_params()
+      if (!is.data.frame(tbl)) {
+        stop("No kernel table found. ")
+      }
 
-        # collect information
-        tbl <- kernel_params()
-        if (!is.data.frame(tbl)) {
-          stop("No kernel table found. ")
-        }
+      use_float <- input$precision
+      target_sample_rate <- as.numeric(input$target_sample_rate)
+      pre_downsample <- as.numeric(input$pre_downsample)
+      pipeline$set_settings(
+        precision = ifelse(use_float, "float", "double"),
+        pre_downsample = pre_downsample,
+        target_sample_rate = target_sample_rate,
+        kernel_table = tbl
+      )
 
-        use_float <- input$precision
-        target_sample_rate <- as.numeric(input$target_sample_rate)
-        pre_downsample <- as.numeric(input$pre_downsample)
-        pipeline$set_settings(
-          precision = ifelse(use_float, "float", "double"),
-          pre_downsample = pre_downsample,
-          target_sample_rate = target_sample_rate,
-          kernel_table = tbl
-        )
+      res <- pipeline$run(as_promise = TRUE, names = "kernels")
 
-        res <- pipeline$run(as_promise = TRUE, names = "kernels")
+      res$promise$then(
+        onFulfilled = function(...) {
 
-        res$promise$then(
-          onFulfilled = function(...) {
+          settings <- pipeline$get_settings()
 
-            settings <- pipeline$get_settings()
-
-            shiny::showModal(shiny::modalDialog(
-              title = "Confirmation",
-              size = "l",
-              easyClose = FALSE,
-              shiny::p("Wavelet will take a while to run. Please make sure that the following information is correct before proceeding."),
-              shiny::tags$ul(
-                shiny::tags$li(
-                  shiny::strong("Subject: "),
-                  settings$project_name, "/", settings$subject_code
-                ),
-                shiny::tags$li(
-                  shiny::strong("Frequencies: "),
-                  dipsaus::deparse_svec(settings$kernel_table$Frequency, collapse = ", ")
-                ),
-                shiny::tags$li(
-                  shiny::strong("# of cycles: "),
-                  paste(sprintf("%.1f", settings$kernel_table$Cycles), collapse = ", ")
-                ),
-                shiny::tags$li(
-                  shiny::strong("Precision: "),
-                  settings$precision
+          shiny::showModal(shiny::modalDialog(
+            title = "Confirmation",
+            size = "l",
+            easyClose = FALSE,
+            shiny::p("Wavelet will take a while to run. Please make sure that the following information is correct before proceeding."),
+            shiny::tags$ul(
+              shiny::tags$li(
+                shiny::strong("Subject: "),
+                settings$project_name, "/", settings$subject_code
+              ),
+              shiny::tags$li(
+                shiny::strong("Frequencies: "),
+                dipsaus::deparse_svec(settings$kernel_table$Frequency, collapse = ", ")
+              ),
+              shiny::tags$li(
+                shiny::strong("# of cycles: "),
+                paste(sprintf("%.1f", settings$kernel_table$Cycles), collapse = ", ")
+              ),
+              shiny::tags$li(
+                shiny::strong("Precision: "),
+                settings$precision
+              )
+            ),
+            shiny::p("The following steps will be performed:"),
+            shiny::tags$ol(
+              shiny::tags$li(
+                ifelse(
+                  settings$pre_downsample == 1,
+                  "No down-sample will be performed before wavelet",
+                  sprintf("Signals will be down-sampled by %s", settings$pre_downsample)
                 )
               ),
-              shiny::p("The following steps will be performed:"),
-              shiny::tags$ol(
-                shiny::tags$li(
-                  ifelse(
-                    settings$pre_downsample == 1,
-                    "No down-sample will be performed before wavelet",
-                    sprintf("Signals will be down-sampled by %s", settings$pre_downsample)
-                  )
-                ),
-                shiny::tags$li("Wavelet will run on each block"),
-                shiny::tags$li(sprintf("The wavelet coefficients will be down-sampled to %.1fHz before saving to disk", settings$target_sample_rate))
-              ),
-              footer = shiny::tagList(
-                shiny::modalButton("Cancel"),
-                shiny::actionButton(ns("wavelet_confirm_btn2"), "Confirm and run in background"),
-                dipsaus::actionButtonStyled(ns("wavelet_confirm_btn"), "Confirm")
-              )
-            ))
+              shiny::tags$li("Wavelet will run on each block"),
+              shiny::tags$li(sprintf("The wavelet coefficients will be down-sampled to %.1fHz before saving to disk", settings$target_sample_rate))
+            ),
+            footer = shiny::tagList(
+              shiny::modalButton("Cancel"),
+              shiny::actionButton(ns("wavelet_confirm_btn2"), "Confirm and run in background"),
+              dipsaus::actionButtonStyled(ns("wavelet_confirm_btn"), "Confirm")
+            )
+          ))
 
-          },
-          onRejected = function(e) {
-            error_notification(e)
-          }
-        )
+        },
+        onRejected = function(e) {
+          error_notification(e)
+        }
+      )
 
 
-      }, error = function(e) {
-        error_notification(e)
-      })
+    }, error = function(e) {
+      error_notification(e)
+    })
 
-      return()
+    return()
+  })
 
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("run_analysis")
     }),
     input$wavelet_do_btn,
-    server_tools$run_analysis_flag(),
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
