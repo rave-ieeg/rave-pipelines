@@ -69,7 +69,7 @@ streamline_collision_detection_analyzer$set_input_ui(
         "If `pointcloud`, the pipeline will treat the ROI objects as point clouds.",
         "If `surface`, the pipeline will treat the ROI objects as surfaces."
       ),
-      quote = TRUE,
+      quoted = TRUE,
       env = parse_env
     )
   }
@@ -91,7 +91,7 @@ streamline_collision_detection_analyzer$set_input_ui(
       inputId = inputId,
       update = "shiny::updateNumericInput",
       description = "[Numeric] The radius (in mm) to expand the ROI objects (volume/surface/electrode) for collision detection.",
-      quote = TRUE,
+      quoted = TRUE,
       env = parse_env
     )
   }

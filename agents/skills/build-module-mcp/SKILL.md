@@ -82,6 +82,12 @@ Allowed without asking:
     reports its camera only after a mouse drag, and `shiny_query_ui` pictures
     leave the 3D view blank. To add a `name`, add an entry to the tool file's
     `rave_3dviewer_getters` or `rave_3dviewer_setters` list
+  * `switch_module` (a shidashi meta tool, MCP only: the in-app chat does
+    not have it, and it needs no `agents.yaml` entry): shows a module in the
+    dashboard, bringing its open tab to the front or opening it
+    (`auto_new = false` only switches to an open tab), and returns once the
+    module has loaded. Refused while a module is pinned. A live test that
+    opens the dashboard `/` (not `?module=`) can open modules with it
 * **Inputs round-trip through the browser.** `shiny_input_update` calls the
   registered update function; the browser applies it and sends the value back.
   * A browser session with the module open is required.
