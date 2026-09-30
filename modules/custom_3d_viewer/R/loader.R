@@ -32,18 +32,29 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 
             shidashi::flex_item(
 
-              shiny::selectInput(
-                inputId = ns("loader_electrode_source"),
-                label = "Select a source of electrode coordinates",
-                choices = c(
-                  "Subject meta directory - electrodes.csv",
-                  "File upload - auto",
-                  "File upload - Scanner RAS",
-                  "File upload - tk-registered (FreeSurfer) RAS",
-                  "File upload - MNI152 RAS"
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("loader_electrode_source"),
+                  label = "Select a source of electrode coordinates",
+                  choices = c(
+                    "Subject meta directory - electrodes.csv",
+                    "File upload - auto",
+                    "File upload - Scanner RAS",
+                    "File upload - tk-registered (FreeSurfer) RAS",
+                    "File upload - MNI152 RAS"
+                  ),
+                  selected = "Project",
+                  multiple = FALSE
                 ),
-                selected = "Project",
-                multiple = FALSE
+                inputId = "loader_electrode_source",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "[Select] Where the electrode coordinates come from:",
+                  "\"Subject meta directory - electrodes.csv\" (the subject's",
+                  "electrode table; use this one), or a \"File upload - ...\"",
+                  "choice, which needs the user to upload a table. Read by",
+                  "script `load_data`."
+                )
               ),
               shiny::conditionalPanel(
                 condition = sprintf("input['%s'] !== 'Subject meta directory - electrodes.csv'",
@@ -89,68 +100,134 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
             title = "Additional Options",
 
             shidashi::flex_item(
-              shiny::selectInput(
-                inputId = ns("loader_volume_types"),
-                label = "Additional volumes",
-                choices = unique(c("aparc.DKTatlas+aseg", "aparc.a2009s+aseg", overlay_types0)),
-                selected = overlay_types0,
-                multiple = TRUE
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("loader_volume_types"),
+                  label = "Additional volumes",
+                  choices = unique(c("aparc.DKTatlas+aseg", "aparc.a2009s+aseg", overlay_types0)),
+                  selected = overlay_types0,
+                  multiple = TRUE
+                ),
+                inputId = "loader_volume_types",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "[Multi-select, JSON array] Extra volumes (atlases) to load,",
+                  "e.g. [\"aparc+aseg\"]; [] for none. The choices depend on",
+                  "the subject and refresh when it changes. Read by script",
+                  "`load_data`."
+                )
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::selectInput(
-                inputId = ns("loader_surface_types"),
-                label = "Additional surface types",
-                choices = unique(c("smoothwm", "inflated", "white", "pial-outer-smoothed", surface_types0)),
-                selected = surface_types0,
-                multiple = TRUE
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("loader_surface_types"),
+                  label = "Additional surface types",
+                  choices = unique(c("smoothwm", "inflated", "white", "pial-outer-smoothed", surface_types0)),
+                  selected = surface_types0,
+                  multiple = TRUE
+                ),
+                inputId = "loader_surface_types",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "[Multi-select, JSON array] Extra surface types to load, e.g.",
+                  "[\"smoothwm\", \"inflated\"]; [] for none. The choices depend",
+                  "on the subject and refresh when it changes. Read by script",
+                  "`load_data`."
+                )
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::selectInput(
-                inputId = ns("loader_annot_types"),
-                label = "Additional surface annotations/measurements",
-                choices = as.character(annot_types0),
-                selected = annot_types0,
-                multiple = TRUE
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("loader_annot_types"),
+                  label = "Additional surface annotations/measurements",
+                  choices = as.character(annot_types0),
+                  selected = annot_types0,
+                  multiple = TRUE
+                ),
+                inputId = "loader_annot_types",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "[Multi-select, JSON array] Surface annotations or",
+                  "measurements to load, e.g. [\"label/aparc.a2009s.annot\"];",
+                  "[] for none. The choices depend on the subject and refresh",
+                  "when it changes. Read by script `load_data`."
+                )
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::selectInput(
-                inputId = ns("loader_streamline_types"),
-                label = "Additional streamlines",
-                choices = unique(c("default/*", streamline_types0)),
-                selected = streamline_types0,
-                multiple = TRUE
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("loader_streamline_types"),
+                  label = "Additional streamlines",
+                  choices = unique(c("default/*", streamline_types0)),
+                  selected = streamline_types0,
+                  multiple = TRUE
+                ),
+                inputId = "loader_streamline_types",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "[Multi-select, JSON array] Streamline (fiber tract) bundles",
+                  "to load, e.g. [\"alic/*\"] for a group; [] for none. The",
+                  "quick analysis needs at least one. The choices depend on the",
+                  "subject and refresh when it changes. Read by script",
+                  "`load_data`."
+                )
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::checkboxInput(
-                inputId = ns("loader_use_spheres"),
-                label = "Use spheres contacts",
-                value = isTRUE(pipeline$get_settings("use_spheres"))
+              shidashi::register_input(
+                shiny::checkboxInput(
+                  inputId = ns("loader_use_spheres"),
+                  label = "Use spheres contacts",
+                  value = isTRUE(pipeline$get_settings("use_spheres"))
+                ),
+                inputId = "loader_use_spheres",
+                update = "shiny::updateCheckboxInput",
+                description = paste(
+                  "[Checkbox, true/false] Draw contacts as spheres instead of",
+                  "electrode shapes (prototypes). Read by script `load_data`."
+                )
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::numericInput(
-                inputId = ns("loader_override_radius"),
-                label = "Override contact radius (sphere contact must be enabled)",
-                value = NA_real_,
-                step = 0.001,
-                min = 0, max = 10
+              shidashi::register_input(
+                shiny::numericInput(
+                  inputId = ns("loader_override_radius"),
+                  label = "Override contact radius (sphere contact must be enabled)",
+                  value = NA_real_,
+                  step = 0.001,
+                  min = 0, max = 10
+                ),
+                inputId = "loader_override_radius",
+                update = "shiny::updateNumericInput",
+                description = paste(
+                  "[Number, mm, 0 to 10] Radius of sphere contacts; a value",
+                  "above 0 also checks `loader_use_spheres`. Empty keeps the",
+                  "radius from the electrode table. Read by script `load_data`."
+                )
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::checkboxInput(
-                inputId = ns("loader_use_template"),
-                label = "Use template brain",
-                value = FALSE
+              shidashi::register_input(
+                shiny::checkboxInput(
+                  inputId = ns("loader_use_template"),
+                  label = "Use template brain",
+                  value = FALSE
+                ),
+                inputId = "loader_use_template",
+                update = "shiny::updateCheckboxInput",
+                description = paste(
+                  "[Checkbox, true/false] Also load the template brain, e.g.",
+                  "to map electrodes to it. Read by script `load_data`."
+                )
               )
             )
 
@@ -321,6 +398,10 @@ loader_server <- function(input, output, session, ...) {
   server_tools <- ravedash::get_default_handlers(session = session)
   server_tools$set_script(
     "load_data",
+    description = c(
+      "Load the brain (surfaces, volumes, annotations, streamlines, and",
+      "electrodes) chosen in the loader (same as clicking 'Load subject')."
+    ),
     {
       # gather information from preset UIs
 

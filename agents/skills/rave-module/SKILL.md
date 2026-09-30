@@ -51,6 +51,9 @@ two categories of operations:
 | module_interactive_script_list | list the module's interactive scripts (e.g. `load_data`, `run_analysis`) and whether the data are loaded |
 | module_interactive_script_inspect | show what an interactive script does: its description and R code |
 | module_interactive_script_run | run an interactive script, as if the user clicked its button |
+| shiny_ui_operate | click a dialog or alert button, close a dialog or alert, show or remove a notification (modules that enable it) |
+| rave_3dviewer_get | read a live 3D viewer: controller values and options, camera, crosshair, last clicked object (modules with a 3D viewer; the manual names its `outputId`) |
+| rave_3dviewer_set | change a live 3D viewer: controllers, camera, crosshair (values are checked first) |
 
 ### Interactive scripts
 

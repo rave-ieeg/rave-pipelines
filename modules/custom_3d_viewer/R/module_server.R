@@ -131,30 +131,44 @@ module_server <- function(input, output, session, ...) {
     })
   }
 
+  # Reset the viewer controllers and camera, then regenerate the viewer; runs
+  # when the "Reset controller option" link is clicked, or through
+  # `server_tools$trigger_script("reset_viewer")`
+  server_tools$set_script("reset_viewer", {
+
+    data_source <- input$data_source
+    settings <- list()
+    if (identical(data_source, "Uploads")) {
+      settings <- list(
+        uploaded_source = input$uploaded_source
+      )
+    } else if (identical(data_source, "Saved pipelines/modules")) {
+      settings <- list(
+        data_source_project = input$data_source_project,
+        data_source_pipeline = input$data_source_pipeline,
+        data_source_pipeline_target = input$data_source_pipeline_target
+      )
+    }
+    pipeline$set_settings(
+      data_source = input$data_source,
+      controllers = list(),
+      main_camera = list(),
+      shiny_outputId = ns("viewer_ready"),
+      .list = settings
+    )
+    regenerate_viewer()
+  }, description = c(
+    "Reset the viewer's controllers and camera to their defaults, then",
+    "regenerate the viewer (same as clicking 'Reset controller option'):",
+    "saves `data_source` and `uploaded_source`, and clears the saved",
+    "controllers and camera. Needs the data loaded.",
+    "The script will trigger re-generation of the viewer.",
+    "Please wait for the viewer to be ready before changing any controller options."
+  ))
+
   shiny::bindEvent(
     ravedash::safe_observe({
-
-      data_source <- input$data_source
-      settings <- list()
-      if (identical(data_source, "Uploads")) {
-        settings <- list(
-          uploaded_source = input$uploaded_source
-        )
-      } else if (identical(data_source, "Saved pipelines/modules")) {
-        settings <- list(
-          data_source_project = input$data_source_project,
-          data_source_pipeline = input$data_source_pipeline,
-          data_source_pipeline_target = input$data_source_pipeline_target
-        )
-      }
-      pipeline$set_settings(
-        data_source = input$data_source,
-        controllers = list(),
-        main_camera = list(),
-        shiny_outputId = ns("viewer_ready"),
-        .list = settings
-      )
-      regenerate_viewer()
+      server_tools$trigger_script("reset_viewer")
     }),
     input$viewer_reset,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -241,7 +255,12 @@ module_server <- function(input, output, session, ...) {
     )
 
     regenerate_viewer()
-  })
+  }, description = c(
+    "Save the viewer settings and the data source, then regenerate the 3D",
+    "viewer (same as clicking 'Re-generate & Visualize').",
+    "The script will trigger re-generation of the viewer.",
+    "Please wait for the viewer to be ready before changing any controller options."
+  ))
 
 
   # (Optional) check whether the loaded data is valid
@@ -1015,9 +1034,22 @@ module_server <- function(input, output, session, ...) {
   # The repurposed "Configure & Run..." button reopens the modal for
   # whatever analysis is currently selected (e.g. if it was dismissed via
   # Cancel/Esc without changing the dropdown value)
+  server_tools$set_script("open_analysis", {
+    open_analysis_modal()
+  }, description = c(
+    "Open the dialog of the quick analysis chosen in `analysis_selector`",
+    "(same as clicking 'Configure & Run...'). Its parameters (e.g. mode and",
+    "radius) show the last saved values; agents cannot change them. Next:",
+    "check that the dialog is open with `shiny_query_ui(css_selector =",
+    "\"#custom_3d_viewer-analysis_param_run\")`, ask the user, then click its",
+    "'Run' button with `shiny_ui_operate(action = \"click\", target =",
+    "\"analysis_param_run\")`. The dialog closes when the analysis is done,",
+    "and the result is output `analysis_results`."
+  ))
+
   shiny::bindEvent(
     ravedash::safe_observe({
-      open_analysis_modal()
+      server_tools$trigger_script("open_analysis")
     }, error_wrapper = "alert"),
     input$analysis_configure,
     ignoreInit = TRUE, ignoreNULL = TRUE
@@ -1026,8 +1058,9 @@ module_server <- function(input, output, session, ...) {
   # The modal's own "Run" button: persist the selected objects & analysis
   # parameters to settings.yaml, then run the pipeline target so the
   # analysis is reproducible outside Shiny too.
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "run_analyzer",
+    expr = {
       analyzer <- get_analysis_definition(input$analysis_selector)
       if (!length(analyzer)) {
         shiny::removeModal()
@@ -1035,23 +1068,43 @@ module_server <- function(input, output, session, ...) {
         return()
       }
 
-      # TODO: ravedash::shiny_alert2()
-
-      # analyzer <- streamline_collision_detection_analyzer
-      result <- analyzer$run(
+      result_html <- analyzer$run(
         pipeline = pipeline,
         session = session,
         visualization_method = "html"
       )
+
+      result_object <- pipeline$read(analyzer$results_target_name)
+
       local_data$analyzer_results <- list(
         # result is HTML
-        result = result,
+        result = result_html,
+        object = result_object,
         analyzer = analyzer
       )
+
+      # Trigger re-rendering of the output and remove the modal
       local_reactives$analyzer_updated <- Sys.time()
       
-
+      # If the modal is closed, this will be no-op and safe
       shiny::removeModal()
+
+      # MCP tools can read the result object
+      invisible(result_object)
+
+    },
+    description = c(
+      "Run the quick analysis chosen in `analysis_selector` with the parameters",
+      "set in the modal dialog. The dialog closes when the analysis is done, and",
+      "the result is output `analysis_results`. Rather than clicking the modal's 'Run' button,",
+      "you should trigger this script for consistent behavior."
+    )
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+
+      server_tools$trigger_script("run_analyzer")
       
     }, error_wrapper = "notification"),
     input$analysis_param_run,
@@ -1074,7 +1127,11 @@ module_server <- function(input, output, session, ...) {
     }),
     outputId = "analysis_results",
     description = "HTML report from the most recent quick analysis (see `analysis_selector`).",
-    download_type = "no-download"
+    download_type = "data", 
+    download_function = function(con) {
+      result_object <- local_data$analyzer_results$object
+      writeLines(utils::capture.output({print(result_object)}), con = con, sep = "\n")
+    }
   )
 
   shidashi::register_output(
@@ -1093,37 +1150,54 @@ module_server <- function(input, output, session, ...) {
     download_type = "no-download"
   )
 
+  # Add the object chosen in the Quick analysis card to the object list; runs
+  # when "Add object" is clicked, or through
+  # `server_tools$trigger_script("add_object")`
+  server_tools$set_script("add_object", {
+    info <- object_selected()
+    if (inherits(info, "error")) {
+      ravedash::show_notification(
+        title = "Error",
+        type = "danger",
+        close = TRUE,
+        autohide = TRUE,
+        message = paste(c("Unable to add object(s): ", info$message), collapse = "")
+      )
+      return()
+    }
+
+    map <- local_data$selected_object_map
+    key <- selected_object_key(info)
+    map[[key]] <- info
+
+    # The input is the source of truth for membership and order; re-adding an
+    # object that is already listed keeps its current position
+    keys <- c(input$object_selector_list, key)
+    keys <- keys[!duplicated(keys)]
+
+    shidashi::updateObjectListInput(
+      session = session,
+      inputId = "object_selector_list",
+      choices = structure(
+        as.list(keys),
+        names = vapply(keys, function(k) { map[[k]]$format }, "")
+      )
+    )
+    # the added object, for agents (the button ignores it)
+    info$format
+  }, description = c(
+    "Add the object chosen in `object_selector` and its `object_selector_*`",
+    "input to the quick-analysis list `object_selector_list` (same as clicking",
+    "'Add object'). First read the preview with",
+    "`shiny_output_result(outputId = \"object_selector_text\")`: it shows the",
+    "object, or why it cannot be added (then nothing is added, people see a",
+    "notification, and the script returns nothing). Returns the added",
+    "object's label; `object_selector_list` then has one more key."
+  ))
+
   shiny::bindEvent(
     ravedash::safe_observe({
-      info <- object_selected()
-      if (inherits(info, "error")) {
-        ravedash::show_notification(
-          title = "Error",
-          type = "danger",
-          close = TRUE,
-          autohide = TRUE,
-          message = paste(c("Unable to add object(s): ", info$message), collapse = "")
-        )
-        return()
-      }
-
-      map <- local_data$selected_object_map
-      key <- selected_object_key(info)
-      map[[key]] <- info
-
-      # The input is the source of truth for membership and order; re-adding an
-      # object that is already listed keeps its current position
-      keys <- c(input$object_selector_list, key)
-      keys <- keys[!duplicated(keys)]
-
-      shidashi::updateObjectListInput(
-        session = session,
-        inputId = "object_selector_list",
-        choices = structure(
-          as.list(keys),
-          names = vapply(keys, function(k) { map[[k]]$format }, "")
-        )
-      )
+      server_tools$trigger_script("add_object")
     }),
     input$object_selector_add,
     ignoreInit = TRUE,

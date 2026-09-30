@@ -15,17 +15,27 @@ module_html <- function() {
 
             ravedash::input_card(
               title = "Electrode value selector",
-              shiny::selectInput(
-                inputId = ns("data_source"),
-                label = "Data source",
-                choices = c(
-                  "Uploads",
-                  # "Saved pipelines/modules",
-                  "None"
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = ns("data_source"),
+                  label = "Data source",
+                  choices = c(
+                    "Uploads",
+                    # "Saved pipelines/modules",
+                    "None"
+                  ),
+                  selected = pipeline$get_settings(
+                    key = "data_source",
+                    constraint = c("Uploads", "Saved pipelines/modules", "None")
+                  )
                 ),
-                selected = pipeline$get_settings(
-                  key = "data_source",
-                  constraint = c("Uploads", "Saved pipelines/modules", "None")
+                inputId = "data_source",
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "[Select] Where the electrode values come from: \"Uploads\"",
+                  "(a table uploaded to the subject, chosen in `uploaded_source`)",
+                  "or \"None\" (no values). Read by scripts `run_analysis` and",
+                  "`reset_viewer`."
                 )
               ),
               shiny::conditionalPanel(
@@ -60,11 +70,22 @@ module_html <- function() {
                   "input['%s'] === 'Uploads'",
                   ns("data_source")
                 ),
-                shiny::selectInput(
-                  inputId = ns("uploaded_source"),
-                  label = "Select an uploaded data",
-                  selected = character(0L),
-                  choices = character(0L)
+                shidashi::register_input(
+                  shiny::selectInput(
+                    inputId = ns("uploaded_source"),
+                    label = "Select an uploaded data",
+                    selected = character(0L),
+                    choices = character(0L)
+                  ),
+                  inputId = "uploaded_source",
+                  update = "shiny::updateSelectInput(value=selected)",
+                  description = paste(
+                    "[Select] The uploaded table that colors the electrodes, e.g.",
+                    "\"values.fst\": the subject's uploads, newest first, plus",
+                    "\"[New Uploads]\", which shows the upload box (the user must",
+                    "upload the file). Shown when `data_source` is \"Uploads\".",
+                    "Read by scripts `run_analysis` and `reset_viewer`."
+                  )
                 ),
 
                 shiny::conditionalPanel(
@@ -116,18 +137,28 @@ module_html <- function() {
                 shiny::column(
                   width = 12L,
 
-                  shiny::radioButtons(
-                    inputId = ns("object_selector"),
-                    label = "Object type",
-                    choices = c(
-                      "Electrode",
-                      "Mesh surface",
-                      "3D volume",
-                      "Streamlines"
+                  shidashi::register_input(
+                    shiny::radioButtons(
+                      inputId = ns("object_selector"),
+                      label = "Object type",
+                      choices = c(
+                        "Electrode",
+                        "Mesh surface",
+                        "3D volume",
+                        "Streamlines"
+                      ),
+                      selected = character(),
+                      inline = TRUE,
+                      width = "100%"
                     ),
-                    selected = character(),
-                    inline = TRUE,
-                    width = "100%"
+                    inputId = "object_selector",
+                    update = "shiny::updateRadioButtons(value=selected)",
+                    description = paste(
+                      "[Radio] Quick analysis: the type of the object to add,",
+                      "\"Electrode\", \"Mesh surface\", \"3D volume\", or",
+                      "\"Streamlines\". Shows the matching `object_selector_*`",
+                      "input. Read by script `add_object`."
+                    )
                   ),
 
                   shiny::conditionalPanel(
@@ -135,10 +166,20 @@ module_html <- function() {
                       "input['%s'] === 'Electrode'",
                       ns("object_selector")
                     ),
-                    shiny::selectizeInput(
-                      inputId = ns("object_selector_electrode"),
-                      label = "Highlight an electrode or select from below",
-                      choices = list("[Double-click electrode]" = "")
+                    shidashi::register_input(
+                      shiny::selectizeInput(
+                        inputId = ns("object_selector_electrode"),
+                        label = "Highlight an electrode or select from below",
+                        choices = list("[Double-click electrode]" = "")
+                      ),
+                      inputId = "object_selector_electrode",
+                      update = "shiny::updateSelectizeInput(value=selected)",
+                      description = paste(
+                        "[Select] Quick analysis electrode: its channel number as",
+                        "text, e.g. \"14\"; \"\" means the electrode last",
+                        "double-clicked in the viewer. Shown when `object_selector`",
+                        "is \"Electrode\". Read by script `add_object`."
+                      )
                     )
                   ),
                   shiny::conditionalPanel(
@@ -146,10 +187,20 @@ module_html <- function() {
                       "input['%s'] === 'Mesh surface'",
                       ns("object_selector")
                     ),
-                    shiny::selectizeInput(
-                      inputId = ns("object_selector_surface"),
-                      label = "Choose a surface object",
-                      choices = character()
+                    shidashi::register_input(
+                      shiny::selectizeInput(
+                        inputId = ns("object_selector_surface"),
+                        label = "Choose a surface object",
+                        choices = character()
+                      ),
+                      inputId = "object_selector_surface",
+                      update = "shiny::updateSelectizeInput(value=selected)",
+                      description = paste(
+                        "[Select] Quick analysis surface: a loaded surface type and",
+                        "hemisphere, e.g. \"pial [lh]\". Shown when",
+                        "`object_selector` is \"Mesh surface\". Read by script",
+                        "`add_object`."
+                      )
                     )
                   ),
                   shiny::conditionalPanel(
@@ -157,10 +208,21 @@ module_html <- function() {
                       "input['%s'] === '3D volume'",
                       ns("object_selector")
                     ),
-                    shiny::selectizeInput(
-                      inputId = ns("object_selector_volume"),
-                      label = "Choose a volume object",
-                      choices = c("[Current active overlay]")
+                    shidashi::register_input(
+                      shiny::selectizeInput(
+                        inputId = ns("object_selector_volume"),
+                        label = "Choose a volume object",
+                        choices = c("[Current active overlay]")
+                      ),
+                      inputId = "object_selector_volume",
+                      update = "shiny::updateSelectizeInput(value=selected)",
+                      description = paste(
+                        "[Select] Quick analysis volume: \"[Current active",
+                        "overlay]\" (the volume the viewer shows, controller",
+                        "`Voxel Type`) or a loaded volume by name, e.g.",
+                        "\"aparc_aseg\". Shown when `object_selector` is \"3D",
+                        "volume\". Read by script `add_object`."
+                      )
                     )
                   ),
                   shiny::conditionalPanel(
@@ -168,10 +230,21 @@ module_html <- function() {
                       "input['%s'] === 'Streamlines'",
                       ns("object_selector")
                     ),
-                    shiny::selectizeInput(
-                      inputId = ns("object_selector_streamlines"),
-                      label = "Choose a streamline bundle",
-                      choices = c("[Current active streamlines]")
+                    shidashi::register_input(
+                      shiny::selectizeInput(
+                        inputId = ns("object_selector_streamlines"),
+                        label = "Choose a streamline bundle",
+                        choices = c("[Current active streamlines]")
+                      ),
+                      inputId = "object_selector_streamlines",
+                      update = "shiny::updateSelectizeInput(value=selected)",
+                      description = paste(
+                        "[Select] Quick analysis streamlines: \"[Current active",
+                        "streamlines]\" (those the viewer shows), a group such as",
+                        "\"alic/*\", or one loaded bundle. Shown when",
+                        "`object_selector` is \"Streamlines\". Read by script",
+                        "`add_object`."
+                      )
                     )
                   ),
 
@@ -209,21 +282,41 @@ module_html <- function() {
                 shiny::column(
                   width = 12L,
 
-                  shidashi::objectListInput(
-                    inputId = ns("object_selector_list"),
-                    label = "Choose & sort objects",
-                    placeholder = "(No object added yet)",
-                    allow_readd = TRUE,
-                    sortable = TRUE,
-                    removable = TRUE
+                  shidashi::register_input(
+                    shidashi::objectListInput(
+                      inputId = ns("object_selector_list"),
+                      label = "Choose & sort objects",
+                      placeholder = "(No object added yet)",
+                      allow_readd = TRUE,
+                      sortable = TRUE,
+                      removable = TRUE
+                    ),
+                    inputId = "object_selector_list",
+                    update = "shiny::updateSelectizeInput(value=selected)",
+                    description = paste(
+                      "[Object list, JSON array of keys] The objects added for the",
+                      "quick analysis, in order. Script `add_object` appends one.",
+                      "To remove one, send the current keys without it; [] clears",
+                      "the list."
+                    )
                   ),
 
-                  shiny::selectInput(
-                    inputId = ns("analysis_selector"),
-                    label = "Analysis type",
-                    choices = structure(
-                      names = vapply(analysis_registry, "[[", FUN.VALUE = "", "description"),
-                      as.list(names(analysis_registry))
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("analysis_selector"),
+                      label = "Analysis type",
+                      choices = structure(
+                        names = vapply(analysis_registry, "[[", FUN.VALUE = "", "description"),
+                        as.list(names(analysis_registry))
+                      )
+                    ),
+                    inputId = "analysis_selector",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "[Select] The quick analysis to run, e.g.",
+                      "\"streamline_collision_detection\" (how much each",
+                      "streamline bundle overlaps the added ROI objects). Read by",
+                      "script `open_analysis` and the dialog's \"Run\" button."
                     )
                   ),
 

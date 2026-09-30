@@ -1,3 +1,5 @@
+parse_env <- environment()
+
 group_analysis_objects_for_streamline_collision_detection <- function(objects, loaded_brain_info) {
   # DIPSAUS DEBUG START
   # loaded_brain_info <- pipeline["loaded_brain_info"]
@@ -50,25 +52,47 @@ streamline_collision_detection_analyzer <- create_analysis(
 
 streamline_collision_detection_analyzer$set_input_ui(
   input_name = "mode_x",
-  ui_func = function(inputId, restored_inputs = list()) {
-    shiny::selectInput(
+  ui_func = function(inputId, ns, restored_inputs = list()) {
+    shidashi::register_input(
+      bquote(shiny::selectInput(
+        inputId = .(ns(inputId)),
+        label = "Mode for ROI (volume/surface/electrode) objects",
+        choices = c("auto", "volume", "pointcloud", "surface"),
+        selected = .(restored_inputs$mode_x %||% "auto")
+      )),
       inputId = inputId,
-      label = "Mode for ROI (volume/surface/electrode) objects",
-      choices = c("auto", "volume", "pointcloud", "surface"),
-      selected = restored_inputs$mode_x %||% "auto"
+      update = "shiny::updateSelectInput(value=selected)",
+      description = c(
+        "[String] The mode for ROI (volume/surface/electrode) objects.",
+        "Default `auto`. If `auto`, the pipeline will automatically choose the best mode based on the object type.",
+        "If `volume`, the pipeline will treat the ROI objects as volumes.",
+        "If `pointcloud`, the pipeline will treat the ROI objects as point clouds.",
+        "If `surface`, the pipeline will treat the ROI objects as surfaces."
+      ),
+      quote = TRUE,
+      env = parse_env
     )
   }
 )
 
 streamline_collision_detection_analyzer$set_input_ui(
   input_name = "radius",
-  ui_func = function(inputId, restored_inputs = list()) {
-    shiny::numericInput(
+  ui_func = function(inputId, ns, restored_inputs = list()) {
+    shidashi::register_input(
+      bquote(
+        shiny::numericInput(
+          inputId = .(ns(inputId)),
+          label = "Radius (mm)",
+          value = .(restored_inputs$radius %||% 0),
+          min = 0,
+          step = 0.1
+        )
+      ),
       inputId = inputId,
-      label = "Radius (mm)",
-      value = restored_inputs$radius %||% 0,
-      min = 0,
-      step = 0.1
+      update = "shiny::updateNumericInput",
+      description = "[Numeric] The radius (in mm) to expand the ROI objects (volume/surface/electrode) for collision detection.",
+      quote = TRUE,
+      env = parse_env
     )
   }
 )

@@ -37,15 +37,39 @@ tools:
   enabled:
   - Plan
   - Execute
-- name: trigger_load_data
+- name: module_interactive_script_list
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_inspect
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_run
   category:
   - destructive
   enabled:
-  - Plan
   - Execute
-- name: trigger_analysis
+- name: shiny_ui_operate
   category:
   - destructive
+  enabled:
+  - Execute
+- name: rave_3dviewer_get
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: rave_3dviewer_set
+  category:
+  - executing
   enabled:
   - Plan
   - Execute
@@ -53,8 +77,24 @@ skills:
 - name: search-papers
   enabled: yes
 - name: rave-module
-  enabled: yes
+  enabled:
+  - Ask
+  - Plan
+  - Execute
   scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
   # Pipeline reading scripts - require data access
   - name: get_targets.R
     category:
@@ -90,6 +130,40 @@ parameters:
     - **Plan**: + Read user data and pipeline state
     - **Execute**: + Modify settings and run pipelines
 
+    ## Data flow
+    1. Loader: set `loader_project_name`, `loader_subject_code`, and the extra
+       volumes, surfaces, annotations, and streamlines (`loader_*_types`), then
+       run script `load_data` ("Load subject"). The 3D viewer renders the brain.
+    2. Electrode values: `data_source` "Uploads" and one of the subject's
+       uploaded tables in `uploaded_source`. Uploading a new table needs the
+       user (file picker): ask them to upload it.
+    3. Script `run_analysis` ("Re-generate & Visualize") saves the data choice
+       and the viewer's settings, then regenerates the viewer.
+    4. Adjust the view with tool `rave_3dviewer_set` (controllers, camera,
+       crosshair); read it with `rave_3dviewer_get`. Script `reset_viewer`
+       ("Reset controller option") restores the defaults.
+    5. Quick analysis (optional): `object_selector` plus its
+       `object_selector_*` input, then script `add_object`, once per object;
+       `analysis_selector`; script `open_analysis` ("Configure & Run...");
+       then ask the user and click the dialog's `analysis_param_run` with
+       `shiny_ui_operate`. The result is output `analysis_results`.
+
+    ## The 3D viewer
+    - Both viewer tools take `outputId = "viewer"`.
+    - Check what a controller accepts with
+      `rave_3dviewer_get(name = "controller_options")` before setting it.
+    - Nothing set with `rave_3dviewer_set` is saved by itself. `run_analysis`
+      saves and keeps the synced controllers (e.g. surface type and opacity,
+      slices, electrode display, data display) and the background; other
+      controllers (e.g. `Voxel Type`) reset. `reset_viewer` and `load_data`
+      reset every controller.
+    - Confirm changes by reading them back with `rave_3dviewer_get`. The
+      viewer reports its camera only after the user drags it, and pictures
+      from `shiny_query_ui` leave the 3D view blank: after
+      `rave_3dviewer_set(name = "camera")`, tell the user what you changed and
+      ask them to check the view. Re-generating restores the last dragged
+      camera.
+
     ## Guidelines
     - Do NOT make up things. Check references.
     - Do read `rave-module`, especially `references/custom_3d_viewer.md` for detailed guidelines & Q&As.
@@ -101,3 +175,13 @@ parameters:
       - NEVER suggest generic R packages (ggplot2, dplyr, etc.)
     - Electrode data CSV must contain an `Electrode` column; add `Time` for animation
     - Present table in markdown table style
+    - Interactive scripts (`module_interactive_script_*`): `load_data` loads the
+      brain (same as "Load subject"); `run_analysis` saves the viewer settings
+      and regenerates the viewer (same as the "Re-generate & Visualize" button);
+      `reset_viewer`, `add_object`, and `open_analysis` are the "Reset
+      controller option" link and the "Add object" and "Configure & Run..."
+      buttons
+    - Ask the user before running the quick analysis (clicking
+      `analysis_param_run`), and before resetting the viewer
+    - In Plan mode, `module_interactive_script_run` and `shiny_ui_operate` are
+      not available: ask the user to click the button instead

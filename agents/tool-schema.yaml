@@ -123,3 +123,76 @@ tools:
         enum: [info, success, warning, danger]
         description: "`show_notification`: the color. Default `info`."
     required: [action]
+# Mirrors agents/tools/rave_3dviewer.R: keep them in sync.
+- name: rave_3dviewer_get
+  description: |
+    Read the state of a module's live 3D brain viewer (threeBrain).
+    `outputId` is the viewer's output ID, named in the module's manual (e.g.
+    `viewer`); the viewer must be on the page and rendered. `name`:
+    `controllers` gives the control panel's current values;
+    `controller_options` gives what each controller accepts (type, and
+    choices or range) for `rave_3dviewer_set`; `camera` gives the camera
+    position, up and zoom as last reported after a mouse drag; `crosshair`
+    gives the slice crosshair position; `selected` gives the last object
+    clicked, double-clicked or focused (e.g. an electrode's number and
+    coordinates). `args` (a JSON object): `controllers` and
+    `controller_options` take {"names": ["Surface Type", ...]} to pick some;
+    `crosshair` takes {"space": "scanner"} (default), "tkrRAS", "MNI305",
+    "MNI152", "CRS" (voxel indices), or "all".
+  inputSchema:
+    type: object
+    properties:
+      outputId:
+        type: string
+        description: >-
+          The viewer's output ID in this module, without the module prefix
+          (e.g. `viewer`).
+      name:
+        type: string
+        enum: [controllers, controller_options, camera, crosshair, selected]
+        description: What to read.
+      args:
+        type: string
+        description: >-
+          Optional JSON object of arguments for `name`, e.g. {"space":
+          "MNI152"} for `crosshair`, or {"names": ["Surface Type"]} for
+          `controllers`.
+    required: [outputId, name]
+- name: rave_3dviewer_set
+  description: |
+    Change a module's live 3D brain viewer (threeBrain), as a person does
+    with its control panel. `outputId` is the viewer's output ID, named in
+    the module's manual (e.g. `viewer`). `data` is a JSON object for `name`:
+    `controllers`: {"<controller>": value, ...}, e.g. {"Surface Type":
+    "pial", "Left Opacity": 0.4, "Background Color": "#000000"}; each value
+    is checked against the controller's type and its choices or range (see
+    `rave_3dviewer_get(name = "controller_options")`), and several are
+    applied in one call, in the order the viewer needs. Standard views:
+    {"Camera Position": "left"} (also right, anterior, posterior, superior,
+    inferior). `camera`: {"position": [x, y, z], "up": [x, y, z], "zoom":
+    1.5}; position is the direction from the brain center to the camera, zoom
+    is 0.5 to 40; the viewer does not report this back. `crosshair`:
+    {"position": [x, y, z], "space": "scanner"} moves the slice crosshair;
+    space is "scanner" (default), "tkrRAS", "MNI305", "MNI152", or "CRS".
+    Nothing is saved, and a module that re-renders its viewer may reset it.
+    Check the result with `rave_3dviewer_get` (pictures from `shiny_query_ui`
+    leave the 3D view blank).
+  inputSchema:
+    type: object
+    properties:
+      outputId:
+        type: string
+        description: >-
+          The viewer's output ID in this module, without the module prefix
+          (e.g. `viewer`).
+      name:
+        type: string
+        enum: [controllers, camera, crosshair]
+        description: What to change.
+      data:
+        type: string
+        description: >-
+          JSON object for `name`, e.g. {"Surface Type": "pial"} for
+          `controllers`, {"zoom": 2} for `camera`, or {"position": [-40, 10,
+          20], "space": "MNI152"} for `crosshair`.
+    required: [outputId, name, data]

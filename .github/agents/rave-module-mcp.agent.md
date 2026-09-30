@@ -106,7 +106,10 @@ Run everything on an isolated app so you never touch the developer's app.
 You have all `shidashi/*` tools (`shidashi_sessions`, `shidashi_tools`,
 `shidashi_call`, `shidashi_connect`, `shidashi_disconnect`, `shidashi_launch`,
 `shidashi_launchers`, plus a module's own `shiny_input_update` /
-`module_interactive_script_run` / etc.) for live inspection and interaction.
+`module_interactive_script_run` / `shiny_ui_operate` / etc.) for live
+inspection and interaction. Modules with a threeBrain viewer can enable
+`rave_3dviewer_get` / `rave_3dviewer_set` (`agents/tools/rave_3dviewer.R`;
+see the skill's "How agents reach a module").
 - The proxy follows the most recently started app. **Before any destructive
   connector call (input update, script run), confirm the target with
   `shidashi_sessions`** and point it at your 17299 test app with
