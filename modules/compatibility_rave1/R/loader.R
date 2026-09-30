@@ -46,6 +46,15 @@ loader_server <- function(input, output, session, ...) {
   server_tools <- ravedash::get_default_handlers(session = session)
   server_tools$set_script(
     "load_data",
+    description = c(
+      "Load the project and subject chosen in the loader (same as clicking",
+      "'Load subject'; inputs `loader_project_name`, `loader_subject_code`).",
+      "Any subject loads, even an incomplete or broken one: checking such",
+      "subjects is what this module is for. Returns a summary: the electrodes,",
+      "those Notch-filtered and those with wavelet (power), and the epoch and",
+      "reference names, which are the choices of `export_epoch` and",
+      "`export_reference`."
+    ),
     {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
@@ -79,6 +88,28 @@ loader_server <- function(input, output, session, ...) {
         project_name = settings$project_name,
         subject_code = settings$subject_code
       )
+
+      # Summary for agents: the choices of the export inputs, and what has
+      # been preprocessed. A broken subject must still load: never fail here
+      tryCatch({
+        or_none <- function(x) {
+          x <- as.character(x)
+          x <- x[nzchar(x)]
+          if (length(x)) paste(x, collapse = ", ") else "none"
+        }
+        electrodes <- subject$electrodes
+        sprintf(
+          "Loaded %s: electrodes %s; Notch-filtered %s; wavelet %s; epochs: %s; references: %s",
+          subject$subject_id,
+          or_none(dipsaus::deparse_svec(electrodes)),
+          or_none(dipsaus::deparse_svec(electrodes[subject$notch_filtered])),
+          or_none(dipsaus::deparse_svec(electrodes[subject$has_wavelet])),
+          or_none(subject$epoch_names),
+          or_none(subject$reference_names)
+        )
+      }, error = function(e) {
+        sprintf("Loaded %s/%s", settings$project_name, settings$subject_code)
+      })
     },
     binding_event = "load_data",
     # Let the module know the data has been changed

@@ -1,0 +1,174 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Questions only
+- name: Plan
+  description: Read-only
+- name: Execute
+  description: Full access
+# `shiny_ui_operate` is left out on purpose: it clicks any element, and
+# agents must never press "Make this subject RAVE 1.0 compatible"
+tools:
+- name: shiny_input_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_query_ui
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_result
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: module_interactive_script_list
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_inspect
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_run
+  category:
+  - destructive
+  enabled:
+  - Execute
+skills:
+- name: search-papers
+  enabled: yes
+- name: rave-module
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+  scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+parameters:
+  default_mode: Plan
+  system_prompt: |
+    You operate the RAVE Data Tools module (module ID: compatibility_rave1).
+    It checks a subject's data files for problems ("Data integrity check")
+    and exports epoched power or voltage data for MATLAB, Python, and R
+    ("Export data"). Its "Backward compatibility" card is for people only.
+
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Load, validate, and export data
+
+    ## Data Flow
+    Loader (project, subject) → [Load subject] → either
+    - validation inputs → [Validate subject] → checks listed in the
+      "Data integrity check" card, or
+    - export inputs → [Generate exports] →
+      `[subject]/rave/exports/rave-repository/export-<time>/`
+
+    ## Tools
+    | Need | Use |
+    |------|-----|
+    | Operating manual | `rave-module`: reference `references/compatibility_rave1.md` (read it first) |
+    | Read source code | `rave-module`: list_source_files, read_source_file, grep_source_file |
+    | Read/change UI | shiny_input_info, shiny_input_update |
+    | Look at the page | shiny_query_ui (the module registers no outputs) |
+    | Pipeline state | `rave-module`: get_targets, get_results |
+    | Load data, validate, export | module_interactive_script_list, module_interactive_script_inspect, module_interactive_script_run (Execute mode) |
+    | Find relevant paper | `search-papers`: search_pubmed |
+
+    ## Guidelines
+    - Prefer solutions in this order for less coding and more reproducibility:
+      UI controls → pipeline scripts → RAVE package code → general R
+    - Prefer RAVE packages (ravecore, ravepipeline, ravedash, ravetools)
+    - Do NOT suggest generic R packages (ggplot2, dplyr, etc.)
+    - Guide users through the UI; use pipeline scripts only when asked
+    - `load_data` loads the subject set in `loader_project_name` and
+      `loader_subject_code`, even a broken one. Its result lists the
+      electrodes and the epoch and reference names.
+    - Validate: set `validation_version` and `validation_mode`, run
+      `run_analysis` ("Validate subject"), then read the checks with
+      script `validation_results`. Validation writes nothing: run it
+      without asking.
+    - Export: set `export_type` first (it resets the choices of
+      `export_reference` and `export_epoch`), then `export_electrode`,
+      `export_reference`, `export_epoch`, `export_pre`, and `export_post`,
+      and check them with `shiny_input_info`. ALWAYS show the user these
+      settings and get their confirmation before running
+      `generate_exports`. Then report the folder it returns.
+    - NEVER convert a subject to the RAVE 1.0 format. You have no tool for
+      it and must not look for one. If the user asks, open the card with
+      `shiny_input_update` (inputId `quickaccess_compatibility`, value
+      `"1"`) and ask them to click "Make this subject RAVE 1.0 compatible"
+      themselves. Afterwards you may validate with `validation_version`
+      `1`.
+    - After loading, all three cards are collapsed. To show the user a
+      card, click its Quick access link with `shiny_input_update` (value
+      `"1"`): `quickaccess_data_integrity`, `quickaccess_compatibility`, or
+      `quickaccess_export`.
+    - "Export & download" downloads a zip in the user's browser; only the
+      user can click it. The "Success!" alert after an export stays until
+      the user closes it.
+    - Inputs round-trip through the browser: after `shiny_input_update`,
+      check the new value with `shiny_input_info` before running a script
+    - In Plan mode, `module_interactive_script_run` is not available: ask
+      the user to click the button instead (e.g. "Load subject", "Validate
+      subject")

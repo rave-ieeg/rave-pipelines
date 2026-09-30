@@ -57,7 +57,85 @@ module_server <- function(input, output, session, ...) {
 
     local_reactives$validation_results <- validation_results
     return()
-  })
+  }, description = c(
+    "Same as clicking 'Validate subject' in the 'Data integrity check' card:",
+    "checks the loaded subject's files with `ravecore::validate_subject()`,",
+    "using inputs `validation_version` and `validation_mode`. Writes nothing:",
+    "run it without asking the user. `normal` mode reads all voltage, power,",
+    "and phase data, so it takes longer, and shows a 'Validation in",
+    "progress...' alert until it is done. `output` logs each check ('...",
+    "valid: yes', or 'valid: no' with the reason), but only its last 3000",
+    "characters: read the complete results with script `validation_results`.",
+    "They also show in the card (output `validation_check`) once it is open."
+  ))
+
+  # Read-only: the latest validation results, as listed in the 'Data
+  # integrity check' card, whose output does not update while it is collapsed
+  server_tools$set_script(
+    name = "validation_results",
+    description = c(
+      "Read-only. The results of the latest 'Validate subject' (script",
+      "`run_analysis`) on the loaded subject, as listed in the 'Data",
+      "integrity check' card. The first line counts the checks by status.",
+      "Then one line per check that did not pass: '[<status>] <part>/<check>:",
+      "<what was checked> - <reason>'. The status is 'failed', 'minor' (a",
+      "failed low-priority check: the cache, FreeSurfer, notes, or pipeline",
+      "folder), or 'skipped' (the check could not run, e.g. because an",
+      "earlier one failed). The last line lists the checks that passed."
+    ),
+    expr = {
+      validation_results <- local_reactives$validation_results
+      if (is.null(validation_results)) {
+        return("No validation results yet: run script `run_analysis` ('Validate subject') first.")
+      }
+      # Same parts, and the same status of each check, as `validation_check`
+      keys <- c("paths", "preprocess", "meta", "voltage_data",
+                "power_phase_data", "epoch_tables", "reference_tables")
+      statuses <- character()
+      issues <- character()
+      passed <- character()
+      for (k in keys) {
+        items <- validation_results[[k]]
+        for (nm in names(items)) {
+          item <- items[[nm]]
+          check <- sprintf("%s/%s", k, nm)
+          if (isTRUE(item$valid)) {
+            status <- "passed"
+            passed <- c(passed, check)
+          } else {
+            if (is.na(item$valid)) {
+              status <- "skipped"
+            } else if (identical(item$severity, "minor")) {
+              status <- "minor"
+            } else {
+              status <- "failed"
+            }
+            issues <- c(issues, sprintf(
+              "[%s] %s: %s - %s", status, check, item$description,
+              paste(item$message, collapse = " ")
+            ))
+          }
+          statuses <- c(statuses, status)
+        }
+      }
+      counts <- sprintf(
+        "%d checks: %d passed, %d failed, %d minor, %d skipped",
+        length(statuses), sum(statuses == "passed"), sum(statuses == "failed"),
+        sum(statuses == "minor"), sum(statuses == "skipped")
+      )
+      # Agents receive at most 100 values
+      if (length(issues) > 98) {
+        issues <- c(issues[seq_len(97)], sprintf(
+          "... and %d more: open the 'Data integrity check' card to see them",
+          length(issues) - 97
+        ))
+      }
+      c(counts, issues, sprintf(
+        "Passed: %s",
+        if (length(passed)) paste(passed, collapse = ", ") else "none"
+      ))
+    }
+  )
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -411,8 +489,28 @@ module_server <- function(input, output, session, ...) {
     path
   }
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when 'Generate exports' is clicked, or through
+  # `server_tools$trigger_script("generate_exports")` (e.g. from MCP tools)
+  server_tools$set_script(
+    name = "generate_exports",
+    description = c(
+      "Same as clicking 'Generate exports' in the 'Export data' card. ALWAYS",
+      "confirm the export settings with the user before running it. Reads",
+      "inputs `export_type`, `export_electrode`, `export_reference`,",
+      "`export_epoch`, `export_pre`, and `export_post` (check them with",
+      "`shiny_input_info`). If one breaks its rule (see the input",
+      "descriptions), it fails with 'Please correct the inputs before",
+      "exporting data' and writes nothing. Otherwise it cuts the data into",
+      "trials around each onset of the epoch, applies the reference, and",
+      "writes a new folder, never overwriting one:",
+      "`<subject>/rave/exports/rave-repository/export-<yymmddTHHMMSS>`, with",
+      "`summary.yaml`, `electrodes.csv`, `reference.csv`,",
+      "`with_epochs/epoch.csv`, and one MATLAB file per channel,",
+      "`with_epochs/<power|voltage|raw_voltage>/ch<NNNN>.mat`. Large exports",
+      "take a while. Returns the folder path. People then see a 'Success!'",
+      "alert with the path, which stays until the user closes it."
+    ),
+    expr = {
 
       path <- export_repository(zip = FALSE)
 
@@ -425,6 +523,14 @@ module_server <- function(input, output, session, ...) {
         buttons = "Confirm"
       )
 
+      # For agents: the export folder
+      path
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("generate_exports")
     }, error_wrapper = "notification"),
     input$export_do,
     ignoreNULL = TRUE, ignoreInit = TRUE
