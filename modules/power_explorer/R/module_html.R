@@ -28,7 +28,13 @@ module_html <- function(){
               shiny::checkboxInput(ns('enable_custom_ROI'), 'Custom ROI', value = FALSE),
               inputId = "enable_custom_ROI",
               update = "shiny::updateCheckboxInput",
-              description = "Enable/disable custom ROI filtering"
+              description = paste(
+                "Custom ROI on/off. When on and `custom_roi_variable` is not",
+                "'none', `run_analysis` analyzes the loaded electrodes whose ROI",
+                "value is in `custom_roi_groupings`, instead of `electrode_text`.",
+                "Set it and `custom_roi_variable` before `custom_roi_groupings`,",
+                "whose choices load then."
+              )
             ),
             shiny::conditionalPanel(
               condition = 'input["power_explorer-enable_custom_ROI"] == 1',
@@ -41,7 +47,13 @@ module_html <- function(){
                   selected = character(0), choices=character(0)),
                 inputId = "custom_roi_variable",
                 update = "shiny::updateSelectInput(value=selected)",
-                description = "ROI variable from electrodes.csv"
+                description = paste(
+                  "ROI variable: 'none', or a column of the subject's",
+                  "electrodes.csv with 2 to n-1 distinct values among the loaded",
+                  "electrodes (e.g. `FSLabel`); `PE_Cluster` appears after script",
+                  "`cluster_to_roi`. Changing it loads the category choices of",
+                  "`custom_roi_groupings`."
+                )
               ),
               shidashi::register_input(
                 shiny::selectInput(
@@ -52,14 +64,24 @@ module_html <- function(){
                               'Interaction model')),
                 inputId = "custom_roi_type",
                 update = "shiny::updateSelectInput(value=selected)",
-                description = "How to use the custom ROI: filter, group/stratify, or interaction model"
+                description = paste(
+                  "How to use the custom ROI: 'Filter only' (default) only limits",
+                  "the electrodes. 'Group/Stratify results' and 'Interaction",
+                  "model' (treated the same by the pipeline) also split each",
+                  "analysis window by ROI group, labelled '<ROI>_<window>', and",
+                  "add the ROI as a factor of the across-electrode model."
+                )
               ),
               shidashi::register_input(
                 shiny::actionButton(ns('auto_assign_levels_to_roi_groupings'),
                                     'Assign all ROI levels to groups', icon = ravedash::shiny_icons$magic),
                 inputId = "auto_assign_levels_to_roi_groupings",
                 update = "shiny::updateActionButton",
-                description = "Auto-assign all ROI levels to groups",
+                description = paste(
+                  "Button 'Assign all ROI levels to groups': one ROI group per",
+                  "value of `custom_roi_variable`. Agents run script",
+                  "`assign_roi_levels` instead."
+                ),
                 writable = FALSE
               ),
               shidashi::register_input(
@@ -67,7 +89,11 @@ module_html <- function(){
                                     'Clear groups', icon = ravedash::shiny_icons$trash),
                 inputId = "clear_roi_grouping_levels",
                 update = "shiny::updateActionButton",
-                description = "Clear all ROI group assignments",
+                description = paste(
+                  "Button 'Clear groups': one ROI group 'All levels' with every",
+                  "value of `custom_roi_variable`. Agents run script",
+                  "`clear_roi_groups` instead."
+                ),
                 writable = FALSE
               ),
               shiny::HTML("<p>&nbsp;</p>"),
@@ -83,7 +109,13 @@ module_html <- function(){
                 ),
                 inputId = "custom_roi_groupings",
                 update = "dipsaus::updateCompoundInput2",
-                description = "ROI grouping definitions with labels and categories"
+                description = paste(
+                  "ROI groups, as a JSON array of 1 to 15 objects, e.g.",
+                  "[{\"label\":\"STG\",\"conditions\":[\"ctx_lh_G_temp_sup-Lateral\"]}];",
+                  "`conditions` are values of `custom_roi_variable`. Set it after",
+                  "`enable_custom_ROI` and `custom_roi_variable`, then check the",
+                  "stored value with `shiny_input_info`."
+                )
               )
             )
           ),
@@ -99,7 +131,11 @@ module_html <- function(){
                                multiple = FALSE, accept = c('.yaml')),
               inputId = "file_load_settings",
               update = "shiny::updateActionButton",
-              description = "Upload a YAML settings file to restore analysis parameters",
+              description = paste(
+                "File upload 'Load Settings': a YAML file saved with 'Save",
+                "settings'. Only people can upload files; agents set the inputs",
+                "directly instead."
+              ),
               writable = FALSE
             ),
             shiny::hr(),
@@ -130,7 +166,11 @@ module_html <- function(){
                 min =0, max=1, step = 0.01, dragRange = TRUE),
               inputId = "baseline_window",
               update = "shiny::updateSliderInput",
-              description = "Baseline time window (seconds)"
+              description = paste(
+                "Baseline window [start, end] in seconds, relative to each",
+                "trial's anchor event, e.g. [-1, 0]. Its range is the loaded",
+                "trial window."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(
@@ -139,7 +179,11 @@ module_html <- function(){
                 choices =get_baseline_scope(names=TRUE)),
               inputId = "baseline_scope",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "Scope for baseline normalization"
+              description = paste(
+                "Baseline scope: 'Per frequency, trial, and electrode' (default),",
+                "'Across trials (aka global baseline)', 'Across trials and",
+                "electrodes', or 'Across electrodes only'."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(
@@ -148,7 +192,11 @@ module_html <- function(){
                 choices=get_unit_of_analysis(names=TRUE)),
               inputId = "baseline_unit",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "Unit of analysis for baseline correction"
+              description = paste(
+                "Unit of analysis (baseline correction): '% Change Power'",
+                "(default), '% Change Amplitude', 'Decibel', 'z-score Power',",
+                "'z-score Amplitude', or 'z-score Decibel'."
+              )
             )
           ),
 
@@ -164,7 +212,13 @@ module_html <- function(){
               ),
               inputId = "quick_omnibus_only",
               update = "shiny::updateCheckboxInput",
-              description = "Only calculate univariate stats and 3D viewer data (faster)"
+              description = paste(
+                "Quick mode. TRUE: `run_analysis` computes only the per-electrode",
+                "statistics and the electrode-by-time data (faster), which refresh",
+                "the 'By Electrode' card (except 'Waterfall over Time') and the 3D",
+                "viewer; the other plots are not refreshed. FALSE (default):",
+                "everything."
+              )
             ),
 
             shidashi::register_input(
@@ -204,7 +258,16 @@ module_html <- function(){
               ),
               inputId = "ui_analysis_settings",
               update = "dipsaus::updateCompoundInput2",
-              description = "Analysis window settings: time range, frequency band, and event for each analysis window"
+              description = paste(
+                "Analysis windows, as a JSON array of 1 to 5 objects, e.g.",
+                "[{\"label\":\"HighGamma\",\"event\":\"Trial Onset\",\"time\":[0,1],",
+                "\"frequency_dd\":\"Select one\",\"frequency\":[70,150]}]. `event`:",
+                "'Trial Onset' or an event of the epoch; `time` in seconds;",
+                "`frequency` in Hz. A `frequency_dd` preset other than 'Select one'",
+                "(e.g. 'high gamma (70-150)') is copied into `frequency`, then reset.",
+                "Windows with the same event and nearly the same time and frequency",
+                "ranges stop `run_analysis`."
+              )
             )
           ),
 
@@ -219,7 +282,12 @@ module_html <- function(){
                                  "Condition Variable", choices=c('Condition')),
               inputId = "condition_variable",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "Variable to use for trial conditions"
+              description = paste(
+                "Epoch column that holds the trial conditions (the columns whose",
+                "name contains 'Condition'; default 'Condition'). Changing it",
+                "resets `first_condition_groupings` to one group 'All",
+                "Conditions', so set it first."
+              )
             ),
             shidashi::register_input(
               dipsaus::compoundInput2(
@@ -231,7 +299,14 @@ module_html <- function(){
                   shiny::selectInput(inputId = "conditions", label = "Conditions", choices = "", multiple = TRUE))),
               inputId = "first_condition_groupings",
               update = "dipsaus::updateCompoundInput2",
-              description = "First trial factor groupings with labels and conditions"
+              description = paste(
+                "Levels of the first trial factor, as a JSON array of 1 to 15",
+                "objects, e.g. [{\"label\":\"Auditory\",\"conditions\":[\"drive_a\",",
+                "\"known_a\"]},{\"label\":\"AudioVisual\",\"conditions\":[\"drive_av\"]}].",
+                "`conditions` are values of `condition_variable` (script",
+                "`load_data` lists them). A condition in two levels is kept only in",
+                "the first; a level left empty stops `run_analysis`."
+              )
             )
           ),
 
@@ -245,7 +320,10 @@ module_html <- function(){
               shiny::checkboxInput(ns('enable_second_condition_groupings'), 'Second Trial Factor', value = FALSE),
               inputId = "enable_second_condition_groupings",
               update = "shiny::updateCheckboxInput",
-              description = "Enable/disable the second trial factor"
+              description = paste(
+                "Second trial factor on/off (default off). Turn it on before",
+                "setting `second_condition_groupings`."
+              )
             ),
             shiny::conditionalPanel(
               condition = 'input["power_explorer-enable_second_condition_groupings"] == 1',
@@ -261,7 +339,14 @@ module_html <- function(){
                 ),
                 inputId = "second_condition_groupings",
                 update = "dipsaus::updateCompoundInput2",
-                description = "Second trial factor groupings with labels and conditions"
+                description = paste(
+                  "Levels of the second trial factor (with",
+                  "`enable_second_condition_groupings` on), as a JSON array of 2 to",
+                  "15 objects shaped like `first_condition_groupings`. The choices",
+                  "are the conditions used in the first factor; put each in exactly",
+                  "one level. Changing the first factor drops the conditions it no",
+                  "longer uses."
+                )
               )
             )
           ),
@@ -274,7 +359,11 @@ module_html <- function(){
               shiny::checkboxInput(ns('do_over_time_by_electrode_dataframe'), 'Calculate electrode over time (movie maker)', value=FALSE),
               inputId = "do_over_time_by_electrode_dataframe",
               update = "shiny::updateCheckboxInput",
-              description = "Calculate electrode data over time for movie maker"
+              description = paste(
+                "TRUE: a full `run_analysis` also computes the electrode-by-time",
+                "table for the 'Movie Maker' 3D viewer (`brain_viewer_movies`),",
+                "which takes longer. Default FALSE."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(ns("gpo_lines_palette"), "Lines/Points palette",
@@ -308,7 +397,14 @@ module_html <- function(){
                                  choices = 'Create New'),
               inputId = "replace_existing_group_anlysis_pipeline",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "Choose to create a new pipeline or replace an existing one for group analysis"
+              description = paste(
+                "'Create New' (default), or the label of results saved earlier for",
+                "this subject; choosing a label copies it into",
+                "`save_pipeline_for_group_analysis_label`. Anything other than",
+                "'Create New' asks the save to delete the older saves with the",
+                "same label; with the current ravecore they are kept (see the",
+                "manual). Confirm with the user first."
+              )
             ),
             shidashi::register_input(
               shiny::textInput(
@@ -318,14 +414,23 @@ module_html <- function(){
               ),
               inputId = "save_pipeline_for_group_analysis_label",
               update = "shiny::updateTextInput",
-              description = "Label for the group analysis results export"
+              description = paste(
+                "Label of the results saved for group analysis (required). In the",
+                "folder name, characters other than letters, digits, '_', '.' and",
+                "'-' become '_'. The same label across subjects eases group",
+                "analysis."
+              )
             ),
 
             shidashi::register_input(
               dipsaus::actionButtonStyled(ns('save_pipeline_for_group_analysis'), 'Save!', icon = ravedash::shiny_icons$save),
               inputId = "save_pipeline_for_group_analysis",
               update = "shiny::updateActionButton",
-              description = "Save current analysis for group-level analysis",
+              description = paste(
+                "Button 'Save!': saves the current results for group analysis",
+                "into the subject. Agents run script `save_for_group_analysis`",
+                "instead, after confirming the label with the user."
+              ),
               writable = FALSE
             )
           ),
@@ -345,7 +450,10 @@ module_html <- function(){
               ),
               inputId = "electrodes_to_export",
               update = "shiny::updateTextInput",
-              description = "Electrode numbers/ranges to export (e.g. 1-20,80-100)"
+              description = paste(
+                "Electrodes to export, e.g. `14-15` or `1-20,80-100`; only loaded",
+                "electrodes count. The export re-runs the analysis on them."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(
@@ -355,7 +463,11 @@ module_html <- function(){
               ),
               inputId = "electrodes_to_export_roi_name",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "ROI variable to filter electrodes for export"
+              description = paste(
+                "Optional ROI filter of the export: 'none' (default) or a column",
+                "of electrodes.csv; then only the electrodes whose value is in",
+                "`electrodes_to_export_roi_categories` are exported."
+              )
             ),
             shiny::conditionalPanel(
               condition = "input.electrodes_to_export_roi_name != 'none'",
@@ -369,7 +481,10 @@ module_html <- function(){
                 ),
                 inputId = "electrodes_to_export_roi_categories",
                 update = "shiny::updateSelectInput(value=selected)",
-                description = "ROI categories to include in the electrode export"
+                description = paste(
+                  "Values of `electrodes_to_export_roi_name` to export; all are",
+                  "selected when the filter column changes."
+                )
               )
             ),
             shidashi::register_input(
@@ -384,7 +499,11 @@ module_html <- function(){
               ),
               inputId = "frequencies_to_export",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "How to export frequency data: collapsed or raw"
+              description = paste(
+                "Frequencies in the export: 'Collapsed, Analysis window(s) only'",
+                "(default; the mean over each window's band), 'Raw, Analysis",
+                "window(s) only', or 'Raw, All available frequencies'."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(
@@ -399,7 +518,11 @@ module_html <- function(){
               ),
               inputId = "times_to_export",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "How to export time data: collapsed or raw"
+              description = paste(
+                "Time points in the export: 'Collapsed, Analysis window(s) only'",
+                "(the mean over each window's time range), 'Raw, Analysis",
+                "window(s) only', or 'Raw, All available times' (default)."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(
@@ -416,7 +539,11 @@ module_html <- function(){
               ),
               inputId = "trials_to_export",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "How to export trial data: raw or collapsed by grouping factors"
+              description = paste(
+                "Trials in the export: 'Raw, Only trials used in grouping factors'",
+                "(default), 'Raw, All available trials', or 'Collapsed by grouping",
+                "factors' (the mean per trial group)."
+              )
             ),
             # shiny::selectInput(
             #   inputId = ns('electrode_export_file_type'),
@@ -437,7 +564,12 @@ module_html <- function(){
               ),
               inputId = "btn_export_electrodes",
               update = "shiny::updateActionButton",
-              description = "Export electrode data to CSV",
+              description = paste(
+                "Button 'Export': writes the baseline-corrected data of",
+                "`electrodes_to_export` to CSV files in the subject folder. Agents",
+                "run script `export_electrodes` instead, after confirming the",
+                "export settings with the user."
+              ),
               writable = FALSE
             )
           ),
@@ -469,7 +601,10 @@ module_html <- function(){
                                  ),
               inputId = "exp_html_electrodes_to_include",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "Whether to include aggregate only or aggregate plus individual electrode results in HTML report"
+              description = paste(
+                "HTML report content: 'Aggregate only', or 'Aggregate + individual'",
+                "(default), which adds plots of each selected electrode."
+              )
             ),
             shidashi::register_input(
               shiny::selectInput(ns('exp_html_graphs'), label = 'Graphs to include',
@@ -477,7 +612,11 @@ module_html <- function(){
                                  selected=c('over_time_by_electrode', 'by_frequency_over_time', 'over_time_by_trial','over_time_by_condition'), multiple = TRUE),
               inputId = "exp_html_graphs",
               update = "shiny::updateSelectInput(value=selected)",
-              description = "Graph types to include in the HTML report"
+              description = paste(
+                "Graphs in the HTML report, a JSON array of any of",
+                "'over_time_by_electrode', 'by_frequency_over_time',",
+                "'over_time_by_trial', 'over_time_by_condition' (default: all)."
+              )
             ),
 
             shidashi::register_input(
@@ -488,7 +627,12 @@ module_html <- function(){
               ),
               inputId = "btn_export_html_report",
               update = "shiny::updateActionButton",
-              description = "Generate and download the HTML report",
+              description = paste(
+                "Button 'Generate Report': writes an HTML report into the",
+                "subject's reports folder, in the background. Agents run script",
+                "`generate_report` instead, after confirming with the user, then",
+                "poll `report_status`."
+              ),
               writable = FALSE
             )
           )
@@ -513,6 +657,19 @@ module_html <- function(){
 
           # ---- Output tab-set: Brain Viewers -------------------------------
 
+          # Registered so that agents can switch the tabs (MCP); the tab set
+          # itself is unchanged
+          shidashi::register_input(
+            inputId = "brain_viewers",
+            update = "shidashi::card_tabset_activate(value=title)",
+            description = paste(
+              "Active tab of the 'Brain Viewers' card: 'Results Viewer' (3D",
+              "viewer `brain_viewer`: the statistics of each electrode after",
+              "`run_analysis`) or 'Movie Maker' (3D viewer `brain_viewer_movies`:",
+              "the electrode-by-time animation, which needs",
+              "`do_over_time_by_electrode_dataframe`). Set it to show the user a",
+              "tab."
+            ),
           ravedash::output_cardset(
             inputId = ns('brain_viewers'), title = 'Brain Viewers',
             class_body = "no-padding min-height-400 height-400 resize-vertical",
@@ -535,11 +692,25 @@ module_html <- function(){
                   outputId = ns("brain_viewer_movies"), height = "100%"
                 )
               # )
-          ),
+          )), # end of register_input("brain_viewers")
 
 
           # ---- Output tab-set: By Electrode -----------------------
 
+          # Registered so that agents can switch the tabs (MCP); the tab set
+          # itself is unchanged
+          shidashi::register_input(
+            inputId = "by_electrode_tabset",
+            update = "shidashi::card_tabset_activate(value=title)",
+            description = paste(
+              "Active tab of the 'By Electrode' card: 'Over Time' (heatmap",
+              "`over_time_by_electrode`, electrodes by time, with sorting and",
+              "clusters), 'Waterfall over Time' (`waterfall_by_electrode_plot`),",
+              "'By Condition' (per-electrode mean, t and p plots), 'Tabular",
+              "Results' (table `per_electrode_results_table`), or 'Custom Plot'",
+              "(`by_electrode_custom_plot`). A plain output such as the table",
+              "can be read with `shiny_query_ui` only while its tab is showing."
+            ),
           ravedash::output_cardset(
             inputId = ns('by_electrode_tabset'),
             title = "By Electrode",
@@ -582,7 +753,16 @@ module_html <- function(){
                                       ),
                                       inputId = "otbe_yaxis_sort",
                                       update = "shiny::updateSelectInput(value=selected)",
-                                      description = "Method for sorting electrodes in the heatmap"
+                                      description = paste(
+                                        "How the 'By Electrode' heatmap sorts electrodes:",
+                                        "'Electrode #' (default), 'Activity Correlation',",
+                                        "'Activity Correlation (spearman)', 'Activity distance",
+                                        "(Euclidean)', 'Coordinate distance', or 'ROI distance'.",
+                                        "Any choice but 'Electrode #' also clusters the",
+                                        "electrodes into `otbe_yaxis_cluster_k` groups when the",
+                                        "plot is drawn; scripts `cluster_to_roi` and",
+                                        "`cluster_to_viewer` use these clusters."
+                                      )
                                     )),
                       shiny::column(width = 3L,
                                     shidashi::register_input(
@@ -625,7 +805,12 @@ module_html <- function(){
                                       ),
                                       inputId = "otbe_update_3dviewer",
                                       update = "shiny::updateActionButton",
-                                      description = "Send cluster assignments to the 3D brain viewer",
+                                      description = paste(
+                                        "Button 'Cluster -> brain viewer': redraws the 3D",
+                                        "viewer `brain_viewer` with the clusters as variable",
+                                        "`PE_Cluster`. Agents run script `cluster_to_viewer`",
+                                        "instead."
+                                      ),
                                       writable = FALSE
                                     ),
                                     shidashi::register_input(
@@ -635,7 +820,11 @@ module_html <- function(){
                                       ),
                                       inputId = "otbe_create_roi",
                                       update = "shiny::updateActionButton",
-                                      description = "Create ROI from current electrode clusters",
+                                      description = paste(
+                                        "Button 'Cluster -> ROI': turns on the custom ROI with",
+                                        "variable `PE_Cluster` (the clusters). Agents run",
+                                        "script `cluster_to_roi` instead."
+                                      ),
                                       writable = FALSE
                                     )
                       ),
@@ -648,7 +837,13 @@ module_html <- function(){
                                       ),
                                       inputId = "otbe_cluster_to_electrodes_csv",
                                       update = "shiny::updateActionButton",
-                                      description = "Save cluster assignments to electrodes.csv",
+                                      description = paste(
+                                        "Button 'Cluster -> electrodes.csv': opens a dialog that",
+                                        "writes the clusters into the subject's",
+                                        "meta/electrodes.csv. Only the user may use it: agents",
+                                        "never write electrodes.csv, have no tool for it, and",
+                                        "point the user to this button instead."
+                                      ),
                                       writable = FALSE
                                     )
                       )
@@ -695,7 +890,11 @@ module_html <- function(){
                         ),
                         inputId = "per_electrode_statistics_chooser",
                         update = "shiny::updateSelectInput(value=selected)",
-                        description = "Data group to display in per-electrode statistics plots"
+                        description = paste(
+                          "Which statistics the three per-electrode plots of the 'By",
+                          "Condition' tab show, e.g. 'overall', a trial group, or a",
+                          "contrast ('A - B'). The choices load after `run_analysis`."
+                        )
                       )
                     ),
                     shiny::column(
@@ -710,7 +909,13 @@ module_html <- function(){
                         ),
                         inputId = "pes_select_mode",
                         update = "shiny::updateSelectInput(value=selected)",
-                        description = "Mode for selecting electrodes: label maker, threshold, manual, invert, or clear"
+                        description = paste(
+                          "How clicks on the per-electrode plots select electrodes",
+                          "('Label maker', thresholds); 'Manual threshold' opens a",
+                          "dialog. For people only: agents cannot click plots or fill",
+                          "in or close the dialog, so leave it at 'Label maker' and",
+                          "choose electrodes with `electrode_text`."
+                        )
                       )
                     ),
                     shiny::column(
@@ -748,7 +953,13 @@ module_html <- function(){
                         ),
                         inputId = "pes_selected_action",
                         update = "shiny::updateSelectInput(value=selected)",
-                        description = "Action to perform on selected electrodes"
+                        description = paste(
+                          "Acts on the electrodes selected by plot clicks: 'Analyze",
+                          "selection' re-runs the analysis on them; 'Send selection to",
+                          "export' copies them into `electrodes_to_export`. For people",
+                          "only: agents set `electrode_text` or `electrodes_to_export`",
+                          "directly."
+                        )
                       )
                     )
                   ),
@@ -997,12 +1208,23 @@ module_html <- function(){
               ),
               ravedash::plotOutput2(outputId = ns('by_electrode_custom_plot'))
             )
-          ),
+          )), # end of register_input("by_electrode_tabset")
 
           # ---- Output tab-set: By Frequency --------------------------------
           make_by_frequency_tabset(),
 
           # ---- Output tab-set: Over Time -----------------------------------
+          # Registered so that agents can switch the tabs (MCP); the tab set
+          # itself is unchanged
+          shidashi::register_input(
+            inputId = "over_time_tabset",
+            update = "shidashi::card_tabset_activate(value=title)",
+            description = paste(
+              "Active tab of the 'Over Time' card: 'By Condition' (plot",
+              "`over_time_by_condition`, time courses per trial group) or 'By",
+              "Trial' (heatmap `over_time_by_trial`). Set it to show the user a",
+              "tab."
+            ),
           ravedash::output_cardset(
             inputId = ns('over_time_tabset'),
             title='Over Time',
@@ -1079,9 +1301,22 @@ module_html <- function(){
                 # )
               )
             )
-          ),
+          )), # end of register_input("over_time_tabset")
 
           # ---- Output tab-set: By Condition ------------------------------------
+          # Registered so that agents can switch the tabs (MCP); the tab set
+          # itself is unchanged
+          shidashi::register_input(
+            inputId = "by_condition_tabset",
+            update = "shidashi::card_tabset_activate(value=title)",
+            description = paste(
+              "Active tab of the 'By Condition' card: 'By Trial' (plot",
+              "`by_condition_by_trial` and its click table), 'Overall model test'",
+              "(`by_condition_statistics`), 'Conditions vs. Baseline'",
+              "(`by_condition_statistics_emmeans`), or 'Pairwise comparisons'",
+              "(`by_condition_statistics_contrasts`). Set it to show the user a",
+              "tab."
+            ),
           ravedash::output_cardset(
             inputId = ns('by_condition_tabset'),
             title='By Condition',
@@ -1282,7 +1517,7 @@ module_html <- function(){
                                                 ),
                                                 shiny::htmlOutput(ns('by_condition_statistics_contrasts'))
             )
-          )
+          )) # end of register_input("by_condition_tabset")
 
           #   `card with flip` = shidashi::flip_box(
           #     front = shidashi::info_box("Side A"),

@@ -532,27 +532,58 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
     post_event <- comp$get_settings_value(key = post_event_varname, default = "Trial Onset")
     lst <- comp$get_settings_value(key = lst_varname, default = FALSE)
 
+    # `shidashi::register_input` lets agents read and set the inputs (MCP);
+    # it returns the same tag. "Set as the default" is not registered, as in
+    # ravedash's own epoch and reference presets
     ravedash::flex_group_box(title = label,
       shidashi::flex_item(size = 2,
-        shiny::selectInput(inputId = id, label = "Epoch name",
-          choices = c(value, ""), selected = value, multiple = FALSE)
+        shidashi::register_input(
+          shiny::selectInput(inputId = id, label = "Epoch name",
+            choices = c(value, ""), selected = value, multiple = FALSE),
+          inputId = comp$get_sub_element_id(with_namespace = FALSE),
+          update = "shiny::updateSelectInput(value=selected)",
+          description = paste(
+            "Epoch name: one of the subject's epoch tables (trial onsets and",
+            "conditions). The choices load after the project and subject are",
+            "chosen."
+          )
+        )
       ),
       shidashi::flex_break(),
       shidashi::flex_item(shiny::p("Pre must be negative if you need a pre-event baseline window."), size=2),
       shidashi::flex_break(),
-      shidashi::flex_item(shiny::numericInput(inputId = comp$get_sub_element_id("trial_starts",
-        with_namespace = TRUE), label = "Pre", min = -10, step = .1,
-        value = pre)),
+      shidashi::flex_item(shidashi::register_input(
+        shiny::numericInput(inputId = comp$get_sub_element_id("trial_starts",
+          with_namespace = TRUE), label = "Pre", min = -10, step = .1,
+          value = pre),
+        inputId = comp$get_sub_element_id("trial_starts", with_namespace = FALSE),
+        update = "shiny::updateNumericInput",
+        description = paste(
+          "Trial start in seconds, relative to the anchor event. Use a",
+          "negative number (default reads from pipeline settings) so that the baseline window can lie",
+          "before the event. Ask the user for time range if unsure - this saves time as loading data is",
+          "the most time-consuming part."
+        )
+      )),
 
       local({
         if(allow_stitch) {
           shiny::tagList(
             shidashi::flex_item(
-              shiny::selectInput(
-                inputId = comp$get_sub_element_id("trial_starts_rel_to_event", with_namespace = TRUE),
-                label = "anchor to event",
-                choices = unique(c("Trial Onset", pre_event)),
-                selected = pre_event
+              shidashi::register_input(
+                shiny::selectInput(
+                  inputId = comp$get_sub_element_id("trial_starts_rel_to_event", with_namespace = TRUE),
+                  label = "anchor to event",
+                  choices = unique(c("Trial Onset", pre_event)),
+                  selected = pre_event
+                ),
+                inputId = comp$get_sub_element_id("trial_starts_rel_to_event", with_namespace = FALSE),
+                update = "shiny::updateSelectInput(value=selected)",
+                description = paste(
+                  "Event that the trial start is anchored to: 'Trial Onset'",
+                  "(default) or another event of the epoch. The choices load",
+                  "with the epoch."
+                )
               )
             ),
             shidashi::flex_break()
@@ -561,17 +592,35 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
           NULL
         }
       }),
-      shidashi::flex_item(shiny::numericInput(inputId = comp$get_sub_element_id("trial_ends",
-        with_namespace = TRUE), label = "Post", min = 0, step = 0.1,
-        value = post)),
+      shidashi::flex_item(shidashi::register_input(
+        shiny::numericInput(inputId = comp$get_sub_element_id("trial_ends",
+          with_namespace = TRUE), label = "Post", min = 0, step = 0.1,
+          value = post),
+        inputId = comp$get_sub_element_id("trial_ends", with_namespace = FALSE),
+        update = "shiny::updateNumericInput",
+        description = paste(
+          "Trial end in seconds, relative to the anchor event (default reads from pipeline settings).",
+          "Ask the user for time range if unsure - this saves time as loading data is",
+          "the most time-consuming part."
+        )
+      )),
       local({
         if(allow_stitch) {
           shidashi::flex_item(
-            shiny::selectInput(
-              inputId = comp$get_sub_element_id("trial_ends_rel_to_event", with_namespace = TRUE),
-              label = "anchor to event",
-              choices = unique(c("Trial Onset", post_event)),
-              selected = post_event
+            shidashi::register_input(
+              shiny::selectInput(
+                inputId = comp$get_sub_element_id("trial_ends_rel_to_event", with_namespace = TRUE),
+                label = "anchor to event",
+                choices = unique(c("Trial Onset", post_event)),
+                selected = post_event
+              ),
+              inputId = comp$get_sub_element_id("trial_ends_rel_to_event", with_namespace = FALSE),
+              update = "shiny::updateSelectInput(value=selected)",
+              description = paste(
+                "Event that the trial end is anchored to: 'Trial Onset'",
+                "(default) or another event of the epoch. The choices load",
+                "with the epoch."
+              )
             )
           )
         } else {
@@ -584,11 +633,21 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
         status = "success", shape = "square", animation = "smooth")
       ),
       shidashi::flex_break(),
-      shidashi::flex_item(shinyWidgets::prettyCheckbox(
-        inputId = comp$get_sub_element_id("load_single_trial",
-                                          with_namespace = TRUE), label = "Load first block as single trial",
-        status = "success", shape = "square", animation = "smooth", value=lst)
-      )
+      shidashi::flex_item(shidashi::register_input(
+        shinyWidgets::prettyCheckbox(
+          inputId = comp$get_sub_element_id("load_single_trial",
+                                            with_namespace = TRUE), label = "Load first block as single trial",
+          status = "success", shape = "square", animation = "smooth", value=lst),
+        inputId = comp$get_sub_element_id("load_single_trial", with_namespace = FALSE),
+        update = "shinyWidgets::updatePrettyCheckbox",
+        description = paste(
+          "'Load first block as single trial', for continuous recordings. When",
+          "checked, loading writes a new epoch file",
+          "`meta/epoch_single_trial_<epoch>.csv` into the subject. Only the",
+          "user may check it."
+        ),
+        writable = FALSE
+      ))
     )
 
 

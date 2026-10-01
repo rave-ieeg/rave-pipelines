@@ -162,6 +162,8 @@ module_server <- function(input, output, session, ...){
     if(any(duplicated(unname(unlist(all_fcg))))) {
       ravedash::show_notification(title = "Duplicated conditions in First Factor",
                                   "Duplicated trial types across multiple levels of the same factor. Keeping only the first usage", autohide = FALSE)
+      # Also print notifications, so they reach agents (MCP) in the script output
+      ravepipeline::logger("Duplicated conditions in First Factor: Duplicated trial types across multiple levels of the same factor. Keeping only the first usage", level = "warning")
 
       for(ii in seq_along(all_fcg)[-1]) {
         other_cond <- unname(unlist(all_fcg[1:(ii-1)]))
@@ -172,6 +174,7 @@ module_server <- function(input, output, session, ...){
           ravedash::show_notification(title="Insufficient Data",
                                       "No conditions available for analysis after removing duplicates. Analysis not run.", type='danger',
                                       autohide = FALSE)
+          ravepipeline::logger("Insufficient Data: No conditions available for analysis after removing duplicates. Analysis not run.", level = "warning")
           return()
         }
       }
@@ -183,6 +186,7 @@ module_server <- function(input, output, session, ...){
       if(any(duplicated(unname(unlist(all_scg))))) {
         ravedash::show_notification(title = "Duplicated conditions in Second Factor",
                                     "Duplicated trial types across multiple levels of the same factor for second factor. Keeping only the first usage", autohide = FALSE)
+        ravepipeline::logger("Duplicated conditions in Second Factor: Duplicated trial types across multiple levels of the same factor for second factor. Keeping only the first usage", level = "warning")
 
         for(ii in seq_along(all_scg)[-1]) {
           other_cond <- unname(unlist(all_scg[1:(ii-1)]))
@@ -193,6 +197,7 @@ module_server <- function(input, output, session, ...){
             ravedash::show_notification(title="Insufficient Data",
                                         "No conditions available for analysis after removing duplicates. Analysis not run.", type='danger',
                                         autohide = FALSE)
+            ravepipeline::logger("Insufficient Data: No conditions available for analysis after removing duplicates. Analysis not run.", level = "warning")
             return()
           }
         }
@@ -243,12 +248,14 @@ module_server <- function(input, output, session, ...){
             ,"Please check event names, time windows, and frequency windows"),
           title = "Analysis not run", type = "danger"
         )
+        ravepipeline::logger("Analysis not run: Two or more analysis settings are identical or have excessive overlap. Please check event names, time windows, and frequency windows", level = "warning")
         return()
       } else if (any(re > 0)) {
         ravedash::show_notification(
           message = "Two or more analysis settings have some overlap. If the analysis fails, please check event names, time windows, and frequency windows",
           title = "Analysis run with warning", type = "warning"
         )
+        ravepipeline::logger("Analysis run with warning: Two or more analysis settings have some overlap. If the analysis fails, please check event names, time windows, and frequency windows", level = "warning")
       }
 
     }
@@ -558,13 +565,166 @@ module_server <- function(input, output, session, ...){
     return()
   }
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Summary of the settings that the last `run_analysis()` saved, for agents
+  summarize_analysis <- function() {
+    settings <- pipeline$get_settings()
+    describe_groups <- function(groups) {
+      paste(vapply(groups, function(group) {
+        sprintf("%s (%s)", group$label,
+                paste(unlist(group$conditions), collapse = ", "))
+      }, ""), collapse = "; ")
+    }
+    windows <- vapply(settings$analysis_settings, function(window) {
+      time <- unlist(window$time)
+      frequency <- unlist(window$frequency)
+      sprintf("%s (%s, %s to %s s, %s-%s Hz)", window$label, window$event,
+              time[[1]], time[[2]], frequency[[1]], frequency[[2]])
+    }, "")
+    baseline <- settings$baseline_settings
+    baseline_window <- unlist(baseline$window)
+    roi <- "off"
+    if (isTRUE(settings$enable_custom_ROI) &&
+        !identical(settings$custom_roi_variable, "none")) {
+      roi <- sprintf(
+        "%s, %s: %s", settings$custom_roi_variable, settings$custom_roi_type,
+        paste(vapply(settings$custom_roi_groupings, function(group) {
+          sprintf("%s (electrodes %s)", group$label,
+                  paste(group$electrodes, collapse = ""))
+        }, ""), collapse = "; ")
+      )
+    }
+    second_factor <- "off"
+    if (isTRUE(settings$enable_second_condition_groupings)) {
+      second_factor <- describe_groups(settings$second_condition_groupings)
+    }
+    sprintf(
+      paste(
+        "Analysis done (%s): electrodes %s; windows: %s; baseline %s to %s s,",
+        "%s, %s; condition variable %s; first factor: %s; second factor: %s;",
+        "custom ROI: %s"
+      ),
+      if (isTRUE(input$quick_omnibus_only)) "quick" else "full",
+      settings$analysis_electrodes, paste(windows, collapse = "; "),
+      baseline_window[[1]], baseline_window[[2]], baseline$scope,
+      baseline$unit_of_analysis, settings$condition_variable,
+      describe_groups(settings$first_condition_groupings), second_factor, roi
+    )
+  }
+
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script(
+    "run_analysis",
+    description = c(
+      "Save the analysis inputs to the pipeline, then compute the baseline",
+      "correction, trial groupings, statistics, and plot data; the plots",
+      "refresh when it finishes (same as clicking 'RAVE!'). It reads",
+      "`electrode_text` (or, with the custom ROI on, the electrodes of",
+      "`custom_roi_groupings`), `baseline_window`, `baseline_scope`,",
+      "`baseline_unit`, `ui_analysis_settings`, `condition_variable`,",
+      "`first_condition_groupings`, `enable_second_condition_groupings`,",
+      "`second_condition_groupings`, `enable_custom_ROI`,",
+      "`custom_roi_variable`, `custom_roi_type`, `quick_omnibus_only`,",
+      "`omnibus_includes_all_electrodes`, `do_over_time_by_electrode_dataframe`,",
+      "and the export inputs. It writes nothing into the subject. Returns",
+      "'Analysis done (quick|full): ...' with the settings used, or 'Analysis",
+      "did not run' when invalid inputs stopped it (a first- or second-factor",
+      "level left empty by duplicated conditions, identical or overlapping",
+      "analysis windows); `output` gives the reason, and warnings about inputs",
+      "that were fixed (duplicates dropped). A failing pipeline step makes the",
+      "script fail with the step's error (e.g. 'No electrode selected');",
+      "script `pipeline_progress` lists the state of each step. Read the",
+      "results with script `electrode_statistics` and tool",
+      "`shiny_output_result`."
+    ),
+    {
+      # For agents: whether this run refreshed the results. `run_analysis()`
+      # returns early, with a notification, when the inputs are invalid
+      last_update <- local_reactives$update_pes_plot
       run_analysis()
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
+      if (identical(last_update, local_reactives$update_pes_plot)) {
+        "Analysis did not run: see the warnings in `output`."
+      } else {
+        tryCatch(summarize_analysis(), error = function(e) "Analysis done.")
+      }
+    }
+  )
+
+  # Read-only: the per-electrode statistics as text, for agents (people read
+  # them in the 'By Electrode' card)
+  server_tools$set_script(
+    "electrode_statistics",
+    description = c(
+      "Read-only. The per-electrode statistics of the last analysis (the",
+      "numbers behind the 'By Condition' plots and the 'Tabular Results' table",
+      "of the 'By Electrode' card), at most 100 lines: a header, then one line",
+      "per statistic, '<statistic>: <electrode>=<value>, ...' with 4",
+      "significant digits. 'm(<group>)' is the estimated mean, 't(<group>)' the",
+      "t-statistic and 'p(<group>)' the p-value against 0 (the baseline), for",
+      "'overall', each trial group, and each contrast 'A - B' (with",
+      "'p_fdr(...)', FDR-adjusted); 'currently_selected' is 1 for the",
+      "electrodes in the analysis selection. These are the statistics of the",
+      "last `run_analysis` in this browser session: loading data does not",
+      "clear them, so run `run_analysis` after `load_data`."
+    ),
+    {
+      stats <- local_data$results$omnibus_results$stats
+      if (!length(stats)) {
+        return("No results yet: run `run_analysis` first.")
+      }
+      unit <- tryCatch(
+        pipeline$get_settings()$baseline_settings$unit_of_analysis,
+        error = function(e) NULL
+      )
+      header <- sprintf(
+        "Statistics (%s) of electrodes %s, one line per statistic (%d):",
+        paste(unit, collapse = ""),
+        dipsaus::deparse_svec(as.integer(colnames(stats))), nrow(stats)
+      )
+      lines <- vapply(seq_len(nrow(stats)), function(ii) {
+        sprintf("%s: %s", rownames(stats)[[ii]], paste(
+          sprintf("%s=%s", colnames(stats), signif(stats[ii, ], 4)),
+          collapse = ", "
+        ))
+      }, "")
+      if (length(lines) > 99) {
+        lines <- c(lines[seq_len(98)], sprintf(
+          "... %d more lines: read target `omnibus_results` instead",
+          length(lines) - 98
+        ))
+      }
+      c(header, lines)
+    }
+  )
+
+  # Read-only: lets agents read why a pipeline target failed (same as in the
+  # wavelet module)
+  server_tools$set_script(
+    name = "pipeline_progress",
+    description = c(
+      "Read-only. Progress of the latest pipeline run, one line per target:",
+      "'<target>: <progress>' (dispatched, completed, errored, skipped,",
+      "canceled), with the error message of errored targets, and when the",
+      "progress last changed. Run it after `run_analysis` or",
+      "`export_electrodes` fails with an error that does not say why."
+    ),
+    expr = {
+      progress <- as.data.frame(pipeline$progress("details"))
+      if (!nrow(progress)) {
+        return("The pipeline has not run yet.")
+      }
+      re <- sprintf("%s: %s", progress$name, progress$progress)
+      errored <- progress$progress == "errored"
+      if (any(errored)) {
+        errors <- as.data.frame(pipeline$with_activated(
+          targets::tar_meta(fields = "error", complete_only = TRUE)
+        ))
+        messages <- errors$error[match(progress$name[errored], errors$name)]
+        re[errored] <- paste(re[errored], "-", messages)
+      }
+      since <- as.data.frame(pipeline$progress("summary"))$since
+      c(re, sprintf("(progress last changed %s)", since))
+    }
   )
 
   # shiny::bindEvent(
@@ -1384,20 +1544,51 @@ module_server <- function(input, output, session, ...){
     ravepipeline::logger('trying to update custom ROI groups', level='debug')
   }
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when 'Assign all ROI levels to groups' is clicked, or through
+  # `server_tools$trigger_script("assign_roi_levels")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "assign_roi_levels",
+    description = c(
+      "Same as clicking 'Assign all ROI levels to groups': sets",
+      "`custom_roi_groupings` to one group per value of `custom_roi_variable`",
+      "(labelled by the value). Needs `enable_custom_ROI` on; otherwise it",
+      "does nothing. Returns nothing: read `custom_roi_groupings` with",
+      "`shiny_input_info` (the value round-trips through the browser)."
+    ),
+    {
       if(isTRUE(input$enable_custom_ROI) & !is.null(local_data$electrode_meta_data)) {
         do_auto_assign_levels_to_roi_groupings()
       }
-    }), input$auto_assign_levels_to_roi_groupings,
-    ignoreNULL = TRUE, ignoreInit = TRUE
+    }
   )
 
   shiny::bindEvent(
     ravedash::safe_observe({
+      server_tools$trigger_script("assign_roi_levels")
+    }), input$auto_assign_levels_to_roi_groupings,
+    ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # Runs when 'Clear groups' is clicked, or through
+  # `server_tools$trigger_script("clear_roi_groups")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "clear_roi_groups",
+    description = c(
+      "Same as clicking 'Clear groups': sets `custom_roi_groupings` to one",
+      "group 'All levels' with every value of `custom_roi_variable`. Needs",
+      "`enable_custom_ROI` on; otherwise it does nothing. Returns nothing:",
+      "read `custom_roi_groupings` with `shiny_input_info`."
+    ),
+    {
       if(isTRUE(input$enable_custom_ROI) & !is.null(local_data$electrode_meta_data)) {
         do_clear_roi_grouping_levels()
       }
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("clear_roi_groups")
     }), input$clear_roi_grouping_levels,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -2140,14 +2331,42 @@ module_server <- function(input, output, session, ...){
 
   # putting this observer here because it relates to the 3dviewer
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when 'Cluster -> brain viewer' is clicked, or through
+  # `server_tools$trigger_script("cluster_to_viewer")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "cluster_to_viewer",
+    description = c(
+      "Same as clicking 'Cluster -> brain viewer': redraws the 3D viewer",
+      "`brain_viewer`, adding the electrode clusters of the 'By Electrode'",
+      "heatmap as variable `PE_Cluster` when there are clusters (see",
+      "`otbe_yaxis_sort`)."
+    ),
+    {
       local_reactives$update_3dviewer = Sys.time()
-    }), input$otbe_update_3dviewer, ignoreNULL = TRUE, ignoreInit = FALSE
+    }
   )
 
   shiny::bindEvent(
     ravedash::safe_observe({
+      server_tools$trigger_script("cluster_to_viewer")
+    }), input$otbe_update_3dviewer, ignoreNULL = TRUE, ignoreInit = FALSE
+  )
+
+  # Runs when 'Cluster -> ROI' is clicked, or through
+  # `server_tools$trigger_script("cluster_to_roi")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "cluster_to_roi",
+    description = c(
+      "Same as clicking 'Cluster -> ROI': adds the electrode clusters of the",
+      "'By Electrode' heatmap as ROI variable `PE_Cluster`, turns",
+      "`enable_custom_ROI` on, and sets `custom_roi_variable` to `PE_Cluster`;",
+      "then set `custom_roi_groupings` (or run `assign_roi_levels`) and",
+      "`run_analysis`. There are clusters only after the heatmap",
+      "`over_time_by_electrode` was drawn with `otbe_yaxis_sort` other than",
+      "'Electrode #'; without clusters it does nothing. Returns nothing: read",
+      "`custom_roi_variable` with `shiny_input_info`."
+    ),
+    {
 
       # make sure there are clusters available
       if(!is.null(local_data$electrode_quick_cluster)) {
@@ -2176,6 +2395,12 @@ module_server <- function(input, output, session, ...){
         # of the reactive context. maybe wrap with shiny::reactive(...)
         # on.exit(later::later(, 100))
       }
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("cluster_to_roi")
     }), input$otbe_create_roi, ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
@@ -2442,8 +2667,31 @@ module_server <- function(input, output, session, ...){
   #   input$electrode_export_data_type, ignoreNULL = TRUE, ignoreInit = TRUE
   # )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when 'Export' is clicked, or through
+  # `server_tools$trigger_script("export_electrodes")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "export_electrodes",
+    description = c(
+      "Same as clicking 'Export' in the card 'Export electrodes to csv'. It",
+      "writes into the subject folder: ALWAYS confirm the export settings with",
+      "the user first. It reads `electrodes_to_export` (loaded electrodes",
+      "only), `electrodes_to_export_roi_name`,",
+      "`electrodes_to_export_roi_categories`, `frequencies_to_export`,",
+      "`times_to_export`, `trials_to_export`, and the analysis inputs. It",
+      "needs `quick_omnibus_only` off: in quick mode it exports nothing. It",
+      "re-runs the analysis on the export electrodes (the plots then show",
+      "them; run `run_analysis` to go back to `electrode_text`), then writes a",
+      "new folder `<subject>/power_explorer/pe_export_<time>/` with one",
+      "`<project>_<subject>_eNNNN.csv` per electrode (baseline-corrected",
+      "values) and `metadata.yaml`; it never overwrites. Returns the folder.",
+      "Otherwise it returns nothing or 'Nothing exported', and `output` gives",
+      "the reason (e.g. 'Export not started: No electrodes selected for",
+      "export'). People see a 'Done with exporting!' alert, which stays open",
+      "until the user closes it."
+    ),
+    {
+      # For agents: when this run started, to tell its export folder
+      started <- Sys.time()
 
       ravedash::shiny_alert2(title = "Preparing for exporting",
                             text = "...", icon = "info",
@@ -2470,6 +2718,8 @@ module_server <- function(input, output, session, ...){
         ravedash::shiny_alert2(text="No electrodes selected for export",
                               title='Export not started',
                               auto_close = TRUE, buttons = list('OK' = TRUE))
+        # Also print the message, so it reaches agents (MCP) in the output
+        ravepipeline::logger("Export not started: No electrodes selected for export", level = "warning")
 
         return()
       }
@@ -2539,16 +2789,48 @@ module_server <- function(input, output, session, ...){
       #     ),
       #     shiny::HTML(str)
       #   ))
-    })
-    ,
+
+      # For agents: the folder this run wrote. `run_analysis()` can return
+      # early and leave the path of an earlier export
+      export_path <- local_data$results$data_for_export
+      if (is.character(export_path) && length(export_path) == 1 &&
+          dir.exists(export_path) &&
+          file.mtime(export_path) >= started - 1) {
+        export_path
+      } else {
+        "Nothing exported: see `output`."
+      }
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("export_electrodes")
+    }),
     input$btn_export_electrodes,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
 
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when 'Generate Report' is clicked, or through
+  # `server_tools$trigger_script("generate_report")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "generate_report",
+    description = c(
+      "Same as clicking 'Generate Report' in the card 'Export HTML Report'.",
+      "It writes into the subject folder: ALWAYS confirm with the user first.",
+      "It reads `exp_html_electrodes_to_include` and `exp_html_graphs`, and",
+      "reports the results of the last `run_analysis`. It schedules a",
+      "background job that writes",
+      "`<subject>/reports/report-univariatePower_datetime-<time>_power_explorer/report.html`",
+      "(tens of MB with all graphs), and returns at once, with nothing: poll",
+      "script `report_status` until it says 'finished'. People see 'Report(s)",
+      "scheduled', then 'Report generated!' with a link."
+    ),
+    {
+      # For agents: when the report was scheduled, for `report_status`
+      local_data$report_scheduled_at <- Sys.time()
 
       # dipsaus::shiny_alert2(title = "Generating HTML Report",
       #                       text = "See console for progress", icon = "info",
@@ -2689,7 +2971,59 @@ module_server <- function(input, output, session, ...){
       #                       text = sprintf("Report is here: %s", outdir), icon = "success",
       #                       danger_mode = FALSE, auto_close = FALSE)
 
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("generate_report")
     }), input$btn_export_html_report, ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # Read-only: whether the report that `generate_report` scheduled is done.
+  # Once the job ends, the module's promise removes the job
+  # (`ravepipeline::resolve_job`), so a finished report is found by its file
+  server_tools$set_script(
+    "report_status",
+    description = c(
+      "Read-only. State of the HTML report that script `generate_report`",
+      "scheduled in this session: 'scheduled', 'running', 'errored' with the",
+      "error, or 'finished' with the path of the new report.html."
+    ),
+    {
+      job_id <- local_data$report_job_id
+      scheduled_at <- local_data$report_scheduled_at
+      if (is.null(job_id) || is.null(scheduled_at)) {
+        return("No report has been scheduled in this session: run `generate_report` first.")
+      }
+      job <- ravepipeline::check_job(job_id)
+
+      # report.html files written since the report was scheduled
+      report_path <- pipeline$read("repository")$subject$report_path
+      folders <- list.dirs(report_path, recursive = FALSE)
+      folders <- folders[startsWith(basename(folders), "report-univariatePower_")]
+      reports <- file.path(folders, "report.html")
+      reports <- reports[file.exists(reports)]
+      reports <- reports[file.mtime(reports) >= scheduled_at - 1]
+
+      if (isTRUE(job$status %in% c(0, 1))) {
+        "Report scheduled; the job has not started yet. Run `report_status` again later."
+      } else if (isTRUE(job$status == 2)) {
+        "Report running. Run `report_status` again later."
+      } else if (isTRUE(job$status == -1)) {
+        paste("Report errored:", tryCatch(conditionMessage(job$error),
+                                          error = function(e) "unknown error"))
+      } else if (length(reports)) {
+        sprintf("Report finished: %s", reports[[which.max(file.mtime(reports))]])
+      } else if (isTRUE(job$status == 3)) {
+        "Report job finished, but no new report.html was found."
+      } else {
+        paste(
+          "The report job has ended without a new report.html: it failed (the",
+          "page shows the error to the user)."
+        )
+      }
+    }
   )
 
 #
@@ -2834,16 +3168,39 @@ module_server <- function(input, output, session, ...){
   }), input$replace_existing_group_anlysis_pipeline, ignoreNULL = TRUE, ignoreInit = TRUE)
 
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when 'Save!' is clicked, or through
+  # `server_tools$trigger_script("save_for_group_analysis")` (e.g. from MCP
+  # tools)
+  server_tools$set_script(
+    "save_for_group_analysis",
+    description = c(
+      "Same as clicking 'Save!' in the card 'Save for Group Analysis': builds",
+      "target `data_for_group_analysis` and saves a copy of the pipeline, with",
+      "the current settings and results, into the subject",
+      "(`<subject>/pipelines/power_explorer/power_explorer-<label>-<time>/`)",
+      "for group analysis. It writes into the subject folder: ALWAYS confirm",
+      "the label, and whether to create new or replace, with the user first.",
+      "It reads `save_pipeline_for_group_analysis_label` (required) and",
+      "`replace_existing_group_anlysis_pipeline`: anything but 'Create New'",
+      "asks to delete the older saves with the same label (with the current",
+      "ravecore they are kept; see the manual). Needs results: run",
+      "`run_analysis` first. Returns the saved folder, or 'Not saved' with the",
+      "reason in `output`; people then see a 'Could not save results' alert."
+    ),
+    {
+      # For agents: when this run started, to tell the folder it saved
+      started <- Sys.time()
 
       if(is.null(local_data$results)) {
         ravedash::shiny_alert2("Could not save results", "No results are available. Try clicking RAVE!",
                                icon='warning')
+        # Also print the message, so it reaches agents (MCP) in the output
+        ravepipeline::logger("Could not save results: No results are available. Try clicking RAVE!", level = "warning")
 
       } else if (!nzchar(input$save_pipeline_for_group_analysis_label)) {
         ravedash::shiny_alert2("Could not save results", "Saved results must have a label.",
                                icon='warning')
+        ravepipeline::logger("Could not save results: Saved results must have a label.", level = "warning")
 
       } else {
         # make sure this is available
@@ -2871,6 +3228,29 @@ module_server <- function(input, output, session, ...){
         update_available_forked_pipelines()
       }
 
+      # For agents: the folder this run saved (none after the alerts above)
+      saved <- tryCatch({
+        subject <- pipeline$read("repository")$subject
+        forks <- as.data.frame(subject$list_pipelines("power_explorer"))
+        forks <- forks[
+          forks$policy %in% "group_analysis" &
+            forks$timestamp >= as.POSIXct(trunc(started, units = "secs")),
+          , drop = FALSE
+        ]
+        forks <- forks[order(forks$timestamp), , drop = FALSE]
+        file.path(subject$pipeline_path, "power_explorer", forks$directory)
+      }, error = function(e) character(0))
+      if (length(saved)) {
+        saved[[length(saved)]]
+      } else {
+        "Not saved: see `output`."
+      }
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("save_for_group_analysis")
     }), input$save_pipeline_for_group_analysis,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
