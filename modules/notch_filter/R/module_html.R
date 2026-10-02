@@ -27,6 +27,7 @@ module_html <- function() {
                       step = 1L,
                       min = 1L
                     ),
+                    tooltip = "Base frequency of the notch filter (Hz).",
                     inputId = "notch_filter_base_freq",
                     update = "shiny::updateNumericInput",
                     description = "[Numeric] The base frequency of the notch filter. For example, `60` Hz for power line noise. Pick 50 Hz for power line noise in Europe/Asia."
@@ -40,6 +41,7 @@ module_html <- function() {
                       label = "x (Times)",
                       value = "1,2,3"
                     ),
+                    tooltip = "Multiples of the base frequency to filter, separated by commas (e.g. 1,2,3).",
                     inputId = "notch_filter_times",
                     update = "shiny::updateTextInput",
                     description = "[Text of integers separated by commas] The multiples of the base frequency to be filtered. For example, `1,2,3` will filter 60 Hz, 120 Hz, and 180 Hz (for a `notch_filter_base_freq` = 60 Hz base frequency)."
@@ -52,6 +54,7 @@ module_html <- function() {
                       label = "+- Bandwidth (Hz)",
                       value = "1,2,2"
                     ),
+                    tooltip = "Half bandwidth (Hz) of the filter at each multiple, separated by commas.",
                     inputId = "notch_filter_bandwidth",
                     update = "shiny::updateTextInput",
                     description = paste(
@@ -107,6 +110,7 @@ module_html <- function() {
                       label = "Block",
                       choices = character(0L)
                     ),
+                    tooltip = "Recording block to inspect.",
                     inputId = "block",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = "[Select] The block to be inspected in output `signal_plot`."
@@ -119,6 +123,7 @@ module_html <- function() {
                       label = "Electrode",
                       choices = character(0L)
                     ),
+                    tooltip = "Electrode to inspect in the diagnostic plots.",
                     inputId = "electrode",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = "[Select] The electrode to be inspected in Welch's plot - output `signal_plot`."
@@ -132,6 +137,7 @@ module_html <- function() {
                       label = "Previous",
                       width = "100%"
                     ),
+                    tooltip = "Inspect the previous electrode.",
                     inputId = "previous_electrode",
                     update = "shiny::updateActionButton",
                     description = "[Action button] Click to select the previous electrode in the list of electrodes for Welch's plot - output `signal_plot`."
@@ -144,6 +150,7 @@ module_html <- function() {
                       label = "Next",
                       width = "100%"
                     ),
+                    tooltip = "Inspect the next electrode.",
                     inputId = "next_electrode",
                     update = "shiny::updateActionButton",
                     description = "[Action button] Click to select the next electrode in the list of electrodes for Welch's plot - output `signal_plot`."
@@ -164,6 +171,7 @@ module_html <- function() {
                         value = 2,
                         step = 0.1
                       ),
+                      tooltip = "Window length (seconds) of the Welch periodogram.",
                       inputId = "pwelch_winlen",
                       update = "shiny::updateSliderInput",
                       description = "[Numeric] Select the window length for the Welch's plot - output `signal_plot`."
@@ -180,6 +188,7 @@ module_html <- function() {
                         value = 300,
                         step = 1
                       ),
+                      tooltip = "Highest frequency shown in the Welch periodogram.",
                       inputId = "pwelch_freqlim",
                       update = "shiny::updateSliderInput",
                       description = "[Numeric] Select the frequency limit for the Welch's plot - output `signal_plot`."
@@ -196,6 +205,7 @@ module_html <- function() {
                         value = 60,
                         step = 5
                       ),
+                      tooltip = "Number of bins of the voltage histogram.",
                       inputId = "pwelch_nbins",
                       update = "shiny::updateSliderInput",
                       description = "[Numeric] Select the number of histogram bins for the Welch's plot - output `signal_plot`."

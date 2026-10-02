@@ -564,6 +564,11 @@ filter_repository <- function(repository, filter_configurations) {
     })
   }
 
+  # Create the partition files before the workers start: each worker reloads
+  # the array, which fails on a partition file that another worker is still
+  # creating
+  filtered_array$`@impl`$initialize_partition()
+
   # For debugging to speed up
   if (isTRUE(getOption("rave.debug"))) {
     ravepipeline::with_rave_parallel({

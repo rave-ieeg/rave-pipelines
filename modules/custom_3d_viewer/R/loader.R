@@ -46,6 +46,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   selected = "Project",
                   multiple = FALSE
                 ),
+                tooltip = "Where the electrode coordinates come from: the subject's electrodes.csv, or an uploaded table.",
                 inputId = "loader_electrode_source",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -108,6 +109,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   selected = overlay_types0,
                   multiple = TRUE
                 ),
+                tooltip = "Extra volumes (atlases) to load.",
                 inputId = "loader_volume_types",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -128,6 +130,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   selected = surface_types0,
                   multiple = TRUE
                 ),
+                tooltip = "Extra surface types to load.",
                 inputId = "loader_surface_types",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -148,6 +151,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   selected = annot_types0,
                   multiple = TRUE
                 ),
+                tooltip = "Surface annotations or measurements to load.",
                 inputId = "loader_annot_types",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -168,6 +172,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   selected = streamline_types0,
                   multiple = TRUE
                 ),
+                tooltip = "Streamline (fiber tract) bundles to load.",
                 inputId = "loader_streamline_types",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -187,6 +192,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   label = "Use spheres contacts",
                   value = isTRUE(pipeline$get_settings("use_spheres"))
                 ),
+                tooltip = "Draw the contacts as spheres instead of electrode shapes.",
                 inputId = "loader_use_spheres",
                 update = "shiny::updateCheckboxInput",
                 description = paste(
@@ -205,6 +211,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   step = 0.001,
                   min = 0, max = 10
                 ),
+                tooltip = "Radius (mm) of the sphere contacts.",
                 inputId = "loader_override_radius",
                 update = "shiny::updateNumericInput",
                 description = paste(
@@ -222,6 +229,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   label = "Use template brain",
                   value = FALSE
                 ),
+                tooltip = "Also load the template brain, e.g. to map electrodes to it.",
                 inputId = "loader_use_template",
                 update = "shiny::updateCheckboxInput",
                 description = paste(

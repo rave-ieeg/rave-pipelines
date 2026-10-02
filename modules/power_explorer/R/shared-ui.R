@@ -93,6 +93,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
           shidashi::register_input(
             shiny::numericInput(ns(prefix %&% '_range'), label = 'Plot Max',
                                 value = max[1], min = max[2], max = max[3], step = max[4]),
+            tooltip = "Upper limit of the color scale (0: the largest absolute value); with 'Max is %' checked, a percentile of the absolute values.",
             inputId = prefix %&% '_range',
             update = "shiny::updateNumericInput",
             description = describe(
@@ -109,6 +110,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                       shidashi::register_input(
                         shiny::checkboxInput(ns(prefix %&% '_range_is_percentile'),
                                              label = 'Max is %', value = percentile),
+                        tooltip = "Read 'Plot Max' as a percentile of the absolute values.",
                         inputId = prefix %&% '_range_is_percentile',
                         update = "shiny::updateCheckboxInput",
                         description = describe(
@@ -121,6 +123,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                       shidashi::register_input(
                         shiny::checkboxInput(ns(prefix %&% '_scale_is_global'),
                                              label = 'Global scale', value = range_is_global),
+                        tooltip = "One color scale for all panels instead of one per panel (with 'Max is %' checked).",
                         inputId = prefix %&% '_scale_is_global',
                         update = "shiny::updateCheckboxInput",
                         description = describe(
@@ -133,6 +136,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                         shidashi::register_input(
                           shiny::checkboxInput(ns(prefix %&% '_scale_based_on_aw'),
                                                label = 'Range is AW', value = range_is_aw_only),
+                          tooltip = "Compute the 'Plot Max' percentile within the analysis window only.",
                           inputId = prefix %&% '_scale_based_on_aw',
                           update = "shiny::updateCheckboxInput",
                           description = describe(
@@ -147,6 +151,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                         shidashi::register_input(
                           shiny::sliderInput(ns(prefix %&% '_xlim'),value = c(-1,2), step=c(0.01),
                                              label = 'X range', min = -10, max = 10),
+                          tooltip = "Time range shown, in seconds.",
                           inputId = prefix %&% '_xlim',
                           update = "shiny::updateSliderInput",
                           description = describe(
@@ -160,6 +165,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                       shidashi::register_input(
                         shiny::numericInput(ns(prefix %&% '_ncol'), label = '# Col',
                                             value = 3, min = 0, max = 1e7),
+                        tooltip = "Number of panel columns.",
                         inputId = prefix %&% '_ncol',
                         update = "shiny::updateNumericInput",
                         description = describe(
@@ -171,6 +177,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                       shidashi::register_input(
                         shiny::checkboxInput(ns(prefix %&% '_byrow'),
                                              label = 'Order by row', value = TRUE),
+                        tooltip = "Fill the panels row by row instead of column by column.",
                         inputId = prefix %&% '_byrow',
                         update = "shiny::updateCheckboxInput",
                         description = describe(
@@ -184,6 +191,7 @@ make_heatmap_control_panel <- function(prefix, config, max=c(99, 0, 1e7, 1), per
                       shidashi::register_input(
                         shiny::checkboxInput(ns(prefix %&% '_show_window'),
                                              label = 'Show AW', value = TRUE),
+                        tooltip = "Outline the analysis windows on the plot.",
                         inputId = prefix %&% '_show_window',
                         update = "shiny::updateCheckboxInput",
                         description = describe(

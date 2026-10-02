@@ -40,8 +40,9 @@ Module UIs have been used for years; changing one means re-validating it and
 retraining people.
 
 Allowed without asking:
-* `shidashi::register_input` wrappers (they return the same tag).
-* Input and script descriptions.
+* `shidashi::register_input` wrappers (they return the same tag, plus a
+  hover tooltip for people; see "Quick reference: registering inputs").
+* Input and script descriptions, and input tooltips.
 * Moving an observer body, verbatim, into `set_script`, with the button
   running the script.
 * Read-only scripts, e.g. `pipeline_progress`.
@@ -155,10 +156,15 @@ Allowed without asking:
    * Domain semantics come from the user.
    * Give agents: the script order, which inputs exist in which state, and the
      questions to ask the user.
-7. **`test-mcp.R`.** Start from `modules/reference_module/test-mcp.R`. Keep its
-   helpers: `set_input` (JSON-encodes like a real agent), `wait_input`,
-   `set_input_wait` (re-sends until the value sticks), `run_script`, and
-   `save_as`.
+7. **`test-mcp.R`.** Set `module <- "<id>"`, then load the shared helpers with
+   `source("agents/skills/build-module-mcp/test-common.R")`: `tool` (R-native
+   arguments), `set_input`, `wait_input`, `set_input_wait` (re-sends until the
+   value sticks), `run_script`, `operate`, `page_text`, `output_text`,
+   `viewer_get`, and more (see the file). Keep only module-specific helpers in
+   the test; `modules/power_clust/test-mcp.R` is a short example.
+   * Pass R values, not JSON text: `set_input("time_range", c(0, 1))`. A
+     length-1 vector is sent as a scalar: use `I("a")` for a one-element
+     array, and `list()` for an empty one.
    * Drive the whole workflow the way an agent would.
    * Check the persisted results by reading the files the module wrote. Prove
      they are fresh (e.g. a saved timestamp later than the run's start), and
@@ -259,9 +265,17 @@ shidashi::register_input(
   shiny::selectInput(ns("group_name"), "Group name", choices = character(0)),
   inputId = "group_name",                             # without namespace
   update = "shiny::updateSelectInput(value=selected)",
-  description = "What it controls; value format; when it exists; which script reads it."
+  description = "What it controls; value format; when it exists; which script reads it.",
+  tooltip = "Group whose reference type is set below."   # for people
 )
 ```
+
+People see `tooltip` when they hover over the input (shidashi >= 0.2.0.12).
+It defaults to the first sentence of `description`. When the description
+speaks to agents (script names, JSON values, rules), write a `tooltip` for
+people: one sentence, in the words of the UI. `tooltip = NULL` shows none.
+Compound inputs, card tab sets, `objectListInput`, and `fancyFileInput` show
+no tooltip.
 
 | Widget | `update` |
 |---|---|

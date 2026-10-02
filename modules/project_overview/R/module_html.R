@@ -32,9 +32,16 @@ module_html <- function() {
                     choices = character(0),
                     multiple = TRUE
                   ),
+                  tooltip = "Subjects to include; leave blank to include all.",
                   inputId = "subject_codes",
-                  update = "shiny::updateSelectInput",
-                  description = "Select subjects to include in the report (blank = all)"
+                  update = "shiny::updateSelectInput(value=selected)",
+                  description = paste(
+                    "Subjects to include, a JSON array of subject codes, e.g.",
+                    "`[\"DemoSubject\", \"YAB\"]`; empty (`[]`) means all subjects.",
+                    "The choices load after `load_data`. Read by script",
+                    "`generate_report` and by the Export Report script",
+                    "`run_analysis`."
+                  )
                 )
               )
             ),
@@ -66,9 +73,16 @@ module_html <- function() {
                       choices = available_template_subjects,
                       selected = saved_template
                     ),
+                    tooltip = "Template brain for the group 3D viewer; a template that is not installed is downloaded first.",
                     inputId = "template_subject",
-                    update = "shiny::updateSelectInput",
-                    description = "Template brain subject for the group 3D viewer"
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "Template brain of the group 3D viewer (exists while",
+                      "`group_viewer` is checked), e.g. 'cvs_avg35_inMNI152',",
+                      "'fsaverage', 'N27'. A template that is not installed is",
+                      "downloaded when the overview is built: confirm with the",
+                      "user before choosing one that is not installed."
+                    )
                   )
                 )
               ),
@@ -138,7 +152,7 @@ module_html <- function() {
                       multiple = TRUE
                     ),
                     inputId = "module_filter",
-                    update = "shiny::updateSelectInput",
+                    update = "shiny::updateSelectInput(value=selected)",
                     description = "Filter module reports by module name (blank = all modules)"
                   )
                 )
@@ -153,7 +167,10 @@ module_html <- function() {
                 ),
                 inputId = "native_viewer",
                 update = "shiny::updateCheckboxInput",
-                description = "Include per-subject native 3D brain viewers in the report (slow)"
+                description = paste(
+                  "Include each subject's own 3D brain viewer (slow: it loads",
+                  "every subject's brain). Default false."
+                )
               ),
 
               shidashi::register_input(
@@ -165,14 +182,28 @@ module_html <- function() {
                 ),
                 inputId = "validation",
                 update = "shiny::updateCheckboxInput",
-                description = "Include per-subject data validation results in the report (slow)"
+                description = paste(
+                  "Include each subject's data validation results (slow: it",
+                  "validates every subject). Default false."
+                )
               ),
 
-              footer = dipsaus::actionButtonStyled(
-                inputId = ns("generate_btn"),
-                label = "Generate Report",
-                type = "primary",
-                width = "100%"
+              footer = shidashi::register_input(
+                dipsaus::actionButtonStyled(
+                  inputId = ns("generate_btn"),
+                  label = "Generate Report",
+                  type = "primary",
+                  width = "100%"
+                ),
+                tooltip = "Build the overview tables and viewers for the chosen subjects and sections.",
+                inputId = "generate_btn",
+                update = "dipsaus::updateActionButtonStyled",
+                description = paste(
+                  "Button 'Generate Report': builds the overview tables and",
+                  "viewers shown in the card 'Project Overview'. Agents run",
+                  "script `generate_report` instead."
+                ),
+                writable = FALSE
               )
             )
           )
@@ -188,6 +219,21 @@ module_html <- function() {
             width = 12L,
 
             # ---- Unified output cardset ----
+            # Registered so that agents can switch the tabs (MCP); the tab set
+            # itself is unchanged
+            shidashi::register_input(
+              inputId = "output_cardset",
+              update = "shidashi::card_tabset_activate(value=title)",
+              description = paste(
+                "Active tab of the card 'Project Overview': 'Subject Summary'",
+                "(table `subjects_summary_table`), 'Module Reports'",
+                "(`module_reports_table`, with `reports_latest_only`), 'Electrode",
+                "Coverage' (`electrode_coverage_table`), '3D Viewer'",
+                "(`brain_widget`, with `brain_viewer_selector`), 'Epoch &",
+                "References' (`epoch_reference_table`), or 'Validation'",
+                "(`validation_table`). Set it before reading a table with",
+                "`shiny_output_result`: a table in a hidden tab comes back empty."
+              ),
             ravedash::output_cardset(
               inputId = ns("output_cardset"),
               title = "Project Overview",
@@ -244,7 +290,7 @@ module_html <- function() {
                         selectize = FALSE
                       ),
                       inputId = "brain_viewer_selector",
-                      update = "shiny::updateSelectInput",
+                      update = "shiny::updateSelectInput(value=selected)",
                       description = "Select which brain to display: group brain or a specific subject's native brain"
                     )
                   )
@@ -262,7 +308,7 @@ module_html <- function() {
                 class = "fill",
                 DT::dataTableOutput(ns("validation_table"))
               )
-            )
+            )) # end of register_input("output_cardset")
           )
         )
       )

@@ -60,6 +60,7 @@ streamline_collision_detection_analyzer$set_input_ui(
         choices = c("auto", "volume", "pointcloud", "surface"),
         selected = .(restored_inputs$mode_x %||% "auto")
       )),
+      tooltip = "How ROI objects are treated: auto (by object type), volume, point cloud, or surface.",
       inputId = inputId,
       update = "shiny::updateSelectInput(value=selected)",
       description = c(
@@ -88,6 +89,7 @@ streamline_collision_detection_analyzer$set_input_ui(
           step = 0.1
         )
       ),
+      tooltip = "Distance (mm) by which the ROI objects are expanded before collisions are detected.",
       inputId = inputId,
       update = "shiny::updateNumericInput",
       description = "[Numeric] The radius (in mm) to expand the ROI objects (volume/surface/electrode) for collision detection.",

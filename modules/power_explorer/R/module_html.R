@@ -26,6 +26,7 @@ module_html <- function(){
             class_header = "shidashi-anchor",
             title = shidashi::register_input(
               shiny::checkboxInput(ns('enable_custom_ROI'), 'Custom ROI', value = FALSE),
+              tooltip = "Analyze the loaded electrodes in the chosen ROI groups instead of the electrode list.",
               inputId = "enable_custom_ROI",
               update = "shiny::updateCheckboxInput",
               description = paste(
@@ -45,6 +46,7 @@ module_html <- function(){
                 shiny::selectInput(
                   inputId = ns('custom_roi_variable'), label='ROI Variable',
                   selected = character(0), choices=character(0)),
+                tooltip = "Electrode table column that defines the ROI, e.g. FSLabel.",
                 inputId = "custom_roi_variable",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -62,6 +64,7 @@ module_html <- function(){
                   choices = c('Filter only',
                               'Group/Stratify results',
                               'Interaction model')),
+                tooltip = "'Filter only' just limits the electrodes; the other two choices also split each analysis window by ROI group and add the ROI as a factor of the model.",
                 inputId = "custom_roi_type",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -75,6 +78,7 @@ module_html <- function(){
               shidashi::register_input(
                 shiny::actionButton(ns('auto_assign_levels_to_roi_groupings'),
                                     'Assign all ROI levels to groups', icon = ravedash::shiny_icons$magic),
+                tooltip = "Make one ROI group for each value of the ROI variable.",
                 inputId = "auto_assign_levels_to_roi_groupings",
                 update = "shiny::updateActionButton",
                 description = paste(
@@ -87,6 +91,7 @@ module_html <- function(){
               shidashi::register_input(
                 shiny::actionButton(ns('clear_roi_grouping_levels'),
                                     'Clear groups', icon = ravedash::shiny_icons$trash),
+                tooltip = "Replace the ROI groups with one group of all values.",
                 inputId = "clear_roi_grouping_levels",
                 update = "shiny::updateActionButton",
                 description = paste(
@@ -129,6 +134,7 @@ module_html <- function(){
             shidashi::register_input(
               shiny::fileInput(inputId = ns("file_load_settings"), "Load Settings",
                                multiple = FALSE, accept = c('.yaml')),
+              tooltip = "Load the analysis settings from a YAML file saved with 'Save settings'.",
               inputId = "file_load_settings",
               update = "shiny::updateActionButton",
               description = paste(
@@ -164,6 +170,7 @@ module_html <- function(){
               shiny::sliderInput(
                 inputId = ns("baseline_window"), "Window", value = c(0,1),
                 min =0, max=1, step = 0.01, dragRange = TRUE),
+              tooltip = "Baseline window in seconds, relative to each trial's anchor event.",
               inputId = "baseline_window",
               update = "shiny::updateSliderInput",
               description = paste(
@@ -210,6 +217,7 @@ module_html <- function(){
               shiny::checkboxInput(
                 inputId=ns('quick_omnibus_only'), 'Just get univariate stats + 3dViewer (fast)', value=FALSE
               ),
+              tooltip = "Compute only the per-electrode statistics (faster): the 3D viewer and the 'By Electrode' card refresh, the other plots do not.",
               inputId = "quick_omnibus_only",
               update = "shiny::updateCheckboxInput",
               description = paste(
@@ -318,6 +326,7 @@ module_html <- function(){
             class_header = "shidashi-anchor",
             title = shidashi::register_input(
               shiny::checkboxInput(ns('enable_second_condition_groupings'), 'Second Trial Factor', value = FALSE),
+              tooltip = "Add a second trial factor: group the conditions into at least two levels.",
               inputId = "enable_second_condition_groupings",
               update = "shiny::updateCheckboxInput",
               description = paste(
@@ -357,6 +366,7 @@ module_html <- function(){
             class_header='shidashi-anchor', title='Global plot options',
             shidashi::register_input(
               shiny::checkboxInput(ns('do_over_time_by_electrode_dataframe'), 'Calculate electrode over time (movie maker)', value=FALSE),
+              tooltip = "Also compute the electrode-by-time data for the Movie Maker viewer (slower).",
               inputId = "do_over_time_by_electrode_dataframe",
               update = "shiny::updateCheckboxInput",
               description = paste(
@@ -395,6 +405,7 @@ module_html <- function(){
             shidashi::register_input(
               shiny::selectInput(ns("replace_existing_group_anlysis_pipeline"), label = 'Create new / Replace existing pipeline',
                                  choices = 'Create New'),
+              tooltip = "Save as new results, or replace results saved earlier under that label.",
               inputId = "replace_existing_group_anlysis_pipeline",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
@@ -424,6 +435,7 @@ module_html <- function(){
 
             shidashi::register_input(
               dipsaus::actionButtonStyled(ns('save_pipeline_for_group_analysis'), 'Save!', icon = ravedash::shiny_icons$save),
+              tooltip = "Save the current results into the subject for group analysis.",
               inputId = "save_pipeline_for_group_analysis",
               update = "shiny::updateActionButton",
               description = paste(
@@ -448,6 +460,7 @@ module_html <- function(){
                 label = "Electrodes to export",
                 placeholder = "1-20,80-100"
               ),
+              tooltip = "Electrodes to export, e.g. 14-15 or 1-20,80-100.",
               inputId = "electrodes_to_export",
               update = "shiny::updateTextInput",
               description = paste(
@@ -461,6 +474,7 @@ module_html <- function(){
                 label = "Add ROI filter",
                 choices = c('none', 'anything else')
               ),
+              tooltip = "Optionally export only the electrodes with chosen values of an electrode table column.",
               inputId = "electrodes_to_export_roi_name",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
@@ -479,6 +493,7 @@ module_html <- function(){
                   label = "Categories to include in export",
                   choices = 'unknown'
                 ),
+                tooltip = "Values of the ROI filter column whose electrodes are exported.",
                 inputId = "electrodes_to_export_roi_categories",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -562,6 +577,7 @@ module_html <- function(){
                 label = "Export",
                 icon = ravedash::shiny_icons$export
               ),
+              tooltip = "Write the baseline-corrected data of the export electrodes to CSV files in the subject folder.",
               inputId = "btn_export_electrodes",
               update = "shiny::updateActionButton",
               description = paste(
@@ -610,6 +626,7 @@ module_html <- function(){
               shiny::selectInput(ns('exp_html_graphs'), label = 'Graphs to include',
                                  choices=c('over_time_by_electrode', 'by_frequency_over_time', 'over_time_by_trial','over_time_by_condition'),
                                  selected=c('over_time_by_electrode', 'by_frequency_over_time', 'over_time_by_trial','over_time_by_condition'), multiple = TRUE),
+              tooltip = "Graphs to include in the HTML report.",
               inputId = "exp_html_graphs",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
@@ -625,6 +642,7 @@ module_html <- function(){
                 class='btn-primary',
                 icon = ravedash::shiny_icons$save
               ),
+              tooltip = "Write an HTML report into the subject's reports folder, in the background.",
               inputId = "btn_export_html_report",
               update = "shiny::updateActionButton",
               description = paste(
@@ -803,6 +821,7 @@ module_html <- function(){
                                                           label = 'Cluster -> brain viewer',class='btn-small',
                                                           icon = ravedash::shiny_icons$arrow_up
                                       ),
+                                      tooltip = "Show the clusters in the Results Viewer.",
                                       inputId = "otbe_update_3dviewer",
                                       update = "shiny::updateActionButton",
                                       description = paste(
@@ -818,6 +837,7 @@ module_html <- function(){
                                                           label = 'Cluster -> ROI',class='btn-small',
                                                           icon = ravedash::shiny_icons$magic
                                       ),
+                                      tooltip = "Use the clusters as the custom ROI.",
                                       inputId = "otbe_create_roi",
                                       update = "shiny::updateActionButton",
                                       description = paste(
@@ -835,6 +855,7 @@ module_html <- function(){
                                       shiny::actionButton(ns('otbe_cluster_to_electrodes_csv'), width = "75%",
                                                           label = 'Cluster -> electrodes.csv', class='clipboard-btn btn btn-default'
                                       ),
+                                      tooltip = "Open a dialog to write the clusters into the subject's electrodes.csv.",
                                       inputId = "otbe_cluster_to_electrodes_csv",
                                       update = "shiny::updateActionButton",
                                       description = paste(
@@ -951,6 +972,7 @@ module_html <- function(){
                             # 'Select nearby electrodes'
                           )
                         ),
+                        tooltip = "What to do with the electrodes selected by clicks: analyze them, or send them to the export.",
                         inputId = "pes_selected_action",
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
@@ -1469,6 +1491,7 @@ module_html <- function(){
                                                    label = 'Flagged trials (applied at RAVE!)',
                                                    value = '', placeholder = 'e.g. 3,17,40-42',
                                                    updateOn = 'blur'),
+                                  tooltip = "Trials to leave out as outliers, e.g. 3,17,40-42; applies from the next 'RAVE!' run.",
                                   inputId = "flagged_trials",
                                   update = "shiny::updateTextInput",
                                   description = paste(
@@ -1523,6 +1546,7 @@ module_html <- function(){
                                                                                                'Stratified contrasts (more power!)',
                                                                                                'ITX Contrasts (diff of diff)')
                                                                   ),
+                                                                  tooltip = "Which pairwise contrasts to show: all pairs, within each level of a factor, or interaction contrasts.",
                                                                   inputId = "bcs_choose_contrasts",
                                                                   update = "shiny::updateSelectInput(value=selected)",
                                                                   description = paste(
@@ -1543,6 +1567,7 @@ module_html <- function(){
                                                                                         shidashi::register_input(
                                                                                           shiny::selectInput(ns('bcs_choose_specific_contrast'),
                                                                                                              'Choose layer/grouping', choices=''),
+                                                                                          tooltip = "Which factor (or pair of factors) the stratified or interaction contrasts use.",
                                                                                           inputId = "bcs_choose_specific_contrast",
                                                                                           update = "shiny::updateSelectInput(value=selected)",
                                                                                           description = paste(

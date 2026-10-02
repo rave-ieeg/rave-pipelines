@@ -25,6 +25,7 @@ module_html <- function() {
                       value = 100,
                       min = 1
                     ),
+                    tooltip = "Sample rate (Hz) of the saved power and phase.",
                     inputId = "target_sample_rate",
                     update = "shiny::updateNumericInput",
                     description = paste(
@@ -40,6 +41,7 @@ module_html <- function() {
                       label = "Down-sample before wavelet",
                       choices = "1"
                     ),
+                    tooltip = "Down-sample the voltage by this factor before the wavelet; this lowers the Nyquist frequency.",
                     inputId = "pre_downsample",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -57,6 +59,7 @@ module_html <- function() {
                       label = "Use single float precision to speed up",
                       value = FALSE
                     ),
+                    tooltip = "Compute the wavelet in single (float) precision, which is faster; unchecked uses double precision.",
                     inputId = "precision",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
@@ -77,6 +80,7 @@ module_html <- function() {
                       choices = c("Builtin tool", "Upload preset"),
                       selected = "Builtin tool"
                     ),
+                    tooltip = "Generate the wavelet frequencies and cycles with the built-in tool, or upload a preset table.",
                     inputId = "use_preset",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -112,6 +116,7 @@ module_html <- function() {
                         value = c(2, 200),
                         step = 1
                       ),
+                      tooltip = "Lowest and highest wavelet frequency (Hz).",
                       inputId = "freq_range",
                       update = "shiny::updateSliderInput",
                       description = paste(
@@ -129,6 +134,7 @@ module_html <- function() {
                         value = 2,
                         step = 1
                       ),
+                      tooltip = "Spacing between the wavelet frequencies (Hz).",
                       inputId = "freq_step",
                       update = "shiny::updateSliderInput",
                       description = paste(
@@ -146,6 +152,7 @@ module_html <- function() {
                         value = c(3, 20),
                         step = 1
                       ),
+                      tooltip = "Number of wavelet cycles at the lowest and the highest frequency.",
                       inputId = "cycle_range",
                       update = "shiny::updateSliderInput",
                       description = paste(

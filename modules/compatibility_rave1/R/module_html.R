@@ -22,6 +22,7 @@ module_html <- function() {
                       inputId = ns("quickaccess_data_integrity"),
                       label = "Data integrity check"
                     ),
+                    tooltip = "Show the 'Data integrity check' card.",
                     inputId = "quickaccess_data_integrity",
                     update = "shiny::updateActionLink",
                     description = paste(
@@ -40,6 +41,7 @@ module_html <- function() {
                       inputId = ns("quickaccess_compatibility"),
                       label = "Backward compatibility"
                     ),
+                    tooltip = "Show the 'Backward compatibility' card.",
                     inputId = "quickaccess_compatibility",
                     update = "shiny::updateActionLink",
                     description = paste(
@@ -56,6 +58,7 @@ module_html <- function() {
                       inputId = ns("quickaccess_export"),
                       label = "Export data"
                     ),
+                    tooltip = "Show the 'Export data' card.",
                     inputId = "quickaccess_export",
                     update = "shiny::updateActionLink",
                     description = paste(
@@ -96,6 +99,7 @@ module_html <- function() {
                       selected = "2",
                       selectize = FALSE
                     ),
+                    tooltip = "RAVE data format to validate: 2 or 1.",
                     inputId = "validation_version",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -116,6 +120,7 @@ module_html <- function() {
                       selected = "normal",
                       selectize = FALSE
                     ),
+                    tooltip = "How thoroughly to validate: normal or basic.",
                     inputId = "validation_mode",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -146,6 +151,7 @@ module_html <- function() {
                   inputId = ns("compatibility_do"),
                   label = "Make this subject RAVE 1.0 compatible"
                 ),
+                tooltip = "Convert the loaded subject so RAVE 1.0 modules can read it; this rewrites subject files.",
                 inputId = "compatibility_do",
                 update = "dipsaus::updateActionButtonStyled",
                 description = paste(
@@ -173,6 +179,7 @@ module_html <- function() {
                       label = "Data type",
                       choices = c("power", "voltage", "raw-voltage")
                     ),
+                    tooltip = "Data to export: wavelet power, Notch-filtered voltage, or raw voltage.",
                     inputId = "export_type",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -194,6 +201,7 @@ module_html <- function() {
                       value = "",
                       placeholder = "Leave blank to export all"
                     ),
+                    tooltip = "Channels to export, e.g. 14-15 or 1-5,8; blank exports all.",
                     inputId = "export_electrode",
                     update = "shiny::updateTextInput",
                     description = paste(
@@ -211,6 +219,7 @@ module_html <- function() {
                       label = "Reference name",
                       choices = character()
                     ),
+                    tooltip = "Reference applied to the exported data.",
                     inputId = "export_reference",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -231,6 +240,7 @@ module_html <- function() {
                       label = "Epoch name",
                       choices = character()
                     ),
+                    tooltip = "Epoch (trial onsets) that cuts the data into trials.",
                     inputId = "export_epoch",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
@@ -249,6 +259,7 @@ module_html <- function() {
                           label = "Pre-onset",
                           max = 0, step = 0.1, value = -1
                         ),
+                        tooltip = "Start of each trial window, in seconds before the onset (negative).",
                         inputId = "export_pre",
                         update = "shiny::updateNumericInput",
                         description = paste(
@@ -266,6 +277,7 @@ module_html <- function() {
                           label = "Post-onset",
                           min = 0, step = 0.1, value = 2
                         ),
+                        tooltip = "End of each trial window, in seconds after the onset (positive).",
                         inputId = "export_post",
                         update = "shiny::updateNumericInput",
                         description = paste(

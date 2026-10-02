@@ -14,8 +14,8 @@
 # Each reference is saved to the subject and read back to check it. A live run
 # rewrites `modules/reference_module/settings.yaml`: check `git diff` afterwards.
 
-port   <- as.integer(Sys.getenv("RAVE_TEST_PORT", "17283"))  # port used for testing
 module <- "reference_module"
+source("agents/skills/build-module-mcp/test-common.R")  # shared MCP test helpers
 
 # test subject and settings
 project_name <- "test@bids:ds005953"
@@ -32,133 +32,7 @@ test_groups <- list(
   list(name = "LD", electrodes = "16-20")
 )
 
-# testing URL
-base    <- sprintf("http://127.0.0.1:%d", port)
-mcp_url <- paste0(base, "/mcp")
-no_args <- structure(list(), names = character(0))   # sent as {}
-
 # ---- helpers ----------------------------------------------------------------
-
-# Send one JSON-RPC request to the app and return the parsed reply
-mcp <- function(method, params = no_args, url = mcp_url) {
-  httr2::request(url) |>
-    httr2::req_body_json(list(jsonrpc = "2.0", id = 1, method = method,
-                              params = params)) |>
-    httr2::req_error(is_error = function(resp) FALSE) |>
-    httr2::req_perform() |>
-    httr2::resp_body_json()
-}
-
-# Call a tool, print its reply (unless `.quiet`), and return the reply text
-# invisibly; attribute `is_error` tells whether the call failed.
-# Tool arguments go in `...`; use list() for JSON arrays.
-tool <- function(.name, ..., .url = mcp_url, .quiet = FALSE) {
-  args <- list(...)
-  if (!length(args)) args <- no_args
-  reply <- mcp("tools/call", list(name = .name, arguments = args), url = .url)
-  text <- if (is.null(reply$result)) {
-    reply$error$message
-  } else {
-    vapply(reply$result$content, function(item) {
-      if (identical(item$type, "text")) return(item$text)
-      sprintf("[%s: %s, %d characters]", item$type,
-              if (is.null(item$mimeType)) "?" else item$mimeType,
-              nchar(if (is.null(item$data)) "" else item$data))
-    }, "")
-  }
-  is_error <- is.null(reply$result) || isTRUE(reply$result$isError)
-  if (!.quiet) {
-    cat("\n--", .name, if (is_error) "[isError]", "--\n")
-    cat(substr(text, 1, 1500), sep = "\n")
-  }
-  invisible(structure(text, is_error = is_error))
-}
-
-app_running <- function() {
-  up <- suppressWarnings(try(readLines(mcp_url, warn = FALSE), silent = TRUE))
-  !inherits(up, "try-error")
-}
-
-module_open <- function() {
-  reply <- mcp("tools/call", list(name = "shidashi_sessions", arguments = no_args))
-  sessions <- jsonlite::fromJSON(reply$result$content[[1]]$text)
-  module %in% sessions$open_modules$module_id
-}
-
-# Registered input: list with `exists` and `current_value` (NULL if unknown)
-input_info <- function(id) {
-  text <- tool("tool__shiny_input_info", inputIds = list(id), .quiet = TRUE)
-  info <- tryCatch(jsonlite::fromJSON(text[[1]], simplifyVector = FALSE),
-                   error = function(e) NULL)
-  info[[id]]
-}
-
-# Wait until an input exists and `check(current_value)` is TRUE
-wait_input <- function(id, check = function(value) TRUE, timeout = 30) {
-  start <- Sys.time()
-  repeat {
-    info <- input_info(id)
-    if (isTRUE(info$exists) && isTRUE(check(info$current_value))) {
-      return(invisible(info$current_value))
-    }
-    if (difftime(Sys.time(), start, units = "secs") > timeout) {
-      stop(sprintf("Timed out waiting for input `%s` (current value: %s)", id,
-                   jsonlite::toJSON(info$current_value, auto_unbox = TRUE)))
-    }
-    Sys.sleep(0.5)
-  }
-}
-
-# Set an input as an agent does (non-strings are sent as JSON text)
-set_input <- function(id, value) {
-  if (!is.character(value) || length(value) != 1) {
-    value <- as.character(jsonlite::toJSON(value, auto_unbox = TRUE))
-  }
-  text <- tool("tool__shiny_input_update", inputId = id, value = value)
-  if (isTRUE(attr(text, "is_error"))) {
-    stop(sprintf("Cannot set input `%s`: %s", id, text[[1]]))
-  }
-  invisible(text)
-}
-
-# Set an input and wait until the app reports the new value. The update is
-# sent again every few seconds: e.g. a subject can only be chosen once the
-# subject list of the new project has arrived
-set_input_wait <- function(id, value, check = NULL, timeout = 30) {
-  if (is.null(check)) {
-    check <- function(current) {
-      identical(as.character(unlist(current)), as.character(unlist(value)))
-    }
-  }
-  wait_input(id, timeout = timeout)
-  start <- Sys.time()
-  repeat {
-    set_input(id, value)
-    ok <- tryCatch({
-      wait_input(id, check, timeout = 3)
-      TRUE
-    }, error = function(e) FALSE)
-    if (ok) return(invisible(TRUE))
-    if (difftime(Sys.time(), start, units = "secs") > timeout) {
-      stop(sprintf("Input `%s` did not change to %s", id,
-                   jsonlite::toJSON(value, auto_unbox = TRUE)))
-    }
-  }
-}
-
-# Run an interactive script; returns its result, stops if it fails
-run_script <- function(name) {
-  text <- tool("tool__module_interactive_script_run", name = name)
-  if (isTRUE(attr(text, "is_error"))) {
-    stop(sprintf("Script `%s` failed: %s", name, text[[1]]))
-  }
-  invisible(jsonlite::fromJSON(text[[1]])$result)
-}
-
-data_loaded <- function() {
-  text <- tool("tool__module_interactive_script_list", .quiet = TRUE)
-  startsWith(jsonlite::fromJSON(text[[1]])$note, "Data loaded")
-}
 
 # Set the electrode groups and apply them
 set_groups <- function(groups) {
@@ -304,7 +178,7 @@ set_groups(list(list(name = "CAR", electrodes = dipsaus::deparse_svec(lfp_channe
 select_group("CAR", "Common Average Reference")
 set_input_wait("reference_channels", "[new reference]")
 set_input_wait("reference_channels_new", good_channels)
-car_ref <- run_script("generate_reference")
+car_ref <- run_script("generate_reference")$result
 wait_input("reference_channels", function(v) identical(v, car_ref), timeout = 60)
 run_script("update_group_reference")
 save_as(save_names[["car"]])
@@ -320,11 +194,11 @@ select_group(test_groups[[1]]$name, "Common Average Reference")
 set_input_wait("reference_channels", "[new reference]")
 # CARLA candidates: all channels but the excluded ones
 set_input_wait("reference_channels_new", good_channels)
-carla_channels <- run_script("estimate_carla")
+carla_channels <- run_script("estimate_carla")$result
 cat("CARLA channels:", carla_channels, "\n")
 stopifnot(!any(dipsaus::parse_svec(carla_channels) %in% excluded))
 wait_input("reference_channels_new", function(v) identical(v, carla_channels))
-carla_ref <- run_script("generate_reference")
+carla_ref <- run_script("generate_reference")$result
 wait_input("reference_channels", function(v) identical(v, carla_ref), timeout = 60)
 run_script("update_group_reference")
 

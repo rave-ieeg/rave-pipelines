@@ -29,6 +29,7 @@ module_html <- function() {
                     constraint = c("Uploads", "Saved pipelines/modules", "None")
                   )
                 ),
+                tooltip = "Where the electrode values come from: an uploaded table, or none.",
                 inputId = "data_source",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
@@ -77,6 +78,7 @@ module_html <- function() {
                     selected = character(0L),
                     choices = character(0L)
                   ),
+                  tooltip = "Uploaded table whose values color the electrodes; [New Uploads] shows the upload box.",
                   inputId = "uploaded_source",
                   update = "shiny::updateSelectInput(value=selected)",
                   description = paste(
@@ -151,6 +153,7 @@ module_html <- function() {
                       inline = TRUE,
                       width = "100%"
                     ),
+                    tooltip = "Type of object to add to the analysis.",
                     inputId = "object_selector",
                     update = "shiny::updateRadioButtons(value=selected)",
                     description = paste(
@@ -172,6 +175,7 @@ module_html <- function() {
                         label = "Highlight an electrode or select from below",
                         choices = list("[Double-click electrode]" = "")
                       ),
+                      tooltip = "Electrode to add; blank uses the electrode double-clicked in the viewer.",
                       inputId = "object_selector_electrode",
                       update = "shiny::updateSelectizeInput(value=selected)",
                       description = paste(
@@ -193,6 +197,7 @@ module_html <- function() {
                         label = "Choose a surface object",
                         choices = character()
                       ),
+                      tooltip = "Surface to add (type and hemisphere).",
                       inputId = "object_selector_surface",
                       update = "shiny::updateSelectizeInput(value=selected)",
                       description = paste(
@@ -214,6 +219,7 @@ module_html <- function() {
                         label = "Choose a volume object",
                         choices = c("[Current active overlay]")
                       ),
+                      tooltip = "Volume to add: the overlay the viewer shows, or a loaded volume.",
                       inputId = "object_selector_volume",
                       update = "shiny::updateSelectizeInput(value=selected)",
                       description = paste(
@@ -236,6 +242,7 @@ module_html <- function() {
                         label = "Choose a streamline bundle",
                         choices = c("[Current active streamlines]")
                       ),
+                      tooltip = "Streamlines to add: those the viewer shows, a group, or one bundle.",
                       inputId = "object_selector_streamlines",
                       update = "shiny::updateSelectizeInput(value=selected)",
                       description = paste(
@@ -310,6 +317,7 @@ module_html <- function() {
                         as.list(names(analysis_registry))
                       )
                     ),
+                    tooltip = "Analysis to run on the added objects.",
                     inputId = "analysis_selector",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(

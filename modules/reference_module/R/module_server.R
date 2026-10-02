@@ -501,6 +501,7 @@ module_server <- function(input, output, session, ...) {
                               }),
             shidashi::register_input(
               dipsaus::actionButtonStyled(ns("preview_save_btn"), "Generate & save"),
+              tooltip = "Save the reference table under the name entered.",
               inputId = "preview_save_btn",
               update = "dipsaus::updateActionButtonStyled",
               description = "Click to save the reference table under the name in input `preview_save_name` (same as script `save_reference`)."
@@ -2136,6 +2137,7 @@ module_server <- function(input, output, session, ...) {
             inputId = ns("reference_channels_btn"),
             label = "Generate", width = "100%"
           ),
+          tooltip = "Generate the reference signal from the channels entered; leave them blank to choose channels with CARLA.",
           inputId = "reference_channels_btn",
           description = paste(
             "Open a dialog (for people): the CARLA dialog when `reference_channels_new` is blank,",

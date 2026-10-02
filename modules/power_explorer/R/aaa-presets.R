@@ -209,6 +209,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
         shiny::textInput(inputId = id, label = "Select electrode by number",
                          value = "", placeholder = "E.g. 1-30,55-60,88"),
         update = "shiny::updateTextInput",
+        tooltip = "Electrodes to analyze, e.g. 14, or 1-30,55-60,88.",
         inputId = comp$get_sub_element_id(with_namespace = FALSE),
         description = paste(
           "Electrode selector text input: electrode channels that are to be",
@@ -596,6 +597,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
         shiny::numericInput(inputId = comp$get_sub_element_id("trial_ends",
           with_namespace = TRUE), label = "Post", min = 0, step = 0.1,
           value = post),
+        tooltip = "Trial end in seconds, relative to the anchor event.",
         inputId = comp$get_sub_element_id("trial_ends", with_namespace = FALSE),
         update = "shiny::updateNumericInput",
         description = paste(

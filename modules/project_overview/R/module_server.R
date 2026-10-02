@@ -11,7 +11,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
   local_data$config_panel_visible <- FALSE
 
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -182,11 +182,63 @@ module_server <- function(input, output, session, ...) {
 
   }
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # For agents: what `run_pipeline()` built, from the pipeline settings
+  summarize_overview <- function() {
+    settings <- pipeline$get_settings()
+    sections <- c(
+      "3D Group Viewer" = isTRUE(input$group_viewer),
+      "Electrode Coverage" = isTRUE(input$electrode_coverage),
+      "Subjects Summary" = isTRUE(input$subjects_metadata),
+      "Epoch & Reference Tables" = isTRUE(input$epoch_references),
+      "Module Reports" = isTRUE(input$module_reports),
+      "Native 3D Viewer" = isTRUE(input$native_viewer),
+      "Validation" = isTRUE(input$validation)
+    )
+    sprintf(
+      paste(
+        "Built for project %s: subjects %s; sections: %s; template %s; module",
+        "filter %s. Read the tables with `shiny_output_result`."
+      ),
+      settings$project_name,
+      paste(pipeline$read("resolved_subjects"), collapse = ", "),
+      if (any(sections)) paste(names(sections)[sections], collapse = ", ") else "none",
+      paste(settings$template_subject, collapse = ""),
+      if (length(settings$module_filter)) {
+        paste(settings$module_filter, collapse = ", ")
+      } else {
+        "none (all modules)"
+      }
+    )
+  }
+
+  # Runs when 'Generate Report' is clicked, or through
+  # `server_tools$trigger_script("generate_report")` (e.g. from MCP tools)
+  server_tools$set_script(
+    "generate_report",
+    description = c(
+      "Same as clicking 'Generate Report' (card 'Subject-Level Sections'):",
+      "saves `subject_codes`, `template_subject` and `module_filter` to the",
+      "pipeline settings and builds the sections that are checked",
+      "(`group_viewer`, `electrode_coverage`, `subjects_metadata`,",
+      "`epoch_references`, `module_reports`, `native_viewer`, `validation`);",
+      "the tables and the 3D viewer of the card 'Project Overview' refresh. It",
+      "writes nothing into the project, but downloads the template brain if it",
+      "is not installed. `native_viewer` and `validation` are slow. Returns",
+      "'Built for project ...' with the subjects and sections. An error makes",
+      "the script fail with its message; people then see an alert."
+    ),
+    {
 
       run_pipeline()
 
+      # For agents: what was built
+      tryCatch(summarize_overview(), error = function(e) "Overview built.")
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("generate_report")
     }, error_wrapper = "alert"),
     input$generate_btn, ignoreNULL = TRUE, ignoreInit = TRUE
   )
@@ -496,96 +548,191 @@ module_server <- function(input, output, session, ...) {
 
   # ===== EXPORT =====
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when the run-analysis button is clicked, or through
+  # `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script(
+    "run_analysis",
+    description = c(
+      "Same as clicking 'Export Report' (footer): builds the overview like",
+      "script `generate_report`, then renders the HTML report of the checked",
+      "sections in the background, into a temporary folder, and zips it. It",
+      "returns once the job is scheduled; poll script `export_status`. When the",
+      "zip is ready, people see the dialog 'Download packaged report': only",
+      "the user can download it (button 'Download'); close the dialog with",
+      "tool `shiny_ui_operate` (action `dismiss_modal`) if the user does not",
+      "want it. It writes nothing into the project. It is slow: confirm the",
+      "sections with the user first."
+    ),
+    {
+    ravedash::show_notification(
+      message = "Building HTML report for export...",
+      title = "Exporting",
+      type = "info",
+      autohide = FALSE,
+      session = session,
+      class = ns("export_report")
+    )
 
-      ravedash::show_notification(
-        message = "Building HTML report for export...",
-        title = "Exporting",
-        type = "info",
-        autohide = FALSE,
-        session = session,
-        class = ns("export_report")
-      )
+    # Make sure the report is up-to-date before exporting
+    run_pipeline()
 
-      # Make sure the report is up-to-date before exporting
-      run_pipeline()
+    ignore_targets <- c(
+      if (!isTRUE(input$subjects_metadata))  "snapshot_group_subject_summary",
+      if (!isTRUE(input$module_reports))      "snapshot_subject_module_reports",
+      if (!isTRUE(input$electrode_coverage))  "snapshot_group_electrode_coverage",
+      if (!isTRUE(input$group_viewer))        "snapshot_group_brain",
+      if (!isTRUE(input$native_viewer))       "snapshot_subject_3d_viewers",
+      if (!isTRUE(input$epoch_references))    "snapshot_subject_meta_summary",
+      if (!isTRUE(input$validation))          "snapshot_subject_validation"
+    )
 
-      ignore_targets <- c(
-        if (!isTRUE(input$subjects_metadata))  "snapshot_group_subject_summary",
-        if (!isTRUE(input$module_reports))      "snapshot_subject_module_reports",
-        if (!isTRUE(input$electrode_coverage))  "snapshot_group_electrode_coverage",
-        if (!isTRUE(input$group_viewer))        "snapshot_group_brain",
-        if (!isTRUE(input$native_viewer))       "snapshot_subject_3d_viewers",
-        if (!isTRUE(input$epoch_references))    "snapshot_subject_meta_summary",
-        if (!isTRUE(input$validation))          "snapshot_subject_validation"
-      )
+    local_data$export_tmp_dir <- tempfile(pattern = "projectSnapshot_export_")
 
-      local_data$export_tmp_dir <- tempfile(pattern = "projectSnapshot_export_")
+    job_id <- pipeline$generate_report(
+      "projectSnapshot",
+      params = list(ignore_targets = ignore_targets),
+      output_format = "html_document",
+      output_dir = local_data$export_tmp_dir,
+      callback = function(output_dir) {
+        # Zip the report directory; return path for onFulfilled
+        zip_path <- paste0(output_dir, ".zip")
+        if (file.exists(zip_path)) unlink(zip_path)
 
-      job_id <- pipeline$generate_report(
-        "projectSnapshot",
-        params = list(ignore_targets = ignore_targets),
-        output_format = "html_document",
-        output_dir = local_data$export_tmp_dir,
-        callback = function(output_dir) {
-          # Zip the report directory; return path for onFulfilled
-          zip_path <- paste0(output_dir, ".zip")
-          if (file.exists(zip_path)) unlink(zip_path)
+        cwd <- getwd()
+        on.exit(setwd(cwd))
+        setwd(dirname(output_dir))
+        utils::zip(
+          zipfile = zip_path,
+          files = basename(output_dir),
+          # Quiet while serving an MCP call: zip prints a line per file to
+          # the job's output. The job starts during the call, so it inherits
+          # `SHIDASHI_USING_MCP` ("TRUE", set by shidashi) from the app
+          flags = if (identical(tolower(Sys.getenv("SHIDASHI_USING_MCP")), "true")) {
+            "-r9Xq"
+          } else {
+            "-r9X"
+          }
+        )
 
-          cwd <- getwd()
-          on.exit(setwd(cwd))
-          setwd(dirname(output_dir))
-          utils::zip(
-            zipfile = zip_path,
-            files = basename(output_dir)
+        return(zip_path)
+      }
+    )
+    # For agents: the job, for `export_status`
+    local_data$export_job_id <- job_id
+
+    job_promise <- ravepipeline::as.promise(job_id)
+
+    promises::then(
+      job_promise,
+      onFulfilled = function(report_path) {
+
+        zip_path <- attr(report_path, "callback_result")
+
+        ravedash::clear_notifications(class = ns("export_report"), session = session)
+
+        local_data$export_zip_path <- zip_path
+
+        shiny::showModal(
+          session = session,
+          shiny::modalDialog(
+            title = "Download packaged report",
+            easyClose = FALSE,
+            size = "m",
+            footer = shiny::tagList(
+              shiny::modalButton("Close"),
+              shiny::downloadButton(
+                outputId = ns("download_btn"),
+                label = "Download",
+                class = "btn-primary",
+                icon = ravedash::shiny_icons$download
+              )
+            ),
+            shiny::p("The HTML report has been built and packaged.")
           )
+        )
+      },
+      onRejected = function(e) {
+        ravedash::clear_notifications(class = ns("export_report"), session = session)
+        ravedash::error_notification(e, session = session)
+      }
+    )
 
-          return(zip_path)
-        }
-      )
+    return()
+    }
+  )
 
-      job_promise <- ravepipeline::as.promise(job_id)
+  # Read-only: the state of the export that 'Export Report' started. Once the
+  # job ends, the module's promise resolves it; the zip path is kept
+  server_tools$set_script(
+    "export_status",
+    description = c(
+      "Read-only. State of the export that 'Export Report' (script",
+      "`run_analysis`) started in this session: 'running', 'errored' with the",
+      "error, or 'finished' with the path of the zip, which the dialog",
+      "'Download packaged report' offers to the user. The zip sits in a",
+      "temporary folder of the app; downloading it deletes that folder."
+    ),
+    {
+      tmp_dir <- local_data$export_tmp_dir
+      if (!length(tmp_dir)) {
+        return("No export has been started in this session: run `run_analysis` first.")
+      }
+      zip_path <- local_data$export_zip_path
+      # The job reports normalized paths (e.g. /private/var/... on macOS)
+      if (length(zip_path) == 1 && file.exists(zip_path) && startsWith(
+        normalizePath(zip_path, mustWork = FALSE),
+        normalizePath(tmp_dir, mustWork = FALSE)
+      )) {
+        return(sprintf("Export finished: %s (the dialog 'Download packaged report' offers it)",
+                       zip_path))
+      }
+      job <- tryCatch(ravepipeline::check_job(local_data$export_job_id),
+                      error = function(e) NULL)
+      if (isTRUE(job$status %in% c(0, 1, 2))) {
+        "Export running. Run `export_status` again later."
+      } else if (isTRUE(job$status == 3)) {
+        "Export job finished; the zip is being packaged. Run `export_status` again."
+      } else if (isTRUE(job$status == -1)) {
+        paste("Export errored:", tryCatch(conditionMessage(job$error),
+                                          error = function(e) "unknown error"))
+      } else {
+        paste(
+          "The export job has ended without a zip: it failed (the page shows",
+          "the error to the user), or the user downloaded the zip, which",
+          "deletes it."
+        )
+      }
+    }
+  )
 
-      promises::then(
-        job_promise,
-        onFulfilled = function(report_path) {
-
-          zip_path <- attr(report_path, "callback_result")
-
-          ravedash::clear_notifications(class = ns("export_report"), session = session)
-
-          local_data$export_zip_path <- zip_path
-
-          shiny::showModal(
-            session = session,
-            shiny::modalDialog(
-              title = "Download packaged report",
-              easyClose = FALSE,
-              size = "m",
-              footer = shiny::tagList(
-                shiny::modalButton("Close"),
-                shiny::downloadButton(
-                  outputId = ns("download_btn"),
-                  label = "Download",
-                  class = "btn-primary",
-                  icon = ravedash::shiny_icons$download
-                )
-              ),
-              shiny::p("The HTML report has been built and packaged.")
-            )
-          )
-        },
-        onRejected = function(e) {
-          ravedash::clear_notifications(class = ns("export_report"), session = session)
-          ravedash::error_notification(e, session = session)
-        }
-      )
-
-      return()
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
+  # Read-only: lets agents read why a pipeline target failed (same as in the
+  # power explorer module)
+  server_tools$set_script(
+    name = "pipeline_progress",
+    description = c(
+      "Read-only. Progress of the latest pipeline run, one line per target:",
+      "'<target>: <progress>' (dispatched, completed, errored, skipped,",
+      "canceled), with the error message of errored targets, and when the",
+      "progress last changed. Run it after `generate_report` or `load_data`",
+      "fails without saying why."
+    ),
+    expr = {
+      progress <- as.data.frame(pipeline$progress("details"))
+      if (!nrow(progress)) {
+        return("The pipeline has not run yet.")
+      }
+      re <- sprintf("%s: %s", progress$name, progress$progress)
+      errored <- progress$progress == "errored"
+      if (any(errored)) {
+        errors <- as.data.frame(pipeline$with_activated(
+          targets::tar_meta(fields = "error", complete_only = TRUE)
+        ))
+        messages <- errors$error[match(progress$name[errored], errors$name)]
+        re[errored] <- paste(re[errored], "-", messages)
+      }
+      since <- as.data.frame(pipeline$progress("summary"))$since
+      c(re, sprintf("(progress last changed %s)", since))
+    }
   )
 
   output$download_btn <- shiny::downloadHandler(

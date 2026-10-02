@@ -28,8 +28,8 @@
 # and restore it from the copy (`git checkout` would also drop uncommitted
 # edits).
 
-port   <- as.integer(Sys.getenv("RAVE_TEST_PORT", "17283"))  # port used for testing
 module <- "power_explorer"
+source("agents/skills/build-module-mcp/test-common.R")  # shared MCP test helpers
 
 # test subject and settings
 project_name        <- "demo"
@@ -69,126 +69,7 @@ do_flags          <- TRUE            # FALSE: skip the flagged-trials steps (tes
 flag_epoch        <- "pe_flag_test"  # copy of `epoch_name`; marks trials 5 (known_a)
                                      # and 15 (last_av), both in `first_groups`
 
-# testing URL
-base    <- sprintf("http://127.0.0.1:%d", port)
-mcp_url <- paste0(base, "/mcp")
-no_args <- structure(list(), names = character(0))   # sent as {}
-
 # ---- helpers ----------------------------------------------------------------
-
-# Send one JSON-RPC request to the app and return the parsed reply
-mcp <- function(method, params = no_args, url = mcp_url) {
-  httr2::request(url) |>
-    httr2::req_body_json(list(jsonrpc = "2.0", id = 1, method = method,
-                              params = params)) |>
-    httr2::req_error(is_error = function(resp) FALSE) |>
-    httr2::req_timeout(900) |>
-    httr2::req_perform() |>
-    httr2::resp_body_json()
-}
-
-# Call a tool, print its reply (unless `.quiet`), and return the reply text
-# invisibly; attribute `is_error` tells whether the call failed.
-# Tool arguments go in `...`; use list() for JSON arrays.
-tool <- function(.name, ..., .url = mcp_url, .quiet = FALSE) {
-  args <- list(...)
-  if (!length(args)) args <- no_args
-  reply <- mcp("tools/call", list(name = .name, arguments = args), url = .url)
-  text <- if (is.null(reply$result)) {
-    reply$error$message
-  } else {
-    vapply(reply$result$content, function(item) {
-      if (identical(item$type, "text")) return(item$text)
-      sprintf("[%s: %s, %d characters]", item$type,
-              if (is.null(item$mimeType)) "?" else item$mimeType,
-              nchar(if (is.null(item$data)) "" else item$data))
-    }, "")
-  }
-  is_error <- is.null(reply$result) || isTRUE(reply$result$isError)
-  if (!.quiet) {
-    cat("\n--", .name, if (is_error) "[isError]", "--\n")
-    cat(substr(text, 1, 1500), sep = "\n")
-  }
-  invisible(structure(text, is_error = is_error))
-}
-
-app_running <- function() {
-  up <- suppressWarnings(try(readLines(mcp_url, warn = FALSE), silent = TRUE))
-  !inherits(up, "try-error")
-}
-
-module_open <- function() {
-  reply <- mcp("tools/call", list(name = "shidashi_sessions", arguments = no_args))
-  sessions <- jsonlite::fromJSON(reply$result$content[[1]]$text)
-  module %in% sessions$open_modules$module_id
-}
-
-# Registered input: list with `exists`, `writable`, and `current_value`
-input_info <- function(id) {
-  text <- tool("tool__shiny_input_info", inputIds = list(id), .quiet = TRUE)
-  info <- tryCatch(jsonlite::fromJSON(text[[1]], simplifyVector = FALSE),
-                   error = function(e) NULL)
-  info[[id]]
-}
-
-# Wait until an input exists and `check(current_value)` is TRUE
-wait_input <- function(id, check = function(value) TRUE, timeout = 30) {
-  start <- Sys.time()
-  repeat {
-    info <- input_info(id)
-    if (isTRUE(info$exists) && isTRUE(check(info$current_value))) {
-      return(invisible(info$current_value))
-    }
-    if (difftime(Sys.time(), start, units = "secs") > timeout) {
-      stop(sprintf("Timed out waiting for input `%s` (current value: %s)", id,
-                   jsonlite::toJSON(info$current_value, auto_unbox = TRUE)))
-    }
-    Sys.sleep(0.5)
-  }
-}
-
-# Set an input as an agent does (non-strings are sent as JSON text)
-set_input <- function(id, value) {
-  if (!is.character(value) || length(value) != 1 || inherits(value, "AsIs")) {
-    value <- as.character(jsonlite::toJSON(value, auto_unbox = TRUE))
-  }
-  text <- tool("tool__shiny_input_update", inputId = id, value = value)
-  if (isTRUE(attr(text, "is_error"))) {
-    stop(sprintf("Cannot set input `%s`: %s", id, text[[1]]))
-  }
-  invisible(text)
-}
-
-# Set an input and wait until the app reports the new value. The update is
-# sent again every few seconds (e.g. a select's choices may still be loading)
-set_input_wait <- function(id, value, check = NULL, timeout = 30) {
-  if (is.null(check)) {
-    check <- function(current) {
-      identical(as.character(unlist(current)), as.character(unlist(value)))
-    }
-  }
-  wait_input(id, timeout = timeout)
-  start <- Sys.time()
-  repeat {
-    set_input(id, value)
-    ok <- tryCatch({
-      wait_input(id, check, timeout = 3)
-      TRUE
-    }, error = function(e) FALSE)
-    if (ok) return(invisible(TRUE))
-    if (difftime(Sys.time(), start, units = "secs") > timeout) {
-      stop(sprintf("Input `%s` did not change to %s", id,
-                   jsonlite::toJSON(value, auto_unbox = TRUE)))
-    }
-  }
-}
-
-# Checks for inputs whose values come back in another shape
-same_number <- function(x) {
-  function(value) isTRUE(all(as.numeric(unlist(value)) == x))
-}
-is_true <- function(value) isTRUE(as.logical(unlist(value)))
-is_false <- function(value) isFALSE(as.logical(unlist(value)))
 
 # Groups (compound inputs, or saved settings): same labels, same conditions
 same_groups <- function(expected) {
@@ -214,57 +95,10 @@ same_windows <- function(expected) {
   }
 }
 
-# Run an interactive script; returns its reply: `result`, and `output` (what
-# the script printed). Stops if the script fails
-run_script <- function(name, .quiet = FALSE) {
-  text <- tool("tool__module_interactive_script_run", name = name, .quiet = .quiet)
-  if (isTRUE(attr(text, "is_error"))) {
-    stop(sprintf("Script `%s` failed: %s", name, text[[1]]))
-  }
-  invisible(jsonlite::fromJSON(text[[1]]))
-}
-
-# Run a script that must fail; returns the error text
-run_script_error <- function(name) {
-  text <- tool("tool__module_interactive_script_run", name = name)
-  if (!isTRUE(attr(text, "is_error"))) {
-    stop(sprintf("Script `%s` should have failed", name))
-  }
-  invisible(text[[1]])
-}
-
-wait_until <- function(check, what, timeout = 30, interval = 0.5) {
-  start <- Sys.time()
-  repeat {
-    if (isTRUE(check())) return(invisible(TRUE))
-    if (difftime(Sys.time(), start, units = "secs") > timeout) {
-      stop("Timed out waiting for ", what)
-    }
-    Sys.sleep(interval)
-  }
-}
-
-# Text of the element matching `selector`, without tags ("" if none)
-page_text <- function(selector) {
-  text <- tool("tool__shiny_query_ui", css_selector = selector,
-               transform_image = FALSE, .quiet = TRUE)
-  if (isTRUE(attr(text, "is_error"))) return("")
-  html <- sub("<!-- NOTE:.*$", "", text[[1]])
-  trimws(gsub("\\s+", " ", gsub("<[^>]+>", " ", html)))
-}
-
-# Title and text of the alert on the page ("" if none)
-alert <- ".swal-overlay--show-modal"
-alert_text <- function() page_text(paste(alert, ".swal-modal"))
-
 get_subject <- function() {
   ravecore::as_rave_subject(sprintf("%s/%s", project_name, subject_code),
                             strict = FALSE)
 }
-
-# The settings the module saved, read from its settings.yaml
-settings_file <- file.path("modules", module, "settings.yaml")
-saved_settings <- function() yaml::read_yaml(settings_file)
 
 # The analysis inputs of this test, set in dependency order
 set_analysis_inputs <- function(quick) {
@@ -341,18 +175,6 @@ check_statistics <- function(electrodes) {
 
 # 3D viewer helpers (tools `rave_3dviewer_get` / `rave_3dviewer_set`)
 viewer <- "brain_viewer"
-viewer_get <- function(name, args = NULL, .quiet = TRUE) {
-  call_args <- list(.name = "tool__rave_3dviewer_get", outputId = viewer,
-                    name = name, .quiet = .quiet)
-  if (!is.null(args)) {
-    call_args$args <- as.character(jsonlite::toJSON(args, auto_unbox = TRUE))
-  }
-  text <- do.call(tool, call_args)
-  if (isTRUE(attr(text, "is_error"))) {
-    stop(sprintf("rave_3dviewer_get `%s` failed: %s", name, text[[1]]))
-  }
-  jsonlite::fromJSON(text[[1]], simplifyVector = TRUE)
-}
 
 # Folders in the subject that the write steps add to
 export_root <- function() file.path(get_subject()$path, "power_explorer")
@@ -801,9 +623,7 @@ current <- viewer_get("controllers",
                       list(names = I("Display Data")))$controllers[["Display Data"]]
 cat("Display Data:", current, "; choices:", paste(options$choices, collapse = ", "), "\n")
 choice <- setdiff(options$choices, c(current, "[None]", ""))[[1]]
-text <- tool("tool__rave_3dviewer_set", outputId = viewer, name = "controllers",
-             data = as.character(jsonlite::toJSON(list("Display Data" = choice),
-                                                  auto_unbox = TRUE)))
+text <- viewer_set("controllers", list("Display Data" = choice))
 stopifnot(!isTRUE(attr(text, "is_error")))
 wait_until(function() {
   identical(viewer_get("controllers", list(names = I("Display Data")))$controllers[["Display Data"]],

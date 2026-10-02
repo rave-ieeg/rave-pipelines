@@ -88,6 +88,7 @@ module_html <- function() {
                       choices = reference_choices,
                       selected = "No Reference"
                     ),
+                    tooltip = "Reference type for the selected group.",
                     inputId = "reference_type",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = "Select a reference type for the selected group (by input `group_name`)."
