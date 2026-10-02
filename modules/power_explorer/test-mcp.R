@@ -8,10 +8,17 @@
 # registered read-only, it has no script, and the module does not offer
 # `shiny_ui_operate`, which clicks any element.
 #
+# Agents may also flag outlier trials (input `flagged_trials`), but only people
+# save them into the epoch (column `ExcludedHint`): "Save Flags to Epoch" has
+# no script either.
+#
 # The analyses (quick, full, two factors, custom ROI, clusters) write only the
 # module's pipeline cache (`modules/power_explorer/shared`, gitignored) and
-# `modules/power_explorer/settings.yaml`. Unless `do_write` is FALSE, the test
-# then writes into the subject:
+# `modules/power_explorer/settings.yaml`. Unless `do_flags` is FALSE, the
+# flagged-trials steps write a test epoch `meta/epoch_pe_flag_test*.csv` into
+# the subject and delete it at the end of those steps (delete it by hand if
+# the test stops earlier). Unless `do_write` is FALSE, the test then writes
+# into the subject:
 #   * one export folder `power_explorer/pe_export_<time>/` (two electrodes)
 #   * two group-analysis saves `pipelines/power_explorer/power_explorer-
 #     mcp_test-<time>/`; the second one replaces the first, which the current
@@ -58,6 +65,9 @@ export_electrodes <- c(14, 15)
 group_label       <- "mcp_test"
 report_graphs     <- "over_time_by_condition"
 do_write          <- TRUE            # FALSE: stop before writing into the subject
+do_flags          <- TRUE            # FALSE: skip the flagged-trials steps (test epoch)
+flag_epoch        <- "pe_flag_test"  # copy of `epoch_name`; marks trials 5 (known_a)
+                                     # and 15 (last_av), both in `first_groups`
 
 # testing URL
 base    <- sprintf("http://127.0.0.1:%d", port)
@@ -460,6 +470,27 @@ test_start <- Sys.time()
 electrodes_csv <- file.path(get_subject()$meta_path, "electrodes.csv")
 electrodes_csv_md5 <- tools::md5sum(electrodes_csv)
 
+# The test epoch of the flagged-trials steps: written now, before the loader
+# lists the subject's epochs; deleted at the end of those steps
+epoch_file <- function(name) {
+  file.path(get_subject()$meta_path, sprintf("epoch_%s.csv", name))
+}
+epoch_csv_md5 <- tools::md5sum(epoch_file(epoch_name))
+flag_epoch_files <- function() {
+  list.files(get_subject()$meta_path, pattern = sprintf("^epoch_%s", flag_epoch),
+             full.names = TRUE)
+}
+# Write the test epoch: `table` (all trials of `epoch_name` by default) with
+# `marked` as its excluded trials
+write_flag_epoch <- function(marked, table = get_subject()$get_epoch(epoch_name, as_table = TRUE)) {
+  table$ExcludedHint <- table$Trial %in% marked
+  utils::write.csv(table, epoch_file(flag_epoch), row.names = FALSE)
+}
+if (do_flags) {
+  stopifnot("no test epoch left from an earlier run" = !length(flag_epoch_files()))
+  write_flag_epoch(c(5, 15))
+}
+
 # ---- protocol -----------------------------------------------------------------
 
 app_id <- jsonlite::fromJSON(mcp_url)$app_id
@@ -488,6 +519,7 @@ tool("skill_load__rave-module", action = "reference",
 listed <- jsonlite::fromJSON(tool("tool__module_interactive_script_list")[[1]],
                              simplifyVector = FALSE)
 script_names <- vapply(listed$scripts, `[[`, "", "name")
+# No script saves flagged trials into the epoch or writes electrodes.csv
 stopifnot(setequal(script_names, c(
   "load_data", "run_analysis", "electrode_statistics", "pipeline_progress",
   "assign_roi_levels", "clear_roi_groups", "cluster_to_viewer",
@@ -498,6 +530,14 @@ stopifnot(setequal(script_names, c(
 # ---- load the subject -----------------------------------------------------------
 
 set_input_wait("loader_project_name", project_name)
+if (do_flags) {
+  # The open loader lists a subject's epochs when the subject is chosen:
+  # choose another subject first, so the list includes the test epoch (this
+  # needs a fresh module page, where the loader is open)
+  other_subject <- setdiff(ravecore::as_rave_project(project_name)$subjects(),
+                           subject_code)[[1]]
+  set_input_wait("loader_subject_code", other_subject)
+}
 set_input_wait("loader_subject_code", subject_code)
 set_input_wait("loader_epoch_name", epoch_name)
 set_input_wait("loader_epoch_name__trial_starts", epoch_window[[1]],
@@ -536,11 +576,9 @@ stopifnot(
 
 # The module initializes its inputs after loading; let that settle
 Sys.sleep(3)
-# No statistics in a new browser session; loading data does not clear the
-# statistics of an earlier run in the same session
+# Loading clears the statistics of any earlier run
 statistics <- as.character(run_script("electrode_statistics")$result)
-stopifnot(startsWith(statistics[[1]], "No results yet") ||
-            startsWith(statistics[[1]], "Statistics ("))
+stopifnot(startsWith(statistics[[1]], "No results yet"))
 
 # ---- quick analysis ---------------------------------------------------------------
 
@@ -552,6 +590,28 @@ stopifnot(startsWith(reply$result, sprintf(
   analysis_electrodes)))
 check_saved_settings(run_start)
 check_statistics(dipsaus::parse_svec(analysis_electrodes))
+
+# ---- loading other data clears the results ---------------------------------------------
+
+# Another reference makes new data: the results of the run above no longer
+# apply, so the statistics are gone and the plots ask for RAVE!
+heatmap_text <- function() page_text("#power_explorer-over_time_by_electrode")
+set_input_wait("loader_reference_name", "noref")
+reply <- run_script("load_data")
+stopifnot(grepl("reference noref", reply$result, fixed = TRUE))
+wait_until(function() {
+  startsWith(as.character(run_script("electrode_statistics", .quiet = TRUE)$result)[[1]],
+             "No results yet")
+}, "the statistics to clear")
+wait_until(function() grepl("No results available", heatmap_text(), fixed = TRUE),
+           "the heatmap to ask for RAVE!")
+
+# Back to the reference of this test
+set_input_wait("loader_reference_name", reference_name)
+reply <- run_script("load_data")
+stopifnot(grepl(sprintf("reference %s", reference_name), reply$result, fixed = TRUE))
+Sys.sleep(3)
+set_analysis_inputs(quick = FALSE)
 
 # ---- full analysis -------------------------------------------------------------------
 
@@ -608,25 +668,60 @@ stopifnot(any(grepl("requested_electrodes: errored", progress, fixed = TRUE)),
           any(grepl("No electrode selected", progress, fixed = TRUE)))
 set_input_wait("electrode_text", analysis_electrodes)
 
-# ---- second factor ---------------------------------------------------------------------
+# ---- second factor (a full run, for the contrasts) ---------------------------------------
 
-set_input_wait("quick_omnibus_only", TRUE, check = is_true)
+set_input_wait("quick_omnibus_only", FALSE, check = is_false)
 set_input_wait("enable_second_condition_groupings", TRUE, check = is_true)
 set_input_wait("second_condition_groupings", second_groups,
                check = same_groups(second_groups))
 run_start <- Sys.time()
 reply <- run_script("run_analysis")
-stopifnot(grepl("second factor: drive_known", reply$result, fixed = TRUE))
+stopifnot(startsWith(reply$result, "Analysis done (full):"),
+          grepl("second factor: drive_known", reply$result, fixed = TRUE))
 settings <- check_saved_settings(run_start)
 stopifnot(isTRUE(settings$enable_second_condition_groupings),
           same_groups(second_groups)(settings$second_condition_groupings))
 statistics <- check_statistics(dipsaus::parse_svec(analysis_electrodes))
 stopifnot("Factor1 x Factor2 cells" =
             any(grepl("Auditory", statistics) & grepl("drive_known", statistics)))
+
+# With two factors, the model across electrodes also gives the stratified and
+# interaction contrasts, and the module offers them
+model_statistics <- pipeline$read("across_electrode_statistics")
+stopifnot(
+  "fixed effects" = identical(as.character(model_statistics$fixed_effects),
+                              c("Factor1", "Factor2")),
+  "stratified contrasts" = identical(names(model_statistics$stratified_contrasts),
+                                     c("Factor1", "Factor2")),
+  "interaction contrasts" = identical(names(model_statistics$itx_contrasts),
+                                      "Factor1_Factor2")
+)
+contrasts_html <- function() {
+  text <- tool("tool__shiny_output_result",
+               outputId = "by_condition_statistics_contrasts",
+               transform_image = FALSE, .quiet = TRUE)
+  if (isTRUE(attr(text, "is_error"))) return(NA_character_)
+  text[[1]]
+}
+pairwise_html <- contrasts_html()
+stopifnot(!is.na(pairwise_html))
+set_input_wait("bcs_choose_contrasts", "Stratified contrasts (more power!)")
+wait_until(function() {
+  html <- contrasts_html()
+  !is.na(html) && !identical(html, pairwise_html)
+}, "the stratified contrasts")
+stratified_html <- contrasts_html()
+set_input_wait("bcs_choose_contrasts", "ITX Contrasts (diff of diff)")
+wait_until(function() {
+  html <- contrasts_html()
+  !is.na(html) && !identical(html, pairwise_html) && !identical(html, stratified_html)
+}, "the interaction contrasts")
+set_input_wait("bcs_choose_contrasts", "All-possible pairwise")
 set_input_wait("enable_second_condition_groupings", FALSE, check = is_false)
 
 # ---- custom ROI --------------------------------------------------------------------------
 
+set_input_wait("quick_omnibus_only", TRUE, check = is_true)
 set_input_wait("enable_custom_ROI", TRUE, check = is_true)
 set_input_wait("custom_roi_variable", roi_variable)
 electrode_table <- get_subject()$get_electrode_table()
@@ -717,8 +812,123 @@ wait_until(function() {
 
 stopifnot(identical(tools::md5sum(electrodes_csv), electrodes_csv_md5))
 
+# ---- flagged trials (writes, then deletes, a test epoch!) -------------------------------------
+
+# The test epoch marks trials 5 and 15 (`ExcludedHint`), so they start as the
+# flagged trials: the next run leaves them out of the averages and statistics.
+# Agents change the list with `flagged_trials`; only people save it into the
+# epoch, with the link "Save Flags to Epoch", which runs the module's
+# `save_trial_flags_to_epoch()`
+if (do_flags) {
+  flag_epoch_md5 <- tools::md5sum(epoch_file(flag_epoch))
+  is_flagged <- function(text) {
+    function(value) identical(as.character(unlist(value)), text)
+  }
+  load_epoch <- function(name) {
+    set_input_wait("loader_epoch_name", name)
+    run_script("load_data")$result
+  }
+
+  loaded <- load_epoch(flag_epoch)
+  stopifnot(grepl("trials marked excluded in the epoch (ExcludedHint): 5,15",
+                  loaded, fixed = TRUE))
+  wait_input("flagged_trials", is_flagged("5,15"))
+
+  set_analysis_inputs(quick = TRUE)
+  reply <- run_script("run_analysis")
+  stopifnot(grepl("; flagged trials (left out): 5,15", reply$result, fixed = TRUE))
+  omnibus <- pipeline$read("omnibus_results")
+  outliers <- omnibus$data_with_outliers
+  stopifnot(
+    "flagged trials left out of the statistics" =
+      !any(as.integer(omnibus$data$Trial) %in% c(5, 15)),
+    "flagged trials kept as not clean" =
+      setequal(as.integer(outliers$Trial[!outliers$is_clean]), c(5, 15)),
+    "flagged trials saved with the settings" =
+      setequal(as.integer(unlist(saved_settings()$trial_outliers_list)), c(5, 15))
+  )
+
+  # An agent flags one more trial: the field holds the whole list
+  set_input_wait("flagged_trials", "5,15,42")
+  reply <- run_script("run_analysis")
+  stopifnot(grepl("; flagged trials (left out): 5,15,42", reply$result, fixed = TRUE))
+
+  # Text that is not trial numbers is put back, with a warning
+  set_input("flagged_trials", "abc")
+  wait_until(function() grepl("abc", page_text(".toast-container"), fixed = TRUE),
+             "the warning about 'abc'")
+  wait_input("flagged_trials", is_flagged("5,15,42"))
+  # Trials not in the epoch are dropped; an empty field clears the list
+  set_input_wait("flagged_trials", "5,9999", check = is_flagged("5"))
+  set_input_wait("flagged_trials", "")
+  reply <- run_script("run_analysis")
+  stopifnot(grepl("; flagged trials (left out): none", reply$result, fixed = TRUE))
+  stopifnot("agents' flags leave the epoch file alone" =
+              identical(tools::md5sum(epoch_file(flag_epoch)), flag_epoch_md5))
+
+  # What "Save Flags to Epoch" runs, on the loaded epoch
+  repository <- pipeline$read("repository")
+  save_flags <- pipeline$shared_env()$save_trial_flags_to_epoch
+  marks <- function() {
+    tbl <- utils::read.csv(epoch_file(flag_epoch))
+    sort(tbl$Trial[as.logical(tbl$ExcludedHint)])
+  }
+  save_flags(repository, c(42, 6))
+  trimmed <- utils::read.csv(epoch_file(paste0(flag_epoch, "_OutlierRemoved")))
+  stopifnot(
+    "saved: the epoch marks 6 and 42" = identical(marks(), c(6L, 42L)),
+    "saved: _OutlierRemoved holds the other trials" =
+      nrow(trimmed) == n_trials - 2 && !any(trimmed$OriginalTrial %in% c(6, 42))
+  )
+  save_flags(repository, integer(0))
+  stopifnot(
+    "saved nothing: no mark" = length(marks()) == 0,
+    "saved nothing: no _OutlierRemoved" =
+      !file.exists(epoch_file(paste0(flag_epoch, "_OutlierRemoved")))
+  )
+  # Saving stops once the epoch's trials changed since loading
+  write_flag_epoch(integer(0),
+                   table = get_subject()$get_epoch(epoch_name, as_table = TRUE)[-1, ])
+  error <- tryCatch({ save_flags(repository, 6); "" }, error = conditionMessage)
+  stopifnot(grepl("changed since the data were loaded", error, fixed = TRUE))
+
+  # Loading another epoch drops the flags of this session; an epoch starts
+  # from its marks
+  write_flag_epoch(c(6, 42))
+  set_input_wait("flagged_trials", "5")
+  load_epoch(epoch_name)
+  wait_input("flagged_trials", is_flagged(""))
+  load_epoch(flag_epoch)
+  wait_input("flagged_trials", is_flagged("6,42"))
+
+  # Reloading the same epoch (here with another reference) keeps the flags of
+  # this session, saved or not. The field shows consecutive trials as a range
+  set_input_wait("flagged_trials", "42,6,5", check = is_flagged("5-6,42"))
+  set_input_wait("loader_reference_name", "noref")
+  run_script("load_data")
+  Sys.sleep(3)
+  stopifnot("unsaved flags kept on reload" =
+              is_flagged("5-6,42")(input_info("flagged_trials")$current_value))
+
+  # Back to the data of this test; delete the test epoch
+  set_input_wait("loader_reference_name", reference_name)
+  load_epoch(epoch_name)
+  wait_input("flagged_trials", is_flagged(""))
+  unlink(flag_epoch_files())
+  stopifnot(
+    "test epoch deleted" = !length(flag_epoch_files()),
+    "the epoch of this test is unchanged" =
+      identical(tools::md5sum(epoch_file(epoch_name)), epoch_csv_md5)
+  )
+  Sys.sleep(3)
+  set_analysis_inputs(quick = TRUE)
+  cat("Flagged trials as expected; the test epoch is deleted\n")
+}
+
 if (!do_write) {
-  stop("`do_write` is FALSE: stopped before writing into the subject. Nothing was written to it.")
+  stop("`do_write` is FALSE: stopped before writing into the subject. ",
+       "Nothing was written to it, apart from the test epoch of the ",
+       "flagged-trials steps, which they deleted.")
 }
 
 # ---- export (writes a new folder!) --------------------------------------------------------------
@@ -729,15 +939,10 @@ set_input_wait("times_to_export", "Collapsed, Analysis window(s) only")
 set_input_wait("trials_to_export", "Raw, Only trials used in grouping factors")
 exports_before <- list_exports()
 
-# Quick mode skips the export step: nothing is written
+# The export runs in quick mode too (it builds `data_for_export` either way)
 set_input_wait("quick_omnibus_only", TRUE, check = is_true)
-set_input_wait("electrodes_to_export", dipsaus::deparse_svec(export_electrodes))
-reply <- run_script("export_electrodes")
-stopifnot(startsWith(reply$result, "Nothing exported"),
-          identical(list_exports(), exports_before))
 
 # No electrodes: nothing is written; people see "Export not started"
-set_input_wait("quick_omnibus_only", FALSE, check = is_false)
 set_input_wait("electrodes_to_export", "")
 reply <- run_script("export_electrodes")
 stopifnot(length(reply$result) == 0,
@@ -816,6 +1021,11 @@ if (lists_all) {
 }
 
 # ---- HTML report (writes a report folder!) --------------------------------------------------------
+
+# A full run first: the report shows the results of all the plots
+set_input_wait("quick_omnibus_only", FALSE, check = is_false)
+reply <- run_script("run_analysis")
+stopifnot(startsWith(reply$result, "Analysis done (full):"))
 
 stopifnot(startsWith(as.character(run_script("report_status")$result),
                      "No report has been scheduled"))

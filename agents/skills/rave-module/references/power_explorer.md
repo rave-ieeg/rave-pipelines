@@ -156,13 +156,28 @@ the plot.
   * **By Trial** (`by_condition_by_trial`) — one value per trial (the mean
     over the window's time and band) by trial group, with a table of clicked
     points. "Flag Selected (requires re-RAVE)" marks the selected trials as
-    outliers, which the next run leaves out of the statistics.
+    outliers: from the next run on, the averages (heatmaps, line plots), the
+    statistics, the 3D viewer, and exports leave them out, for every
+    electrode and window, and this plot draws them as hollow dots while "Show
+    Outliers" is checked. The field "Flagged trials (applied at RAVE!)" above
+    the table (`flagged_trials`) holds the whole list, e.g. `3,17,40-42`
+    (consecutive trials show as a range); typing in it replaces the list.
+    When data load, the list starts from the trials the epoch marks as
+    excluded (epoch column `ExcludedHint`). "Save Flags to Epoch" writes the
+    list into the epoch file as that column, so that the flags last beyond
+    the session (see
+    [Procedure — flag outlier trials](#procedure--flag-outlier-trials)).
   * **Overall model test** (`by_condition_statistics`) — the ANOVA table and
     formula of the model across the selected electrodes.
   * **Conditions vs. Baseline** (`by_condition_statistics_emmeans`) — each
     group's estimated mean against 0, i.e. against the baseline.
   * **Pairwise comparisons** (`by_condition_statistics_contrasts`) — all
-    pairwise contrasts between the groups.
+    pairwise contrasts between the groups. With two or more factors (second
+    factor, ROI groups with "Group/Stratify results", or several windows),
+    "Which contrasts to display?" also offers "Stratified contrasts (more
+    power!)", the contrasts within each level of another factor, and "ITX
+    Contrasts (diff of diff)", the interaction contrasts; "Choose
+    layer/grouping" picks which one.
 
 How the statistics are computed:
 
@@ -228,6 +243,30 @@ groups can then be analyzed with RAVE!. "Cluster -> electrodes.csv" saves
 the clusters as a column `PE_CLUST_<name>` of the subject's electrodes.csv
 (a dated backup is kept unless "Overwrite" is checked).
 
+### Procedure — flag outlier trials
+
+Steps 1-5: reuse [Procedure — compare two trial groups](#procedure--compare-two-trial-groups),
+with "Just get univariate stats" unchecked (the By Trial plot needs a full
+run).
+Step 6: In the "By Condition" card, tab "By Trial" ("Points are: Trials", no
+panel variable), click the suspicious points. The Click Details table lists
+them with robust z-scores (`Z` against all trials, `Zg` within the group).
+Step 7: Select their rows and click "Flag Selected (requires re-RAVE)", or
+type the trial numbers into "Flagged trials (applied at RAVE!)"; flagged
+trials show `Odd` = 1.
+Step 8: Click RAVE!: the flagged trials are left out of all results (hollow
+dots in this plot).
+Step 9: Once satisfied, click "Save Flags to Epoch" (above the Click Details
+table). It writes the list into `meta/epoch_<epoch>.csv` as column
+`ExcludedHint` (the old file is renamed to a time-stamped backup), and
+writes `epoch_<epoch>_OutlierRemoved.csv` with the other trials, renumbered
+from 1 (column `OriginalTrial` keeps their numbers); when no trial is
+flagged, that copy is removed. Loading this epoch again starts with these
+trials flagged. Saving stops if the epoch file's trials changed since
+loading (e.g. after saving an `_OutlierRemoved` epoch, whose trials are then
+renumbered): load the data again first. Unsaved flags are lost when another
+epoch is loaded or the page is reloaded.
+
 ### Procedure — export data for analyses elsewhere
 
 Steps 1-5: reuse [Procedure — compare two trial groups](#procedure--compare-two-trial-groups).
@@ -276,23 +315,27 @@ a notification with a link appears when it is done.
 * With auto re-calculation on, changing the selected electrodes re-runs the
   analysis.
 * "Custom ROI" replaces "Select Electrodes" while it is on.
+* Loading new data (another subject, epoch, reference, electrodes, or trial
+  window) clears the results: the outputs show "No results available (click
+  RAVE!)" until RAVE! runs again. Electrode labels and the threshold are
+  kept while the subject and epoch stay the same, and cleared otherwise.
+  Flagged trials are kept while the subject, the epoch, and its trials stay
+  the same; otherwise they start from the epoch's `ExcludedHint` marks.
 * "Export" re-runs the analysis on the export electrodes, so the plots then
-  show those electrodes while "Select Electrodes" keeps its value. It writes
-  nothing in quick mode: uncheck "Just get univariate stats + 3dViewer
-  (fast)" first.
+  show those electrodes while "Select Electrodes" keeps its value.
 * The export's ROI filter works with columns of electrodes.csv; its "Custom
   ROI" choice is not implemented in the export step.
 * "Save for Group Analysis" with an earlier label asks to delete the older
-  saves with that label, but they are kept for now: ravecore's
+  saves with that label, but ravecore 0.1.1.15 keeps them: its
   `list_pipelines(all = TRUE)`, which the save uses to find them, returns no
-  rows. The newest save is the one that "Create new / Replace existing"
-  lists.
+  rows (fixed in the ravecore source, not yet released). The newest save is
+  the one that "Create new / Replace existing" lists.
 * Reports with all graphs and individual electrodes can take tens of MB.
-* "Which contrasts to display?" offers only "All-possible pairwise" after a
-  run.
-* For AI agents: plot clicks (labels, thresholds, trial outliers), the
-  "Manual threshold" dialog, loading settings from a file, downloads, and
-  "Cluster -> electrodes.csv" are for people only.
+* For AI agents: plot clicks (labels, thresholds, trial outliers), the click
+  table's links (including "Save Flags to Epoch"), the "Manual threshold"
+  dialog, loading settings from a file, downloads, and "Cluster ->
+  electrodes.csv" are for people only. Agents flag trials with
+  `flagged_trials` and ask the user to save them into the epoch.
 
 ## Run the pipeline without the UI
 
@@ -363,7 +406,9 @@ How RAVE! converts the inputs before it saves them:
   group of `custom_roi_groupings` gets their `electrodes`.
 * Duplicated conditions are dropped from the later levels of each factor.
 * `time_censor` is always off; `trial_outliers_list` holds the flagged
-  trials.
+  trials (field `flagged_trials`). The pipeline itself does not read the
+  epoch's `ExcludedHint`: without the UI, to leave out the trials the epoch
+  marks, set `trial_outliers_list = pipeline$read("repository")$epoch$excluded_trials`.
 * Quick mode builds `over_time_by_electrode_data`, `omnibus_results`, and
   `by_electrode_similarity_data`. A full run builds `analysis_settings_clean`,
   `baseline_settings`, `baselined_power`, `analysis_groups`,
@@ -387,7 +432,8 @@ then `run_analysis`, then read the results. Scripts that write into the
 subject folder (`export_electrodes`, `save_for_group_analysis`,
 `generate_report`) come last, and only after the user confirms their
 settings. "Cluster -> electrodes.csv" has no script: only the user may use
-it.
+it. Neither has saving flagged trials into the epoch: flag them with
+`flagged_trials`, then ask the user to click "Save Flags to Epoch".
 
 A script's reply has `result` (its return value) and `output` (what it printed
 while it ran). `run_analysis` finishes even when invalid inputs stop the
@@ -411,7 +457,8 @@ loading) keeps its old value; send the update again.
   `"loader_electrode_text"` (`"13-16,24"`)
 * Load the data: `tool("tool__module_interactive_script_run", name = "load_data")`.
   The result lists the trials, electrodes, conditions (with trial counts),
-  events, and the time and frequency ranges.
+  events, the time and frequency ranges, and the trials the epoch marks as
+  excluded (they start as the flagged trials).
 
 ### Configure and run
 
@@ -431,15 +478,24 @@ loading) keeps its old value; send the update again.
   (`[{"label":"STG","conditions":["ctx_lh_G_temp_sup-Lateral"]}]`) or script
   `assign_roi_levels` (`clear_roi_groups` makes one "All levels" group)
 * Quick mode: `quick_omnibus_only` (`"true"` or `"false"`)
+* Flagged trials (optional): `tool("tool__shiny_input_update", inputId = "flagged_trials", value = "3,17,40-42")`
+  sets the whole list (`""` clears it). Trials not in the epoch are dropped,
+  and the field shows consecutive trials as a range (`"5-6,42"`). To find
+  candidates after a run, read the per-trial values:
+  `tool("tool__shiny_output_result", outputId = "by_condition_tabset_clipboard", transform_image = false, max_chars = 100000)`
+  returns the "copy data" button, whose `data-clipboard-text` attribute holds
+  a tab-separated table, one row per trial and electrode (`Trial`, `y`,
+  `Electrode`, `is_clean`, `Factor1`, ...). NEVER save the flags into the
+  epoch: ask the user to click "Save Flags to Epoch" (By Condition card, By
+  Trial tab, above the Click Details table).
 * Run the analysis: `tool("tool__module_interactive_script_run", name = "run_analysis")`.
   The result starts with "Analysis done (quick)" or "Analysis done (full)"
-  and lists the settings used.
+  and lists the settings used, ending with the flagged trials it left out.
 * Clusters (optional): set `otbe_yaxis_sort` (e.g. `"Activity Correlation"`)
   and `otbe_yaxis_cluster_k` (e.g. `"2"`), draw the heatmap with
   `tool("tool__shiny_output_result", outputId = "over_time_by_electrode")`,
   then run script `cluster_to_viewer` or `cluster_to_roi`.
-* Export (ask the user first): set `quick_omnibus_only` to `"false"`
-  (nothing is exported in quick mode), `electrodes_to_export` (`"14-15"`),
+* Export (ask the user first): set `electrodes_to_export` (`"14-15"`),
   `frequencies_to_export`, `times_to_export`, `trials_to_export`, and the
   optional ROI filter, then run script `export_electrodes`. Its result is the
   export folder. The "Done with exporting!" alert stays until the user closes
@@ -457,6 +513,10 @@ loading) keeps its old value; send the update again.
 * Per-electrode statistics as text: `tool("tool__module_interactive_script_run", name = "electrode_statistics")`
 * The model across electrodes: `tool("tool__shiny_output_result", outputId = "by_condition_statistics", transform_image = false)`;
   also `by_condition_statistics_emmeans` and `by_condition_statistics_contrasts`
+* Stratified or interaction contrasts (after a full run with two or more
+  factors): set `bcs_choose_contrasts` (`"Stratified contrasts (more power!)"`
+  or `"ITX Contrasts (diff of diff)"`), optionally `bcs_choose_specific_contrast`
+  (e.g. `"Factor1"`), then read `by_condition_statistics_contrasts`
 * Plots: `tool("tool__shiny_output_result", outputId = "over_time_by_condition")`;
   also `by_frequency_over_time`, `by_frequency_correlation`, `over_time_by_trial`,
   `over_time_by_electrode`, `waterfall_by_electrode_plot`,

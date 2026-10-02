@@ -349,7 +349,9 @@ module_server <- function(input, output, session, ...){
         async = FALSE,
         # check_interval = 0.1,
         shortcut = FALSE,
-        names = c('over_time_by_electrode_data', 'omnibus_results', 'by_electrode_similarity_data')
+        # `extra_names` (e.g. `data_for_export`) are needed in quick mode too
+        names = unique(c('over_time_by_electrode_data', 'omnibus_results',
+                         'by_electrode_similarity_data', extra_names))
       )
 
       local_data$results <- results
@@ -597,17 +599,20 @@ module_server <- function(input, output, session, ...){
     if (isTRUE(settings$enable_second_condition_groupings)) {
       second_factor <- describe_groups(settings$second_condition_groupings)
     }
+    flagged <- dipsaus::deparse_svec(
+      sort(as.integer(unlist(settings$trial_outliers_list))))
     sprintf(
       paste(
         "Analysis done (%s): electrodes %s; windows: %s; baseline %s to %s s,",
         "%s, %s; condition variable %s; first factor: %s; second factor: %s;",
-        "custom ROI: %s"
+        "custom ROI: %s; flagged trials (left out): %s"
       ),
       if (isTRUE(input$quick_omnibus_only)) "quick" else "full",
       settings$analysis_electrodes, paste(windows, collapse = "; "),
       baseline_window[[1]], baseline_window[[2]], baseline$scope,
       baseline$unit_of_analysis, settings$condition_variable,
-      describe_groups(settings$first_condition_groupings), second_factor, roi
+      describe_groups(settings$first_condition_groupings), second_factor, roi,
+      if (nzchar(flagged)) flagged else "none"
     )
   }
 
@@ -626,7 +631,8 @@ module_server <- function(input, output, session, ...){
       "`second_condition_groupings`, `enable_custom_ROI`,",
       "`custom_roi_variable`, `custom_roi_type`, `quick_omnibus_only`,",
       "`omnibus_includes_all_electrodes`, `do_over_time_by_electrode_dataframe`,",
-      "and the export inputs. It writes nothing into the subject. Returns",
+      "the flagged trials (`flagged_trials`, left out of all results), and the",
+      "export inputs. It writes nothing into the subject. Returns",
       "'Analysis done (quick|full): ...' with the settings used, or 'Analysis",
       "did not run' when invalid inputs stopped it (a first- or second-factor",
       "level left empty by duplicated conditions, identical or overlapping",
@@ -663,9 +669,8 @@ module_server <- function(input, output, session, ...){
       "t-statistic and 'p(<group>)' the p-value against 0 (the baseline), for",
       "'overall', each trial group, and each contrast 'A - B' (with",
       "'p_fdr(...)', FDR-adjusted); 'currently_selected' is 1 for the",
-      "electrodes in the analysis selection. These are the statistics of the",
-      "last `run_analysis` in this browser session: loading data does not",
-      "clear them, so run `run_analysis` after `load_data`."
+      "electrodes in the analysis selection. Loading new data clears them:",
+      "run `run_analysis` again after `load_data`."
     ),
     {
       stats <- local_data$results$omnibus_results$stats
@@ -1284,6 +1289,28 @@ module_server <- function(input, output, session, ...){
       local_reactives$update_over_time_by_trial_plot <- NULL
       local_reactives$update_over_time_by_electrode_plot <- NULL
       local_reactives$update_by_frequency_correlation_plot <- NULL
+      local_reactives$update_pes_plot <- NULL
+      local_reactives$update_cluster_table <- NULL
+
+      # Results and clusters of the previous data no longer apply
+      local_data$results <- NULL
+      local_data$electrode_quick_cluster <- NULL
+
+      # Electrode labels and the threshold refer to the previous trials: keep
+      # them only for the same subject and epoch
+      same_trials <- inherits(old_repository, "rave_prepare_power") &&
+        identical(old_repository$subject$subject_id, new_repository$subject$subject_id) &&
+        identical(old_repository$epoch_name, new_repository$epoch_name)
+      if(!same_trials) {
+        local_data$pes$pes_selected_electrodes <- NULL
+        local_data$pes$pes_manual_threshold <- NULL
+      }
+      # Flagged trials: keep this session's flags while the epoch keeps the
+      # same trials; otherwise start from the trials the epoch marks as
+      # excluded (column `ExcludedHint`)
+      if(!same_trials || !same_epoch_trials(old_repository$epoch, new_repository$epoch)) {
+        set_trial_flags(epoch_flagged_trials(new_repository$epoch), refresh = FALSE)
+      }
 
       local_data$bcbt_click_log <- NULL
 
@@ -1887,7 +1914,7 @@ module_server <- function(input, output, session, ...){
       return(omni_stats[ind[row[1]],])
     }
 
-    return(omni_stats[ind[1,],])
+    return(omni_stats[ind[1],])
   }
 
   update_pes_clicks <- function(click, plot=c('m', 't', 'p'), select_mode,
@@ -2101,6 +2128,83 @@ module_server <- function(input, output, session, ...){
   )
 
 
+  # Set the flagged trials (`local_data$trial_outliers_list`, which RAVE!
+  # saves as pipeline setting `trial_outliers_list`) to trial numbers of the
+  # loaded epoch, and show them in the 'Flagged trials' field. With `refresh`,
+  # redraw what shows the flags
+  set_trial_flags <- function(trials, refresh = TRUE) {
+    trials <- sort(unique(suppressWarnings(as.integer(unlist(trials)))))
+    trials <- trials[!is.na(trials)]
+    epoch_trials <- component_container$data$repository$epoch$trials
+    unknown <- trials[!trials %in% epoch_trials]
+    if(length(epoch_trials) && length(unknown)) {
+      message <- sprintf("Trial(s) %s are not in the epoch; they are not flagged",
+                         dipsaus::deparse_svec(unknown))
+      ravepipeline::logger(message, level = "warning")
+      ravedash::show_notification(message = message, title = "Flagged trials",
+                                  type = "warning")
+      trials <- trials[trials %in% epoch_trials]
+    }
+    if(length(trials)) {
+      local_data$trial_outliers_list <- trials
+    } else {
+      local_data$trial_outliers_list <- NULL
+    }
+    text <- dipsaus::deparse_svec(trials)
+    if(!identical(trimws(paste(shiny::isolate(input$flagged_trials), collapse = "")), text)) {
+      shiny::updateTextInput(session = session, inputId = "flagged_trials", value = text)
+    }
+    if(refresh) {
+      local_reactives$update_by_condition_plot <- Sys.time()
+      local_reactives$outliers_updated <- Sys.time()
+    }
+    invisible(trials)
+  }
+
+  # 'Flagged trials' field: people type the list, agents set it. It replaces
+  # the flagged trials; text that is not trial numbers is put back
+  shiny::bindEvent(ravedash::safe_observe({
+    text <- trimws(paste(input$flagged_trials, collapse = ""))
+    if(identical(text, dipsaus::deparse_svec(local_data$trial_outliers_list))) {
+      return()
+    }
+    trials <- suppressWarnings(dipsaus::parse_svec(text, sep = ",|;", connect = ":-"))
+    if(nzchar(text) && (grepl("[^0-9,;:[:space:]-]", text) ||
+                        !length(trials) || anyNA(trials))) {
+      message <- sprintf(
+        "Could not read trial numbers from '%s' (e.g. 3,17,40-42); the flagged trials are unchanged",
+        text)
+      ravepipeline::logger(message, level = "warning")
+      ravedash::show_notification(message = message, title = "Flagged trials",
+                                  type = "warning")
+      set_trial_flags(local_data$trial_outliers_list, refresh = FALSE)
+      return()
+    }
+    set_trial_flags(trials)
+  }), input$flagged_trials, ignoreNULL = TRUE, ignoreInit = TRUE)
+
+  # Caption of the Click Details table, with its links. 'Save Flags to Epoch'
+  # is for people only: it has no script, and agents ask the user to click it
+  click_details_caption <- function() {
+    rfloat <- runif(1)
+    shiny::tags$caption(
+      style='caption-side:top; text-align:center; color:black; margin-top:-15px; margin-bottom:-10px; font-size:110%',
+      shiny::p('Click Details',
+               shiny::span(style='font-size:90%',shiny::br(),
+                           shiny::actionLink(inputId = ns('clear_rows'),
+                                             onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('clear_rows'), rfloat),
+                                             label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
+                           label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
+               shiny::actionLink(inputId = ns('nominate_outliers'),
+                                 onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('nominate_outliers'), rfloat),
+                                 label = 'Flag Selected (requires re-RAVE)', icon = ravedash::shiny_icons$magic), '|',
+               shiny::actionLink(inputId = ns('save_flags_to_epoch'),
+                                 onclick=sprintf("Shiny.setInputValue('%s', Date.now(), {priority: 'event'});", ns('save_flags_to_epoch')),
+                                 label = 'Save Flags to Epoch', icon = ravedash::shiny_icons$save)
+      )
+    )
+  }
+
   # ?ravedash::register_output(
   # output_type = 'no-download',
   # outputId = 'by_condition_by_trial_clicks',
@@ -2126,8 +2230,9 @@ module_server <- function(input, output, session, ...){
                    setdiff(names(all_cond), 'is_clean'), with=FALSE]
 
     if(is.null(df) || nrow(df) < 1) {
+      # the links stay, so that a cleared list can be saved to the epoch
       return(DT::datatable(
-        df,
+        df, caption = click_details_caption(),
         options =list(language = list(emptyTable = 'No Clicks / Outliers'))
       ))
     }
@@ -2140,23 +2245,8 @@ module_server <- function(input, output, session, ...){
 
     local_data$bcbt_click_table <- df
 
-    rfloat <- runif(1)
     dt <- DT::datatable(
-      df, caption =
-
-        shiny::tags$caption(
-          style='caption-side:top; text-align:center; color:black; margin-top:-15px; margin-bottom:-10px; font-size:110%',
-          shiny::p('Click Details',
-                   shiny::span(style='font-size:90%',shiny::br(),
-                               shiny::actionLink(inputId = ns('clear_rows'),
-                                                 onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('clear_rows'), rfloat),
-                                                 label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
-                               label = 'Clear Selected', icon = ravedash::shiny_icons$trash), '|',
-                   shiny::actionLink(inputId = ns('nominate_outliers'),
-                                     onclick=sprintf("Shiny.setInputValue(id = '%s', value = '%s');", ns('nominate_outliers'), rfloat),
-                                     label = 'Flag Selected (requires re-RAVE)', icon = ravedash::shiny_icons$magic)
-          )
-        ),
+      df, caption = click_details_caption(),
 
       colnames=names(df), rownames = FALSE, extensions='Buttons',
       options=list(autoWidth=FALSE, scroller=TRUE, scrollX=TRUE, scrollY='300px',
@@ -2195,14 +2285,8 @@ module_server <- function(input, output, session, ...){
 
     local_data$bcbt_click_log <- setdiff(local_data$bcbt_click_log, click_data$trials)
     local_data$bcbt_click_table <- local_data$bcbt_click_table[-click_data$row_numbers]
-    local_data$trial_outliers_list <- setdiff(local_data$trial_outliers_list, click_data$trials)
-
-    if(length(local_data$trial_outliers_list) < 1) {
-      local_data$trial_outliers_list <- NULL
-    }
-
-    local_reactives$update_by_condition_plot <- Sys.time()
-    local_reactives$outliers_updated <- Sys.time()
+    # also redraws the plot and the table
+    set_trial_flags(setdiff(local_data$trial_outliers_list, click_data$trials))
 
   }), input$clear_rows, ignoreInit = TRUE, ignoreNULL = TRUE)
 
@@ -2210,26 +2294,46 @@ module_server <- function(input, output, session, ...){
   shiny::bindEvent(ravedash::safe_observe({
     click_data <- get_clicked_trials(FALSE)
 
+    # (set_trial_flags also redraws the plot and the table)
     if(is.null(local_data$trial_outliers_list)) {
-      local_data$trial_outliers_list <- click_data$trials
+      set_trial_flags(click_data$trials)
     } else {
       # add in new rows
       to_add <- setdiff(click_data$trials, local_data$trial_outliers_list)
       to_rem <- intersect(click_data$trials, local_data$trial_outliers_list)
 
-      tmp_list <- c(to_add, setdiff(local_data$trial_outliers_list, to_rem))
-      if(length(tmp_list) < 1) {
-        local_data$trial_outliers_list <- NULL
-      } else {
-        local_data$trial_outliers_list <- tmp_list
-      }
+      set_trial_flags(c(to_add, setdiff(local_data$trial_outliers_list, to_rem)))
     }
 
-    # local_reactives$update_click_table <- Sys.time()
-    local_reactives$update_by_condition_plot <- Sys.time()
-    local_reactives$outliers_updated <- Sys.time()
-
   }), input$nominate_outliers, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+  # 'Save Flags to Epoch' link of the Click Details table: people only (no
+  # script; agents ask the user to click it). Writes the flagged trials into
+  # the loaded epoch's file, as column `ExcludedHint`
+  shiny::bindEvent(ravedash::safe_observe({
+    repository <- component_container$data$repository
+    trials <- local_data$trial_outliers_list
+    saved <- tryCatch(
+      list(paths = save_trial_flags_to_epoch(repository, trials)),
+      error = function(e) {
+        ravepipeline::logger("Flags not saved: ", conditionMessage(e), level = "warning")
+        ravedash::show_notification(message = conditionMessage(e),
+                                    title = "Flags not saved", type = "danger",
+                                    autohide = FALSE)
+        NULL
+      }
+    )
+    if(is.null(saved)) { return() }
+    message <- sprintf(
+      "Epoch %s marks %s as excluded (column ExcludedHint). Written: %s; the previous file is kept as a time-stamped backup.",
+      repository$epoch_name,
+      if(length(trials)) sprintf("trial(s) %s", dipsaus::deparse_svec(trials)) else "no trial",
+      paste(basename(saved$paths), collapse = ", ")
+    )
+    ravepipeline::logger(message, level = "info")
+    ravedash::show_notification(message = message, title = "Flags saved to epoch",
+                                type = "success", autohide = FALSE)
+  }), input$save_flags_to_epoch, ignoreInit = TRUE, ignoreNULL = TRUE)
 
   # shiny::bindEvent(
   #   ravedash::safe_observe({
@@ -2314,7 +2418,9 @@ module_server <- function(input, output, session, ...){
 
 
   basic_checks <- function(flag, check_uni=TRUE) {
-    cond <- !is.null(flag)
+    # loading new data clears the results, while some flags (e.g. the
+    # per-electrode statistics chooser) can still be set
+    cond <- !is.null(flag) && length(local_data$results) > 0
 
     ss <- ''
     if(check_uni) {
@@ -2498,9 +2604,9 @@ module_server <- function(input, output, session, ...){
         x <- merge(etbl, eqc, all.x=TRUE, all.y=FALSE)
 
         if(isTRUE(input$cluster_do_overwrite)) {
-          utils::write.csv(x, file = fname)
+          utils::write.csv(x, file = fname, row.names = FALSE)
         } else {
-          ravecore:::safe_write_csv(x, file = fname, quiet = TRUE)
+          ravecore:::safe_write_csv(x, file = fname, quiet = TRUE, row.names = FALSE)
         }
 
         ravedash::show_notification(paste("Clusters written to: ", fname, ' in column: ', cname),
@@ -2678,7 +2784,6 @@ module_server <- function(input, output, session, ...){
       "only), `electrodes_to_export_roi_name`,",
       "`electrodes_to_export_roi_categories`, `frequencies_to_export`,",
       "`times_to_export`, `trials_to_export`, and the analysis inputs. It",
-      "needs `quick_omnibus_only` off: in quick mode it exports nothing. It",
       "re-runs the analysis on the export electrodes (the plots then show",
       "them; run `run_analysis` to go back to `electrode_text`), then writes a",
       "new folder `<subject>/power_explorer/pe_export_<time>/` with one",

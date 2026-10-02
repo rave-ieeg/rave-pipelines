@@ -1740,13 +1740,15 @@ if(length(omnibus_results$data) > 3) {
   
   ravepipeline::logger('got condition means', calc_delta = TRUE)
   
-  # set fe to "1" (intercept only model) if there are no fixed effects. Do this 
-  # after obtaining experimental means because you can't key on the number 1
-  fe <- paste0(fe, collapse='*')
-  if(!nzchar(fe)) { fe <- "1" }
+  # the model's fixed effects: `fe` crossed, or "1" (intercept only model) if
+  # there are no fixed effects. `fe` keeps the effect names for the contrasts
+  # below. Do this after obtaining experimental means because you can't key on
+  # the number 1
+  fe_formula <- paste0(fe, collapse='*')
+  if(!nzchar(fe_formula)) { fe_formula <- "1" }
   
   frm <- as.formula(
-    paste('y ~', paste(c(fe, re_str), collapse=' + '))
+    paste('y ~', paste(c(fe_formula, re_str), collapse=' + '))
   )
   
   if(length(unique(dd$Trial)) < 2) {
@@ -1759,14 +1761,14 @@ if(length(omnibus_results$data) > 3) {
     FUN <- ifelse(is.null(re_str), stats::lm, lme4::lmer)
     mod <- do.call(FUN, list(formula=frm, data=dd))
     
-    .aov <- car::Anova(mod, type=ifelse(fe[1] == "1", 'III', 'II'))
+    .aov <- car::Anova(mod, type=ifelse(fe_formula == "1", 'III', 'II'))
     
     ravepipeline::logger('built linear model, starting post hoc tests', calc_delta = TRUE)
     # est. marg means initial object, used by other
     # functions to get all the contrasts
     
     em <- emmeans::emmeans(
-      mod, as.formula(sprintf(" ~ %s", fe)), infer=c(F,T)
+      mod, as.formula(sprintf(" ~ %s", fe_formula)), infer=c(F,T)
     )
     
     ravepipeline::logger('Got emm', calc_delta = TRUE)
@@ -1781,13 +1783,13 @@ if(length(omnibus_results$data) > 3) {
   # here we have a chance to stratify rather than do
   # all-possible pairwise comparisons (save your alpha!)
   stratified_contrasts <- NULL
-  if(length(fe) > 1) {
+  if(length(fe) > 1 && !is.null(em)) {
     stratified_contrasts <- get_stratified_contrasts(em)
   }
   
   ## get the interaction contrasts
   itx_contrasts <- NULL
-  if(length(fe) == 2) {
+  if(length(fe) == 2 && !is.null(em)) {
     nm <- paste0(fe, collapse='_')
     
     itx_contrasts <- list(
@@ -1796,7 +1798,7 @@ if(length(omnibus_results$data) > 3) {
     
   }
   
-  if (length(fe) > 2) {
+  if (length(fe) > 2 && !is.null(em)) {
     fe_combn <- combn(fe, 2, simplify = FALSE)
     
     itx_contrasts <- sapply(fe_combn, function(groups) {

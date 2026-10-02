@@ -2357,11 +2357,11 @@ rm(._._env_._.)
                     se = rutabaga:::se(y), n = .N), keyby = fe]
                   ravepipeline::logger("got condition means", 
                     calc_delta = TRUE)
-                  fe <- paste0(fe, collapse = "*")
-                  if (!nzchar(fe)) {
-                    fe <- "1"
+                  fe_formula <- paste0(fe, collapse = "*")
+                  if (!nzchar(fe_formula)) {
+                    fe_formula <- "1"
                   }
-                  frm <- as.formula(paste("y ~", paste(c(fe, 
+                  frm <- as.formula(paste("y ~", paste(c(fe_formula, 
                     re_str), collapse = " + ")))
                   if (length(unique(dd$Trial)) < 2) {
                     mod <- NULL
@@ -2372,12 +2372,12 @@ rm(._._env_._.)
                     FUN <- ifelse(is.null(re_str), stats::lm, 
                       lme4::lmer)
                     mod <- do.call(FUN, list(formula = frm, data = dd))
-                    .aov <- car::Anova(mod, type = ifelse(fe[1] == 
+                    .aov <- car::Anova(mod, type = ifelse(fe_formula == 
                       "1", "III", "II"))
                     ravepipeline::logger("built linear model, starting post hoc tests", 
                       calc_delta = TRUE)
                     em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
-                      fe)), infer = c(F, T))
+                      fe_formula)), infer = c(F, T))
                     ravepipeline::logger("Got emm", calc_delta = TRUE)
                     pairwise <- emmeans::contrast(em, "pairwise")
                     ravepipeline::logger("Got pairwise contrasts", 
@@ -2385,17 +2385,17 @@ rm(._._env_._.)
                     ravepipeline::logger("Got ANOVA", calc_delta = TRUE)
                   }
                   stratified_contrasts <- NULL
-                  if (length(fe) > 1) {
+                  if (length(fe) > 1 && !is.null(em)) {
                     stratified_contrasts <- get_stratified_contrasts(em)
                   }
                   itx_contrasts <- NULL
-                  if (length(fe) == 2) {
+                  if (length(fe) == 2 && !is.null(em)) {
                     nm <- paste0(fe, collapse = "_")
                     itx_contrasts <- list(emmeans::contrast(em, 
                       interaction = c("pairwise", "pairwise"))) %>% 
                       setNames(nm)
                   }
-                  if (length(fe) > 2) {
+                  if (length(fe) > 2 && !is.null(em)) {
                     fe_combn <- combn(fe, 2, simplify = FALSE)
                     itx_contrasts <- sapply(fe_combn, function(groups) {
                       emmeans::contrast(em, interaction = c("pairwise", 
@@ -2461,11 +2461,11 @@ rm(._._env_._.)
                       keyby = fe]
                     ravepipeline::logger("got condition means", 
                       calc_delta = TRUE)
-                    fe <- paste0(fe, collapse = "*")
-                    if (!nzchar(fe)) {
-                      fe <- "1"
+                    fe_formula <- paste0(fe, collapse = "*")
+                    if (!nzchar(fe_formula)) {
+                      fe_formula <- "1"
                     }
-                    frm <- as.formula(paste("y ~", paste(c(fe, 
+                    frm <- as.formula(paste("y ~", paste(c(fe_formula, 
                       re_str), collapse = " + ")))
                     if (length(unique(dd$Trial)) < 2) {
                       mod <- NULL
@@ -2477,12 +2477,12 @@ rm(._._env_._.)
                         lme4::lmer)
                       mod <- do.call(FUN, list(formula = frm, 
                         data = dd))
-                      .aov <- car::Anova(mod, type = ifelse(fe[1] == 
+                      .aov <- car::Anova(mod, type = ifelse(fe_formula == 
                         "1", "III", "II"))
                       ravepipeline::logger("built linear model, starting post hoc tests", 
                         calc_delta = TRUE)
                       em <- emmeans::emmeans(mod, as.formula(sprintf(" ~ %s", 
-                        fe)), infer = c(F, T))
+                        fe_formula)), infer = c(F, T))
                       ravepipeline::logger("Got emm", calc_delta = TRUE)
                       pairwise <- emmeans::contrast(em, "pairwise")
                       ravepipeline::logger("Got pairwise contrasts", 
@@ -2490,17 +2490,17 @@ rm(._._env_._.)
                       ravepipeline::logger("Got ANOVA", calc_delta = TRUE)
                     }
                     stratified_contrasts <- NULL
-                    if (length(fe) > 1) {
+                    if (length(fe) > 1 && !is.null(em)) {
                       stratified_contrasts <- get_stratified_contrasts(em)
                     }
                     itx_contrasts <- NULL
-                    if (length(fe) == 2) {
+                    if (length(fe) == 2 && !is.null(em)) {
                       nm <- paste0(fe, collapse = "_")
                       itx_contrasts <- list(emmeans::contrast(em, 
                         interaction = c("pairwise", "pairwise"))) %>% 
                         setNames(nm)
                     }
-                    if (length(fe) > 2) {
+                    if (length(fe) > 2 && !is.null(em)) {
                       fe_combn <- combn(fe, 2, simplify = FALSE)
                       itx_contrasts <- sapply(fe_combn, function(groups) {
                         emmeans::contrast(em, interaction = c("pairwise", 

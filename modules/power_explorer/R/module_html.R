@@ -1464,6 +1464,29 @@ module_html <- function(){
                   shiny::column(width=5,
                                 # shiny::div(class='col-sm-4',
                                 # ravedash::output_gadget_container(
+                                shidashi::register_input(
+                                  shiny::textInput(ns('flagged_trials'),
+                                                   label = 'Flagged trials (applied at RAVE!)',
+                                                   value = '', placeholder = 'e.g. 3,17,40-42',
+                                                   updateOn = 'blur'),
+                                  inputId = "flagged_trials",
+                                  update = "shiny::updateTextInput",
+                                  description = paste(
+                                    "Trials flagged as outliers, e.g. '3,17,40-42': the whole list,",
+                                    "so setting it replaces the list and an empty value clears it.",
+                                    "From the next RAVE! (script `run_analysis`) on, they are left",
+                                    "out of all averages, statistics, the 3D viewer, and exports,",
+                                    "for every electrode and analysis window. Trials not in the",
+                                    "loaded epoch are dropped. When data load, the list starts",
+                                    "from the trials the epoch marks as excluded (column",
+                                    "ExcludedHint), unless this session already flagged trials of",
+                                    "the same epoch. Agents may set it. Only people save the list",
+                                    "into the epoch, so that it lasts beyond this session: ask the",
+                                    "user to click 'Save Flags to Epoch' above the Click Details",
+                                    "table (By Condition card, By Trial tab). Unsaved flags are",
+                                    "lost when another epoch is loaded or the page is reloaded."
+                                  )
+                                ),
                                 DT::dataTableOutput(outputId = ns('by_condition_by_trial_clicks'))
                                 # )
                   )
@@ -1502,7 +1525,17 @@ module_html <- function(){
                                                                   ),
                                                                   inputId = "bcs_choose_contrasts",
                                                                   update = "shiny::updateSelectInput(value=selected)",
-                                                                  description = "Type of statistical contrasts to display"
+                                                                  description = paste(
+                                                                    "Contrasts in tab 'Pairwise comparisons' (output",
+                                                                    "`by_condition_statistics_contrasts`): 'All-possible pairwise'",
+                                                                    "(default), 'Stratified contrasts (more power!)' (pairwise within",
+                                                                    "each level of another factor), or 'ITX Contrasts (diff of diff)'",
+                                                                    "(interaction contrasts). The last two are offered after a full",
+                                                                    "`run_analysis` with two or more factors (first and second",
+                                                                    "factor, ROI groups with 'Group/Stratify results', or several",
+                                                                    "analysis windows); pick the layer with",
+                                                                    "`bcs_choose_specific_contrast`."
+                                                                  )
                                                                 )
                                                   ),
                                                   shiny::column(width=4,
@@ -1512,7 +1545,13 @@ module_html <- function(){
                                                                                                              'Choose layer/grouping', choices=''),
                                                                                           inputId = "bcs_choose_specific_contrast",
                                                                                           update = "shiny::updateSelectInput(value=selected)",
-                                                                                          description = "Specific contrast layer or grouping to display"
+                                                                                          description = paste(
+                                                                                            "Which stratification or interaction to show when",
+                                                                                            "`bcs_choose_contrasts` is not 'All-possible pairwise': e.g.",
+                                                                                            "'Factor1' (contrasts within each level of the first factor) or",
+                                                                                            "'Factor1_Factor2' (interaction). The choices load when",
+                                                                                            "`bcs_choose_contrasts` changes."
+                                                                                          )
                                                                                         )))
                                                 ),
                                                 shiny::htmlOutput(ns('by_condition_statistics_contrasts'))

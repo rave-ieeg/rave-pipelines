@@ -874,6 +874,53 @@ get_available_events <- function(columns) {
   return(eet)
 }
 
+# Trials the epoch marks as excluded (epoch column `ExcludedHint`), as sorted
+# integers; none with a ravecore that has no such column
+epoch_flagged_trials <- function(epoch) {
+  sort(as.integer(epoch$excluded_trials))
+}
+
+# Whether two epochs hold the same trials: trial numbers, blocks, and onsets
+# (within 1 ms, as ravecore matches trials)
+same_epoch_trials <- function(epoch1, epoch2) {
+  if(is.null(epoch1) || is.null(epoch2)) {
+    return(FALSE)
+  }
+  trials_of <- function(epoch) {
+    tbl <- epoch$table
+    tbl[order(tbl$Trial), c('Trial', 'Block', 'Time')]
+  }
+  t1 <- trials_of(epoch1)
+  t2 <- trials_of(epoch2)
+  nrow(t1) == nrow(t2) &&
+    identical(as.integer(t1$Trial), as.integer(t2$Trial)) &&
+    identical(as.character(t1$Block), as.character(t2$Block)) &&
+    isTRUE(all(abs(as.numeric(t1$Time) - as.numeric(t2$Time)) < 1e-3))
+}
+
+# Save `trials` as the excluded trials of the loaded epoch (column
+# `ExcludedHint`), replacing earlier marks. ravecore renames the old file to a
+# time-stamped backup, and writes or removes `epoch_<name>_OutlierRemoved.csv`.
+# The epoch is read again from its file, so the loaded repository stays as it
+# is; saving stops when that file no longer holds the trials that were loaded
+# (e.g. saving an `_OutlierRemoved` epoch renumbers its trials). Returns the
+# paths written
+save_trial_flags_to_epoch <- function(repository, trials) {
+  epoch <- ravecore::RAVEEpoch$new(subject = repository$subject,
+                                   name = repository$epoch_name)
+  if(!is.function(epoch$exclude_trials)) {
+    stop("Saving flagged trials needs a newer ravecore (epoch column `ExcludedHint`). Please update ravecore.")
+  }
+  if(!same_epoch_trials(epoch, repository$epoch)) {
+    stop(sprintf(paste(
+      "The trials of epoch [%s] changed since the data were loaded.",
+      "Load the data again, check the flagged trials, then save."
+    ), repository$epoch_name))
+  }
+  epoch$exclude_trials(as.integer(trials), add = FALSE)
+  epoch$save()
+}
+
 round_pval <- function(pval) {
   lpval = pmax(round(log10(.Machine$double.eps)), log10(pval))
   ifelse(lpval > -3.5,

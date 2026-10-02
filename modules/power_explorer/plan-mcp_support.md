@@ -333,3 +333,174 @@ Found, not changed (in addition to the list above):
 - Stratified and interaction contrasts are never computed: `fe` is pasted into one string before `length(fe) > 1` is checked (target `across_electrode_statistics`, and the module's contrast choices).
 - The export's "Custom ROI" filter is not implemented in `build_data_for_export` (`v` stays empty); found by reading the code, not run.
 - Sizes: a group-analysis save is about 26 MB (it copies the module folder), and a report with one graph and aggregate plots only about 66 MB.
+
+## Follow-up fixes (2026-09-30)
+
+Rechecked, then fixed with the user's approval:
+- **ravecore `list_pipelines(all = TRUE)`** returned no rows; the default `all = FALSE` was fine. Fixed in the source only, `../ravecore/R/class005-subject.R`: empty table only when no fork is found, dedupe only when `!all`. Not installed or committed; until a release, "Replace existing" keeps older saves.
+- **Stale results after loading new data.** The data-loaded observer now also resets `update_pes_plot` and `update_cluster_table` and clears `local_data$results` and the cluster table, and `basic_checks()` asks for results. Outlier trials, electrode labels, and the threshold are cleared when the subject or epoch changes (the user's choice).
+- **Stratified and interaction contrasts** are computed again: `fe` stays a vector of effect names, and `fe_formula` builds the model. `main.Rmd` changed, and `make-power_explorer.R` was regenerated with `ravepipeline::pipeline_render()`; only the `across_electrode_statistics` target differs.
+- **Quick-mode export** works: `run_analysis()` honours `extra_names` in quick mode.
+- **"Cluster -> electrodes.csv"** writes no row names.
+- **`get_omni_stat_row()`** typo fixed.
+
+The outlier behaviour the user asked about already exists: averages and statistics drop flagged trials at the next RAVE!, and the By Trial scatter keeps them as hollow dots while "Show Outliers" is on.
+
+Left for the user's PR: the export's "Custom ROI" filter, the unused "or Mask file" input, and the partial "Load Settings".
+
+## Flagged trials kept in the epoch (2026-10-02)
+
+### Context
+
+Flagged outlier trials (`local_data$trial_outliers_list`) are dropped from all averages, statistics, viewers and exports from the next RAVE! on. But they live only in the browser session:
+- they start empty in every session ([module_server.R:53](modules/power_explorer/R/module_server.R#L53));
+- "Load Settings" ignores them;
+- the next RAVE! after reopening the module saves an empty list, so the flagged trials come back without notice.
+
+Agents can't flag trials (it takes plot clicks), and nothing tells them which trials were left out.
+
+Your ravecore working tree (uncommitted: `R/class004-epoch.R`, `R/aaa-constants.R`) adds the epoch column `ExcludedHint`:
+- `epoch$excluded_trials` reads the marked trials;
+- `epoch$exclude_trials(..., add = FALSE)` replaces the marks;
+- `epoch$save()` renames the old file to `epoch_<name>_[YYYYmmdd_HHMMSS].csv`, writes `epoch_<name>.csv`, and writes or removes `epoch_<name>_OutlierRemoved.csv`.
+
+Backups don't show up as epochs (the `epoch_names` pattern excludes `[...]`). The installed ravecore (0.1.1.17) doesn't have this column yet, and the source still says 0.1.1.17.
+
+**Decisions made with you (2026-10-02):**
+- The flagged trials stay in step with the epoch's `ExcludedHint`. People save them into the epoch once they're satisfied, so the flags persist across sessions.
+- The save action is a link in the Click Details caption. Only people may save; agents ask the user to click it, with directions.
+- Agents may flag and unflag trials through a new visible "Flagged trials" field above the Click Details table.
+- The empty Click Details table also shows its caption and links, so a cleared list can be saved.
+- Agents are told about excluded trials in the load and run summaries, the field description, the manual and `agents.yaml`.
+
+**Not changed:** the pipeline (`main.Rmd`, `make-power_explorer.R`, settings keys; it still reads only `trial_outliers_list`), exports, "Load Settings", and other modules. No commits.
+
+### Step 0, right after approval
+
+- Add this plan as a new section, "Flagged trials kept in the epoch (2026-10-02)", to `modules/power_explorer/plan-mcp_support.md`.
+- Update memory `power-explorer-mcp-scope.md` with the decisions above.
+
+### Visible UI changes (each approved, 2026-10-02)
+
+1. **New field** "Flagged trials (applied at RAVE!)" above the Click Details table (By Condition card → By Trial tab, right column). It's a `shiny::textInput` with placeholder `e.g. 3,17,40-42` and `updateOn = "blur"`, so it sends its value on blur or Enter, not on every keystroke.
+2. **New link** "Save Flags to Epoch" (`ravedash::shiny_icons$save`), after "Flag Selected (requires re-RAVE)" in the caption. Each click fires `Shiny.setInputValue(..., {priority: 'event'})`, so clicking twice also works.
+3. **Empty table:** the same caption, with all three links, also appears above "No Clicks / Outliers".
+4. **New toasts:**
+   - "Flags saved to epoch": the trials and the files written, and a note that the old file was kept as a backup.
+   - "Flags not saved": the reason.
+   - "Flagged trials" warnings: unreadable text is put back to the current list; trials not in the epoch are dropped.
+
+**Behavior change:** trials the epoch marks `ExcludedHint` start out flagged, so they are left out from the first RAVE! after loading. No epoch has that column today, so existing subjects see no change.
+
+### Changes
+
+#### `R/shared-functions.R`: helpers (also in the pipeline's shared env, so tests can call them)
+- `epoch_flagged_trials(epoch)`: `sort(as.integer(epoch$excluded_trials))`. With an older ravecore this is empty, because `$excluded_trials` is `NULL`.
+- `same_epoch_trials(e1, e2)`: same `Trial`, `Block`, and `Time` (within 1e-3, like ravecore) after ordering by trial. `FALSE` if either is `NULL`.
+- `save_trial_flags_to_epoch(repository, trials)`:
+  1. Reads a fresh `ravecore::RAVEEpoch$new(repository$subject, repository$epoch_name)` from disk, so the loaded repository is never changed.
+  2. Stops with "needs a newer ravecore" when `exclude_trials` is missing.
+  3. Stops when the file's trials differ from the loaded epoch's, e.g. after an `_OutlierRemoved` save renumbered them or after an outside edit: "…changed since the data were loaded; load the data again, then save". Without this check, a second save could mark the wrong trials.
+  4. Calls `$exclude_trials(as.integer(trials), add = FALSE)` and returns `$save()`'s paths.
+
+#### `R/module_server.R`
+- **`set_trial_flags(trials, refresh = TRUE)`**: the single place that sets the list.
+  - Sorts the trials as unique integers and drops trials not in `component_container$data$repository$epoch$trials`, with a logger warning and a toast. Without loaded data, it skips this check.
+  - Sets `local_data$trial_outliers_list` (`NULL` if empty).
+  - Updates the field to `dipsaus::deparse_svec(trials)` only when the field shows something different.
+  - With `refresh`, fires `update_by_condition_plot` and `outliers_updated`, as the flag links do now. The data-loaded observer passes `refresh = FALSE`, because it has just reset those triggers and cleared the results.
+  - Storing integers also fixes the click path saving trial numbers as strings.
+- **Field observer** (`input$flagged_trials`):
+  - returns at once when the text already equals the current list (the echo of `set_trial_flags`);
+  - parses with `dipsaus::parse_svec(text, sep = ",|;", connect = ":-")`;
+  - non-blank text that doesn't parse (`"abc"`, `"1.5"`) warns and puts the field back; it never clears the list;
+  - blank text clears the list; anything else goes to `set_trial_flags`.
+- **"Flag Selected" / "Clear Selected" observers** (≈L2209–2250): the toggle and remove logic stays. Only the assignment lines (and their reactive triggers) become `set_trial_flags(...)`.
+- **Data-loaded observer** (≈L1295–1306):
+  - the electrode labels and the threshold keep the current rule (same subject and epoch);
+  - the flags are reset with `set_trial_flags(epoch_flagged_trials(new_repository$epoch), refresh = FALSE)` unless the subject, epoch, **and** trials are the same (`same_epoch_trials(old, new)`). Unsaved flags of this session survive a reload of the same epoch, and a renumbered epoch starts over.
+- **Click Details caption** (≈L2161–2186): moved into a helper used by both the empty and the non-empty table. The existing tags are copied as they are, and `' | '` plus the save link are added at the end.
+- **Save observer** (`input$save_flags_to_epoch`), people only:
+  - no script, and not registered: a link drawn inside the DT caption can't be registered, the same as the two links beside it;
+  - calls `save_trial_flags_to_epoch(component_container$data$repository, local_data$trial_outliers_list)` inside `tryCatch`;
+  - shows the success or failure toast, with a `ravepipeline::logger` line next to it.
+- **`summarize_analysis()`** adds `; flagged trials (left out): 3,17` (or `none`), from `settings$trial_outliers_list`. The tests check summaries with `startsWith`, so adding to the end breaks nothing.
+- **`run_analysis` script description**: also reads `flagged_trials`.
+
+#### `R/module_html.R`
+- In the By Trial tab's right column (`column(width = 5)`, ≈L1464), above `DT::dataTableOutput(ns('by_condition_by_trial_clicks'))`: `shidashi::register_input(textInput(...), inputId = "flagged_trials", update = "shiny::updateTextInput", description = ...)`.
+- The description says:
+  - the field holds the whole list (setting it replaces the list; empty clears it) and applies at the next RAVE!/`run_analysis`;
+  - the trials are left out for every electrode and window;
+  - trials not in the epoch are dropped;
+  - it starts from the epoch's `ExcludedHint` when a new epoch loads;
+  - unsaved flags are lost when another epoch loads or the app restarts;
+  - **only people save**: ask the user to click "Save Flags to Epoch" above the Click Details table.
+
+#### `R/loader.R`
+- The `load_data` summary adds `; trials marked excluded in the epoch (ExcludedHint): 3,17` (or `none`), via `epoch_flagged_trials(repo$epoch)`.
+- The description explains that these become the flagged trials unless this session already flagged trials of the same epoch.
+
+#### `agents.yaml` (system prompt)
+- **Rules:** agents may flag or unflag trials with `flagged_trials`. They NEVER save the flags into the epoch; they ask the user to click "Save Flags to Epoch" (By Condition card → By Trial tab, above Click Details).
+- "For people only" becomes: plot clicks (labels, thresholds), the click table's links, saving flags to the epoch, …
+- `shiny_ui_operate` stays out.
+
+#### Manual `agents/skills/rave-module/references/power_explorer.md`
+- **By Trial (L156–161):** describe the field, the save link, and where the flags start from.
+- **New "Procedure — flag outlier trials"**: read per-trial values, set `flagged_trials`, run `run_analysis`, then ask the user to save. For per-trial values, first check `shiny_output_result` on `by_condition_tabset_clipboard` (TSV: Trial, Electrode, y, is_clean). If that returns no text, document `get_results` on target `omnibus_results`.
+- **Caveats (L286–290, L301–303):** flags start from the epoch, the reload rule, and the people-only save.
+- **Pipeline (L373–374):** `trial_outliers_list` comes from the field.
+- **MCP "Configure and run":** add the flag step and the save rule.
+
+#### `test-mcp.R`: new section "flagged trials (writes, then deletes, a test epoch!)"
+- **Switch:** `do_flags <- TRUE`. The section goes before the `do_write` stop, so `do_write = FALSE, do_flags = TRUE` tests flags without exports, group saves or reports.
+- **Header comment:** add the test epoch to the list of what the test writes. Change the `do_write` stop message to "Nothing else was written".
+- **Setup (at the top, before loading):** write `meta/epoch_pe_flag_test.csv`, a copy of `auditory_onset` with `ExcludedHint` on trials 3 and 17. It's written at the top so the loader's epoch choices already list it.
+- **Steps:**
+  1. Load `pe_flag_test`. The summary lists 3,17, and `flagged_trials` is `"3,17"`.
+  2. `run_analysis`. The summary lists 3,17. `omnibus_results$data` has no trial 3 or 17. In `data_with_outliers` they have `is_clean == FALSE`. settings.yaml has `trial_outliers_list` = 3,17.
+  3. As an agent, set `"3,17,40-41"` and run again: the summary updates.
+  4. `"abc"` is put back to the current list. `"3,9999"` becomes `"3"`. `""` clears the list.
+  5. No script saves flags. The field description contains "Save Flags to Epoch". The test epoch file's md5 doesn't change through all agent steps.
+  6. Call the shared-env `save_trial_flags_to_epoch(pipeline$read("repository"), c(5, 9))`. The file marks only 5 and 9, a backup exists, and `_OutlierRemoved` has n−2 rows with `OriginalTrial`. Saving `integer(0)` clears the marks and removes `_OutlierRemoved`.
+  7. Rewrite the file without one trial: the save stops with "changed since the data were loaded".
+  8. Rewrite the file directly (`write.csv`) with all trials and marks 5 and 9. The helper can't be used here: step 7 changed the trials on purpose. Load `auditory_onset` (the field shows `""`), then `pe_flag_test` (`"5,9"`): a new epoch starts from its marks.
+  9. Load `auditory_onset` again for the later sections, delete `meta/epoch_pe_flag_test*`, and check that the `auditory_onset` epoch file and electrodes.csv are unchanged (md5).
+
+### Verification
+
+1. **Install your uncommitted ravecore**: `R CMD INSTALL "../ravecore"`. It still reports 0.1.1.17. Your own app on port 17283 keeps the old ravecore until you restart it.
+2. **Before any live run:** copy `modules/power_explorer/settings.yaml` (it has uncommitted edits) to the scratchpad, and restore it from that copy afterwards.
+3. **Start a test app** on port 17299: `ravedash::debug_modules(".", port = 17299, ...)`, with the cached headless Chromium per the live-testing notes. Then run `RAVE_TEST_PORT=17299 Rscript modules/power_explorer/test-mcp.R` with `do_write <- FALSE`, `do_flags <- TRUE`.
+4. **Check early:**
+   - the agent update round-trips through `updateOn = "blur"`. If it doesn't, drop `updateOn` and debounce the observer by 500 ms;
+   - how `parse_svec` handles mixed text such as `"3,abc"`.
+5. **People's path in the headless browser**, using a scratchpad copy of `live-browser.js` that reads a `click` file:
+   1. Load the test epoch and run quick mode via MCP. Show the By Trial tab.
+   2. Check that the field and the Odd = 1 rows show the marks.
+   3. Set `"3,17,40"`, click `#power_explorer-save_flags_to_epoch`, and check the epoch file and the toast text.
+   4. Set `""`: the empty table shows the caption. Click save again: the marks are cleared and `_OutlierRemoved` becomes a backup.
+   5. Take screenshots of the new field and links for you to review.
+   6. Delete `meta/epoch_pe_flag_test*`.
+6. **Finish:**
+   - stop the test app and browser;
+   - restore settings.yaml from the copy;
+   - `git status` shows only the intended files changed: `R/shared-functions.R`, `R/module_server.R`, `R/module_html.R`, `R/loader.R`, `agents.yaml`, the manual, `test-mcp.R`, `plan-mcp_support.md`.
+
+### Implementation notes (2026-10-02)
+
+Where the work differed from the plan:
+- **ravecore:** the ravecore in your R library (built 2026-10-02 04:27 UTC) already has `ExcludedHint` (an earlier version of the uncommitted source). Its source was being edited during the work, and another Claude session had an app running on port 17299 with it loaded. So the uncommitted source was installed into a private scratchpad library instead, the test app ran on port 17311, and your library was not touched. The public API used (`$excluded_trials`, `$exclude_trials(..., add = FALSE)`, `$save()`) was the same in both versions.
+- **Old ravecore:** tested against ravecore HEAD 9dadfec (before `ExcludedHint`), built from `git archive`. No flags are read, and saving stops with "needs a newer ravecore".
+- **Field format:** the field shows consecutive trials as a range (`dipsaus::deparse_svec`), e.g. `42,6,5` becomes `5-6,42`.
+- **Text checks:** text that is not trial numbers (any character besides digits, `,` `;` `-` `:` and spaces, or `NA` from `parse_svec`) is put back with a warning: `parse_svec` silently drops words (`3,abc` gives `3`).
+- **Test trials:** the test marks trials 5 (`known_a`) and 15 (`last_av`), not 3 and 17: those are visual-only and in no trial group of the test. Before loading, the test chooses another subject and then DemoSubject again, so the open loader lists the test epoch (the loader lists a subject's epochs only when the subject changes).
+- **Dropped check:** the planned check that the field description contains "Save Flags to Epoch" was dropped, because it tests text, not behavior. The existing exact script-list check already fails if a save script appears.
+- **Agents' per-trial values:** agents can read them from `shiny_output_result(outputId = "by_condition_tabset_clipboard", max_chars = 100000)`. The output is the "copy data" button with the tab-separated table in `data-clipboard-text`, about 64 kB for 3 electrodes × 127 trials; the default `max_chars` cuts it at 10,000.
+- **Verified:**
+  - offline helper tests on a throwaway subject, with the new and the old ravecore;
+  - the new `test-mcp.R` steps;
+  - the people path with real clicks: one click makes one save and one backup; the second click saves the cleared list and backs up and removes `_OutlierRemoved`;
+  - screenshots of the field, the links, and the empty table;
+  - the full `test-mcp.R` with `do_write = FALSE` (see the final report).

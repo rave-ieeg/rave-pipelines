@@ -89,9 +89,11 @@ loader_server <- function(input, output, session, ...){
       "`meta/epoch_single_trial_<epoch>.csv` into the subject. Returns a",
       "summary: the trials, the loaded electrodes, the conditions (choices of",
       "`first_condition_groupings`), the events (choices of the `event` of",
-      "`ui_analysis_settings`), and the time and frequency ranges. A failed",
-      "load returns the error; people then see 'Found an error while running",
-      "script'."
+      "`ui_analysis_settings`), the time and frequency ranges, and the trials",
+      "the epoch marks as excluded (column ExcludedHint). Those become the",
+      "flagged trials (input `flagged_trials`), unless this session already",
+      "flagged trials of the same epoch. A failed load returns the error;",
+      "people then see 'Found an error while running script'."
     ),
     {
       # gather information
@@ -144,11 +146,13 @@ loader_server <- function(input, output, session, ...){
         condition_columns <- names(epoch_table)[
           grepl("Condition", names(epoch_table), fixed = TRUE)
         ]
+        excluded <- dipsaus::deparse_svec(epoch_flagged_trials(repo$epoch))
         sprintf(
           paste(
             "Loaded %s: epoch %s (%d trials, %s to %s s), reference %s,",
             "electrodes %s; conditions in column Condition (trials): %s;",
-            "condition columns: %s; events: %s; frequencies %s-%s Hz (%d)"
+            "condition columns: %s; events: %s; frequencies %s-%s Hz (%d);",
+            "trials marked excluded in the epoch (ExcludedHint): %s"
           ),
           repo$subject$subject_id, repo$epoch_name, nrow(epoch_table),
           min(repo$time_points), max(repo$time_points), repo$reference_name,
@@ -158,7 +162,8 @@ loader_server <- function(input, output, session, ...){
           paste(condition_columns, collapse = ", "),
           paste(get_available_events(columns = repo$epoch$columns),
                 collapse = ", "),
-          min(repo$frequency), max(repo$frequency), length(repo$frequency)
+          min(repo$frequency), max(repo$frequency), length(repo$frequency),
+          if (nzchar(excluded)) excluded else "none"
         )
       }, error = function(e) {
         sprintf("Loaded %s/%s", settings$project_name, settings$subject_code)
