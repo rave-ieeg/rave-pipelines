@@ -20,12 +20,24 @@
 # horizontal bar per channel row, collapsing that row's trials to their mean and
 # standard error. It is the same summary the heatmap already shows, read across
 # instead of down -- the colour scale answers "which trial", the bars answer "how
-# big, on average".
+# big, on average". The bars go when their tenth of a column cannot hold a
+# readable bar, and the legend trades its side labels for end labels when the
+# heatmaps themselves run out of width: see the width arithmetic ahead of
+# `layout()`.
 
 
 # Gap between a heatmap and its summary bars, in inches -- a seam, not a margin:
 # the bars annotate the panel they sit against and should read as part of it.
 SUMMARY_BAR_GAP <- 0.05
+
+# Drawable bar width (inches) under which the bars are not worth drawing: the
+# panel is dropped and the heatmap takes the whole column.
+SUMMARY_BAR_MIN_WIDTH <- 0.15
+
+# Drawable heatmap width (inches) under which the legend gives up its side
+# labels for end labels and a slimmer column (`add_heatmap_legend(labels =
+# "ends")`, `LEGEND_WIDTH_SLIM`).
+HEATMAP_MIN_WIDTH <- 1
 
 
 # Axis title for a CRP parameter. Unknown names fall back to the column name.
@@ -173,6 +185,8 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
 
   par_opt <- prepare_par(cex = cex)
   mar <- par_opt$mar
+  # What one margin line is worth in inches, for the width arithmetic below
+  line_in <- par_opt$mai[[2]] / par_opt$mar[[2]]
 
   # The condition names hang below the trial axis at 45 degrees, so what they
   # cost in height is their width projected onto the vertical -- widen the bottom
@@ -197,6 +211,34 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
     mar[[2]] <- mar[[2]] / par_opt$mai[[2]] * max_left_margin + 0.1
   }
 
+  # The seam between a heatmap and its bars, in lines: `SUMMARY_BAR_GAP` inches
+  # split between the two panels. The bars carry no axis, so the seam is all
+  # they get on either side -- the legend's own left margin and the next
+  # column's heatmap margin keep them apart from their neighbours.
+  gap <- SUMMARY_BAR_GAP / line_in / 2
+
+  # Widths are settled from the device size before `layout()`: the bars go
+  # first, when their tenth of a column cannot hold a readable bar; then the
+  # legend gives up its side labels and half its column when the heatmaps
+  # themselves get too narrow. Nothing here can make `plot.new()` fail on a
+  # figure that was drawable without bars.
+  din_w <- graphics::par("din")[[1]]
+  legend_w <- LEGEND_WIDTH
+  legend_labels <- "side"
+  col_w <- (din_w - legend_w / 2.54) / mfrow[[2]]
+  if (show_summary && col_w / 10 - SUMMARY_BAR_GAP < SUMMARY_BAR_MIN_WIDTH) {
+    show_summary <- FALSE
+  }
+  heatmap_w <- if (show_summary) {
+    col_w * 0.9 - (mar[[2]] + gap) * line_in
+  } else {
+    col_w - (mar[[2]] + mar[[4]]) * line_in
+  }
+  if (heatmap_w < HEATMAP_MIN_WIDTH) {
+    legend_w <- LEGEND_WIDTH_SLIM
+    legend_labels <- "ends"
+  }
+
   # Reserve the last column for one colour bar per panel row. With the summary
   # on, each panel owns two cells -- heatmap then bars, at 9:1 -- and the cell
   # numbers stay consecutive, so `layout()`'s ascending draw order is the order
@@ -208,25 +250,32 @@ plot_data_crp_param_by_trial_channel_heatmap <- function(
   lmat <- cbind(lmat, seq_len(n_legend))
   panel_widths <- if (show_summary) { c(9, 1) } else { 1 }
   graphics::layout(lmat, widths = c(rep(panel_widths, mfrow[[2]]),
-                                    graphics::lcm(3)))
+                                    graphics::lcm(legend_w)))
 
-  graphics::par(mar = c(mar[[1]], 3.5, mar[[3]], mar[[4]]), cex = 1)
+  # Side labels need a left margin for the numbers; end labels sit above and
+  # below the strip, so that legend keeps only the seam on either side and takes
+  # one more line on top for its title
+  mar_legend <- if (legend_labels == "side") {
+    c(mar[[1]], 3.5, mar[[3]], mar[[4]])
+  } else {
+    c(mar[[1]], gap, mar[[3]] + 1, gap)
+  }
+  graphics::par(mar = mar_legend, cex = 1)
   for (ii in seq_len(mfrow[[1]])) {
     add_heatmap_legend(vlim = vlim, col = col, na_col = na_col,
-                       title = crp_param_label(x$data$parameter_name), cex = cex)
+                       title = crp_param_label(x$data$parameter_name), cex = cex,
+                       labels = legend_labels)
   }
 
   # The bars share the heatmap's top and bottom margins -- that is what makes the
   # two plot regions the same height, and so the rows line up. Between them sits
-  # `SUMMARY_BAR_GAP` inches and nothing else: the bars carry no axis, so the
-  # heatmap gives up its right margin (which would otherwise be the far side of
-  # the figure) and the two panels split the gap. Margins are in text lines, and
-  # `mai / mar` is what one line is worth in inches.
+  # `SUMMARY_BAR_GAP` inches and nothing else: the heatmap gives up its right
+  # margin (which would otherwise be the far side of the figure) and the two
+  # panels split the gap; the bars take the same seam on their far side.
   mar_heatmap <- mar
   if (show_summary) {
-    gap <- SUMMARY_BAR_GAP / (par_opt$mai[[2]] / par_opt$mar[[2]]) / 2
     mar_heatmap[[4]] <- gap
-    mar_bar <- c(mar[[1]], gap, mar[[3]], mar[[4]])
+    mar_bar <- c(mar[[1]], gap, mar[[3]], gap)
   }
 
   graphics::par(mar = mar_heatmap, cex = 1)

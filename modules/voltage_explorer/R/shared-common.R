@@ -94,6 +94,27 @@ use_continuous_colormap <- function(value = KEY_MISSING) {
   )
 }
 
+# ---- Preference inputs ---------------------------------------------------------
+# The plot options are preferences and the UI inputs feed them: a server
+# reactive forwards whatever an input holds to the `use_*()` setter. The
+# setters validate before they write and reject anything outside the declared
+# choices -- an emptied selectize sends "", an agent may send any string. A
+# rejected value must not raise: the error would surface in every figure, and a
+# reactive used as a `bindEvent()` trigger raises it outside the handler that
+# `safe_observe()` protects, which closes the session. It is a known input
+# problem, so it is logged at trace level and the stored value -- the last
+# accepted one -- is read back instead. `NULL` (no input yet) reads too.
+use_preference_input <- function(use_fn, value) {
+  if (!length(value)) { return(use_fn()) }
+  tryCatch(use_fn(value), error = function(e) {
+    ravepipeline::logger(
+      "Ignoring plot-option input {deparse1(value)}: {conditionMessage(e)}",
+      level = "trace", use_glue = TRUE
+    )
+    use_fn()
+  })
+}
+
 # ---- Preference: cex ---------------------------------------------------------
 pref_cex <- pipeline$define_preference(
   name = "cex",

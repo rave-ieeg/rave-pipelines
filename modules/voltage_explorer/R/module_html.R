@@ -158,10 +158,21 @@ module_html <- function() {
                   shiny::fluidRow(
                     shiny::column(
                       width = 12L,
-                      shiny::actionButton(
-                        inputId = ns("filter_inspector_btn"),
-                        label = "Inspect combined filter",
-                        width = "100%"
+                      shidashi::register_input(
+                        shiny::actionButton(
+                          inputId = ns("filter_inspector_btn"),
+                          label = "Inspect combined filter",
+                          width = "100%"
+                        ),
+                        tooltip = "Plot the frequency response of the enabled filters.",
+                        inputId = "filter_inspector_btn",
+                        update = "shiny::updateActionButton",
+                        description = paste(
+                          "Button 'Inspect combined filter': plots the frequency response of the",
+                          "enabled filters in a dialog. Agents run script `inspect_filters`",
+                          "instead."
+                        ),
+                        writable = FALSE
                       )
                     )
                   )
@@ -228,9 +239,14 @@ module_html <- function() {
                       ),
                       selected = "none"
                     ),
-                    inputId = "detrend_method",
+                    tooltip = "Remove the linear trend and/or the mean of each signal before filtering.",
+                    inputId = "remove_drift_method",
                     update = "shiny::updateSelectInput(value=selected)",
-                    description = "Remove linear drifting before filtering."
+                    description = paste(
+                      "Drift removal, the first processing step: 'none', 'detrend'",
+                      "(remove the linear trend), 'demean' (remove the mean), or",
+                      "'detrend+demean'. Read by script `run_analysis`."
+                    )
                   )
                 )
 
@@ -358,9 +374,19 @@ module_html <- function() {
 
                 shiny::column(
                   width = 12L,
-                  shiny::actionLink(
-                    inputId = ns("signal_config_reset"),
-                    label = "Reset to defaults"
+                  shidashi::register_input(
+                    shiny::actionLink(
+                      inputId = ns("signal_config_reset"),
+                      label = "Reset to defaults"
+                    ),
+                    tooltip = "Reset to a 1-30 Hz band-pass filter with drift removal, baseline correction, and automatic down-sampling.",
+                    inputId = "signal_config_reset",
+                    update = "shiny::updateActionLink",
+                    description = paste(
+                      "Link 'Reset to defaults' of the card 'Signal Configurations'. Agents run",
+                      "script `reset_signal_config` instead."
+                    ),
+                    writable = FALSE
                   )
                 )
               )
@@ -409,7 +435,14 @@ module_html <- function() {
                 ),
                 inputId = "condition_groups",
                 update = "dipsaus::updateCompoundInput2",
-                description = "Condition groupings used for trial averaging and contrast"
+                description = paste(
+                  "Condition groups used for trial averaging and contrast, JSON",
+                  "array with one object per group (1 to 15):",
+                  "`[{\"label\": \"A\", \"conditions\": [\"drive_a\", \"known_a\"]}]`.",
+                  "`conditions` are condition names of the loaded epoch. Loading data",
+                  "restores the saved groups (or one group 'All Conditions'). Read",
+                  "by script `run_analysis`."
+                )
               )
             ),
 
@@ -593,6 +626,12 @@ module_html <- function() {
                     inputId = "crp_channel_filter",
                     update = "dipsaus::updateCompoundInput2",
                     description = paste(
+                      "JSON array of filter rows, `[{\"name\": \"any:SNR\",",
+                      "\"operator\": \"or\", \"criteria\": \"abs_gte\", \"threshold\":",
+                      "\"2\"}]`: `name` is 'all:<metric>' or 'any:<metric>' of the last",
+                      "run (choices load after `run_analysis`), `criteria` one of 'eq',",
+                      "'abs_lt', 'abs_gte', 'lt', 'gte', 'in', 'not_in', and `threshold`",
+                      "'T1' or 'T1, T2'. Script `send_to_electrode_selector` applies it.",
                       "Restrict the CRP-by-channel plots to electrodes whose CRP",
                       "metrics satisfy the combined filters. Operators apply",
                       "left-to-right (the first is ignored), e.g. c1 AND c2 OR c3",
@@ -606,18 +645,39 @@ module_html <- function() {
 
                 shiny::column(
                   width = 12L,
-                  shiny::actionButton(
-                    inputId = ns("selector_filter_apply"),
-                    label = "Send to electrode selector",
-                    width = "100%"
+                  shidashi::register_input(
+                    shiny::actionButton(
+                      inputId = ns("selector_filter_apply"),
+                      label = "Send to electrode selector",
+                      width = "100%"
+                    ),
+                    tooltip = "Keep only the electrodes that pass the channel filter in the figures, the table, and the 3D viewer.",
+                    inputId = "selector_filter_apply",
+                    update = "shiny::updateActionButton",
+                    description = paste(
+                      "Button 'Send to electrode selector': writes the electrodes that pass",
+                      "`crp_channel_filter` into `electrode_text`. Agents run script",
+                      "`send_to_electrode_selector` instead."
+                    ),
+                    writable = FALSE
                   )
                 )
               ),
 
               footer = shiny::div(
-                shiny::actionLink(
-                  inputId = ns("crp_params_reset"),
-                  label = "Reset to defaults"
+                shidashi::register_input(
+                  shiny::actionLink(
+                    inputId = ns("crp_params_reset"),
+                    label = "Reset to defaults"
+                  ),
+                  tooltip = "Reset the CRP parameters to their defaults.",
+                  inputId = "crp_params_reset",
+                  update = "shiny::updateActionLink",
+                  description = paste(
+                    "Link 'Reset to defaults' of the card 'CRP Parameters'. Agents run",
+                    "script `reset_crp_params` instead."
+                  ),
+                  writable = FALSE
                 )
               )
 
@@ -635,18 +695,35 @@ module_html <- function() {
 
                 shiny::column(
                   width = 6L,
-                  shiny::numericInput(
-                    inputId = ns("plot_time_start"),
-                    label = "Start (s)",
-                    value = NA, step = 0.1
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("plot_time_start"),
+                      label = "Start (s)",
+                      value = NA, step = 0.1
+                    ),
+                    inputId = "plot_time_start",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "Start of the plotted time window, in seconds (empty: from the start of",
+                      "the data). Applies to the plots at once, without re-running; not",
+                      "saved."
+                    )
                   )
                 ),
                 shiny::column(
                   width = 6L,
-                  shiny::numericInput(
-                    inputId = ns("plot_time_end"),
-                    label = "End (s)",
-                    value = NA, step = 0.1
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("plot_time_end"),
+                      label = "End (s)",
+                      value = NA, step = 0.1
+                    ),
+                    inputId = "plot_time_end",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "End of the plotted time window, in seconds (empty: to the end of the",
+                      "data). Applies to the plots at once, without re-running; not saved."
+                    )
                   )
                 )
 
@@ -666,11 +743,21 @@ module_html <- function() {
 
                 shiny::column(
                   width = 12L,
-                  shiny::selectInput(
-                    inputId = ns("by_channel_plot_type"),
-                    label = "Rendering",
-                    choices = c("Stacked lines" = "multiline", "Heatmap" = "heatmap"),
-                    selected = use_by_channel_plot_type()
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("by_channel_plot_type"),
+                      label = "Rendering",
+                      choices = c("Stacked lines" = "multiline", "Heatmap" = "heatmap"),
+                      selected = use_by_channel_plot_type()
+                    ),
+                    tooltip = "Draw the by-electrode figures as stacked lines or as a heatmap.",
+                    inputId = "by_channel_plot_type",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "How the by-electrode figures 'Mean Voltage' and 'Canonical",
+                      "Representations' draw the electrodes: 'multiline' (stacked lines) or",
+                      "'heatmap'. Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 )
               ),
@@ -686,23 +773,42 @@ module_html <- function() {
 
                 shiny::column(
                   width = 12L,
-                  shidashi::colormapSelectInput(
-                    inputId = ns("discrete_colormap"),
-                    label = "Condition colors",
-                    colormaps = ravepipeline::DISCRETE_COLORMAPS(preview = FALSE),
-                    selected = use_discrete_colormap()$name,
-                    continuous = FALSE
+                  shidashi::register_input(
+                    shidashi::colormapSelectInput(
+                      inputId = ns("discrete_colormap"),
+                      label = "Condition colors",
+                      colormaps = ravepipeline::DISCRETE_COLORMAPS(preview = FALSE),
+                      selected = use_discrete_colormap()$name,
+                      continuous = FALSE
+                    ),
+                    tooltip = "Colors of the condition groups.",
+                    inputId = "discrete_colormap",
+                    update = "shiny::updateSelectizeInput(value=selected)",
+                    description = paste(
+                      "Colors of the condition groups (lines): a palette name, e.g. 'default',",
+                      "'Dark2', 'Set1', 'tab10' (ravepipeline::DISCRETE_COLORMAPS()). Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 ),
 
                 shiny::column(
                   width = 12L,
-                  shidashi::colormapSelectInput(
-                    inputId = ns("continuous_colormap"),
-                    label = "Heatmap colors",
-                    colormaps = ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE),
-                    selected = use_continuous_colormap()$name,
-                    continuous = TRUE
+                  shidashi::register_input(
+                    shidashi::colormapSelectInput(
+                      inputId = ns("continuous_colormap"),
+                      label = "Heatmap colors",
+                      colormaps = ravepipeline::CONTINUOUS_COLORMAPS(preview = FALSE),
+                      selected = use_continuous_colormap()$name,
+                      continuous = TRUE
+                    ),
+                    tooltip = "Colors of the heatmaps and of the values in the 3D viewer.",
+                    inputId = "continuous_colormap",
+                    update = "shiny::updateSelectizeInput(value=selected)",
+                    description = paste(
+                      "Colors of the heatmaps and of the 3D viewer values: a palette name, e.g.",
+                      "'default', 'BlueWhiteRed', 'viridis', 'turbo'",
+                      "(ravepipeline::CONTINUOUS_COLORMAPS()). Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 )
               ),
@@ -713,19 +819,38 @@ module_html <- function() {
 
                 shiny::column(
                   width = 6L,
-                  shiny::numericInput(
-                    inputId = ns("plot_space_value"),
-                    label = "Max",
-                    value = use_plot_space(), min = 0, step = 1
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("plot_space_value"),
+                      label = "Max",
+                      value = use_plot_space(), min = 0, step = 1
+                    ),
+                    tooltip = "Spacing of the stacked traces and color limit of the heatmaps: a percentile of the absolute values when 'Max is %' is checked, otherwise microvolts.",
+                    inputId = "plot_space_value",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "Plot max / spacing of the stacked traces and heatmap color limits: a",
+                      "percentile of the absolute values when `plot_space_is_percentile` is",
+                      "true (default 99), otherwise microvolts. Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 ),
                 shiny::column(
                   width = 6L,
                   style = "margin-top: 37px;",
-                  shiny::checkboxInput(
-                    inputId = ns("plot_space_is_percentile"),
-                    label = "Max is %",
-                    value = use_plot_space_is_percentile()
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("plot_space_is_percentile"),
+                      label = "Max is %",
+                      value = use_plot_space_is_percentile()
+                    ),
+                    tooltip = "Read 'Max' as a percentile of the absolute values instead of microvolts.",
+                    inputId = "plot_space_is_percentile",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Whether `plot_space_value` is a percentile (true, default) or",
+                      "microvolts (false). Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 )
               ),
@@ -736,66 +861,126 @@ module_html <- function() {
 
                 shiny::column(
                   width = 6L,
-                  shiny::numericInput(
-                    inputId = ns("plot_cex"),
-                    label = "Text size (cex)",
-                    value = use_cex(), min = 0.5, max = 3, step = 0.1
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("plot_cex"),
+                      label = "Text size (cex)",
+                      value = use_cex(), min = 0.5, max = 3, step = 0.1
+                    ),
+                    inputId = "plot_cex",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "Text size of the plots, 0.5 to 3 (default 1.2). Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 ),
 
                 shiny::column(
                   width = 6L,
-                  shiny::selectInput(
-                    inputId = ns("channel_annotation"),
-                    label = "Channel",
-                    choices = OPTIONS_CHAN_ANNOT,
-                    selected = use_channel_annotation_style()
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("channel_annotation"),
+                      label = "Channel",
+                      choices = OPTIONS_CHAN_ANNOT,
+                      selected = use_channel_annotation_style()
+                    ),
+                    inputId = "channel_annotation",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "How electrodes are labelled in the plots: 'number' (default), 'short',",
+                      "'label', or 'full'. Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 ),
 
                 shiny::column(
                   width = 6L,
-                  shiny::selectInput(
-                    inputId = ns("trial_sort_by"),
-                    label = "Sort trials by",
-                    choices = OPTIONS_TRIAL_SORT,
-                    selected = use_trial_sort_by()
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("trial_sort_by"),
+                      label = "Sort trials by",
+                      choices = OPTIONS_TRIAL_SORT,
+                      selected = use_trial_sort_by()
+                    ),
+                    inputId = "trial_sort_by",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "Order of the trials in the by-trial plots: 'stimuli' (grouped by",
+                      "condition, default) or 'trial' (trial number). Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 ),
 
                 shiny::column(
                   width = 6L,
-                  shiny::numericInput(
-                    inputId = ns("plot_onset_mark"),
-                    label = "Onset mark (s)",
-                    value = 0, step = 0.01
+                  shidashi::register_input(
+                    shiny::numericInput(
+                      inputId = ns("plot_onset_mark"),
+                      label = "Onset mark (s)",
+                      value = 0, step = 0.01
+                    ),
+                    tooltip = "Time (s) of the vertical onset line in the time plots.",
+                    inputId = "plot_onset_mark",
+                    update = "shiny::updateNumericInput",
+                    description = paste(
+                      "Time in seconds of the vertical onset line in the time plots (default",
+                      "0); not saved."
+                    )
                   )
                 ),
 
                 shiny::column(
                   width = 12L,
-                  shiny::checkboxInput(
-                    inputId = ns("mean_erp_crp"),
-                    label = "Show CRP decoration",
-                    value = TRUE
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("mean_erp_crp"),
+                      label = "Show CRP decoration",
+                      value = TRUE
+                    ),
+                    tooltip = "Overlay the estimated canonical response (its shape, onset, and end) on the plots.",
+                    inputId = "mean_erp_crp",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Whether the plots overlay the estimated canonical response (CRP): its",
+                      "shape, and its onset and end; default true; not saved."
+                    )
                   )
                 ),
 
                 shiny::column(
                   width = 12L,
-                  shiny::checkboxInput(
-                    inputId = ns("crp_scale_back"),
-                    label = "Scale canonical to \U00B5V",
-                    value = use_crp_scale_back()
+                  shidashi::register_input(
+                    shiny::checkboxInput(
+                      inputId = ns("crp_scale_back"),
+                      label = "Scale canonical to \U00B5V",
+                      value = use_crp_scale_back()
+                    ),
+                    tooltip = "Draw the canonical responses in microvolts instead of unit-scaled.",
+                    inputId = "crp_scale_back",
+                    update = "shiny::updateCheckboxInput",
+                    description = paste(
+                      "Whether the canonical responses are drawn in microvolts (true) or",
+                      "unit-scaled (false, default). Remembered as a preference (shared by every session of this module) once a plot uses it."
+                    )
                   )
                 )
 
               ),
 
               footer = shiny::div(
-                shiny::actionLink(
-                  inputId = ns("plot_options_reset"),
-                  label = "Reset to defaults"
+                shidashi::register_input(
+                  shiny::actionLink(
+                    inputId = ns("plot_options_reset"),
+                    label = "Reset to defaults"
+                  ),
+                  tooltip = "Reset the plot options to their defaults.",
+                  inputId = "plot_options_reset",
+                  update = "shiny::updateActionLink",
+                  description = paste(
+                    "Link 'Reset to defaults' of the card 'Plot Options'. Agents run script",
+                    "`reset_plot_options` instead."
+                  ),
+                  writable = FALSE
                 )
               )
 
@@ -808,11 +993,23 @@ module_html <- function() {
               class_header = "shidashi-anchor",
 
               shiny::p("Generate a standalone HTML voltage analysis report in the background."),
-              shiny::actionButton(
-                inputId = ns("open_report_modal"),
-                label = "Generate Report",
-                class = "btn-primary",
-                icon = ravedash::shiny_icons$save
+              shidashi::register_input(
+                shiny::actionButton(
+                  inputId = ns("open_report_modal"),
+                  label = "Generate Report",
+                  class = "btn-primary",
+                  icon = ravedash::shiny_icons$save
+                ),
+                tooltip = "Open the report dialog, pre-filled with the current plot options and electrodes.",
+                inputId = "open_report_modal",
+                update = "shiny::updateActionButton",
+                description = paste(
+                  "Button 'Generate Report': opens the report dialog, pre-filled from the",
+                  "plot options and `electrode_text`. Agents run script",
+                  "`open_report_dialog` instead, after confirming the settings with the",
+                  "user."
+                ),
+                writable = FALSE
               )
 
             ) # end Export Configurations card
@@ -958,11 +1155,22 @@ module_html <- function() {
 
                 shiny::column(
                   width = 4L,
-                  shiny::selectInput(
-                    inputId = ns("by_cond_channel_selector"),
-                    label = "Channel to plot",
-                    choices = character(),
-                    selectize = FALSE
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("by_cond_channel_selector"),
+                      label = "Channel to plot",
+                      choices = character(),
+                      selectize = FALSE
+                    ),
+                    tooltip = "Electrode shown in the single-channel figures.",
+                    inputId = "by_cond_channel_selector",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "Electrode shown in the card 'Single Channel Results' (footer): one",
+                      "loaded LFP electrode number, as a string, e.g. \"14\". The choices load",
+                      "after `load_data`; double-clicking an electrode in the 3D viewer sets",
+                      "it too."
+                    )
                   )
                 ),
                 shiny::column(

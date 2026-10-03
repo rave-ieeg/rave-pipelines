@@ -1,0 +1,33 @@
+bibentry(bibtype = "Article",
+         title        = "{RAVE}: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data",
+         author       = c(as.person("John F. Magnotti"),
+                          as.person("Zhengjia Wang"),
+                          as.person("Michael S. Beauchamp")),
+         journal      = "NeuroImage",
+         year         = "2020",
+         volume       = "223",
+         pages        = "117341",
+         doi          = "10.1016/j.neuroimage.2020.117341",
+         header       = "To cite this module in publications use:",
+         textVersion  = "[1] Magnotti, J.F., Wang, Z. and Beauchamp, M.S., 2020. RAVE: Comprehensive open-source software for reproducible analysis and visualization of intracranial EEG data. NeuroImage, 223, p.117341."
+)
+
+
+bibentry(bibtype = "Article",
+         title        = "Canonical response parameterization: Quantifying the structure of responses to single-pulse intracranial electrical brain stimulation",
+         author       = c(as.person("Kai J. Miller"),
+                          as.person("Klaus-Robert Mueller"),
+                          as.person("Gabriela Ojeda Valencia"),
+                          as.person("Harvey Huang"),
+                          as.person("Nicholas M. Gregg"),
+                          as.person("Gregory A. Worrell"),
+                          as.person("Dora Hermes")),
+         journal      = "PLOS Computational Biology",
+         year         = "2023",
+         volume       = "19",
+         number       = "5",
+         pages        = "e1011105",
+         doi          = "10.1371/journal.pcbi.1011105",
+         header       = "To cite the canonical response parameterization (CRP) behind the response metrics:",
+         textVersion  = "[2] Miller, K.J., Mueller, K.-R., Valencia, G.O., Huang, H., Gregg, N.M., Worrell, G.A. and Hermes, D., 2023. Canonical response parameterization: Quantifying the structure of responses to single-pulse intracranial electrical brain stimulation. PLOS Computational Biology, 19(5), p.e1011105."
+)

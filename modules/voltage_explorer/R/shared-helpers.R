@@ -311,13 +311,27 @@ heatmap_na_color <- function(vlim, col) {
   NULL
 }
 
+# Legend column widths in centimetres: with the value labels beside the strip,
+# and slim with them at its ends (`add_heatmap_legend(labels = "ends")`), for
+# figures whose panels would otherwise get too narrow.
+LEGEND_WIDTH <- 3
+LEGEND_WIDTH_SLIM <- 1.5
+
 # `na_col` (from `heatmap_na_color()`) adds a swatch under the bar, labelled
 # `na_label`, for the cells the colour scale cannot speak for. It is drawn in the
 # bar's own units -- `image()` is `yaxs = "i"`, so the strip reserved below
 # `vlim` is exactly the height asked for.
+#
+# `labels` places the value labels: `"side"` is an axis on the left, which needs
+# a margin of its own; `"ends"` writes the extremes above and below the strip,
+# where they compete with nothing for width, so the legend can sit in a column
+# as slim as `LEGEND_WIDTH_SLIM` with only a seam on either side. The title then
+# moves up a line to clear the top label: give that cell one more line of top
+# margin.
 add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
                                fmt = NULL, na_col = NULL,
-                               na_label = "outlier") {
+                               na_label = "outlier", labels = c("side", "ends")) {
+  labels <- match.arg(labels)
   par_opt <- graphics::par(c("mai", "mar", "mgp", "cex.main",
                              "cex.lab", "cex.axis", "cex.sub"))
   par_opt$cex.lab <- 1
@@ -333,9 +347,12 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
   span <- diff(vlim)
   if (!isTRUE(span > 0)) { span <- 1 }
 
+  # Room below the strip for the swatch; with end labels the minimum sits
+  # between the two, so the swatch moves further down
+  swatch <- if (labels == "side") { c(0.14, 0.07) } else { c(0.34, 0.26) }
   ylim <- vlim
   if (length(na_col)) {
-    ylim[[1]] <- vlim[[1]] - span * 0.24
+    ylim[[1]] <- vlim[[1]] - span * (swatch[[1]] + 0.10)
   }
 
   graphics::image(
@@ -345,31 +362,43 @@ add_heatmap_legend <- function(vlim, col, title = bquote(mu * "V"), cex = 1,
     axes = FALSE,
     xlab = "",
     ylab = "",
-    main = title,
+    main = if (labels == "side") { title } else { "" },
     ylim = ylim,
     col = col,
     cex.main = par_opt$cex.main * cex
   )
 
-  graphics::axis(
-    side = 2L,
-    at = c(vlim, 0),
-    labels = c(sprintf(fmt, vlim), "0"),
-    las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
-    cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
-  )
+  usr <- graphics::par("usr")
+  if (labels == "side") {
+    graphics::axis(
+      side = 2L,
+      at = c(vlim, 0),
+      labels = c(sprintf(fmt, vlim), "0"),
+      las = 1, cex = cex, cex.main = par_opt$cex.main * cex,
+      cex.lab = par_opt$cex.lab * cex, cex.axis = par_opt$cex.axis * cex
+    )
+  } else {
+    graphics::mtext(side = 3L, line = 0.2, text = sprintf(fmt, vlim[[2]]),
+                    cex = par_opt$cex.axis * cex)
+    graphics::mtext(side = 3L, line = 1.5, text = title, font = 2,
+                    cex = par_opt$cex.main * cex)
+    graphics::text(
+      x = mean(usr[c(1, 2)]), y = vlim[[1]], labels = sprintf(fmt, vlim[[1]]),
+      adj = c(0.5, 1.4), xpd = NA, cex = par_opt$cex.axis * cex
+    )
+  }
 
   if (length(na_col)) {
     # Full bar width, so the swatch reads as the same scale continued; the label
     # is centred under it and may need the margins, hence `xpd = NA`
-    usr <- graphics::par("usr")
     graphics::rect(
       xleft = usr[[1]], xright = usr[[2]],
-      ybottom = vlim[[1]] - span * 0.14, ytop = vlim[[1]] - span * 0.07,
+      ybottom = vlim[[1]] - span * swatch[[1]],
+      ytop = vlim[[1]] - span * swatch[[2]],
       col = na_col, border = graphics::par("fg")
     )
     graphics::text(
-      x = mean(usr[c(1, 2)]), y = vlim[[1]] - span * 0.14,
+      x = mean(usr[c(1, 2)]), y = vlim[[1]] - span * swatch[[1]],
       labels = na_label, adj = c(0.5, 1.3), xpd = NA,
       cex = par_opt$cex.axis * cex
     )

@@ -12,7 +12,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
   # This is used by auto-recalculation feature
@@ -149,15 +149,120 @@ module_server <- function(input, output, session, ...) {
 
   }
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # For agents: the settings `run_analysis` used, from the pipeline settings
+  describe_filters <- function(filter_configurations) {
+    vapply(filter_configurations, function(fc) {
+      type <- paste(fc$type, collapse = "")
+      hp <- suppressWarnings(as.numeric(fc$high_pass_freq))
+      lp <- suppressWarnings(as.numeric(fc$low_pass_freq))
+      switch(
+        type,
+        "detrend" = "detrend",
+        "demean" = "demean",
+        "decimate" = sprintf("decimate by %s", paste(fc$by, collapse = "")),
+        "baseline" = sprintf("baseline %s s", paste(range(unlist(fc$windows)),
+                                                     collapse = " to ")),
+        {
+          if (length(hp) && length(lp) && isTRUE(hp > lp)) {
+            sprintf("%s band-stop %s-%s Hz", type, lp, hp)
+          } else if (length(hp) && length(lp)) {
+            sprintf("%s band-pass %s-%s Hz", type, hp, lp)
+          } else if (length(lp)) {
+            sprintf("%s low-pass %s Hz", type, lp)
+          } else {
+            sprintf("%s high-pass %s Hz", type, hp)
+          }
+        }
+      )
+    }, "")
+  }
+  summarize_analysis <- function() {
+    settings <- pipeline$get_settings()
+    groups <- vapply(settings$condition_groups, function(group) {
+      sprintf("%s (%s)", paste(group$label, collapse = ""),
+              paste(group$conditions, collapse = ", "))
+    }, "")
+    erp_tbl <- local_data$erp_results_for_viewer
+    sprintf(
+      paste(
+        "Analysis done: electrodes %s; filters: %s; event %s; groups: %s; CRP",
+        "window %s to %s s, artifacts %s; metrics per electrode in output",
+        "`crp_viewer_table`"
+      ),
+      dipsaus::deparse_svec(erp_tbl$Electrode),
+      paste(describe_filters(settings$filter_configurations), collapse = ", "),
+      paste(settings$analysis_event, collapse = ""),
+      paste(groups, collapse = "; "),
+      settings$crp_detection_window[[1]], settings$crp_detection_window[[2]],
+      if (isTRUE(settings$crp_remove_artifacts)) "removed" else "kept"
+    )
+  }
 
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script(
+    "run_analysis",
+    description = c(
+      "Save the analysis inputs to the pipeline, filter the voltage, align the",
+      "trials to the analysis event, and estimate the canonical responses",
+      "(CRP) of each electrode and condition group; the plots, the results",
+      "table and the 3D viewer refresh (same as clicking 'Run Analysis'). It",
+      "reads the filter inputs (`passing_filter_*`, `passing_freq1`,",
+      "`passing_freq2`, `bandstop_filter_*`, `remove_drift_method`,",
+      "`pre_downsample_factor*`, `post_downsample_factor*`,",
+      "`enable_baseline_method`, `baseline_window`), `analysis_event`,",
+      "`condition_groups`, `electrode_text`, and the `crp_*` inputs (it saves",
+      "`crp_time_step`, `crp_threshold_quantile` and `crp_onset_border` as",
+      "preferences). It writes nothing into the subject. Returns 'Analysis",
+      "done: ...' with the settings used. Invalid filter settings (e.g. a",
+      "band-pass with one cutoff, a cutoff above the Nyquist frequency) make",
+      "the script fail with the reason, which people also see in the",
+      "notification 'Invalid filter settings'. A failing pipeline step returns",
+      "'Analysis did not run', with the error at the end of `output` and in a",
+      "red notification; script `pipeline_progress` lists each step. Read the",
+      "per-electrode metrics with tool `shiny_output_result` (output",
+      "`crp_viewer_table`) and the figures by their output IDs."
+    ),
+    {
+      # For agents: whether this run refreshed the results
+      last <- local_reactives$update_outputs
       run_analysis()
+      if (identical(last, local_reactives$update_outputs)) {
+        "Analysis did not run: see the error in `output`."
+      } else {
+        tryCatch(summarize_analysis(), error = function(e) "Analysis done.")
+      }
+    }
+  )
 
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
+  # Read-only: lets agents read why a pipeline target failed (same as in the
+  # power explorer module)
+  server_tools$set_script(
+    name = "pipeline_progress",
+    description = c(
+      "Read-only. Progress of the latest pipeline run, one line per target:",
+      "'<target>: <progress>' (dispatched, completed, errored, skipped,",
+      "canceled), with the error message of errored targets, and when the",
+      "progress last changed. Run it after `run_analysis` or",
+      "`inspect_filters` fails without saying why."
+    ),
+    expr = {
+      progress <- as.data.frame(pipeline$progress("details"))
+      if (!nrow(progress)) {
+        return("The pipeline has not run yet.")
+      }
+      re <- sprintf("%s: %s", progress$name, progress$progress)
+      errored <- progress$progress == "errored"
+      if (any(errored)) {
+        errors <- as.data.frame(pipeline$with_activated(
+          targets::tar_meta(fields = "error", complete_only = TRUE)
+        ))
+        messages <- errors$error[match(progress$name[errored], errors$name)]
+        re[errored] <- paste(re[errored], "-", messages)
+      }
+      since <- as.data.frame(pipeline$progress("summary"))$since
+      c(re, sprintf("(progress last changed %s)", since))
+    }
   )
 
   # After each run, refresh the CRP channel-filter metric choices from the
@@ -402,7 +507,6 @@ module_server <- function(input, output, session, ...) {
     } else {
       erp_tbl$Electrode %in% selection
     }
-    print(erp_tbl)
     as.data.frame(erp_tbl)
   }
 
@@ -448,98 +552,60 @@ module_server <- function(input, output, session, ...) {
   )
 
   # ---- Graphics options ---------------
-  get_cex <- shiny::reactive({
-    if (isTRUE(input$plot_cex > 0)) {
-      cex <- use_cex(input$plot_cex)
-    } else {
-      cex <- use_cex()
-    }
-    cex
+  # Plot options are preferences: each input is forwarded to its `use_*()`
+  # setter and the resolved value comes back. `use_preference_input()`
+  # (shared-common.R) keeps a rejected input from raising, and
+  # `ravedash::safe_reactive()` keeps anything unforeseen from raising either:
+  # `get_colormaps()` is a `bindEvent()` trigger of the 3D-viewer observer, and
+  # Shiny evaluates triggers outside the handler that `safe_observe()`
+  # protects, so an error there closes the session.
+  get_cex <- ravedash::safe_reactive({
+    cex <- input$plot_cex
+    if (!isTRUE(cex > 0)) { cex <- NULL }
+    use_preference_input(use_cex, cex)
   })
 
-  get_channel_annotation_style <- shiny::reactive({
-    if (length(input$channel_annotation) > 0) {
-      cex <- use_channel_annotation_style(input$channel_annotation)
-    } else {
-      cex <- use_channel_annotation_style()
-    }
-    cex
+  get_channel_annotation_style <- ravedash::safe_reactive({
+    use_preference_input(use_channel_annotation_style, input$channel_annotation)
   })
 
-  get_trial_sort_by <- shiny::reactive({
-    if (length(input$trial_sort_by) > 0) {
-      trial_sort_by <- use_trial_sort_by(input$trial_sort_by)
-    } else {
-      trial_sort_by <- use_trial_sort_by()
-    }
-    trial_sort_by
+  get_trial_sort_by <- ravedash::safe_reactive({
+    use_preference_input(use_trial_sort_by, input$trial_sort_by)
   })
 
-  get_by_channel_plot_type <- shiny::reactive({
-    if (length(input$by_channel_plot_type) > 0) {
-      plot_type <- use_by_channel_plot_type(input$by_channel_plot_type)
-    } else {
-      plot_type <- use_by_channel_plot_type()
-    }
-    plot_type
+  get_by_channel_plot_type <- ravedash::safe_reactive({
+    use_preference_input(use_by_channel_plot_type, input$by_channel_plot_type)
   })
 
   # Both palettes resolved together so that changing either one redraws the whole
   # figure set: a heatmap takes its image ramp from `continuous` but still colours
   # its panel titles from `discrete` (see `plot_data_*_heatmap()`).
-  get_colormaps <- shiny::reactive({
-    discrete <- if (length(input$discrete_colormap) > 0) {
-      use_discrete_colormap(input$discrete_colormap)
-    } else {
-      use_discrete_colormap()
-    }
-    continuous <- if (length(input$continuous_colormap) > 0) {
-      use_continuous_colormap(input$continuous_colormap)
-    } else {
-      use_continuous_colormap()
-    }
+  get_colormaps <- ravedash::safe_reactive({
+    discrete <- use_preference_input(use_discrete_colormap, input$discrete_colormap)
+    continuous <- use_preference_input(use_continuous_colormap, input$continuous_colormap)
     list(discrete = discrete$colors, continuous = continuous$colors)
   })
 
-  get_crp_scale_back <- shiny::reactive({
-    if (length(input$crp_scale_back) > 0) {
-      scale_back <- use_crp_scale_back(input$crp_scale_back)
-    } else {
-      scale_back <- use_crp_scale_back()
-    }
-    isTRUE(scale_back)
+  get_crp_scale_back <- ravedash::safe_reactive({
+    isTRUE(use_preference_input(use_crp_scale_back, input$crp_scale_back))
   })
 
-  get_flipped_y <- shiny::reactive({
-    if (length(input$mean_erp_flip_y) > 0) {
-      flip_y <- use_flipped_y(input$mean_erp_flip_y)
-    } else {
-      flip_y <- use_flipped_y()
-    }
-    flip_y
+  get_flipped_y <- ravedash::safe_reactive({
+    use_preference_input(use_flipped_y, input$mean_erp_flip_y)
   })
 
-  get_show_crp_decoration <- shiny::reactive({
-    if (length(input$mean_erp_crp) > 0) {
-      show_crp <- use_show_crp_decoration(input$mean_erp_crp)
-    } else {
-      show_crp <- use_show_crp_decoration()
-    }
-    show_crp
+  get_show_crp_decoration <- ravedash::safe_reactive({
+    use_preference_input(use_show_crp_decoration, input$mean_erp_crp)
   })
 
   # Persist whatever the two inputs currently hold, then let
   # `use_plot_space_resolved()` do the percentage-vs-micro-volts conversion, so
   # that rule is not restated here
-  get_plot_space <- shiny::reactive({
+  get_plot_space <- ravedash::safe_reactive({
     value <- input$plot_space_value
-    is_pct <- input$plot_space_is_percentile
-    if (isTRUE(is.numeric(value) && value > 0)) {
-      use_plot_space(value)
-    }
-    if (length(is_pct) > 0) {
-      use_plot_space_is_percentile(is_pct)
-    }
+    if (!isTRUE(is.numeric(value) && value > 0)) { value <- NULL }
+    use_preference_input(use_plot_space, value)
+    use_preference_input(use_plot_space_is_percentile, input$plot_space_is_percentile)
     use_plot_space_resolved()
   })
 
@@ -576,8 +642,19 @@ module_server <- function(input, output, session, ...) {
   # "Send to electrode selector" button: push the filtered electrodes into the
   # analysis-electrode selector, which is the single source of the channel mask.
   # A NULL selection (no active filter) means all channels.
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    "send_to_electrode_selector",
+    description = c(
+      "Same as clicking 'Send to electrode selector' (card 'CRP Parameters'):",
+      "writes the electrodes that pass `crp_channel_filter` into",
+      "`electrode_text`, so every by-electrode figure shows only them, and marks",
+      "them in the 3D viewer (data `selector_filter`) and in the table",
+      "`crp_viewer_table`. With no filter row (or a filter that cannot be",
+      "applied), it sends all loaded electrodes. Needs a completed",
+      "`run_analysis`. Returns the electrodes sent. It writes nothing into the",
+      "subject."
+    ),
+    {
       selection <- get_crp_channel_selection()
 
       # Remember the selection: it is what the results table reports pass/fail
@@ -597,13 +674,38 @@ module_server <- function(input, output, session, ...) {
       # Repaint the viewer's electrode values, `selector_filter` among them, without
       # a full re-render
       local_reactives$update_3dviewer_proxy <- Sys.time()
+      # For agents: what was sent
+      if (is.null(selection)) {
+        sprintf(
+          "No active channel filter: sent all loaded electrodes (%s) to `electrode_text`.",
+          dipsaus::deparse_svec(pipeline$read("loaded_electrodes_clean"))
+        )
+      } else {
+        sprintf("Sent electrodes passing the channel filter to `electrode_text`: %s",
+                dipsaus::deparse_svec(selection))
+      }
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("send_to_electrode_selector")
     }),
     input$selector_filter_apply,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    "reset_plot_options",
+    description = c(
+      "Same as clicking 'Reset to defaults' in the card 'Plot Options': resets",
+      "the remembered graphics preferences and sets `plot_cex`,",
+      "`channel_annotation`, `trial_sort_by`, `by_channel_plot_type`,",
+      "`discrete_colormap`, `continuous_colormap`, `crp_scale_back`,",
+      "`plot_space_value` and `plot_space_is_percentile` to their defaults. It",
+      "does not change the time window, the onset mark, or the CRP decoration."
+    ),
+    {
       reset_graphics_preferences()
       defaults <- list(
         cex          = use_cex(),
@@ -625,14 +727,29 @@ module_server <- function(input, output, session, ...) {
       shiny::updateCheckboxInput(session, "crp_scale_back",           value = defaults$scale_back)
       shiny::updateNumericInput(session,  "plot_space_value",         value = defaults$space_value)
       shiny::updateCheckboxInput(session, "plot_space_is_percentile", value = defaults$space_is_pct)
+      "Plot options reset to their defaults; check them with `shiny_input_info`."
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("reset_plot_options")
     }),
     input$plot_options_reset,
     ignoreInit = TRUE,
     ignoreNULL = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    "reset_crp_params",
+    description = c(
+      "Same as clicking 'Reset to defaults' in the card 'CRP Parameters': resets",
+      "the remembered CRP preferences, and sets `crp_onset_border`,",
+      "`crp_time_step`, `crp_threshold_quantile` and `crp_remove_artifacts` to",
+      "their defaults and `crp_detection_window` to 0.01 s (or the epoch start)",
+      "through the end of the epoch. Run `run_analysis` afterwards to use them."
+    ),
+    {
       reset_analysis_preferences()
       shiny::updateSelectInput(
         session,
@@ -665,14 +782,30 @@ module_server <- function(input, output, session, ...) {
           value = c(max(0.01, time_range[[1L]]), time_range[[2L]])
         )
       }
+      "CRP parameters reset to their defaults; check them with `shiny_input_info`."
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("reset_crp_params")
     }),
     input$crp_params_reset,
     ignoreInit = TRUE,
     ignoreNULL = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    "reset_signal_config",
+    description = c(
+      "Same as clicking 'Reset to defaults' in the card 'Signal",
+      "Configurations': sets a FIR (least squares) band-pass filter from 1 to",
+      "30 Hz, no band-stop filter, baseline correction on, drift removal",
+      "'detrend+demean', and automatic down-sampling before and after the",
+      "filters. The baseline window is not changed. Run `run_analysis`",
+      "afterwards to use them."
+    ),
+    {
       # Passing filter
       shiny::updateCheckboxInput(session, "passing_filter_enabled",    value = TRUE)
       shiny::updateSelectInput(session,   "passing_filter_type",       selected = "band_pass")
@@ -692,6 +825,13 @@ module_server <- function(input, output, session, ...) {
       # Post-downsample (hidden)
       shiny::updateCheckboxInput(session, "post_downsample_factor_auto", value = TRUE)
       shiny::updateNumericInput(session,  "post_downsample_factor",    value = 1L)
+      "Signal configurations reset to their defaults; check them with `shiny_input_info`."
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("reset_signal_config")
     }),
     input$signal_config_reset,
     ignoreInit = TRUE,
@@ -842,6 +982,26 @@ module_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = FALSE
   )
 
+  # A known problem with the filter inputs: people get a notification that says
+  # what to change, instead of ravedash's "Coding Error", and the caller stops
+  # with the same message, which agents get as the script's error. The class
+  # `rave_muffled` keeps ravedash from showing the error a second time
+  stop_filter_input <- function(message) {
+    ravedash::clear_notifications(class = ns("filter_input_error"), session = session)
+    ravedash::show_notification(
+      message = message,
+      title = "Invalid filter settings",
+      type = "danger",
+      class = ns("filter_input_error"),
+      delay = 30000,
+      session = session
+    )
+    stop(structure(
+      list(message = message, call = NULL),
+      class = c("rave_muffled", "simpleError", "error", "condition")
+    ))
+  }
+
   get_filter_configurations <- function() {
     if (!isTRUE(ravedash::watch_data_loaded())) { return(list()) }
 
@@ -877,6 +1037,15 @@ module_server <- function(input, output, session, ...) {
       auto = isTRUE(input$pre_downsample_factor_auto)
     )
     nyquist <- nyquist / pre_decimate_fct
+    # The upper bound, as the messages below name it
+    nyquist_text <- sprintf(
+      "%.1f Hz (the Nyquist frequency%s)", nyquist,
+      if (isTRUE(pre_decimate_fct > 1)) {
+        sprintf(" after the pre-filtering down-sample by %s", pre_decimate_fct)
+      } else {
+        ""
+      }
+    )
 
     if (isTRUE(input$passing_filter_enabled)) {
       switch (
@@ -884,10 +1053,17 @@ module_server <- function(input, output, session, ...) {
         "band_pass" = {
           freq <- c(input$passing_freq1 %||% NA, input$passing_freq2 %||% NA)
           if (anyNA(freq)) {
-            stop("Please enter both low-pass and high-pass frequencies for band-pass filters")
+            stop_filter_input(paste(
+              "A band-pass filter requires two cutoff frequencies. Please enter",
+              "both, or choose a low-pass or high-pass filter if only one cutoff",
+              "is needed."
+            ))
           }
           if (!all(freq > 0 & freq < nyquist)) {
-            stop(sprintf("Cutoff frequencies must be within 0 ~ Nyquist (%.1f Hz)", nyquist))
+            stop_filter_input(sprintf(paste(
+              "Band-pass cutoff frequencies must be above 0 and below %s.",
+              "Please enter cutoffs in that range."
+            ), nyquist_text))
           }
           freq <- sort(freq)
 
@@ -900,7 +1076,10 @@ module_server <- function(input, output, session, ...) {
         "low_pass" = {
           freq <- input$passing_freq1 %||% NA
           if (!isTRUE(freq > 0 & freq < nyquist)) {
-            stop(sprintf("Cutoff frequency must be within 0 ~ Nyquist (%.1f Hz)", nyquist))
+            stop_filter_input(sprintf(paste(
+              "A low-pass filter requires a cutoff frequency above 0 and below",
+              "%s. Please enter it in 'Cutoff freq (Hz)'."
+            ), nyquist_text))
           }
           fc[[length(fc) + 1]] <- list(
             type = input$passing_filter_method,
@@ -910,7 +1089,10 @@ module_server <- function(input, output, session, ...) {
         "high_pass" = {
           freq <- input$passing_freq1 %||% NA
           if (!isTRUE(freq > 0 & freq < nyquist)) {
-            stop(sprintf("Cutoff frequency must be within 0 ~ Nyquist (%.1f Hz)", nyquist))
+            stop_filter_input(sprintf(paste(
+              "A high-pass filter requires a cutoff frequency above 0 and below",
+              "%s. Please enter it in 'Cutoff freq (Hz)'."
+            ), nyquist_text))
           }
           fc[[length(fc) + 1]] <- list(
             type = input$passing_filter_method,
@@ -1228,8 +1410,21 @@ module_server <- function(input, output, session, ...) {
 
   # ---- Filter inspector --------------------
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    "inspect_filters",
+    description = c(
+      "Same as clicking 'Inspect combined filter': saves the filter settings",
+      "(the filter inputs, as `run_analysis` reads them) and opens the dialog",
+      "'Filter Inspector' with the frequency response of the enabled filters.",
+      "Picture it with tool `shiny_query_ui` (selector",
+      "`#voltage_explorer-filter_inspector_plot`), then close the dialog with",
+      "tool `shiny_ui_operate` (action `dismiss_modal`). With no filter enabled",
+      "it fails with 'Filter inspector will not launch because user did not",
+      "enter/enable any filters.' (people see a notification). Invalid filter",
+      "settings make it fail with the reason, as in `run_analysis`. It writes",
+      "nothing into the subject."
+    ),
+    {
 
       pipeline$set_settings(filter_configurations = get_filter_configurations())
 
@@ -1266,6 +1461,13 @@ module_server <- function(input, output, session, ...) {
           )
         )
       )
+      "The 'Filter Inspector' dialog is open: picture `#voltage_explorer-filter_inspector_plot`, then close it (`dismiss_modal`)."
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("inspect_filters")
     }, error_wrapper = "notification"),
     input$filter_inspector_btn,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1287,8 +1489,27 @@ module_server <- function(input, output, session, ...) {
   report_param <- function(name) { input[[report_param_id(name)]] }
 
   # Open the report modal, pre-filled with the current plot configuration
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    "open_report_dialog",
+    description = c(
+      "Same as clicking 'Generate Report' (card 'Export Configurations'): opens",
+      "the dialog 'Generate Voltage Report', pre-filled from `electrode_text`",
+      "(or all loaded electrodes), the plot window (`plot_time_start`,",
+      "`plot_time_end`; empty means the whole epoch), and the plot options",
+      "(`discrete_colormap`, `continuous_colormap`, `plot_space_value`,",
+      "`plot_space_is_percentile`, `plot_cex`, `plot_onset_mark`,",
+      "`channel_annotation`, `trial_sort_by`, `mean_erp_crp`,",
+      "`crp_scale_back`). Agents cannot change the dialog's inputs: set the",
+      "sidebar inputs first. Opening the dialog writes nothing. The dialog's",
+      "'Generate report' (input `do_generate_report`) writes a report into the",
+      "subject's reports folder: ALWAYS confirm the settings with the user, then",
+      "click it with tool `shiny_ui_operate` (action `click`, target",
+      "`do_generate_report`), and poll script `report_status`. Returns what the",
+      "dialog shows."
+    ),
+    {
+      # For agents: when the dialog was opened, for `report_status`
+      local_data$report_dialog_opened_at <- Sys.time()
 
       repository <- component_container$data$repository
       if (is.null(repository)) { stop("Please load data first.") }
@@ -1469,6 +1690,23 @@ module_server <- function(input, output, session, ...) {
           )
         )
       )
+      # For agents: what the dialog shows
+      sprintf(
+        paste(
+          "The report dialog is open, pre-filled with electrodes %s and plot range",
+          "%s to %s s (other options from the sidebar). After the user confirms,",
+          "click `do_generate_report` with `shiny_ui_operate`, then poll",
+          "`report_status`."
+        ),
+        dipsaus::deparse_svec(get_electrode_mask() %||% repository$electrode_list),
+        tr[[1]], tr[[2]]
+      )
+    }
+  )
+
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("open_report_dialog")
     }, error_wrapper = "notification"),
     input$open_report_modal,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1607,6 +1845,58 @@ module_server <- function(input, output, session, ...) {
     }, error_wrapper = "notification"),
     input$do_generate_report,
     ignoreNULL = TRUE, ignoreInit = TRUE
+  )
+
+  # Read-only: whether the report scheduled by the dialog's 'Generate report'
+  # is done. Once the job ends, the module's promise resolves it, so a
+  # finished report is found by its file
+  server_tools$set_script(
+    "report_status",
+    description = c(
+      "Read-only. State of the HTML report that the report dialog's 'Generate",
+      "report' (input `do_generate_report`) scheduled in this session:",
+      "'scheduled', 'running', 'errored' with the error, or 'finished' with",
+      "the path of the new report.html in the subject's reports folder",
+      "(`report-univariateVoltage_datetime-<time>_voltage_explorer/`). People",
+      "see 'Report(s) scheduled', then 'Report generated!' with a link."
+    ),
+    {
+      job_id <- local_data$report_job_id
+      opened_at <- local_data$report_dialog_opened_at
+      if (is.null(job_id) || is.null(opened_at)) {
+        return(paste(
+          "No report has been scheduled in this session: run",
+          "`open_report_dialog`, then click `do_generate_report`."
+        ))
+      }
+      job <- tryCatch(ravepipeline::check_job(job_id), error = function(e) NULL)
+
+      # report.html files written since the dialog was opened
+      report_path <- pipeline$read("repository")$subject$report_path
+      folders <- list.dirs(report_path, recursive = FALSE)
+      folders <- folders[startsWith(basename(folders), "report-univariateVoltage_")]
+      reports <- file.path(folders, "report.html")
+      reports <- reports[file.exists(reports)]
+      reports <- reports[file.mtime(reports) >= opened_at - 1]
+
+      if (isTRUE(job$status %in% c(0, 1))) {
+        "Report scheduled; the job has not started yet. Run `report_status` again later."
+      } else if (isTRUE(job$status == 2)) {
+        "Report running. Run `report_status` again later."
+      } else if (isTRUE(job$status == -1)) {
+        paste("Report errored:", tryCatch(conditionMessage(job$error),
+                                          error = function(e) "unknown error"))
+      } else if (length(reports)) {
+        sprintf("Report finished: %s", reports[[which.max(file.mtime(reports))]])
+      } else if (isTRUE(job$status == 3)) {
+        "Report job finished, but no new report.html was found."
+      } else {
+        paste(
+          "The report job has ended without a new report.html: it failed (the",
+          "page shows the error to the user)."
+        )
+      }
+    }
   )
 
   # ---- Helper: check outputs are ready ------------------------------------
