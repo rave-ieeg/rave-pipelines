@@ -22,9 +22,107 @@ module_server <- function(input, output, session, ...) {
   #   ))
   # )
 
+  # For agents: the clusters of the last run as text lines (people read the
+  # plots and the table). `k` defaults to what the plots use
+  cluster_summary_lines <- function(k = NULL) {
+    results <- local_data$results
+    if (!length(results)) { return(NULL) }
+    clustering_tree <- results$clustering_tree
+    clustering_index <- results$clustering_index
+    combined_group_results <- results$combined_group_results
+
+    suggested_k <- clustering_index$suggested$k
+    k_source <- "suggested"
+    if (length(k) != 1 || is.na(k)) {
+      k <- local_reactives$n_clusters
+      k_source <- "`n_clusters`"
+      if (length(k) != 1 || is.na(k)) {
+        k <- suggested_k %||% 1
+        k_source <- "suggested"
+      }
+    }
+    channels <- combined_group_results$electrode_channels
+    scores <- clustering_index$scores
+    silhouette <- sprintf(
+      "Silhouette score by k: %s; suggested k=%s",
+      paste(sprintf("%d=%.3f", scores$k, scores$silhouette), collapse = ", "),
+      paste(suggested_k, collapse = "")
+    )
+    clusters <- tryCatch(
+      stats::cutree(clustering_tree$cluster_object, k = k),
+      error = function(e) { e }
+    )
+    if (inherits(clusters, "error")) {
+      return(c(
+        sprintf("Cannot cut the tree at k=%s: %s", k, conditionMessage(clusters)),
+        silhouette
+      ))
+    }
+    cluster_lines <- vapply(seq_len(k), function(ii) {
+      sprintf("cluster %d (n=%d): %s", ii, sum(clusters == ii),
+              dipsaus::deparse_svec(channels[clusters == ii]))
+    }, "")
+    if (length(cluster_lines) > 97) {
+      cluster_lines <- c(cluster_lines[seq_len(96)],
+                         sprintf("... %d more clusters", length(cluster_lines) - 96))
+    }
+    c(
+      sprintf("Clusters at k=%d (%s) of electrodes %s; groups: %s", k, k_source,
+              dipsaus::deparse_svec(channels),
+              paste(combined_group_results$group_labels, collapse = ", ")),
+      cluster_lines,
+      silhouette
+    )
+  }
+
+  # For agents: the settings `run_analysis` used, from the pipeline settings
+  summarize_analysis <- function() {
+    settings <- pipeline$get_settings()
+    window <- range(unlist(settings$analysis_window))
+    baseline_window <- range(unlist(settings$baseline__windows))
+    groups <- vapply(settings$condition_groups, function(group) {
+      sprintf("%s (%s) [%s to %s]", paste(group$group_name, collapse = ""),
+              paste(group$group_conditions, collapse = ", "),
+              paste(group$group_start_event, collapse = ""),
+              paste(group$group_finish_event, collapse = ""))
+    }, "")
+    sprintf(
+      paste(
+        "Clustering done: window %s to %s s; frequencies %s-%s Hz; zeta %s;",
+        "baseline %s to %s s, %s, %s; groups: %s"
+      ),
+      window[[1]], window[[2]], min(unlist(settings$frequency_range)),
+      max(unlist(settings$frequency_range)), settings$zeta_threshold,
+      baseline_window[[1]], baseline_window[[2]],
+      settings$baseline__unit_of_analysis,
+      settings$baseline__global_baseline_choice,
+      paste(groups, collapse = "; ")
+    )
+  }
+
   # Register event: main pipeline need to run; runs when the run-analysis
   # button is clicked, or through `server_tools$trigger_script("run_analysis")`
-  server_tools$set_script("run_analysis", {
+  server_tools$set_script(
+    "run_analysis",
+    description = c(
+      "Save the analysis inputs to the pipeline, apply the baseline, and",
+      "cluster the electrodes by their power responses (same as clicking 'Run",
+      "Analysis'). It reads `time_range`, `frequency_range`, `zeta_threshold`,",
+      "`baseline_choices__unit_of_analysis`,",
+      "`baseline_choices__global_baseline_choice`, `baseline_choices__windows`,",
+      "and `condition_groups`. It writes nothing into the subject. On success",
+      "it sets `n_clusters` to the suggested k and returns 'Clustering done:",
+      "...' with the settings used, then the clusters at the suggested k and",
+      "the silhouette score per k. Otherwise it returns 'Clustering did not",
+      "run', and `output` gives the error. An invalid input (e.g. 'Frequency",
+      "range is too narrow') also opens an 'Error found!' alert that stays",
+      "until someone clicks Confirm: close it with tool `shiny_ui_operate`",
+      "(action `close_alert2`). A failing pipeline step shows a toast instead;",
+      "script `pipeline_progress` gives its error."
+    ),
+    {
+    # For agents: whether this run refreshed the results
+    last <- local_reactives$update_outputs
     ravedash::with_error_alert({
       progress <- ravepipeline::rave_progress(title = "Calculating clusters", max = 4, shiny_auto_close = TRUE)
 
@@ -117,7 +215,75 @@ module_server <- function(input, output, session, ...) {
 
       return()
     })
-  })
+    updated <- local_reactives$update_outputs
+    if (identical(last, updated) || isFALSE(updated) || !length(local_data$results)) {
+      "Clustering did not run: see the error in `output`."
+    } else {
+      tryCatch(
+        c(summarize_analysis(), cluster_summary_lines(
+          k = local_data$results$clustering_index$suggested$k)),
+        error = function(e) "Clustering done."
+      )
+    }
+    }
+  )
+
+  # Read-only: the clusters as text, for agents (people read the 'Clustering
+  # table' and 'Diagnostic plots' tabs)
+  server_tools$set_script(
+    "cluster_summary",
+    description = c(
+      "Read-only. The clusters of the last `run_analysis`, cut at the k the",
+      "plots use (input `n_clusters`): a header with k, the electrodes, and",
+      "the condition groups; one line per cluster, 'cluster <i> (n=<count>):",
+      "<electrodes>' (as in the 'Clustering table' tab); and the silhouette",
+      "score per k with the suggested k (as in the silhouette plot). After",
+      "`load_data`, or a run that failed, there are no results (the plots then",
+      "ask for a run): run `run_analysis` again."
+    ),
+    {
+      # Same condition as the plots: no results after a load or a failed run
+      updated <- local_reactives$update_outputs
+      if (!length(updated) || isFALSE(updated)) {
+        return("No results yet: run `run_analysis` first.")
+      }
+      lines <- cluster_summary_lines()
+      if (!length(lines)) {
+        return("No results yet: run `run_analysis` first.")
+      }
+      lines
+    }
+  )
+
+  # Read-only: lets agents read why a pipeline target failed (same as in the
+  # power explorer module)
+  server_tools$set_script(
+    name = "pipeline_progress",
+    description = c(
+      "Read-only. Progress of the latest pipeline run, one line per target:",
+      "'<target>: <progress>' (dispatched, completed, errored, skipped,",
+      "canceled), with the error message of errored targets, and when the",
+      "progress last changed. Run it after `run_analysis` says 'Clustering did",
+      "not run' without saying why."
+    ),
+    expr = {
+      progress <- as.data.frame(pipeline$progress("details"))
+      if (!nrow(progress)) {
+        return("The pipeline has not run yet.")
+      }
+      re <- sprintf("%s: %s", progress$name, progress$progress)
+      errored <- progress$progress == "errored"
+      if (any(errored)) {
+        errors <- as.data.frame(pipeline$with_activated(
+          targets::tar_meta(fields = "error", complete_only = TRUE)
+        ))
+        messages <- errors$error[match(progress$name[errored], errors$name)]
+        re[errored] <- paste(re[errored], "-", messages)
+      }
+      since <- as.data.frame(pipeline$progress("summary"))$since
+      c(re, sprintf("(progress last changed %s)", since))
+    }
+  )
 
 
   initialize_inputs <- function() {

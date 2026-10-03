@@ -40,12 +40,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
         ),
 
         footer = shiny::tagList(
-          dipsaus::actionButtonStyled(
-            inputId = ns("loader_ready_btn"),
-            label = "Load subject",
-            type = "primary",
-            width = "100%"
-          )
+          ravedash::load_data_button(label = "Load subject", width = "100%")
         )
 
       )
@@ -65,10 +60,27 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
 # Server functions for loader
 loader_server <- function(input, output, session, ...) {
 
-  # Triggers the event when `input$loader_ready_btn` is changed
-  # i.e. loader button is pressed
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Runs when `ravedash::load_data_button()` is clicked, or through
+  # `server_tools$trigger_script("load_data")` (e.g. from MCP tools)
+  server_tools <- ravedash::get_default_handlers(session = session)
+  server_tools$set_script(
+    "load_data",
+    description = c(
+      "Load the power data of the subject, epoch, reference, and electrodes",
+      "chosen in the loader (same as clicking 'Load subject'). It reads",
+      "`loader_project_name`, `loader_subject_code`, `loader_epoch_name` (with",
+      "`loader_epoch_name__trial_starts`, `loader_epoch_name__trial_ends`, and",
+      "their anchor events), `loader_reference_name`, and",
+      "`loader_electrode_text`; saves them to the pipeline settings; and builds",
+      "target `repository`. With 'Set as the default' checked (people only), it",
+      "also saves the epoch or reference as the subject's default. Returns a",
+      "summary: the trials, the loaded electrodes, the conditions (choices of",
+      "`group_conditions` in `condition_groups`), the events (choices of the",
+      "groups' start and finish events), and the time and frequency ranges",
+      "(bounds of `time_range` and `frequency_range`). A failed load returns",
+      "the error; people then see 'Found an error while running script'."
+    ),
+    {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
         ids = c(
@@ -90,57 +102,56 @@ loader_server <- function(input, output, session, ...) {
 
       # --------------------- Run the pipeline! ---------------------
 
-      # Pop up alert to prevent user from making any changes (auto_close=FALSE)
-      # This requires manually closing the alert window
-      dipsaus::shiny_alert2(
-        title = "Loading in progress",
-        text = paste(
-          "A good meal takes time to cook."
-        ), icon = "info", auto_close = FALSE, buttons = FALSE
-      )
-
       # Run the pipeline target `repository`
-      tryCatch(
-        {
-          repo <- pipeline$run(
-            as_promise = FALSE,
-            names = "repository",
-            return_values = TRUE
-          )
-          if (default_epoch) {
-            repo$subject$set_default("epoch_name", repo$epoch_name)
-          }
-          if (default_reference) {
-            repo$subject$set_default("reference_name", repo$reference_name)
-          }
-
-          # Let the module know the data has been changed
-          ravedash::fire_rave_event("data_changed", Sys.time())
-          ravepipeline::logger("Data has been loaded loaded")
-
-          # Close the alert
-          dipsaus::close_alert2()
-        },
-        error = function(e) {
-          # Close the alert
-          Sys.sleep(0.5)
-          dipsaus::close_alert2()
-
-          # Immediately open a new alert showing the error messages
-          dipsaus::shiny_alert2(
-            title = "Errors",
-            text = paste(
-              "Found an error while loading the power data:\n\n",
-              paste(e$message, collapse = "\n")
-            ),
-            icon = "error",
-            danger_mode = TRUE,
-            auto_close = FALSE
-          )
-        }
+      repo <- pipeline$run(
+        as_promise = FALSE,
+        names = "repository",
+        return_values = TRUE
       )
-    }),
-    input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
+      if (default_epoch) {
+        repo$subject$set_default("epoch_name", repo$epoch_name)
+      }
+      if (default_reference) {
+        repo$subject$set_default("reference_name", repo$reference_name)
+      }
+
+      ravepipeline::logger("Data has been loaded loaded")
+
+      # Summary for agents: what was loaded, and the choices of the analysis
+      # inputs. It must never make the load fail, and it avoids
+      # `repo$power`, which would load the power data here
+      tryCatch({
+        repo <- pipeline$read("repository")
+        epoch_table <- repo$epoch$table
+        conditions <- table(epoch_table$Condition)
+        conditions <- conditions[order(names(conditions))]
+        events <- repo$epoch$available_events
+        events <- c("Trial Onset", events[!events %in% ""])
+        sprintf(
+          paste(
+            "Loaded %s: epoch %s (%d trials, %s to %s s), reference %s,",
+            "electrodes %s; conditions (trials): %s; events: %s; frequencies",
+            "%s-%s Hz (%d)"
+          ),
+          repo$subject$subject_id, repo$epoch_name, nrow(epoch_table),
+          min(repo$time_points), max(repo$time_points), repo$reference_name,
+          dipsaus::deparse_svec(repo$electrode_list),
+          paste(sprintf("%s (%d)", names(conditions), conditions),
+                collapse = ", "),
+          paste(events, collapse = ", "),
+          min(repo$frequency), max(repo$frequency), length(repo$frequency)
+        )
+      }, error = function(e) {
+        sprintf("Loaded %s/%s", settings$project_name, settings$subject_code)
+      })
+    },
+    binding_event = "load_data",
+    # Let the module know the data has been changed
+    dispatch_event = "data_changed",
+    alert_params = list(
+      title = "Loading in progress",
+      text = "A good meal takes time to cook."
+    )
   )
 
 
