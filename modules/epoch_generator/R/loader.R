@@ -46,7 +46,23 @@ loader_server <- function(input, output, session, ...) {
   server_tools <- ravedash::get_default_handlers(session = session)
   server_tools$set_script(
     "load_data",
-    {
+    description = c(
+      "Same as clicking 'Load subject': loads the project and subject chosen in",
+      "`loader_project_name` and `loader_subject_code`. Ask the user which",
+      "project and subject; never choose one yourself. Before generating an",
+      "epoch, read the whole manual (`skill_load__rave-module`, action",
+      "'reference', file_name 'references/epoch_generator.md'; page with",
+      "`line_start` until every line is read) and ask the user, in one message:",
+      "(1) project and subject; (2) which block(s); (3) the file or channel",
+      "that marks the trials (photodiode, audio, TTL...) and what an onset",
+      "looks like; (4) its sample rate (MATLAB files: required); (5) the",
+      "number of trials per block, or a stimulus/condition table, or else the",
+      "stimulus duration and the pause between trials; (6) which trial types",
+      "the channel marks. If it fails, an error dialog stays open until the",
+      "user clicks Confirm: ask them to. Returns 'subject=...', 'blocks=...',",
+      "'epochs=...'."
+    ),
+    expr = {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
         ids = c(
@@ -71,6 +87,13 @@ loader_server <- function(input, output, session, ...) {
       ravedash::session_setopt(
         project_name = settings$project_name,
         subject_code = settings$subject_code
+      )
+
+      # Summary for agents
+      c(
+        sprintf("subject=%s", subject$subject_id),
+        sprintf("blocks=%s", paste(subject$blocks, collapse = ",")),
+        sprintf("epochs=%s", paste(subject$epoch_names, collapse = ","))
       )
     },
     binding_event = "load_data",
