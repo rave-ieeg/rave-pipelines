@@ -11,7 +11,7 @@ module_server <- function(input, output, session, ...) {
   local_data <- dipsaus::fastmap2()
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
   # Run analysis once the following input IDs are changed
   # This is used by auto-recalculation feature
@@ -23,133 +23,129 @@ module_server <- function(input, output, session, ...) {
 
   stream_proxy <- plotly::plotlyProxy(outputId = "channel_viewer", session = session)
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    if (!ravedash::watch_data_loaded()) { return() }
 
-      if (!ravedash::watch_data_loaded()) { return() }
+    repository <- local_data$repository
 
-      repository <- local_data$repository
+    # Collect input data
+    recording_block <- input$recording_block
+    if (!length(recording_block)) {
+      stop("Recording block is empty. Please choose a recording block first")
+    }
+    if (!isTRUE(recording_block %in% repository$blocks)) {
+      stop("Invalid recording block chosen: ", paste(recording_block))
+    }
+    local_data$recording_block <- recording_block
 
-      # Collect input data
-      recording_block <- input$recording_block
-      if (!length(recording_block)) {
-        stop("Recording block is empty. Please choose a recording block first")
-      }
-      if (!isTRUE(recording_block %in% repository$blocks)) {
-        stop("Invalid recording block chosen: ", paste(recording_block))
-      }
-      local_data$recording_block <- recording_block
-
-      epoch_name <- input$annotation_source
-      if (epoch_name == "") {
-        epoch_name = NULL
-      }
-      epoch_events <- input$annotation_events
-      epoch_events <- c("Trial Onset", epoch_events[epoch_events != "Trial Onset"])
-      pipeline$set_settings(
-        epoch_name = epoch_name,
-        epoch_events = epoch_events
-      )
-      annotation_table <- pipeline$run("annotation_table")
-      annotation_table$trial_name <- gsub("<br>", " - ", annotation_table$label)
-      local_data$annotation_table <- annotation_table
+    epoch_name <- input$annotation_source
+    if (epoch_name == "") {
+      epoch_name = NULL
+    }
+    epoch_events <- input$annotation_events
+    epoch_events <- c("Trial Onset", epoch_events[epoch_events != "Trial Onset"])
+    pipeline$set_settings(
+      epoch_name = epoch_name,
+      epoch_events = epoch_events
+    )
+    annotation_table <- pipeline$run("annotation_table")
+    annotation_table$trial_name <- gsub("<br>", " - ", annotation_table$label)
+    local_data$annotation_table <- annotation_table
 
 
-      channels <- dipsaus::parse_svec(input$electrode_text)
-      channels <- channels[channels %in% repository$electrode_list]
-      if (!length(channels)) {
-        channels <- repository$electrode_list
-      }
-      if (!length(channels)) {
-        stop("No channel to visualize. Please import valid channels")
-      }
+    channels <- dipsaus::parse_svec(input$electrode_text)
+    channels <- channels[channels %in% repository$electrode_list]
+    if (!length(channels)) {
+      channels <- repository$electrode_list
+    }
+    if (!length(channels)) {
+      stop("No channel to visualize. Please import valid channels")
+    }
 
-      sample_rates <- repository$sample_rates
-      electrode_types <- repository$subject$electrode_types[repository$subject$electrodes %in% channels]
-      sample_rates <- unname(unlist(sample_rates[electrode_types]))
+    sample_rates <- repository$sample_rates
+    electrode_types <- repository$subject$electrode_types[repository$subject$electrodes %in% channels]
+    sample_rates <- unname(unlist(sample_rates[electrode_types]))
 
-      o <- order(repository$electrode_table$Electrode)
-      electrode_table <- repository$electrode_table[o, ]
-      electrode_table <- electrode_table[electrode_table$Electrode %in% channels, ]
-      electrode_table$SignalType <- electrode_types
-      electrode_table$SampleRate <- sample_rates
+    o <- order(repository$electrode_table$Electrode)
+    electrode_table <- repository$electrode_table[o, ]
+    electrode_table <- electrode_table[electrode_table$Electrode %in% channels, ]
+    electrode_table$SignalType <- electrode_types
+    electrode_table$SampleRate <- sample_rates
 
-      channel_names <- sprintf("%s|ch%d", electrode_table$Label, electrode_table$Electrode)
-      local_data$electrode_table <- electrode_table
+    channel_names <- sprintf("%s|ch%d", electrode_table$Label, electrode_table$Electrode)
+    local_data$electrode_table <- electrode_table
 
-      signal_container <- repository$get_container()
-      block_info <- signal_container[[recording_block]]
-      preferred_names <- c("LFP", "Spike", "Auxiliary", names(block_info)[[1]])
-      preferred_name <- preferred_names[preferred_names %in% names(block_info)][[1]]
-      signal_info <- block_info[[preferred_name]]
-      n_timepoints <- signal_info$dim[[1]]
-      max_duration <- floor(n_timepoints / signal_info$sample_rate)
+    signal_container <- repository$get_container()
+    block_info <- signal_container[[recording_block]]
+    preferred_names <- c("LFP", "Spike", "Auxiliary", names(block_info)[[1]])
+    preferred_name <- preferred_names[preferred_names %in% names(block_info)][[1]]
+    signal_info <- block_info[[preferred_name]]
+    n_timepoints <- signal_info$dim[[1]]
+    max_duration <- floor(n_timepoints / signal_info$sample_rate)
 
-      shiny::updateNumericInput(
-        session = session,
-        input = "viewer_start_time",
-        max = max_duration
-      )
+    shiny::updateNumericInput(
+      session = session,
+      input = "viewer_start_time",
+      max = max_duration
+    )
 
-      channel_gap <- input$viewer_channel_gap
-      if (!isTRUE(channel_gap > 0)) {
-        # find signal gap by quantile
-        if (n_timepoints > 60000) {
-          qt <- quantile(signal_info$data[sample(n_timepoints - 60001, 1) + seq_len(60000), ], c(0.005, 0.995), na.rm = TRUE)
-        } else {
-          qt <- quantile(signal_info$data[], c(0.005, 0.995), na.rm = TRUE)
-        }
-        channel_gap <- max(0, ceiling(qt[[2]] - qt[[1]]))
-        if (is.finite(channel_gap)) {
-
-          shiny::updateNumericInput(
-            session = session,
-            input = "viewer_channel_gap",
-            value = channel_gap
-          )
-
-        } else {
-          channel_gap <- 0
-        }
-      }
-
-      # build plotly instance
-      stream_plot_container <- StreamSignalPlot$new(
-        n_channels = length(channels),
-        sample_rates = sample_rates,
-        start_time = 0,
-        channel_names = channel_names,
-        channel_gap = channel_gap,
-        title = sprintf("Recording block: %s", recording_block),
-        ylab = "Channel"
-      )
-
-      if (is.data.frame(annotation_table)) {
-        annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
-        stream_plot_container$annotations <- annotation_subset
-
-        condition_label <- annotation_subset$trial_name
+    channel_gap <- input$viewer_channel_gap
+    if (!isTRUE(channel_gap > 0)) {
+      # find signal gap by quantile
+      if (n_timepoints > 60000) {
+        qt <- quantile(signal_info$data[sample(n_timepoints - 60001, 1) + seq_len(60000), ], c(0.005, 0.995), na.rm = TRUE)
       } else {
-        condition_label <- character()
+        qt <- quantile(signal_info$data[], c(0.005, 0.995), na.rm = TRUE)
       }
+      channel_gap <- max(0, ceiling(qt[[2]] - qt[[1]]))
+      if (is.finite(channel_gap)) {
 
-      shiny::updateSelectInput(
-        session = session,
-        input = "viewer_trial",
-        choices = condition_label,
-        selected = NA
-      )
+        shiny::updateNumericInput(
+          session = session,
+          input = "viewer_channel_gap",
+          value = channel_gap
+        )
 
-      local_reactives$stream_plot_container <- stream_plot_container
+      } else {
+        channel_gap <- 0
+      }
+    }
 
-      update_plot(init = TRUE)
+    # build plotly instance
+    stream_plot_container <- StreamSignalPlot$new(
+      n_channels = length(channels),
+      sample_rates = sample_rates,
+      start_time = 0,
+      channel_names = channel_names,
+      channel_gap = channel_gap,
+      title = sprintf("Recording block: %s", recording_block),
+      ylab = "Channel"
+    )
 
-      return()
-    }),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    if (is.data.frame(annotation_table)) {
+      annotation_subset <- annotation_table[annotation_table$block %in% recording_block, ]
+      stream_plot_container$annotations <- annotation_subset
+
+      condition_label <- annotation_subset$trial_name
+    } else {
+      condition_label <- character()
+    }
+
+    shiny::updateSelectInput(
+      session = session,
+      input = "viewer_trial",
+      choices = condition_label,
+      selected = NA
+    )
+
+    local_reactives$stream_plot_container <- stream_plot_container
+
+    update_plot(init = TRUE)
+
+    return()
+  })
 
   update_plot <- function(init = FALSE) {
     show_rendering_notification(message = "Loading & processing data...", session = session)
