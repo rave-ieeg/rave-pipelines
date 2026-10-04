@@ -46,10 +46,22 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               ravedash::flex_group_box(
                 title = "MRI",
                 shidashi::flex_item(
-                  shiny::selectInput(
-                    inputId = ns("mri_path"),
-                    label = "Raw MRI (DICOM folder or Nifti file)",
-                    choices = character(0L)
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("mri_path"),
+                      label = "Raw MRI (DICOM folder or Nifti file)",
+                      choices = character(0L)
+                    ),
+                    inputId = "mri_path",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "[Select] Raw pre-surgery T1 MRI to import: a NIfTI file or a DICOM folder,",
+                      "as a path relative to the subject's raw folder. Choices load once the",
+                      "subject is chosen. Only needed when the subject's MRI was never imported.",
+                      "`\"[Upload]\"` opens an upload dialog that only a person can use: never",
+                      "choose it. Read by script `load_data`; the import is script `import_t1`."
+                    ),
+                    tooltip = "Pre-surgery T1 MRI to import: a NIfTI file or a DICOM folder."
                   )
                 )
               #   shidashi::flex_break(),
@@ -67,10 +79,22 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               ravedash::flex_group_box(
                 title = "CT",
                 shidashi::flex_item(
-                  shiny::selectInput(
-                    inputId = ns("ct_path"),
-                    label = "Raw CT (DICOM folder or Nifti file)",
-                    choices = character(0L)
+                  shidashi::register_input(
+                    shiny::selectInput(
+                      inputId = ns("ct_path"),
+                      label = "Raw CT (DICOM folder or Nifti file)",
+                      choices = character(0L)
+                    ),
+                    inputId = "ct_path",
+                    update = "shiny::updateSelectInput(value=selected)",
+                    description = paste(
+                      "[Select] Raw post-implant CT to import: a NIfTI file or a DICOM folder, as",
+                      "a path relative to the subject's raw folder. Choices load once the subject",
+                      "is chosen. Only needed when the subject's CT was never imported.",
+                      "`\"[Upload]\"` opens an upload dialog that only a person can use: never",
+                      "choose it. Read by script `load_data`; the import is script `import_ct`."
+                    ),
+                    tooltip = "Post-implant CT to import: a NIfTI file or a DICOM folder."
                   )
                 )
                 # shidashi::flex_break(),
@@ -105,45 +129,84 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
           ravedash::flex_group_box(
             title = "Command-line path",
             shidashi::flex_item(
-              shiny::textInput(
-                inputId = ns("cmd_dcm2niix_path"),
-                label = "Dcm2niix path (needed to convert DICOM images to Nifti format, optional)",
-                value = ravecore::cmd_dcm2niix(error_on_missing = FALSE, unset = "")
+              shidashi::register_input(
+                shiny::textInput(
+                  inputId = ns("cmd_dcm2niix_path"),
+                  label = "Dcm2niix path (needed to convert DICOM images to Nifti format, optional)",
+                  value = ravecore::cmd_dcm2niix(error_on_missing = FALSE, unset = "")
+                ),
+                inputId = "cmd_dcm2niix_path",
+                update = "shiny::updateTextInput",
+                description = paste(
+                  "[Text, read-only for agents] Path to the dcm2niix program; filled in when RAVE finds it.",
+                  "A path entered here is saved to RAVE's settings for every subject, so agents",
+                  "must never change it: ask the user. Read by script `load_data`."
+                ),
+                tooltip = "Path to the dcm2niix program, needed to import DICOM folders.",
+                writable = FALSE
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::textInput(
-                inputId = ns("cmd_fs_path"),
-                label = "FreeSurfer home (`FREESURFER_HOME`, needed for surface reconstruction, optional)",
-                value = ravecore::cmd_freesurfer_home(error_on_missing = FALSE, unset = "")
+              shidashi::register_input(
+                shiny::textInput(
+                  inputId = ns("cmd_fs_path"),
+                  label = "FreeSurfer home (`FREESURFER_HOME`, needed for surface reconstruction, optional)",
+                  value = ravecore::cmd_freesurfer_home(error_on_missing = FALSE, unset = "")
+                ),
+                inputId = "cmd_fs_path",
+                update = "shiny::updateTextInput",
+                description = paste(
+                  "[Text, read-only for agents] Path to the FreeSurfer home folder; filled in when RAVE finds it.",
+                  "A path entered here is saved to RAVE's settings for every subject, so agents",
+                  "must never change it: ask the user. Read by script `load_data`."
+                ),
+                tooltip = "FreeSurfer home folder (`FREESURFER_HOME`), needed for surface reconstruction.",
+                writable = FALSE
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::textInput(
-                inputId = ns("cmd_fsl_path"),
-                label = "FSL home (`FSLDIR`, needed for co-registration using FLIRT, optional)",
-                value = ravecore::cmd_fsl_home(error_on_missing = FALSE, unset = "")
+              shidashi::register_input(
+                shiny::textInput(
+                  inputId = ns("cmd_fsl_path"),
+                  label = "FSL home (`FSLDIR`, needed for co-registration using FLIRT, optional)",
+                  value = ravecore::cmd_fsl_home(error_on_missing = FALSE, unset = "")
+                ),
+                inputId = "cmd_fsl_path",
+                update = "shiny::updateTextInput",
+                description = paste(
+                  "[Text, read-only for agents] Path to the FSL home folder; filled in when RAVE finds it.",
+                  "A path entered here is saved to RAVE's settings for every subject, so agents",
+                  "must never change it: ask the user. Read by script `load_data`."
+                ),
+                tooltip = "FSL home folder (`FSLDIR`), needed for co-registration with FLIRT.",
+                writable = FALSE
               )
             ),
             shidashi::flex_break(),
             shidashi::flex_item(
-              shiny::textInput(
-                inputId = ns("cmd_afni_path"),
-                label = "AFNI home (optional)",
-                value = ravecore::cmd_afni_home(error_on_missing = FALSE, unset = "")
+              shidashi::register_input(
+                shiny::textInput(
+                  inputId = ns("cmd_afni_path"),
+                  label = "AFNI home (optional)",
+                  value = ravecore::cmd_afni_home(error_on_missing = FALSE, unset = "")
+                ),
+                inputId = "cmd_afni_path",
+                update = "shiny::updateTextInput",
+                description = paste(
+                  "[Text, read-only for agents] Path to the AFNI home folder; filled in when RAVE finds it.",
+                  "A path entered here is saved to RAVE's settings for every subject, so agents",
+                  "must never change it: ask the user. Read by script `load_data`."
+                ),
+                tooltip = "AFNI home folder, needed for co-registration with AFNI.",
+                writable = FALSE
               )
             )
           ),
 
           footer = shiny::tagList(
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Check data and command-line tools",
-              type = "primary",
-              width = "100%"
-            )
+            ravedash::load_data_button(label = "Check data and command-line tools", width = "100%")
           )
         )
       )
@@ -272,8 +335,13 @@ loader_server <- function(input, output, session, ...) {
   register_file_uploader(type = "mri", title = "Upload presurgery MRI")
   register_file_uploader(type = "ct", title = "Upload post-implant CT")
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Check the data and command-line tools, then ask the user to confirm;
+  # runs when `ravedash::load_data_button()` is clicked, or through
+  # `server_tools$trigger_script("load_data")` (e.g. from MCP tools)
+  server_tools <- ravedash::get_default_handlers(session = session)
+  server_tools$set_script(
+    "load_data",
+    {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
         ids = c(
@@ -296,92 +364,96 @@ loader_server <- function(input, output, session, ...) {
         .list = settings
       )
 
-      res <- pipeline$run(
-        as_promise = TRUE,
+      pipeline$run(
         names = "check_result",
         type = "vanilla",
         scheduler = "none"
       )
 
-      res$promise$then(
+      check_result <- pipeline$read("check_result")
+      cmd_tools <- pipeline$read("cmd_tools")
 
-        # When data can be imported
-        onFulfilled = function(e) {
-
-          check_result <- pipeline$read("check_result")
-          cmd_tools <- pipeline$read("cmd_tools")
-
-          msg_ui <- NULL
-          warn_ui <- NULL
-          if (length(check_result$messages)) {
-            msg_ui <- shiny::tagList(
-              shiny::p("The following pipeline will run:"),
-              shiny::tags$ul(
-                lapply(check_result$messages, shiny::tags$li)
-              )
-            )
-          }
-
-          if (length(check_result$warnings)) {
-            warn_ui <- shiny::tagList(
-              shiny::p("Please check the following warnings:"),
-              shiny::tags$ul(
-                lapply(check_result$warnings, shiny::tags$li)
-              )
-            )
-          }
-          cmd_ui <- shiny::tagList(
-            shiny::p("External commandline paths. "),
-            shiny::tags$ul(
-              shiny::tags$li(shiny::strong("dcm2niix"), ": ", paste(cmd_tools$dcm2niix, collapse = "")),
-              shiny::tags$li(shiny::strong("FreeSurfer"), ": ", paste(cmd_tools$freesurfer, collapse = "")),
-              shiny::tags$li(shiny::strong("FSL-flirt"), ": ", paste(cmd_tools$flirt, collapse = "")),
-              shiny::tags$li(shiny::strong("AFNI"), ": ", paste(cmd_tools$afni, collapse = ""))
-            )
+      msg_ui <- NULL
+      warn_ui <- NULL
+      if (length(check_result$messages)) {
+        msg_ui <- shiny::tagList(
+          shiny::p("The following pipeline will run:"),
+          shiny::tags$ul(
+            lapply(check_result$messages, shiny::tags$li)
           )
+        )
+      }
 
-          dipsaus::close_alert2()
-
-          shiny::showModal(shiny::modalDialog(
-            title = "Confirmation",
-            size = "l",
-            shiny::p("Please confirm the to-do list and carefully read warnings. ",
-                     "Please read warnings ",
-                     "that have statements such as ",
-                     '"the script will fail/error".'),
-            msg_ui,
-            warn_ui,
-            cmd_ui,
-
-            footer = shiny::tagList(
-              shiny::modalButton("Cancel"),
-              dipsaus::actionButtonStyled(ns("loader_ready_btn2"), "Proceed")
-            )
-          ))
-
-        },
-
-
-        # this is what should happen when pipeline fails
-        onRejected = function(e) {
-
-          dipsaus::close_alert2()
-
-          # Immediately open a new alert showing the error messages
-          dipsaus::shiny_alert2(
-            title = "Errors",
-            text = paste(
-              "Found an error while checking the path/data:\n\n",
-              paste(e$message, collapse = "\n")
-            ),
-            icon = "error",
-            danger_mode = TRUE,
-            auto_close = FALSE
+      if (length(check_result$warnings)) {
+        warn_ui <- shiny::tagList(
+          shiny::p("Please check the following warnings:"),
+          shiny::tags$ul(
+            lapply(check_result$warnings, shiny::tags$li)
           )
-        }
+        )
+      }
+      cmd_ui <- shiny::tagList(
+        shiny::p("External commandline paths. "),
+        shiny::tags$ul(
+          shiny::tags$li(shiny::strong("dcm2niix"), ": ", paste(cmd_tools$dcm2niix, collapse = "")),
+          shiny::tags$li(shiny::strong("FreeSurfer"), ": ", paste(cmd_tools$freesurfer, collapse = "")),
+          shiny::tags$li(shiny::strong("FSL-flirt"), ": ", paste(cmd_tools$flirt, collapse = "")),
+          shiny::tags$li(shiny::strong("AFNI"), ": ", paste(cmd_tools$afni, collapse = ""))
+        )
       )
-    }),
-    input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
+
+      shiny::showModal(shiny::modalDialog(
+        title = "Confirmation",
+        size = "l",
+        shiny::p("Please confirm the to-do list and carefully read warnings. ",
+                 "Please read warnings ",
+                 "that have statements such as ",
+                 '"the script will fail/error".'),
+        msg_ui,
+        warn_ui,
+        cmd_ui,
+
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          dipsaus::actionButtonStyled(ns("loader_ready_btn2"), "Proceed")
+        )
+      ))
+
+      # What the dialog shows, printed for agents (MCP)
+      tool_path <- function(x) {
+        x <- paste(x[!is.na(x)], collapse = "")
+        if (nzchar(x)) { x } else { "not found" }
+      }
+      summary <- c(
+        sprintf("subject=%s/%s", check_result$project_name, check_result$subject_code),
+        sprintf("raw_mri=%s", paste(check_result$path_mri, collapse = "")),
+        sprintf("raw_ct=%s", paste(check_result$path_ct, collapse = "")),
+        sprintf("todo=%s", check_result$messages),
+        sprintf("warning=%s", check_result$warnings),
+        sprintf("dcm2niix=%s", tool_path(cmd_tools$dcm2niix)),
+        sprintf("freesurfer=%s", tool_path(cmd_tools$freesurfer)),
+        sprintf("fsl_flirt=%s", tool_path(cmd_tools$flirt)),
+        sprintf("afni=%s", tool_path(cmd_tools$afni)),
+        "next=dialog 'Confirmation' is open: click 'Proceed' (`loader_ready_btn2`) to load"
+      )
+      cat(summary, sep = "\n")
+      summary
+    },
+    description = c(
+      "Same as clicking 'Check data and command-line tools'. Reads the subject",
+      "(`loader_project_name`, `loader_subject_code`), the raw images `mri_path`",
+      "and `ct_path`, and the command-line paths; saves them to the pipeline",
+      "settings, checks the subject and the programs, and opens the 'Confirmation'",
+      "dialog. Data are NOT loaded until 'Proceed' is clicked: `shiny_ui_operate`",
+      "action `click`, target `loader_ready_btn2`. Output and result: the",
+      "subject, raw image paths, to-do lines, warnings (tell them to the user;",
+      "they never block 'Proceed'), and program paths ('not found' when missing).",
+      "Then run script `imaging_status`."
+    ),
+    binding_event = "load_data",
+    # No `dispatch_event`: the data are loaded once the user clicks
+    # "Proceed" in the confirmation (`input$loader_ready_btn2`)
+    alert_params = list(title = "Checking data and command-line tools")
   )
 
   shiny::bindEvent(

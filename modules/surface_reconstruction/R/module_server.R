@@ -44,7 +44,7 @@ module_server <- function(input, output, session, ...) {
   gray_colors <- gray.colors(256, 0, 1)
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
 
   # check whether the loaded data is valid

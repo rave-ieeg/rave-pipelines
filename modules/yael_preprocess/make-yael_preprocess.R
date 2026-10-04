@@ -234,8 +234,7 @@ rm(._._env_._.)
                     autoinstall_template = FALSE, check_volume = TRUE,
                     check_surface = FALSE)
                 }
-                mri <- file.path(subject$preprocess_settings$raw_path,
-                  path_mri)
+                mri <- resolve_raw_image_path(subject, path_mri)
                 if (is.null(cmd_tools$dcm2niix) || is.null(cmd_tools$freesurfer)) {
                   warns <- append(warns, "Cannot find command-line `dcm2niix` and/or `FreeSurfer`: the reconstruction will fail. Please make sure these programs paths are entered correctly.")
                 } else {
@@ -247,8 +246,7 @@ rm(._._env_._.)
                   warns <- append(warns, sprintf("Found existing FreeSurfer reconstructed directory. `recon-all` will ignore the imported T1 images. Instead, FreeSurfer will continue working on this directory unless you manually remove it: %s",
                     fs_path))
                 }
-                ct <- file.path(subject$preprocess_settings$raw_path,
-                  path_ct)
+                ct <- resolve_raw_image_path(subject, path_ct)
                 if (!path_is_valid(ct, dir_ok = TRUE)) {
                   warns <- append(warns, "The CT path is invalid: co-registration will result in errors.")
                 }
@@ -298,8 +296,7 @@ rm(._._env_._.)
                       autoinstall_template = FALSE, check_volume = TRUE,
                       check_surface = FALSE)
                   }
-                  mri <- file.path(subject$preprocess_settings$raw_path,
-                    path_mri)
+                  mri <- resolve_raw_image_path(subject, path_mri)
                   if (is.null(cmd_tools$dcm2niix) || is.null(cmd_tools$freesurfer)) {
                     warns <- append(warns, "Cannot find command-line `dcm2niix` and/or `FreeSurfer`: the reconstruction will fail. Please make sure these programs paths are entered correctly.")
                   } else {
@@ -311,8 +308,7 @@ rm(._._env_._.)
                     warns <- append(warns, sprintf("Found existing FreeSurfer reconstructed directory. `recon-all` will ignore the imported T1 images. Instead, FreeSurfer will continue working on this directory unless you manually remove it: %s",
                       fs_path))
                   }
-                  ct <- file.path(subject$preprocess_settings$raw_path,
-                    path_ct)
+                  ct <- resolve_raw_image_path(subject, path_ct)
                   if (!path_is_valid(ct, dir_ok = TRUE)) {
                     warns <- append(warns, "The CT path is invalid: co-registration will result in errors.")
                   }

@@ -62,23 +62,92 @@ module_server <- function(input, output, session, ...) {
     ignoreInit = TRUE
   )
 
-  shiny::observe({
-    print(list(
-      ravedash::watch_data_loaded(), ravedash::watch_loader_opened(),
-      server_tools$run_analysis_flag(), report_btn_onclick()
-    ))
-  })
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
-      if (!ravedash::watch_data_loaded()) { return() }
-      if (ravedash::watch_loader_opened()) { return() }
-      report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
-    }),
-    server_tools$run_analysis_flag(),
-    # report_btn_onclick(),
-    ignoreNULL = TRUE,
-    ignoreInit = TRUE
+  # Runs when the run-analysis button is clicked, or through
+  # `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    if (!ravedash::watch_data_loaded()) { return() }
+    if (ravedash::watch_loader_opened()) { return() }
+    report_wizard$launch(subject = pipeline$read("subject"), multiple = TRUE)
+  }, description = c(
+    "Same as clicking 'Generate Reports' in the footer: opens the 'Generate",
+    "reports' dialog (`_report_label`, then button `_report_generate`). Agents",
+    "can use scripts `generate_coregistration_report` and",
+    "`generate_normalization_report` instead."
+  ))
+
+  # Agents (MCP) generate a report directly, with the function the dialog's
+  # "Generate reports" button calls
+  report_status_line <- function(report_name) {
+    report_root <- pipeline$read("subject")$report_path
+    folders <- list.files(
+      report_root,
+      pattern = sprintf("^report-%s_datetime-.*_%s$", report_name, pipeline$pipeline_name),
+      full.names = TRUE
+    )
+    if (!length(folders)) {
+      return(sprintf("%s_report=none", report_name))
+    }
+    latest <- sort(folders, decreasing = TRUE)[[1]]
+    html <- file.path(latest, "report.html")
+    sprintf("%s_report=%s (%s)", report_name, latest,
+            if (file.exists(html)) "report.html ready" else "no report.html yet: running or failed")
+  }
+  server_tools$set_script(
+    name = "generate_coregistration_report",
+    description = c(
+      "Generates the 'Coregistration Quality Report' (the CT over the MR image",
+      "from the subject's latest co-registration) in the background, as people",
+      "do with 'Generate Reports'. Needs a co-registration (script",
+      "`imaging_status`). Writes a report folder into the subject's reports;",
+      "agents may run it without asking. Output: whether a co-registration",
+      "exists, and the reports folder. The report is ready when script",
+      "`imaging_status` shows 'report.html ready' for a newer folder; a",
+      "notification also says 'Report generated!' or shows the error."
+    ),
+    expr = {
+      subject <- pipeline$read("subject")
+      has_coreg <- file.exists(file.path(subject$imaging_path, "derivative",
+                                         "conf-coregistration.yaml"))
+      report_wizard$generate(subject, "coregistration")
+      out <- c(
+        "scheduled=coregistration",
+        sprintf("has_coregistration=%s", has_coreg),
+        sprintf("reports_folder=%s", subject$report_path)
+      )
+      if (!has_coreg) {
+        out <- c(out, "warning=the subject has no co-registration yet, so the report will fail")
+      }
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  server_tools$set_script(
+    name = "generate_normalization_report",
+    description = c(
+      "Generates the 'Normalization Quality Report' (the subject's MRI against",
+      "the MNI templates) in the background, as people do with 'Generate",
+      "Reports'. Needs YAEL normalization (MRI preprocessing `YAEL+recon-all` or",
+      "`YAEL-only`; script `imaging_status`). Writes a report folder into the",
+      "subject's reports; agents may run it without asking. Output: whether a",
+      "normalization exists, and the reports folder. Follow it like",
+      "`generate_coregistration_report`."
+    ),
+    expr = {
+      subject <- pipeline$read("subject")
+      has_normalization <- dir.exists(file.path(subject$imaging_path, "normalization"))
+      report_wizard$generate(subject, "normalization")
+      out <- c(
+        "scheduled=normalization",
+        sprintf("has_normalization=%s", has_normalization),
+        sprintf("reports_folder=%s", subject$report_path)
+      )
+      if (!has_normalization) {
+        out <- c(out, "warning=the subject has no YAEL normalization yet, so the report will fail")
+      }
+      cat(out, sep = "\n")
+      out
+    }
   )
 
   # ---- on data loaded ------------------------------------
@@ -190,27 +259,71 @@ module_server <- function(input, output, session, ...) {
       "Actions:",
       shiny::tags$ul(
         shiny::tags$li(
-          shiny::actionLink(
-            inputId = ns("jump_import_dicom"),
-            label = "Import DICOM or Nifti images "
+          shidashi::register_input(
+            shiny::actionLink(
+              inputId = ns("jump_import_dicom"),
+              label = "Import DICOM or Nifti images "
+            ),
+            inputId = "jump_import_dicom",
+            update = "shiny::updateActionLink",
+            description = paste(
+              "[Link] Expands the card 'Import DICOM Folders or Nifti Images' and collapses the others",
+              "(cards start collapsed; their outputs, e.g. previews and the ACPC viewer,",
+              "only draw while expanded). Exists once data are loaded. Click it with",
+              "`shiny_input_update` (the value is ignored)."
+            ),
+            tooltip = "Open the import card."
           )
         ),
         shiny::tags$li(
-          shiny::actionLink(
-            inputId = ns("jump_acpc_realign"),
-            label = "ACPC Re-alignment (Optional)"
+          shidashi::register_input(
+            shiny::actionLink(
+              inputId = ns("jump_acpc_realign"),
+              label = "ACPC Re-alignment (Optional)"
+            ),
+            inputId = "jump_acpc_realign",
+            update = "shiny::updateActionLink",
+            description = paste(
+              "[Link] Expands the card 'ACPC Re-alignment (Optional)' and collapses the others",
+              "(cards start collapsed; their outputs, e.g. previews and the ACPC viewer,",
+              "only draw while expanded). Exists once data are loaded. Click it with",
+              "`shiny_input_update` (the value is ignored)."
+            ),
+            tooltip = "Open the ACPC re-alignment card."
           )
         ),
         shiny::tags$li(
-          shiny::actionLink(
-            inputId = ns("jump_recon"),
-            label = "MRI Preprocessing"
+          shidashi::register_input(
+            shiny::actionLink(
+              inputId = ns("jump_recon"),
+              label = "MRI Preprocessing"
+            ),
+            inputId = "jump_recon",
+            update = "shiny::updateActionLink",
+            description = paste(
+              "[Link] Expands the card 'MRI Preprocessing' and collapses the others",
+              "(cards start collapsed; their outputs, e.g. previews and the ACPC viewer,",
+              "only draw while expanded). Exists once data are loaded. Click it with",
+              "`shiny_input_update` (the value is ignored)."
+            ),
+            tooltip = "Open the MRI preprocessing card."
           )
         ),
         shiny::tags$li(
-          shiny::actionLink(
-            inputId = ns("jump_coregistration"),
-            label = "CT MRI co-registration"
+          shidashi::register_input(
+            shiny::actionLink(
+              inputId = ns("jump_coregistration"),
+              label = "CT MRI co-registration"
+            ),
+            inputId = "jump_coregistration",
+            update = "shiny::updateActionLink",
+            description = paste(
+              "[Link] Expands the card 'Co-registration CT and T1' and collapses the others",
+              "(cards start collapsed; their outputs, e.g. previews and the ACPC viewer,",
+              "only draw while expanded). Exists once data are loaded. Click it with",
+              "`shiny_input_update` (the value is ignored)."
+            ),
+            tooltip = "Open the CT-MRI co-registration card."
           )
         )
       )
@@ -245,7 +358,7 @@ module_server <- function(input, output, session, ...) {
       choices = choices, selected = selected
     )
 
-    choices <- choices[!endsWith(choices, "ACPC.nii.gz")]
+    choices <- choices[!grepl("acpc\\.nii\\.gz$", choices, ignore.case = TRUE)]
     selected <- input$param_acpc_infile %OF% choices
     shiny::updateSelectInput(
       session = session, inputId = "param_acpc_infile",
@@ -534,6 +647,172 @@ module_server <- function(input, output, session, ...) {
     contentType = "text/plain"
   )
 
+  # Read-only: lets agents (MCP) follow a command started from RAVE; the log
+  # dialog shows the same log to people
+  server_tools$set_script(
+    name = "command_status",
+    description = c(
+      "Read-only. State of the latest command started with 'Run from RAVE' in",
+      "this session: 'running' (the log dialog shows 'Running...'), 'finished'",
+      "(its button shows 'Done', or 'Gotcha' after an error), or 'none'; the",
+      "script and log files; and the last 30 log lines. RAVE cannot tell whether",
+      "a command succeeded: read the log tail (errors from dcm2niix, ANTs or",
+      "NiftyReg appear only there) and check script `imaging_status`. After",
+      "'finished', close the dialog with `shiny_ui_operate` click `dismiss_modal`."
+    ),
+    expr = {
+      current <- local_data$current_command
+      script_path <- NULL
+      if (length(current$cmd)) {
+        state <- "running"
+        log_path <- current$cmd$log_file
+        script_path <- current$cmd$script_path
+      } else if (length(local_reactives$logfile_path)) {
+        state <- "finished"
+        log_path <- local_reactives$logfile_path
+      } else {
+        out <- "state=none (no command was started from RAVE in this session)"
+        cat(out, "\n", sep = "")
+        return(out)
+      }
+      log_tail <- "(log file not found yet)"
+      if (path_is_valid(log_path)) {
+        log_tail <- utils::tail(readLines(log_path, warn = FALSE), 30)
+      }
+      out <- c(
+        sprintf("state=%s", state),
+        sprintf("script=%s", script_path),
+        sprintf("log=%s", log_path),
+        "log_tail:",
+        log_tail
+      )
+      cat(out, sep = "\n")
+      out
+    }
+  )
+
+  # Read-only: what each step has produced for the loaded subject, so agents
+  # know what is imported, re-aligned, preprocessed, and co-registered
+  server_tools$set_script(
+    name = "imaging_status",
+    description = c(
+      "Read-only. For the loaded subject: the imaging folder; imported MRI and",
+      "CT files (import a type only when it shows 'none'; otherwise ask the user);",
+      "the ACPC save (when saved, use only `MRI_acpc.nii.gz` for MRI preprocessing",
+      "and co-registration); the FreeSurfer folder and last reconstruction; YAEL",
+      "normalization; the last co-registration (program, CT, MR image, time; electrode",
+      "localization depends on it); the MR image choices; the programs found; the",
+      "FreeSurfer version and the computer's memory (FreeSurfer 7.x needs 16 GB of",
+      "RAM, 8.x needs 32 GB); the computer RAVE runs on; and the latest reports."
+    ),
+    expr = {
+      subject <- pipeline$read("subject")
+      imaging_path <- subject$imaging_path
+      fmt <- function(x) {
+        if (length(x)) { paste(x, collapse = ", ") } else { "none" }
+      }
+      list_nii <- function(...) {
+        path <- file.path(imaging_path, ...)
+        if (!dir.exists(path)) { return(character(0L)) }
+        list.files(path, pattern = "\\.nii(\\.gz)?$", ignore.case = TRUE)
+      }
+      read_conf <- function(name) {
+        path <- file.path(imaging_path, "derivative", name)
+        if (!file.exists(path)) { return(NULL) }
+        tryCatch(ravepipeline::load_yaml(path), error = function(e) { list() })
+      }
+      conf_acpc <- read_conf("conf-acpc.yaml")
+      conf_recon <- read_conf("conf-reconstruction.yaml")
+      conf_coreg <- read_conf("conf-coregistration.yaml")
+
+      acpc <- "none"
+      if (!is.null(conf_acpc)) {
+        acpc <- sprintf("saved %s from %s; use only MRI_acpc.nii.gz",
+                        paste(conf_acpc$timestamp, collapse = ""),
+                        basename(paste(conf_acpc$input_image$path, collapse = "")))
+      }
+
+      fs_path <- subject$freesurfer_path
+      fs_folder <- "none"
+      if (path_is_valid(fs_path, dir_ok = TRUE)) {
+        fs_ready <- isTRUE(threeBrain::check_freesurfer_path(
+          fs_path, autoinstall_template = FALSE,
+          check_volume = TRUE, check_surface = FALSE))
+        fs_folder <- sprintf("%s (%s)", fs_path,
+                             if (fs_ready) "volumes found" else "incomplete")
+      }
+      recon <- "none"
+      if (!is.null(conf_recon)) {
+        recon <- sprintf("%s %s at %s",
+                         paste(conf_recon$command$execute, collapse = ""),
+                         trimws(paste(conf_recon$command$arguments, collapse = "")),
+                         paste(conf_recon$timestamp, collapse = ""))
+      }
+
+      coreg <- "none"
+      if (!is.null(conf_coreg)) {
+        args <- conf_coreg$command$arguments
+        args <- paste(sprintf("%s=%s", names(args), unlist(args)), collapse = " ")
+        coreg <- sprintf("%s (%s) CT %s, MR image %s, at %s",
+                         paste(conf_coreg$command$execute, collapse = ""), args,
+                         basename(paste(conf_coreg$input_image$path, collapse = "")),
+                         basename(paste(conf_coreg$reference_image$path, collapse = "")),
+                         paste(conf_coreg$timestamp, collapse = ""))
+      }
+
+      cmd_tools <- pipeline$read("cmd_tools")
+      tool_path <- function(x) {
+        x <- paste(x[!is.na(x)], collapse = "")
+        if (nzchar(x)) { x } else { "not found" }
+      }
+      fs_home <- paste(cmd_tools$freesurfer[!is.na(cmd_tools$freesurfer)], collapse = "")
+      fs_version <- NA_character_
+      if (nzchar(fs_home)) {
+        stamp <- file.path(fs_home, "build-stamp.txt")
+        hint <- basename(fs_home)
+        if (file.exists(stamp)) {
+          hint <- c(paste(readLines(stamp, warn = FALSE), collapse = " "), hint)
+        }
+        found <- regmatches(hint, regexpr("[0-9]+\\.[0-9]+\\.[0-9]+", hint))
+        if (length(found)) { fs_version <- found[[1]] }
+      }
+      ram_gb <- tryCatch(
+        as.numeric(dipsaus::mem_limit2()$total) / 1024^3,
+        error = function(e) { NA_real_ }
+      )
+      fs_needs_gb <- switch(substr(paste(fs_version), 1, 1), "7" = 16, "8" = 32, NA_real_)
+      memory <- sprintf("%.0f GB", ram_gb)
+      if (!is.na(fs_needs_gb) && !is.na(ram_gb)) {
+        memory <- sprintf("%s; FreeSurfer %s needs %.0f GB: %s", memory, fs_version, fs_needs_gb,
+                          if (ram_gb >= fs_needs_gb - 0.5) "enough" else "short")
+      }
+
+      out <- c(
+        sprintf("subject=%s", subject$subject_id),
+        sprintf("imaging_path=%s", imaging_path),
+        sprintf("rave_computer=%s (%s)", Sys.info()[["nodename"]], Sys.info()[["sysname"]]),
+        sprintf("imported_mri=%s", fmt(list_nii("inputs", "MRI"))),
+        sprintf("imported_ct=%s", fmt(list_nii("inputs", "CT"))),
+        sprintf("acpc=%s", acpc),
+        sprintf("freesurfer_folder=%s", fs_folder),
+        sprintf("reconstruction=%s", recon),
+        sprintf("yael_normalization=%s",
+                if (dir.exists(file.path(imaging_path, "normalization"))) "present" else "none"),
+        sprintf("coregistration=%s", coreg),
+        sprintf("mr_image_choices=%s", fmt(list_nii("derivative"))),
+        sprintf("dcm2niix=%s", tool_path(cmd_tools$dcm2niix)),
+        sprintf("freesurfer=%s (version %s)", tool_path(cmd_tools$freesurfer), fs_version),
+        sprintf("fsl_flirt=%s", tool_path(cmd_tools$flirt)),
+        sprintf("afni=%s", tool_path(cmd_tools$afni)),
+        sprintf("memory=%s", memory),
+        report_status_line("coregistration"),
+        report_status_line("normalization")
+      )
+      cat(out, sep = "\n")
+      out
+    }
+  )
+
   shiny::bindEvent(
     ravedash::safe_observe({
       # cmd1 <- res$import_T1
@@ -578,8 +857,23 @@ module_server <- function(input, output, session, ...) {
     input$btn_dcm2niix_copy,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "import_t1",
+    description = c(
+      "Same as clicking 'Run from RAVE (T1 MRI)': imports the raw T1 MRI chosen in the",
+      "loader (`mri_path`) into the subject's imaging `inputs/MRI` folder (a NIfTI",
+      "file is copied; a DICOM folder is converted with dcm2niix, using",
+      "`param_dcm2niix_merge`, `param_dcm2niix_float`, `param_dcm2niix_crop`, and",
+      "replaces every image imported before). Importing confirms the image for",
+      "the rest of the pipeline: run it only when the subject has no imported",
+      "MRI yet (script `imaging_status`), and only after the user confirms;",
+      "otherwise ask the user to import. Starts a background job and a log",
+      "dialog; output: the log file. Poll script `command_status` until it",
+      "reports 'finished', read the log, then close the dialog (`shiny_ui_operate`",
+      "click `dismiss_modal`) and refresh the file lists (`param_fs_refresh`,",
+      "`param_coreg_refresh`). An error before the job starts is printed."
+    ),
+    expr = {
       # cmd1 <- res$import_T1
       cmd <- local_reactives$bash_scripts$import_T1
       if (isTRUE(cmd$error)) {
@@ -589,12 +883,36 @@ module_server <- function(input, output, session, ...) {
       ravepipeline::logger("Running dcm2niix from console - Importing T1 MRI", level = "info")
 
       run_command_pipeline(cmd = cmd, wait = FALSE, title = "Importing T1")
+
+      out <- c(sprintf("started=%s", "Importing T1"), sprintf("log=%s", cmd$log_file))
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("import_t1")
     }),
     input$btn_dcm2niix_run_t1,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "import_ct",
+    description = c(
+      "Same as clicking 'Run from RAVE (CT)': imports the raw CT chosen in the",
+      "loader (`ct_path`) into the subject's imaging `inputs/CT` folder (a NIfTI",
+      "file is copied; a DICOM folder is converted with dcm2niix, using",
+      "`param_dcm2niix_merge`, `param_dcm2niix_float`, `param_dcm2niix_crop`, and",
+      "replaces every image imported before). Importing confirms the image for",
+      "the rest of the pipeline: run it only when the subject has no imported",
+      "CT yet (script `imaging_status`), and only after the user confirms;",
+      "otherwise ask the user to import. Starts a background job and a log",
+      "dialog; output: the log file. Poll script `command_status` until it",
+      "reports 'finished', read the log, then close the dialog (`shiny_ui_operate`",
+      "click `dismiss_modal`) and refresh the file lists (`param_fs_refresh`,",
+      "`param_coreg_refresh`). An error before the job starts is printed."
+    ),
+    expr = {
       # cmd1 <- res$import_T1
       cmd <- local_reactives$bash_scripts$import_CT
       if (isTRUE(cmd$error)) {
@@ -604,14 +922,38 @@ module_server <- function(input, output, session, ...) {
       ravepipeline::logger("Running dcm2niix from console - Importing CT", level = "info")
 
       run_command_pipeline(cmd = cmd, wait = FALSE, title = "Importing CT")
+
+      out <- c(sprintf("started=%s", "Importing CT"), sprintf("log=%s", cmd$log_file))
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("import_ct")
     }),
     input$btn_dcm2niix_run_ct,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "save_mri_preprocessing_script",
+    description = c(
+      "Same as clicking 'Save & run by yourself' in 'MRI Preprocessing': saves the",
+      "script for the command in `param_fs_prog` on the MRI in `param_fs_infile`",
+      "and returns the one-line terminal command. Runs nothing. Inputs are",
+      "rebuilt 0.3 s after a change: check that `program` and `mri` in the output",
+      "are what you set. Recommend `YAEL+recon-all` (or `YAEL-only` when",
+      "FreeSurfer is not needed or memory is short: FreeSurfer 7.x needs 16 GB of",
+      "RAM, 8.x needs 32 GB; see `imaging_status`). Never run the command inside",
+      "RAVE: only in a separate terminal on the computer that runs RAVE, if you",
+      "have one; otherwise give the command to the user. Never run it when",
+      "`fresh_start` is TRUE ('Remove existing work' ticked by a person). MRI",
+      "preprocessing and co-registration may run in either order or at the same",
+      "time, once the images are imported (and ACPC saved, when used)."
+    ),
+    expr = {
       # cmd <- res$image_segmentation
       # cmd2 <- res$import_CT
       cmd <- local_reactives$bash_scripts$image_segmentation
@@ -642,6 +984,21 @@ module_server <- function(input, output, session, ...) {
         icon = ravedash::shiny_icons$terminal
       )
 
+      built <- local_reactives$bash_scripts$params
+      out <- c(
+        sprintf("program=%s", trimws(paste(built$segmentation$program, built$segmentation$flag))),
+        sprintf("mri=%s", paste(built$nii_t1, collapse = "")),
+        sprintf("fresh_start=%s", isTRUE(built$segmentation$fresh_start)),
+        sprintf("script=%s", cmd$script_path),
+        sprintf("command=%s", script)
+      )
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("save_mri_preprocessing_script")
     }),
     input$btn_recon_copy,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -660,8 +1017,19 @@ module_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "save_coregistration_script",
+    description = c(
+      "Same as clicking 'Save & run by yourself' in 'Co-registration CT and T1':",
+      "saves the script for the program in `coreg_ct_program` (with its",
+      "parameters, the CT `param_coreg_ct` and the MR image `param_coreg_mri`) and",
+      "returns the one-line terminal command. Runs nothing. Use it for img_pipe,",
+      "FSL and AFNI, which agents never run from RAVE: run the command only in a",
+      "separate terminal on the computer that runs RAVE, if you have one;",
+      "otherwise give it to the user. The MR image must be the same image as MRI",
+      "preprocessing's input (`MRI_RAW`, or `MRI_acpc.nii.gz` with ACPC)."
+    ),
+    expr = {
       program <- paste(input$coreg_ct_program, collapse = "")
       cmd <- switch(
         program,
@@ -711,13 +1079,44 @@ module_server <- function(input, output, session, ...) {
         icon = ravedash::shiny_icons$terminal
       )
 
+      built <- local_reactives$bash_scripts$params
+      out <- c(
+        sprintf("program=%s", program),
+        sprintf("ct=%s", paste(built$nii_ct, collapse = "")),
+        sprintf("mr_image=%s", paste(built$nipy$reference, collapse = "")),
+        sprintf("script=%s", cmd$script_path),
+        sprintf("command=%s", script)
+      )
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("save_coregistration_script")
     }, error_wrapper = "notification"),
     input$btn_coreg_copy,
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "run_coregistration",
+    description = c(
+      "Same as clicking 'Run from RAVE' in 'Co-registration CT and T1': aligns the",
+      "CT (`param_coreg_ct`) to the MR image (`param_coreg_mri`) with the program",
+      "in `coreg_ct_program` and its parameters, in a background job with a log",
+      "dialog. Agents may run only `ANTs` (recommended, 1-2 min) or `NiftyReg`",
+      "(5-10 min), and only after the user confirms; for other programs use",
+      "`save_coregistration_script`. The MR image must be the same image as MRI",
+      "preprocessing's input (`MRI_RAW`, or `MRI_acpc.nii.gz` with ACPC). It",
+      "replaces the subject's previous co-registration, on which existing electrode",
+      "localization may depend: tell the user when one exists (`imaging_status`).",
+      "Output: the program and the log file. Poll script `command_status` until",
+      "'finished', read the log, close the dialog (`shiny_ui_operate` click",
+      "`dismiss_modal`), and check `imaging_status`. The ANTs script installs ANTs",
+      "when it is missing. An error before the job starts is printed."
+    ),
+    expr = {
       program <- paste(input$coreg_ct_program, collapse = "")
       native <- FALSE
       switch(
@@ -783,6 +1182,15 @@ module_server <- function(input, output, session, ...) {
       } else {
         run_command_pipeline(cmd = cmd, wait = FALSE, title = bin)
       }
+
+      out <- c(sprintf("started=%s", bin), sprintf("log=%s", cmd$log_file))
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("run_coregistration")
     }),
     input$btn_coreg_run,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1182,8 +1590,20 @@ module_server <- function(input, output, session, ...) {
 
 
   # ACPC alignment
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "start_acpc_viewer",
+    description = c(
+      "Same as clicking 'Start re-alignment': loads the MRI in `param_acpc_infile`",
+      "into the ACPC viewer (`acpc_3dviewer`). Open the card first (click",
+      "`jump_acpc_realign`): the viewer draws only while the card is expanded.",
+      "Then coach the person: in the viewer's controls, 'Click to Register/Reset",
+      "AC', move the crosshair onto the anterior commissure, 'Confirm Updating",
+      "AC'; the same for PC; optionally 'Click to Set/Reset Rotation' and",
+      "'Confirm Updating Rotation'. Never place AC/PC yourself. Follow progress",
+      "with `shiny_query_ui` on `#yael_preprocess-acpc_results`. Fails ('Invalid",
+      "file ... for ACPC alignment') when `param_acpc_infile` is empty."
+    ),
+    expr = {
       mri_file <- input$param_acpc_infile
       if (!length(mri_file)) {
         stop("No MRI file specified. Please select one.")
@@ -1208,6 +1628,18 @@ module_server <- function(input, output, session, ...) {
       )
       results <- pipeline$eval("viewer_acpc")
       local_reactives$viewer_acpc <- results$viewer_acpc
+
+      out <- c(
+        sprintf("viewer=%s", mri_file),
+        "next=open the card (`jump_acpc_realign`) and coach the person to place AC and PC"
+      )
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("start_acpc_viewer")
     }, error_wrapper = "notification"),
     input$param_acpc_start,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1271,8 +1703,20 @@ module_server <- function(input, output, session, ...) {
     ignoreNULL = TRUE, ignoreInit = TRUE
   )
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  server_tools$set_script(
+    name = "save_acpc",
+    description = c(
+      "Same as clicking 'Save ACPC alignment results.' (shown once AC and PC are",
+      "set): saves the ACPC-aligned MRI as `MRI_acpc.nii.gz` (in the imaging",
+      "`inputs/MRI` and `derivative` folders) and the scanner-to-ACPC transform.",
+      "Run it only after the person says AC and PC are placed and confirms the",
+      "save. Fails with 'Anterior commissure is unset' or 'Posterior commissure",
+      "is unset'. Ends with the alert 'Done!' (close it with `shiny_ui_operate`",
+      "action `close_alert2`). From then on use only `MRI_acpc.nii.gz`, for MRI",
+      "preprocessing (`param_fs_infile`) and as co-registration MR image",
+      "(`param_coreg_mri`, after `param_coreg_refresh`)."
+    ),
+    expr = {
       acpc <- local_reactives$acpc_alignment
       if (!is.list(acpc) || !isTRUE(acpc$ac_set)) {
         stop("Anterior commissure is unset. Please set the position of AC.")
@@ -1312,14 +1756,15 @@ module_server <- function(input, output, session, ...) {
 
       # save
       ieegio::io_write_nii(x = orig[], con = path_acpc_img, vox2ras = sform, gzipped = TRUE)
-      file.copy(path_acpc_img, file.path(path_root, "inputs", "MRI", "MRI_acpc.nii.gz"))
+      file.copy(path_acpc_img, file.path(path_root, "inputs", "MRI", "MRI_acpc.nii.gz"),
+                overwrite = TRUE)
       utils::write.table(acpc$ras2acpc, file = path_acpc_trans,
                          row.names = FALSE, col.names = FALSE)
 
       # Backup
       bkuppath_acpc_img <- file.path(path_deriv, "MRI_acpc.nii.gz")
       bkuppath_acpc_trans <- file.path(path_deriv, "MR_Scanner_to_MR_ACPC.txt")
-      file.copy(path_acpc_img, bkuppath_acpc_img)
+      file.copy(path_acpc_img, bkuppath_acpc_img, overwrite = TRUE)
       utils::write.table(acpc$ras2acpc, file = bkuppath_acpc_trans,
                          row.names = FALSE, col.names = FALSE)
 
@@ -1369,6 +1814,19 @@ module_server <- function(input, output, session, ...) {
         text = "ACPC alignment results saved to rave-imaging derivatives folder."
       )
       update_nii_t1()
+
+      out <- c(
+        sprintf("saved=%s", file.path(path_root, "inputs", "MRI", "MRI_acpc.nii.gz")),
+        sprintf("transform=%s", path_acpc_trans),
+        "next=use MRI_acpc.nii.gz for MRI preprocessing and co-registration (refresh the lists)"
+      )
+      cat(out, sep = "\n")
+      out
+    }
+  )
+  shiny::bindEvent(
+    ravedash::safe_observe({
+      server_tools$trigger_script("save_acpc")
     }),
     input$acpc_save,
     ignoreNULL = TRUE, ignoreInit = TRUE

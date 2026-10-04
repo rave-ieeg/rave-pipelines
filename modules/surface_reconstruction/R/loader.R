@@ -138,12 +138,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
           ),
 
           footer = shiny::tagList(
-            dipsaus::actionButtonStyled(
-              inputId = ns("loader_ready_btn"),
-              label = "Check data and command-line tools",
-              type = "primary",
-              width = "100%"
-            )
+            ravedash::load_data_button(label = "Check data and command-line tools", width = "100%")
           )
         )
       )
@@ -269,8 +264,13 @@ loader_server <- function(input, output, session, ...) {
   register_file_uploader(type = "mri", title = "Upload presurgery MRI")
   register_file_uploader(type = "ct", title = "Upload post-implant CT")
 
-  shiny::bindEvent(
-    ravedash::safe_observe({
+  # Check the data and command-line tools, then ask the user to confirm;
+  # runs when `ravedash::load_data_button()` is clicked, or through
+  # `server_tools$trigger_script("load_data")` (e.g. from MCP tools)
+  server_tools <- ravedash::get_default_handlers(session = session)
+  server_tools$set_script(
+    "load_data",
+    {
       # gather information from preset UIs
       settings <- component_container$collect_settings(
         ids = c(
@@ -293,92 +293,65 @@ loader_server <- function(input, output, session, ...) {
         .list = settings
       )
 
-      res <- pipeline$run(
-        as_promise = TRUE,
+      pipeline$run(
         names = "check_result",
         type = "vanilla",
         scheduler = "none"
       )
 
-      res$promise$then(
+      check_result <- pipeline$read("check_result")
+      cmd_tools <- pipeline$read("cmd_tools")
 
-        # When data can be imported
-        onFulfilled = function(e) {
-
-          check_result <- pipeline$read("check_result")
-          cmd_tools <- pipeline$read("cmd_tools")
-
-          msg_ui <- NULL
-          warn_ui <- NULL
-          if (length(check_result$messages)) {
-            msg_ui <- shiny::tagList(
-              shiny::p("The following pipeline will run:"),
-              shiny::tags$ul(
-                lapply(check_result$messages, shiny::tags$li)
-              )
-            )
-          }
-
-          if (length(check_result$warnings)) {
-            warn_ui <- shiny::tagList(
-              shiny::p("Please check the following warnings:"),
-              shiny::tags$ul(
-                lapply(check_result$warnings, shiny::tags$li)
-              )
-            )
-          }
-          cmd_ui <- shiny::tagList(
-            shiny::p("External commandline paths. "),
-            shiny::tags$ul(
-              shiny::tags$li(shiny::strong("dcm2niix"), ": ", paste(cmd_tools$dcm2niix, collapse = "")),
-              shiny::tags$li(shiny::strong("FreeSurfer"), ": ", paste(cmd_tools$freesurfer, collapse = "")),
-              shiny::tags$li(shiny::strong("FSL-flirt"), ": ", paste(cmd_tools$flirt, collapse = "")),
-              shiny::tags$li(shiny::strong("AFNI"), ": ", paste(cmd_tools$afni, collapse = ""))
-            )
+      msg_ui <- NULL
+      warn_ui <- NULL
+      if (length(check_result$messages)) {
+        msg_ui <- shiny::tagList(
+          shiny::p("The following pipeline will run:"),
+          shiny::tags$ul(
+            lapply(check_result$messages, shiny::tags$li)
           )
+        )
+      }
 
-          dipsaus::close_alert2()
-
-          shiny::showModal(shiny::modalDialog(
-            title = "Confirmation",
-            size = "l",
-            shiny::p("Please confirm the to-do list and carefully read warnings. ",
-                     "Please read warnings ",
-                     "that have statements such as ",
-                     '"the script will fail/error".'),
-            msg_ui,
-            warn_ui,
-            cmd_ui,
-
-            footer = shiny::tagList(
-              shiny::modalButton("Cancel"),
-              dipsaus::actionButtonStyled(ns("loader_ready_btn2"), "Proceed")
-            )
-          ))
-
-        },
-
-
-        # this is what should happen when pipeline fails
-        onRejected = function(e) {
-
-          dipsaus::close_alert2()
-
-          # Immediately open a new alert showing the error messages
-          dipsaus::shiny_alert2(
-            title = "Errors",
-            text = paste(
-              "Found an error while checking the path/data:\n\n",
-              paste(e$message, collapse = "\n")
-            ),
-            icon = "error",
-            danger_mode = TRUE,
-            auto_close = FALSE
+      if (length(check_result$warnings)) {
+        warn_ui <- shiny::tagList(
+          shiny::p("Please check the following warnings:"),
+          shiny::tags$ul(
+            lapply(check_result$warnings, shiny::tags$li)
           )
-        }
+        )
+      }
+      cmd_ui <- shiny::tagList(
+        shiny::p("External commandline paths. "),
+        shiny::tags$ul(
+          shiny::tags$li(shiny::strong("dcm2niix"), ": ", paste(cmd_tools$dcm2niix, collapse = "")),
+          shiny::tags$li(shiny::strong("FreeSurfer"), ": ", paste(cmd_tools$freesurfer, collapse = "")),
+          shiny::tags$li(shiny::strong("FSL-flirt"), ": ", paste(cmd_tools$flirt, collapse = "")),
+          shiny::tags$li(shiny::strong("AFNI"), ": ", paste(cmd_tools$afni, collapse = ""))
+        )
       )
-    }),
-    input$loader_ready_btn, ignoreNULL = TRUE, ignoreInit = TRUE
+
+      shiny::showModal(shiny::modalDialog(
+        title = "Confirmation",
+        size = "l",
+        shiny::p("Please confirm the to-do list and carefully read warnings. ",
+                 "Please read warnings ",
+                 "that have statements such as ",
+                 '"the script will fail/error".'),
+        msg_ui,
+        warn_ui,
+        cmd_ui,
+
+        footer = shiny::tagList(
+          shiny::modalButton("Cancel"),
+          dipsaus::actionButtonStyled(ns("loader_ready_btn2"), "Proceed")
+        )
+      ))
+    },
+    binding_event = "load_data",
+    # No `dispatch_event`: the data are loaded once the user clicks
+    # "Proceed" in the confirmation (`input$loader_ready_btn2`)
+    alert_params = list(title = "Checking data and command-line tools")
   )
 
   shiny::bindEvent(

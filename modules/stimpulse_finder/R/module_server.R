@@ -163,12 +163,12 @@ module_server <- function(input, output, session, ...) {
   }
 
   # get server tools to tweak
-  server_tools <- get_default_handlers(session = session)
+  server_tools <- ravedash::get_default_handlers(session = session)
 
-  # Register event: main pipeline need to run
-  shiny::bindEvent(
-    ravedash::safe_observe({
-
+  # Register event: main pipeline need to run; runs when the run-analysis
+  # button is clicked, or through `server_tools$trigger_script("run_analysis")`
+  server_tools$set_script("run_analysis", {
+    ravedash::with_error_notification({
       loaded_signals <- pipeline["loaded_signals"]
 
       epoch_tables <- lapply(loaded_signals, function(arr) {
@@ -222,11 +222,8 @@ module_server <- function(input, output, session, ...) {
       ))
 
       return()
-
-    }, error_wrapper = "notification"),
-    server_tools$run_analysis_flag(),
-    ignoreNULL = TRUE, ignoreInit = TRUE
-  )
+    })
+  })
 
   shiny::bindEvent(
     ravedash::safe_observe({
