@@ -157,12 +157,11 @@ parameters:
       slices, electrode display, data display) and the background; other
       controllers (e.g. `Voxel Type`) reset. `reset_viewer` and `load_data`
       reset every controller.
-    - Confirm changes by reading them back with `rave_3dviewer_get`. The
-      viewer reports its camera only after the user drags it, and pictures
-      from `shiny_query_ui` leave the 3D view blank: after
-      `rave_3dviewer_set(name = "camera")`, tell the user what you changed and
-      ask them to check the view. Re-generating restores the last dragged
-      camera.
+    - Confirm changes by reading them back with `rave_3dviewer_get`, or with
+      a picture of the viewer from `shiny_query_ui` (css selector
+      `#custom_3d_viewer-viewer`). The viewer reports its camera only after
+      the user drags it: after `rave_3dviewer_set(name = "camera")`, check the
+      view with a picture. Re-generating restores the last dragged camera.
 
     ## Guidelines
     - Do NOT make up things. Check references.

@@ -80,8 +80,9 @@ Allowed without asking:
     newer). To adopt them, enable both in `agents.yaml` (`get`: exploratory;
     `set`: executing, so no approval per call) and name the viewer's
     `outputId` (e.g. `viewer`) in the manual and system prompt. The viewer
-    reports its camera only after a mouse drag, and `shiny_query_ui` pictures
-    leave the 3D view blank. To add a `name`, add an entry to the tool file's
+    reports its camera only after a mouse drag; a `shiny_query_ui` picture of
+    the viewer shows the 3D view (`shidashi` 0.2.0.14 and `threeBrain`
+    1.3.0.64 or newer). To add a `name`, add an entry to the tool file's
     `rave_3dviewer_getters` or `rave_3dviewer_setters` list
   * `switch_module` (a shidashi meta tool, MCP only: the in-app chat does
     not have it, and it needs no `agents.yaml` entry): shows a module in the

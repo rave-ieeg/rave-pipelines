@@ -421,8 +421,8 @@ Both tools take `outputId = "viewer"`. `args` and `data` are JSON objects.
   Values are checked first (an error changes nothing); read them back after
   about 0.5 s. Standard views: `'{"Camera Position": "left"}'`.
 * Camera: `name = "camera"`, `data = '{"position": [0, 500, 0], "up": [0, 0, 1], "zoom": 1.5}'`.
-  The viewer does not report this back, and pictures from `shiny_query_ui`
-  leave the 3D view blank: tell the user what changed and ask them to check.
+  The viewer does not report this back: check the view with a picture,
+  `tool("tool__shiny_query_ui", css_selector = "#custom_3d_viewer-viewer")`.
 * Crosshair: `name = "crosshair"`, `data = '{"position": [-40, 10, 20], "space": "MNI152"}'`
   (`space`: `scanner` by default, `tkrRAS`, `MNI305`, `MNI152`, `CRS`). Read it
   with `rave_3dviewer_get(name = "crosshair", args = '{"space": "all"}')`.

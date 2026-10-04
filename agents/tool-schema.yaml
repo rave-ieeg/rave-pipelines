@@ -175,8 +175,8 @@ tools:
     {"position": [x, y, z], "space": "scanner"} moves the slice crosshair;
     space is "scanner" (default), "tkrRAS", "MNI305", "MNI152", or "CRS".
     Nothing is saved, and a module that re-renders its viewer may reset it.
-    Check the result with `rave_3dviewer_get` (pictures from `shiny_query_ui`
-    leave the 3D view blank).
+    Check the result with `rave_3dviewer_get`, or with a picture of the viewer
+    from `shiny_query_ui`.
   inputSchema:
     type: object
     properties:

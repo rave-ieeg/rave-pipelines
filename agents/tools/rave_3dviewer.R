@@ -562,8 +562,8 @@ rave_3dviewer_setters <- list(
         note = c(note, paste(
           "The viewer applies these after this call returns and reports its",
           "controllers within about 0.5 s: read them back with",
-          "`rave_3dviewer_get(name = \"controllers\")`. (`shiny_query_ui`",
-          "cannot show the 3D view: its pictures leave the brain blank.)"
+          "`rave_3dviewer_get(name = \"controllers\")`, or look at a picture",
+          "of the viewer from `shiny_query_ui`."
         ))
       )
     }
@@ -614,8 +614,8 @@ rave_3dviewer_setters <- list(
           "The viewer does not report camera changes made by this tool:",
           "`rave_3dviewer_get(name = \"camera\")` keeps the camera a person",
           "last dragged to, and a module that re-renders the viewer may restore",
-          "that camera. Pictures from `shiny_query_ui` leave the 3D view blank,",
-          "so tell the user what you changed and ask them to check the view."
+          "that camera. Check the view with a picture of the viewer from",
+          "`shiny_query_ui`."
         )
       )
     }
@@ -687,8 +687,8 @@ rave_3dviewer_set <- shidashi::mcp_wrapper(
         "\"scanner\"} moves the slice crosshair; space is \"scanner\" (default),",
         "\"tkrRAS\", \"MNI305\", \"MNI152\", or \"CRS\". Nothing is saved, and a",
         "module that re-renders its viewer may reset it. Check the result with",
-        "`rave_3dviewer_get` (pictures from `shiny_query_ui` leave the 3D view",
-        "blank)."
+        "`rave_3dviewer_get`, or with a picture of the viewer from",
+        "`shiny_query_ui`."
       ),
       arguments = list(
         outputId = ellmer::type_string(

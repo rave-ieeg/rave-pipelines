@@ -14,12 +14,14 @@ shidashi, SVG capture, `stream_viz`, `npm run build`). Still to check by hand:
 
 ## MCP support for modules
 
-Each module's design and decisions are in `modules/<id>/plan-mcp_support.md`;
-the agent manuals are in `agents/skills/rave-module/references/<id>.md`.
+What was done per module, the deviations, and what is open are below. The
+agent manuals are in `agents/skills/rave-module/references/<id>.md`.
+power_explorer, custom_3d_viewer, and compatibility_rave1 also keep their
+plans in `modules/<id>/plan-mcp_support.md`.
 
 | Module | Status |
 |---|---|
-| notch_filter, reference_module, wavelet_module, custom_3d_viewer, compatibility_rave1, power_explorer | Done and committed (see their plans) |
+| notch_filter, reference_module, wavelet_module, custom_3d_viewer, compatibility_rave1, power_explorer | Done and committed |
 | power_clust, voltage_clust, voltage_explorer, project_overview | Done and tested live on 2026-10-02; **not committed** |
 | configure_rave, connectivity_viewer, electrode_localization, epoch_generator, generate_surface_atlas, group_3d_viewer, import_bids, import_lfp_native, import_signals, jupyterlab, standalone_report, standalone_viewer, stimpulse_finder, surface_reconstruction, trace_viewer, yael_preprocess | No MCP support yet (no `agents.yaml`) |
 
@@ -70,6 +72,41 @@ Open:
   project" dialogs (`presets_loader_subject`, `presets_import_setup_native`)
   say "...; only the user may create subjects."
 
+### Report style sheet warning (2026-10-02)
+
+Every report from a module that ships `report_styles.css` logged pandoc's
+"Could not fetch resource report_styles.css". The affected modules are
+electrode_localization, notch_filter, power_explorer, project_overview,
+voltage_explorer, and yael_preprocess. Each report also kept a link to that
+file, which browsers could not load (a 404). The styles were applied all
+along.
+
+Cause: ravepipeline's `pipeline_report_generate()` passed the style sheet
+twice. The dependency copy, given by absolute path, was embedded. The `css`
+output option, a path relative to the pipeline folder, was not: rmarkdown runs
+pandoc in `intermediates_dir`, which has no copy of the file. This started
+with ravepipeline `36dc248` (2025-08-21).
+
+Done (ravepipeline, uncommitted):
+- Removed the `css` option. Only the dependency copy remains, in the same
+  place in the page, so reports look the same.
+- New test `tests/testthat/test-pipeline-report.R`. It failed before the fix
+  and passes now; the whole suite passes.
+- A `NEWS.md` entry, and version 0.2.0.10.
+- Checked live with project_overview's export on port 17299, running 0.2.0.10
+  from a scratch library:
+  - no warning in the job's output;
+  - the zipped `report.html` embeds the style sheet once and links nothing
+    else.
+
+Reports made before the fix keep the dead link. It is harmless, and they
+were not rewritten.
+
+Open:
+- [ ] Install ravepipeline 0.2.0.10 into the main library and commit. Restart
+  running apps and R consoles after installing: a package reinstalled under a
+  session that has it loaded breaks that session's later lazy loads.
+
 ### power_clust (Power Clustering)
 
 Done:
@@ -95,7 +132,7 @@ Deviations from the plan, and solutions:
 
 Open:
 - [ ] "or Mask file" (`loader_mask_file`) is not read anywhere.
-- [ ] Tab title typo "Diagnosic plots" (visible; not changed).
+- [ ] Tab title typo "Diagnostic plots" (visible; not changed).
 
 ### voltage_clust (ERP Clustering)
 
@@ -116,7 +153,7 @@ Open:
 - [ ] The settings download is named `pipeline-power_clust-settings.yaml`.
 - [ ] `main.Rmd` passes `frequency_range`, which its settings do not have,
   into `...` (unused).
-- [ ] "or Mask file" is unused; "Diagnosic plots" typo.
+- [ ] "or Mask file" is unused; "Diagnostic plots" typo.
 
 ### voltage_explorer (Voltage Explorer)
 
@@ -134,6 +171,13 @@ Done:
 - New read-only `pipeline_progress`; a `run_analysis` result.
 - `agents.yaml`, the manual, and `test-mcp.R`. One report was written to
   `demo/DemoSubject/reports/report-univariateVoltage_datetime-261001T233513_voltage_explorer/`.
+- 2026-10-03: an emptied or unknown colormap name no longer closes the
+  session (the nine plot-option reactives are `ravedash::safe_reactive()` over
+  `use_preference_input()`, which keeps the stored value); the CRP-parameter
+  heatmap drops its summary bars and slims its legend instead of erroring on
+  narrow figures; `test-mcp.R` gained the emptied-colormap step (passed live,
+  `do_write = FALSE`). Needs ravedash >= 0.1.3.55 and shidashi >= 0.2.0.13
+  (non-clearable `colormapSelectInput`).
 
 Deviations from the plan, and solutions:
 - **Preferences** live in RAVE's global store
@@ -147,14 +191,29 @@ Deviations from the plan, and solutions:
   (cue "always"): the metrics are rebuilt only when their inputs change.
 
 Open:
-- [ ] A band-pass with one cutoff shows people a red "Coding Error"
+- [x] A band-pass with one cutoff shows people a red "Coding Error"
   notification with the reason. This is ravedash's default for the Run
-  Analysis observer; decide whether to keep it.
-- [ ] `with_selector_filter_column()` prints the whole table on every viewer
+  Analysis observer; decide whether to keep it. Fixed on 2026-10-02:
+  - **Notification:** known filter-input problems now show a red
+    notification, "Invalid filter settings", that says what to change:
+    - one cutoff: "A band-pass filter requires two cutoff frequencies.
+      Please enter both, or choose a low-pass or high-pass filter if only one
+      cutoff is needed.";
+    - a cutoff out of range: the message names the bound.
+  - **How:** `stop_filter_input()` in `R/module_server.R` shows the
+    notification, then stops with the same message as a `rave_muffled`
+    error, so ravedash shows nothing else. Agents get the message as the
+    script's error. The same applies to "Inspect combined filter".
+  - **Checked live:** `test-mcp.R` covers the agent run and a footer click
+    (no "Coding Error"), before and after the fix.
+- [x] `with_selector_filter_column()` prints the whole table on every viewer
   update (`print(erp_tbl)`).
-- [ ] `DESCRIPTION` still has a placeholder Title and Description.
-- [ ] `R/shared-filters.R` has another session's uncommitted filearray
-  partition fix (see `BUGS.md`); it was not touched.
+- [x] `DESCRIPTION` still has a placeholder Title and Description. Filled in
+  (Title, author, Description, BugReports, as in the other modules). A new
+  `CITATION` cites RAVE and the CRP method (Miller et al., 2023,
+  doi:10.1371/journal.pcbi.1011105).
+- [X] `R/shared-filters.R` has another session's uncommitted filearray
+  partition fix (see `BUGS.md`); it was not touched (Fix is done, no touch).
 
 ### project_overview (Project Overview)
 
@@ -198,6 +257,20 @@ Open:
   run; restore it if that was not intended. (I will sanitize settings.yaml. do NOT report settings.yaml issues unless the input specs are changed, not the value. Otherwise the text is annoying)
 - [x] The module's own `TODO.md` describes an older design, and
   `SKILL_draft.md` is a guide to writing `main.Rmd`. (leave it. The file is there no harm)
-- [ ] Packaging warns "Could not fetch resource report_styles.css". The
+- [x] Packaging warns "Could not fetch resource report_styles.css". The
   copied power_explorer reports under `build/module_reports/` link a
-  stylesheet that is not next to them (This is a bug).
+  stylesheet that is not next to them (This is a bug). Fixed in
+  ravepipeline; see "Report style sheet warning". The copies were not the
+  cause: pandoc warned while rendering `report-export.Rmd` itself.
+- [ ] Found while checking the export, not changed:
+  - ravepipeline renders with its own format object, so the YAML `output:`
+    options of `report-export.Rmd` are ignored: `code_folding: none` became
+    "hide".
+  - Reports render with `clean = FALSE`, so each report folder keeps
+    `intermediate/` with the `knit.md`. It is 50 KB in the export zip and
+    18.8 MB in DemoSubject's voltage_explorer report.
+  - The zip is 205 MB. Most of it is what the report links to: copies of 27
+    module reports (309 MB unpacked) and the group brain viewer (80 MB).
+  - The zip also carries module files such as `TODO.md`, `test-mcp.R`, and an
+    old `report-export.html`. The `report` fork policy copies everything
+    except `build`, `shared/user`, and `main.html`.

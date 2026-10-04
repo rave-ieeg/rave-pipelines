@@ -175,32 +175,118 @@ function effectiveBackground(el) {
 }
 
 /**
- * Copy the canvases in `items` to 2D canvases (`item.snapshot`) in the
- * next animation frame: a WebGL canvas without `preserveDrawingBuffer`, or
- * a WebGPU canvas (e.g. the threeBrain viewer), is cleared once shown, and
- * holds its pixels only right after the page renders a frame. Hidden frames may run no
- * animation frames, so the copy also runs after `timeoutMs`.
+. * Whether `canvas` draws with WebGL or WebGPU. `getContext()` returns null
+ * for a type other than the one a canvas already has, so a canvas with a
+ * context is left as it is (the types are asked in `canvasTo2D`'s order).
  */
-function snapshotCanvases(items, timeoutMs = 200) {
-  return new Promise((resolve) => {
+function isGPUCanvas(canvas) {
+  for (const type of ['webgl2', 'webgl', 'webgpu']) {
+    try {
+      if (canvas.getContext(type)) return true;
+    } catch (e) {
+      // e.g. a canvas whose control was transferred to an OffscreenCanvas
+    }
+  }
+  return false;
+}
+
+/** Whether the viewer answered a `viewerApp.captureOnce` request. */
+function answered(request) {
+  return !!request && typeof request.dataURI === 'string' &&
+    request.dataURI.startsWith('data:image/');
+}
+
+/** The picture the viewer drew for `canvas` in an answered request, or null. */
+function pictureFor(request, canvas) {
+  if (!answered(request) || !Array.isArray(request.views)) return null;
+  const view = request.views.find((v) => v && v.canvas === canvas);
+  if (!view || typeof view.dataURI !== 'string' ||
+      !view.dataURI.startsWith('data:image/')) return null;
+  return view.dataURI;
+}
+
+/**
+ * Copy the canvases in `items` to images or 2D canvases (`item.snapshot`).
+ *
+ * The threeBrain viewer draws only when something changes, and a copy of a
+ * WebGPU canvas taken outside the frame that drew it can be blank (Chromium)
+ * or out of date. So each viewer holding a WebGL/WebGPU canvas in `items`
+ * gets one `viewerApp.captureOnce` event, dispatched on its wrapper
+ * (`.threejs-brain-canvas`), with an empty object as `detail`: the viewer
+ * draws a frame, adds `{ canvas, dataURI }` (a PNG data URL) to
+ * `detail.views` for each view it drew, and sets `detail.dataURI`. Canvases
+ * with no picture once every request is answered, or after `maxFrames`
+ * animation frames (a hidden viewer, an older build), and all other canvases
+ * (the viewer's 2D overlay, other widgets) are copied directly in that frame.
+ * Pages that run no animation frames (a background tab, a hidden module) are
+ * copied after `timeoutMs`.
+ * Resolves true when the copies ran in an animation frame, false after the
+ * timeout.
+ */
+async function snapshotCanvases(items, timeoutMs = 500, maxFrames = 3) {
+  const canvases = items.filter((item) => item.type === 'canvas');
+  // One request per viewer, however many of its canvases are copied
+  const requests = new Map();
+  canvases.forEach((item) => {
+    item.request = null;
+    const wrapper = item.el.closest('.threejs-brain-canvas');
+    if (!wrapper || !isGPUCanvas(item.el)) return;
+    if (!requests.has(wrapper)) {
+      const request = {};
+      requests.set(wrapper, request);
+      wrapper.dispatchEvent(new CustomEvent('viewerApp.captureOnce', { detail: request }));
+    }
+    item.request = requests.get(wrapper);
+  });
+  const copyDirectly = (item) => {
+    try {
+      item.snapshot = canvasTo2D(item.el);
+    } catch (e) {
+      // e.g. a tainted canvas: leave it out
+      item.snapshot = null;
+    }
+  };
+
+  const inFrame = await new Promise((resolve) => {
     let done = false;
-    const run = () => {
+    let frames = 0;
+    let frame = null;
+    let timer = null;
+    const finish = (ran) => {
       if (done) return;
       done = true;
-      items.forEach((item) => {
-        if (item.type !== 'canvas') return;
-        try {
-          item.snapshot = canvasTo2D(item.el);
-        } catch (e) {
-          // e.g. a tainted canvas: leave it out
-          item.snapshot = null;
-        }
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      canvases.forEach((item) => {
+        if (!pictureFor(item.request, item.el)) copyDirectly(item);
       });
-      resolve();
+      resolve(ran);
     };
-    requestAnimationFrame(run);
-    setTimeout(run, timeoutMs);
+    const onFrame = () => {
+      frames++;
+      const waiting = Array.from(requests.values()).some((request) => !answered(request));
+      if (!waiting || frames >= maxFrames) {
+        finish(true);
+        return;
+      }
+      frame = requestAnimationFrame(onFrame);
+    };
+    frame = requestAnimationFrame(onFrame);
+    timer = setTimeout(() => finish(false), timeoutMs);
   });
+
+  // The pictures the viewers drew
+  await Promise.all(canvases.filter((item) => pictureFor(item.request, item.el)).map(async (item) => {
+    const img = new Image();
+    img.src = pictureFor(item.request, item.el);
+    try {
+      await img.decode();
+      item.snapshot = img;
+    } catch (e) {
+      copyDirectly(item);
+    }
+  }));
+  return inFrame;
 }
 
 /**
@@ -300,19 +386,26 @@ export async function captureVisualContent(el) {
     return Object.keys(counts)
       .map((k) => `${counts[k]} ${names[k][counts[k] > 1 ? 1 : 0]}`).join(', ');
   };
-  // A WebGL/WebGPU canvas that is not being redrawn cannot be read (see
-  // canvasTo2D)
-  const withBlankNote = (items, note) => {
+  // A WebGL/WebGPU canvas that drew no frame for the copy cannot be read
+  // (see canvasTo2D), and canvases on a page that runs no animation frames
+  // are copied without one (see snapshotCanvases)
+  const withBlankNote = (items, note, inFrame) => {
+    const notes = [note];
+    if (!inFrame && items.some((c) => c.type === 'canvas')) {
+      notes.push('The page drew no animation frame for this image (e.g. it is in a background browser tab or a hidden module), so its canvases may be blank or out of date.');
+    }
     const n = items.filter((c) => c.snapshot && c.snapshot.gpuBlank).length;
-    if (!n) return note;
-    return [note, `${n === 1 ? 'A 3D (WebGL/WebGPU) canvas' : n + ' 3D (WebGL/WebGPU) canvases'} could not be read and ${n === 1 ? 'is' : 'are'} blank in this image: a 3D view keeps its pixels only while it redraws (e.g. right after a setting changes).`].filter(Boolean).join(' ');
+    if (n) {
+      notes.push(`${n === 1 ? 'A 3D (WebGL/WebGPU) canvas' : n + ' 3D (WebGL/WebGPU) canvases'} could not be read and ${n === 1 ? 'is' : 'are'} blank in this image: such a canvas can be read only during a frame it draws, and ${n === 1 ? 'it' : 'they'} drew none for this image.`);
+    }
+    return notes.filter(Boolean).join(' ');
   };
 
   try {
     // --- no layout: the largest element alone ------------------------------
     if (!laidOut) {
       const item = candidates.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
-      await snapshotCanvases([item]);
+      const inFrame = await snapshotCanvases([item]);
       const note = candidates.length > 1
         ? `The element has no layout, so only the largest (${names[item.type][0]}) of its ${candidates.length} visual elements (${kinds(candidates)}) is shown.`
         : '';
@@ -334,12 +427,12 @@ export async function captureVisualContent(el) {
       }
       if (!await drawVisual(ctx, item, 0, 0, canvas.width, canvas.height)) return null;
       const res = splitDataURL(canvas.toDataURL('image/png'));
-      return res && Object.assign(res, { note: withBlankNote([item], note) });
+      return res && Object.assign(res, { note: withBlankNote([item], note, inFrame) });
     }
 
     // --- composite in paint order, cropped to the visual content -----------
     candidates.sort((a, b) => (a.z - b.z) || (a.order - b.order));
-    await snapshotCanvases(candidates);
+    const inFrame = await snapshotCanvases(candidates);
     const bounds = candidates.reduce((u, c) => ({
       left: Math.min(u.left, c.clip.left),
       top: Math.min(u.top, c.clip.top),
@@ -376,7 +469,7 @@ export async function captureVisualContent(el) {
       ? `Composite of ${candidates.length} visual elements (${kinds(candidates)}) as laid out on screen.`
       : '';
     return res && Object.assign(res, {
-      note: withBlankNote(candidates, [note, hiddenNote].filter(Boolean).join(' '))
+      note: withBlankNote(candidates, [note, hiddenNote].filter(Boolean).join(' '), inFrame)
     });
   } catch (e) {
     return null;
