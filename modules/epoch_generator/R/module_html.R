@@ -66,7 +66,7 @@ module_html <- function() {
                     "('[Channel N]'), that holds the trigger signal (e.g. a",
                     "photodiode or audio track). NEVER choose it yourself: ask",
                     "the user which file or channel marks the trials; the",
-                    "pre-selected value is only the module's guess. Script",
+                    "preselected value is only the module's guess. Script",
                     "`epoch_channel_info` lists the files offered. Then run",
                     "script `load_epoch_file`. Read the manual first: skill",
                     "`rave-module`, reference `references/epoch_generator.md`."

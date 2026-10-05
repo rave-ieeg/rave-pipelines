@@ -3443,7 +3443,7 @@ HTMLWidgets.widget({
           changeInput('row_last_clicked', serverRowIndex(thisRow.index()), null, null, {priority: 'event'});
           lastClickedRow = serverRowIndex(thisRow.index());
         });
-        selectRows(false);  // in case users have specified pre-selected rows
+        selectRows(false);  // in case users have specified preselected rows
         // restore selected rows after the table is redrawn (e.g. sort/search/page);
         // client-side tables will preserve the selections automatically; for
         // server-side tables, we have to *real* row indices are in `selected1`
@@ -3509,7 +3509,7 @@ HTMLWidgets.widget({
         } else {
           $(table.table().footer()).on('click.dt', 'tr th', callback);
         }
-        selectCols(false);  // in case users have specified pre-selected columns
+        selectCols(false);  // in case users have specified preselected columns
         changeInput('columns_selected', selected2);
         if (server) table.on('draw.dt', function(e) { selectCols(false); });
         methods.selectColumns = function(selected, ignoreSelectable) {
@@ -3582,7 +3582,7 @@ HTMLWidgets.widget({
           selectCells(false); // must call this to update selected3 based on selectable3
           changeInput('cells_selected', transposeArray2D(selected3), 'shiny.matrix');
         });
-        selectCells(false);  // in case users have specified pre-selected columns
+        selectCells(false);  // in case users have specified preselected columns
         changeInput('cells_selected', transposeArray2D(selected3), 'shiny.matrix');
 
         if (server) table.on('draw.dt', function(e) { selectCells(false); });

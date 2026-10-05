@@ -28,7 +28,7 @@ answers it: a module guess or an estimate is never an answer.
    bright, the sound starts, the pulse rises). Without it you cannot generate an
    epoch. If the user is unsure, show them the files the module offers
    (`epoch_channel_info` lists them, the likely trigger files first) and let
-   them choose: the file the module pre-selects is only a guess.
+   them choose: the file the module preselects is only a guess.
 4. **The sample rate of that signal.**
    * MATLAB (`.mat`): **required**. The module fills in an estimate (see below);
      tell the user the value and ask them to confirm or correct it.
@@ -90,7 +90,7 @@ Work top to bottom on the left panel, one block at a time.
   The list shows the files in the block's raw folder whose names contain `.h5`,
   `.mat`, `.edf`, `.pd`, `.aud`, or `.nev` (or, when that folder has none, the
   subject's whole raw folder), plus `[Channel N]` for each imported `Auxiliary`
-  channel. The module pre-selects a guess.
+  channel. The module preselects a guess.
 * **"Load epoch file"** — reads the file and lists its variables (MATLAB/HDF5)
   or channels (EDF/`.nev`).
 * **Variable name** — the variable or channel that holds the signal. Default: a
