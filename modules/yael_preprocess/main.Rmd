@@ -500,6 +500,47 @@ coreg_nipy <- tryCatch({
 })
 ```
 
+YAEL-reg3d: rigid co-registration built into RAVE (`ravetools::register_volume3d`), no external program needed.
+
+```{rave CT_MR_coregistration_via_reg3d, export = "coreg_reg3d", cue = "always", echo=FALSE}
+coreg_reg3d <- tryCatch({
+  if (!is.function(asNamespace("ravecore")$cmd_run_reg3d_rigid)) {
+    stop("YAEL-reg3d needs a newer RAVE (ravecore 0.1.1.20 or later). ",
+         "Please update RAVE, or choose another program.")
+  }
+  imaging_path <- subject$imaging_path
+  mri_path <- file.path(imaging_path, "derivative", params$nipy$reference)
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    mri_path <- file.path(imaging_path, "inputs", "MRI", params$nii_t1)
+  }
+
+  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
+    stop("Please choose a valid MRI Nifti file")
+  }
+  ct_path <- file.path(imaging_path, "inputs", "CT", params$nii_ct)
+  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
+    stop("Please choose a valid CT Nifti file. Current file is missing: ", ct_path)
+  }
+
+  ravecore::cmd_run_reg3d_rigid(
+    subject = subject,
+    ct_path = ct_path,
+    mri_path = mri_path,
+    reg_type = params$reg3d$reg_type %OF% c("Rigid", "DenseRigid", "FastRigid"),
+    cost = params$reg3d$cost %OF% c("mattes", "cc"),
+    interp = params$reg3d$interp %OF% c("trilinear", "bspline", "nearest"),
+    verbose = FALSE,
+    dry_run = TRUE
+  )
+
+}, error = function(e) {
+  list(
+    error = TRUE,
+    condition = e
+  )
+})
+```
+
 ```{rave CT_MR_coregistration_via_NiftyReg, export = "coreg_niftyreg", cue = "always", echo=FALSE}
 coreg_niftyreg <- tryCatch({
   mri_path <- file.path(check_result$path_temp, "derivative", params$nipy$reference)

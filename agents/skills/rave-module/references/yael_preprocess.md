@@ -13,7 +13,8 @@ labs may use their own imaging pipeline (see https://yael.wiki).
 CT as DICOM folders or NIfTI files, either inside the subject's raw folder or
 uploaded in the loader. DICOM images need `dcm2niix`; FreeSurfer is needed only
 for surface reconstruction; YAEL and ANTs co-registration use RAVE's Python
-environment.
+environment; YAEL-reg3d co-registration (the default) is built into RAVE and
+needs neither.
 
 ## Rules for agents (read first)
 
@@ -26,10 +27,17 @@ People keep their usual buttons. These rules are for agents only:
    subject has never had one imported (`imaging_status` tells). If one exists,
    do not import: ask the user to do it.
 2. **What you may run from RAVE, after the user confirms each run:** the two
-   imports (about 10 seconds), and CT-MRI co-registration with **ANTs**
-   (1-2 minutes; by far the best algorithm, always recommend it) or NiftyReg
-   (5-10 minutes). Nothing else: never click "Run from RAVE" in MRI
-   Preprocessing, and never run img_pipe, FSL, or AFNI from RAVE.
+   imports (about 10 seconds), and CT-MRI co-registration with ANTs (1-2
+   minutes), YAEL-reg3d (the default program, built into RAVE; Rigid under a
+   minute, DenseRigid a few minutes) or NiftyReg (5-10 minutes). Nothing else:
+   never click "Run from RAVE" in MRI Preprocessing, and never run img_pipe,
+   FSL, or AFNI from RAVE.
+   **Recommend co-registration programs in this order: ANTs (if `antspyx` installed) > YAEL-reg3d >
+   FSL (if `FSLDIR` is set) > NiftyReg > img_pipe, AFNI** (offer ANTs first; YAEL-reg3d is an
+   equal alternative). ANTs needs RAVE's Python (`rpymat`): when script
+   `imaging_status` shows `ants=not available`, recommend YAEL-reg3d first.
+   Skip programs that are not available (`imaging_status`: `ants`,
+   `fsl_flirt`, `afni`). FSL runs only from its saved script (rule 3).
 3. **Long steps run outside RAVE.** For MRI preprocessing (and any other
    program), click "Save & run by yourself": it saves a script in the subject's
    imaging folder and gives a one-line terminal command. If you have a terminal
@@ -154,10 +162,14 @@ posterior commissures (AC, PC) define the axes.
   folder, including the CT copy and FreeSurfer's `T1`: pick the matching MR
   image. When the list is empty (e.g. after a DICOM import), the MRI chosen in
   MRI Preprocessing is used.
-* **Program**: `ANTs` (recommended; uses RAVE's Python), `NiftyReg` (always
+* **Program**: `YAEL-reg3d` (the default; built into RAVE, rigid only:
+  "Registration type" `Rigid`, `DenseRigid` or `FastRigid`, "Cost function" MI
+  or CC, "Interpolation"), `ANTs` (uses RAVE's Python), `NiftyReg` (always
   available), `img_pipe` (uses RAVE's Python), `AFNI` or `FSL` (need those
   programs and a `bash` terminal; on Windows, WSL2). Each program shows its
-  own parameters; the defaults use rigid registration.
+  own parameters; the defaults use rigid registration. Recommended order:
+  ANTs ≥ YAEL-reg3d > FSL > NiftyReg > the rest; YAEL-reg3d first when RAVE's
+  Python is not configured (rule 2).
 * "Run from RAVE" runs it; "Save & run by yourself" saves the script and shows
   the terminal command.
 
@@ -176,7 +188,9 @@ in R):
   normalized `T1`, or the YAEL normalization.
 * **Co-registration**: the CT resampled into MRI space and the CT-to-MRI
   transforms (`coregistration`). Electrode Localization reads these to place
-  the electrodes.
+  the electrodes. YAEL-reg3d registers the full-resolution images and also
+  saves an image with a side of 384 voxels or more as a smaller copy for
+  viewers (`CT_RAW.nii.gz`; the original is `CT_ORIG.nii.gz`).
 * **Reports**: "Coregistration Quality Report" (CT overlaid on the MRI, for
   checking the alignment) and "Normalization Quality Report" (the subject's MRI
   against the MNI templates; needs YAEL normalization).
@@ -200,7 +214,9 @@ Step 4: In "MRI Preprocessing", click "Refresh", choose the imported MRI
 yourself" and run the command in a terminal
 ([Procedure — Run a long step in a terminal](#procedure--run-a-long-step-in-a-terminal)).
 Step 5: In "Co-registration CT and T1", click "Refresh", choose the CT, the
-same MR image as in step 4 (`MRI_RAW`), and `ANTs`, then "Run from RAVE".
+same MR image as in step 4 (`MRI_RAW`), and the program by rule 2 (`ANTs`, or
+`YAEL-reg3d` when `imaging_status` shows `ants=not available`), then "Run from
+RAVE".
 Step 6: Check the alignment ([Procedure — Check the co-registration](#procedure--check-the-co-registration)),
 then open the Electrode Localization module.
 
@@ -244,7 +260,7 @@ use `YAEL+recon-all`; otherwise switch FreeSurfer versions, or use `YAEL-only`.
   import replaces the previously imported images of that type, including
   `MRI_acpc.nii.gz`.
 * **RAVE does not know whether a command worked.** Read the log at the end of
-  each run; errors from FreeSurfer or ANTs appear only there.
+  each run; errors from FreeSurfer, ANTs or YAEL-reg3d appear only there.
 * **Lists do not refresh by themselves** after a run: click "Refresh" (or the
   refresh button in the ACPC card).
 * **FreeSurfer continues an existing folder.** If the subject already has a
@@ -259,7 +275,9 @@ use `YAEL+recon-all`; otherwise switch FreeSurfer versions, or use `YAEL-only`.
   RAVE's settings for every subject.
 * **First runs may install software.** ANTs co-registration installs ANTs when
   it is missing; img_pipe sets up its Python packages; YAEL downloads its
-  templates.
+  templates. YAEL-reg3d installs nothing, but needs ravecore 0.1.1.20 or later
+  (otherwise it shows "YAEL-reg3d needs a newer RAVE": ask the user to update
+  RAVE, or use another program).
 * **Memory.** YAEL's default MNI template needs 16 GB of RAM (it falls back to
   another template otherwise); FreeSurfer 8.x needs 32 GB.
 * **AFNI ignores "MR image"**: it always uses the MRI chosen in MRI
@@ -288,8 +306,10 @@ pipeline$set_settings(
     nii_ct = "CT_RAW.nii.gz",                  # "CT file" (inputs/CT)
     dcm2niix = list(merge = "Auto", float = "Yes", crop = "No"),
     segmentation = list(program = "YAEL+recon-all", fresh_start = FALSE),
-    # "MR image" (derivative); ANTs and NiftyReg read it from `nipy`
+    # "MR image" (derivative); YAEL-reg3d, ANTs and NiftyReg read it from `nipy`
     nipy = list(reference = "MRI_RAW.nii.gz"),
+    reg3d = list(reference = "MRI_RAW.nii.gz", reg_type = "Rigid",
+                 cost = "mattes", interp = "trilinear"),
     ants = list(reference = "MRI_RAW.nii.gz", reg_type = "Rigid",
                 aff_metric = "mattes", syn_metric = "mattes")
   )
@@ -307,8 +327,9 @@ cmds$import_T1$execute()
 cmds$import_CT$execute()
 
 # Build the next commands once the imported files exist
-cmds <- pipeline$eval(names = c(upstream, "image_segmentation", "coreg_ants"))
-cmds$coreg_ants$execute()   # ANTs co-registration
+cmds <- pipeline$eval(names = c(upstream, "image_segmentation", "coreg_ants",
+                                "coreg_reg3d"))
+cmds$coreg_ants$execute()   # ANTs co-registration (cmds$coreg_reg3d: YAEL-reg3d)
 
 # A long step: save its script and get the one-line terminal command
 cmds$image_segmentation$execute(dry_run = TRUE, backup = FALSE)
@@ -364,9 +385,10 @@ co-registration in either order, then reports.
   the terminal command (rules 3 and 4). Do not run it when `fresh_start` is
   TRUE.
 * Co-registration (ask first): set `param_coreg_ct`, `param_coreg_mri` (the
-  same image as `param_fs_infile`), `coreg_ct_program` (`ANTs` or `NiftyReg`)
-  and its parameters (`coreg_ants_type`, `coreg_ants_aff_metric`,
-  `coreg_ants_syn_metric`; `coreg_niftyreg_type`, `coreg_niftyreg_interp`),
+  same image as `param_fs_infile`), `coreg_ct_program` (`ANTs`, `YAEL-reg3d`
+  or `NiftyReg`, in the order of rule 2) and its parameters (`coreg_ants_type`, `coreg_ants_aff_metric`,
+  `coreg_ants_syn_metric`; `coreg_reg3d_type`, `coreg_reg3d_cost`,
+  `coreg_reg3d_interp`; `coreg_niftyreg_type`, `coreg_niftyreg_interp`),
   then script `run_coregistration`; poll `command_status`. Other programs:
   script `save_coregistration_script`. It may run while MRI preprocessing runs
   in a terminal.

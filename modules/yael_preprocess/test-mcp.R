@@ -5,8 +5,8 @@
 # PRIVACY: this module may only be tested on YAEL/yael_demo_001. Never point
 # this test at another subject.
 #
-# The test runs real commands on the demo subject (imports, ANTs and NiftyReg
-# co-registration, one report) and then restores it: it copies the subject's
+# The test runs real commands on the demo subject (imports, YAEL-reg3d, ANTs and
+# NiftyReg co-registration, one report) and then restores it: it copies the subject's
 # imaging folder and `notes/`, the module's `settings.yaml` and `_targets.yaml`
 # first, puts them back at the end (also when a check fails), checks the
 # restored files by checksum, and deletes the report folders it created.
@@ -181,7 +181,10 @@ tryCatch({
     "float option labelled" = identical(
       page_text("#yael_preprocess-param_dcm2niix_float-label"),
       "Philips precise float scaling"),
-    "fresh start read-only" = refused("param_fs_fresh_start", TRUE)
+    "fresh start read-only" = refused("param_fs_fresh_start", TRUE),
+    # on a fresh page; section 6 sets it back at the end
+    "YAEL-reg3d is the default program" = identical(
+      input_info("coreg_ct_program")$current_value, "YAEL-reg3d")
   ), "inputs")
 
   # import history now saved under `yael_preprocess`, relative to the raw folder
@@ -264,7 +267,75 @@ tryCatch({
                                          "state"), "running")
   ), "save_mri_preprocessing_script")
 
-  # ---- 6. co-registration: ANTs, report, NiftyReg -------------------------------
+  # ---- 6. co-registration: YAEL-reg3d, report, ANTs, NiftyReg -------------------
+
+  coreg_dir <- file.path(imaging_path, "coregistration")
+  set_input_wait("coreg_ct_program", "YAEL-reg3d")
+  set_input_wait("coreg_reg3d_type", "Rigid")
+  set_input_wait("coreg_reg3d_cost", "mattes")
+  set_input_wait("coreg_reg3d_interp", "trilinear")
+  Sys.sleep(1)  # the module rebuilds its commands 0.3 s after an input change
+  saved <- run_script("save_coregistration_script")$result
+  reg3d_script <- file.path(imaging_path, "scripts", "cmd-reg3d-rigid.R")
+  reg3d_lines <- readLines(reg3d_script)
+  check_all(c(
+    "YAEL-reg3d" = identical(field(saved, "program"), "YAEL-reg3d"),
+    "script" = identical(field(saved, "script"), reg3d_script),
+    "placeholders filled" = !any(grepl("{{", reg3d_lines, fixed = TRUE)),
+    "settings in the script" = all(c('reg_type <- "Rigid"', 'cost <- "mattes"',
+                                     'interp <- "trilinear"') %in% reg3d_lines)
+  ), "YAEL-reg3d script")
+
+  t_reg3d <- Sys.time()
+  started <- run_script("run_coregistration")$result
+  if (!identical(field(started, "started"), "RAVE+YAEL-reg3d")) stop("Unexpected start: ", started)
+  wait_command(field(started, "log"), timeout = 600)
+  conf <- conf_coreg()
+  ct_ras_to_mr_ras <- as.matrix(read.table(file.path(coreg_dir, "CT_RAS_to_MR_RAS.txt")))
+  ct_ijk_to_mr_ras <- as.matrix(read.table(file.path(coreg_dir, "CT_IJK_to_MR_RAS.txt")))
+  # electrode localization reads the images with threeBrain (oro.nifti: NIfTI-1)
+  ct_header <- threeBrain:::read_nii2(file.path(coreg_dir, "CT_RAW.nii.gz"), head_only = TRUE)
+  mr_header <- threeBrain:::read_nii2(file.path(coreg_dir, "MRI_reference.nii.gz"), head_only = TRUE)
+  ct_centre <- (ct_ijk_to_mr_ras %*% c((ct_header$get_shape() - 1) / 2, 1))[1:3]
+  mr_corners <- mr_header$get_IJK_to_RAS()$matrix %*%
+    rbind(t(as.matrix(expand.grid(lapply(mr_header$get_shape() - 1, function(n) c(0, n))))), 1)
+  nifti_dim <- function(name) RNifti::niftiHeader(file.path(coreg_dir, name))$dim[2:4]
+  check_all(c(
+    "aligned CT written now" = written_since(file.path(coreg_dir, "ct_in_t1.nii.gz"), t_reg3d),
+    "transform written now" = written_since(file.path(coreg_dir, "CT_IJK_to_MR_RAS.txt"), t_reg3d),
+    "YAEL-reg3d recorded" = identical(conf$command$execute, "ravecore::reg3d_rigid"),
+    "Rigid, MI, trilinear" = identical(
+      unlist(conf$command$arguments[c("reg_type", "cost", "interp")]),
+      c(reg_type = "Rigid", cost = "mattes", interp = "trilinear")),
+    "CT input" = identical(conf$input_image$path,
+                           file.path(imaging_path, "inputs", "CT", "CT_RAW.nii.gz")),
+    "MR image" = identical(conf$reference_image$path,
+                           file.path(imaging_path, "derivative", "MRI_RAW.nii.gz")),
+    "registration record" = file.exists(file.path(coreg_dir, "reg3d", "reg3d.dcf")),
+    # full-resolution registration; 384-voxel copy of the CT for viewers
+    "original CT kept" = identical(nifti_dim("CT_ORIG.nii.gz"), c(512L, 512L, 178L)),
+    "viewer copy capped" = identical(nifti_dim("CT_RAW.nii.gz"), c(384L, 384L, 178L)),
+    "MRI not capped" = !file.exists(file.path(coreg_dir, "MRI_ORIG.nii.gz")),
+    "status shows it" = grepl("reg3d_rigid", field(status(), "coregistration")),
+    # what electrode localization's loader picks (R/loader.R, load_coreg_params)
+    "EL: transform mode" = "CT_IJK_to_MR_RAS" %in% names(conf$outputs),
+    "EL: images found" = all(c(basename(conf$input_image$backup),
+                               basename(conf$reference_image$backup)) %in%
+                               list.files(coreg_dir)),
+    "EL: transform found" = basename(conf$outputs$CT_IJK_to_MR_RAS$path) %in% list.files(coreg_dir),
+    "EL: voxel transform matches CT_RAW" = max(abs(
+      ct_ijk_to_mr_ras %*% solve(ct_header$get_IJK_to_RAS()$matrix) - ct_ras_to_mr_ras)) < 1e-3,
+    "EL: CT centre inside the MRI" = all(ct_centre >= apply(mr_corners[1:3, ], 1, min) &
+                                           ct_centre <= apply(mr_corners[1:3, ], 1, max))
+  ), "YAEL-reg3d co-registration")
+
+  generated <- run_script("generate_coregistration_report")$result
+  if (!identical(field(generated, "has_coregistration"), "TRUE")) stop("No co-registration?")
+  wait_until(function() {
+    line <- field(status(), "coregistration_report")
+    grepl("report.html ready", line) &&
+      !basename(sub(" \\(.*$", "", line)) %in% reports_before
+  }, "the co-registration report", timeout = 900, interval = 5)
 
   set_input_wait("coreg_ct_program", "ANTs")
   set_input_wait("coreg_ants_type", "Rigid")
@@ -284,14 +355,6 @@ tryCatch({
     "MR image" = identical(conf$reference_image$path,
                            file.path(imaging_path, "derivative", "MRI_RAW.nii.gz"))
   ), "ANTs co-registration")
-
-  generated <- run_script("generate_coregistration_report")$result
-  if (!identical(field(generated, "has_coregistration"), "TRUE")) stop("No co-registration?")
-  wait_until(function() {
-    line <- field(status(), "coregistration_report")
-    grepl("report.html ready", line) &&
-      !basename(sub(" \\(.*$", "", line)) %in% reports_before
-  }, "the co-registration report", timeout = 900, interval = 5)
 
   set_input_wait("coreg_ct_program", "NiftyReg")
   set_input_wait("coreg_niftyreg_type", "rigid")
@@ -320,6 +383,7 @@ tryCatch({
                          file.path(imaging_path, "scripts", "cmd-fsl-flirt.sh")),
     "MR image" = identical(field(saved, "mr_image"), "MRI_RAW.nii.gz")
   ), "save_coregistration_script")
+  set_input_wait("coreg_ct_program", "YAEL-reg3d")  # back to the default
 
   # ---- 7. ACPC: the viewer starts; the person would place AC and PC ---------------
 

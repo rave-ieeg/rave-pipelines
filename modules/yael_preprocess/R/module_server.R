@@ -656,8 +656,8 @@ module_server <- function(input, output, session, ...) {
       "this session: 'running' (the log dialog shows 'Running...'), 'finished'",
       "(its button shows 'Done', or 'Gotcha' after an error), or 'none'; the",
       "script and log files; and the last 30 log lines. RAVE cannot tell whether",
-      "a command succeeded: read the log tail (errors from dcm2niix, ANTs or",
-      "NiftyReg appear only there) and check script `imaging_status`. After",
+      "a command succeeded: read the log tail (errors from dcm2niix, YAEL-reg3d,",
+      "ANTs or NiftyReg appear only there) and check script `imaging_status`. After",
       "'finished', close the dialog with `shiny_ui_operate` click `dismiss_modal`."
     ),
     expr = {
@@ -701,7 +701,9 @@ module_server <- function(input, output, session, ...) {
       "the ACPC save (when saved, use only `MRI_acpc.nii.gz` for MRI preprocessing",
       "and co-registration); the FreeSurfer folder and last reconstruction; YAEL",
       "normalization; the last co-registration (program, CT, MR image, time; electrode",
-      "localization depends on it); the MR image choices; the programs found; the",
+      "localization depends on it); the MR image choices; the programs found",
+      "(`ants`: whether ANTs works through RAVE's Python; when 'not available',",
+      "recommend YAEL-reg3d first); the",
       "FreeSurfer version and the computer's memory (FreeSurfer 7.x needs 16 GB of",
       "RAM, 8.x needs 32 GB); the computer RAVE runs on; and the latest reports."
     ),
@@ -787,6 +789,9 @@ module_server <- function(input, output, session, ...) {
                           if (ram_gb >= fs_needs_gb - 0.5) "enough" else "short")
       }
 
+      # ANTs needs RAVE's Python (rpymat); FALSE when it is not configured
+      ants_ready <- isTRUE(tryCatch(rpyANTs::ants_available(), error = function(e) FALSE))
+
       out <- c(
         sprintf("subject=%s", subject$subject_id),
         sprintf("imaging_path=%s", imaging_path),
@@ -804,6 +809,8 @@ module_server <- function(input, output, session, ...) {
         sprintf("freesurfer=%s (version %s)", tool_path(cmd_tools$freesurfer), fs_version),
         sprintf("fsl_flirt=%s", tool_path(cmd_tools$flirt)),
         sprintf("afni=%s", tool_path(cmd_tools$afni)),
+        sprintf("ants=%s", if (ants_ready) "available" else
+          "not available (RAVE's Python is not configured)"),
         sprintf("memory=%s", memory),
         report_status_line("coregistration"),
         report_status_line("normalization")
@@ -1042,6 +1049,9 @@ module_server <- function(input, output, session, ...) {
         "img_pipe" = {
           local_reactives$bash_scripts$coreg_nipy
         },
+        "YAEL-reg3d" = {
+          local_reactives$bash_scripts$coreg_reg3d
+        },
         "NiftyReg" = {
           local_reactives$bash_scripts$coreg_niftyreg
         },
@@ -1105,9 +1115,12 @@ module_server <- function(input, output, session, ...) {
       "Same as clicking 'Run from RAVE' in 'Co-registration CT and T1': aligns the",
       "CT (`param_coreg_ct`) to the MR image (`param_coreg_mri`) with the program",
       "in `coreg_ct_program` and its parameters, in a background job with a log",
-      "dialog. Agents may run only `ANTs` (recommended, 1-2 min) or `NiftyReg`",
-      "(5-10 min), and only after the user confirms; for other programs use",
-      "`save_coregistration_script`. The MR image must be the same image as MRI",
+      "dialog. Agents may run only `ANTs` (1-2 min), `YAEL-reg3d` (the default,",
+      "built into RAVE; Rigid under a minute, DenseRigid a few minutes) or",
+      "`NiftyReg` (5-10 min), recommended in that order (`ANTs` >= `YAEL-reg3d`;",
+      "`YAEL-reg3d` first when `imaging_status` shows `ants=not available`),",
+      "and only after the user confirms; for",
+      "other programs use `save_coregistration_script`. The MR image must be the same image as MRI",
       "preprocessing's input (`MRI_RAW`, or `MRI_acpc.nii.gz` with ACPC). It",
       "replaces the subject's previous co-registration, on which existing electrode",
       "localization may depend: tell the user when one exists (`imaging_status`).",
@@ -1132,6 +1145,11 @@ module_server <- function(input, output, session, ...) {
         "img_pipe" = {
           bin <- "RAVE+img_pipe"
           cmd <- local_reactives$bash_scripts$coreg_nipy
+          native <- TRUE
+        },
+        "YAEL-reg3d" = {
+          bin <- "RAVE+YAEL-reg3d"
+          cmd <- local_reactives$bash_scripts$coreg_reg3d
           native <- TRUE
         },
         "NiftyReg" = {
@@ -1293,6 +1311,12 @@ module_server <- function(input, output, session, ...) {
           }
         )
       }),
+      reg3d = list(
+        reference = input$param_coreg_mri,
+        reg_type = input$coreg_reg3d_type,
+        cost = input$coreg_reg3d_cost,
+        interp = input$coreg_reg3d_interp
+      ),
       niftyreg = list(
         reference = input$param_coreg_mri,
         reg_type = input$coreg_niftyreg_type,
@@ -1474,8 +1498,8 @@ module_server <- function(input, output, session, ...) {
       res <- pipeline$eval(
         names = c("settings_path", "settings", "params", "subject", "cmd_tools",
                   "check_result", "import_T1", "import_CT", "image_segmentation",
-                  "morphmri_ants", "coreg_flirt", "coreg_niftyreg", "coreg_ants",
-                  "coreg_3dallineate", "coreg_nipy"),
+                  "morphmri_ants", "coreg_flirt", "coreg_reg3d", "coreg_niftyreg",
+                  "coreg_ants", "coreg_3dallineate", "coreg_nipy"),
         env = local_env, clean = FALSE
       )
       # res <- pipeline$run(
@@ -1562,6 +1586,9 @@ module_server <- function(input, output, session, ...) {
       },
       "img_pipe" = {
         local_reactives$bash_scripts$coreg_nipy
+      },
+      "YAEL-reg3d" = {
+        local_reactives$bash_scripts$coreg_reg3d
       },
       "NiftyReg" = {
         local_reactives$bash_scripts$coreg_niftyreg

@@ -6,7 +6,8 @@ Preprocessing"). The goal-focused manual for people and agents is
 
 Written 2026-10-04 from the code, with ravecore 0.1.1.18 (0.1.1.19 with the
 import-history fix), ravedash 0.1.3.55, shidashi 0.2.0.14, threeBrain
-1.3.0.65, ravepipeline 0.2.0.10. Line numbers refer to the tree before the
+1.3.0.65, ravepipeline 0.2.0.10. YAEL-reg3d (added the same day) needs
+ravecore 0.1.1.20 and ravetools 0.3.2. Line numbers refer to the tree before the
 MCP migration, with the uncommitted batch edit (loader ->
 `ravedash::load_data_button()` + sync `load_data` script; footer ->
 `run_analysis` script); the migration moved the button observers into
@@ -61,9 +62,16 @@ Decided 2026-10-04. They go into descriptions and the manual only: no guard
 code, no behaviour change for people.
 
 * **Run from RAVE, after confirming each time:** both imports (~10 s); ANTs
-  co-registration (1-2 min, by far the best algorithm, always recommended);
-  NiftyReg (5-10 min). Agents never click MRI preprocessing's "Run from RAVE"
-  and never run img_pipe, FSL, or AFNI from RAVE.
+  co-registration (1-2 min); YAEL-reg3d (the default program; Rigid under a
+  minute, DenseRigid a few minutes); NiftyReg (5-10 min). Agents never click
+  MRI preprocessing's "Run from RAVE" and never run img_pipe, FSL, or AFNI
+  from RAVE.
+* **Co-registration recommendation order** (2026-10-04): ANTs >= YAEL-reg3d >
+  FSL > NiftyReg > the rest; YAEL-reg3d first when RAVE's Python is not
+  configured, i.e. `isTRUE(tryCatch(rpyANTs::ants_available(), error = ...))`
+  is FALSE, which script `imaging_status` reports as `ants=not available`
+  (the first call starts RAVE's Python in the app process when `rpymat` is
+  set up).
 * **Everything else:** "Save & run by yourself". An agent with a terminal on
   the machine where RAVE runs may run the one-liner in a separate terminal,
   never inside RAVE (a RAVE job dies with RAVE); otherwise it gives the user
@@ -111,8 +119,8 @@ change**:
    inputs;
 2. `pipeline$eval()` of `settings_path`, `settings`, `params`, `subject`,
    `cmd_tools`, `check_result`, `import_T1`, `import_CT`,
-   `image_segmentation`, `morphmri_ants`, `coreg_flirt`, `coreg_niftyreg`,
-   `coreg_ants`, `coreg_3dallineate`, `coreg_nipy` into
+   `image_segmentation`, `morphmri_ants`, `coreg_flirt`, `coreg_reg3d`,
+   `coreg_niftyreg`, `coreg_ants`, `coreg_3dallineate`, `coreg_nipy` into
    `local_reactives$bash_scripts`.
 
 Side effects of that evaluation, each time:
@@ -134,6 +142,7 @@ Side effects of that evaluation, each time:
 | `template_brain` | `mri_morph_template_subject` | input commented out: always NULL |
 | `dcm2niix$merge/float/crop` | `param_dcm2niix_*` | |
 | `segmentation` | `param_fs_prog`, `param_fs_fresh_start` | `program`, `flag`, `fresh_start` |
+| `reg3d$reference/reg_type/cost/interp` | `param_coreg_mri`, `coreg_reg3d_*` | target reads `params$nipy$reference`; missing keys default via `%OF%` |
 | `niftyreg$reference/reg_type/interp` | `param_coreg_mri`, `coreg_niftyreg_*` | target reads `params$nipy$reference` |
 | `ants$reference/reg_type/aff_metric/syn_metric` | `param_coreg_mri`, `coreg_ants_*` | target reads `params$nipy$reference` |
 | `flirt$reference/dof/cost/search/searchcost` | `param_coreg_mri`, `coreg_fsl_*` | `dof` parsed from "6 (rigid body)" |
@@ -169,9 +178,11 @@ Clicking `dismiss_modal` (`:342-350`) clears `local_data$log_file`, the
 `dismissible` toasts, and the modal. No exit status reaches R: success is
 only visible in the log tail and the output files.
 
-Native co-registration programs (NiftyReg, ANTs, img_pipe) on **Windows** run
-synchronously instead: alert, write script, `source()` it with
-`check_rpymat <- FALSE` (`:756-778`).
+Native co-registration programs (YAEL-reg3d, NiftyReg, ANTs, img_pipe) on
+**Windows** run synchronously instead: alert, write script, `source()` it with
+`check_rpymat <- FALSE` (`:756-778`), inside the observer's environment (the
+YAEL-reg3d template avoids the names `cmd`, `bin`, `program`, `native`, `out`).
+YAEL-reg3d then uses all cores and about 4 GB in the app's own R process.
 
 ### "Save & run by yourself"
 
@@ -401,7 +412,8 @@ Card "Co-registration CT and T1" (`R/module_html.R:272-640`).
 | `param_coreg_ct` | files in `inputs/CT`; preselects subject default `nii_ct` (never set) |
 | `param_coreg_refresh` | action link "Refresh" |
 | `param_coreg_mri` | files in `derivative/` minus `ct_in_t1*`, `MRI*` first (includes `CT_RAW`) |
-| `coreg_ct_program` | NiftyReg, ANTs, img_pipe, AFNI, FSL (NiftyReg) |
+| `coreg_ct_program` | YAEL-reg3d, NiftyReg, ANTs, img_pipe, AFNI, FSL (YAEL-reg3d; NiftyReg before 2026-10-04) |
+| `coreg_reg3d_type`, `_cost`, `_interp` | Rigid/DenseRigid/FastRigid (Rigid); MI = `mattes` / CC = `cc` (`mattes`); trilinear/bspline/nearest (trilinear) |
 | `coreg_niftyreg_type`, `_interp` | rigid/affine/nonlinear (rigid); trilinear/cubic/nearest (trilinear) |
 | `coreg_ants_type`, `_aff_metric`, `_syn_metric` | Rigid/DenseRigid/Affine/SyN (Rigid); mattes/meansquares/GC; mattes/meansquares/demons/CC |
 | `coreg_nipy_reg_type`, `_interp`, `_cost`, `_optimizer` | rigid/affine; pv/tri; crl1/cc/cr/mi/nmi/slr; powell/steepest/cg/bfgs/simplex |
@@ -415,9 +427,15 @@ Per-program inputs live in conditionalPanels (`R/module_html.R:394-616`).
 MR image resolution (targets `main.Rmd:421-624`): `derivative/<reference>`
 if valid, else `inputs/MRI/<nii_t1>`. AFNI always uses `inputs/MRI/<nii_t1>`.
 CT: `inputs/CT/<nii_ct>`, else error "Please choose a valid CT Nifti file".
+The YAEL-reg3d target builds these paths from `subject$imaging_path` (the
+others from `check_result$path_temp`) and first stops with "YAEL-reg3d needs a
+newer RAVE (ravecore 0.1.1.20 or later) ..." when the installed ravecore lacks
+`cmd_run_reg3d_rigid()`; the error object shows in the script panel and the
+"Error found!" toast, and the other programs still build.
 
 | Program | ravecore | Script / log | Runs as |
 |---|---|---|---|
+| YAEL-reg3d | `cmd_run_reg3d_rigid()` (worker `reg3d_rigid()`) | `scripts/cmd-reg3d-rigid.R`, `log-rave-reg3d-rigid.R.log` | Rscript job; nothing to install |
 | NiftyReg | `cmd_run_niftyreg_coreg()` | `scripts/cmd-nifty-coregistration.R`, `log-rave-nifty-coregistration.R.log` | Rscript job |
 | ANTs | `cmd_run_ants_coreg()` | `scripts/cmd-ants-coregistration.R`, `log-rave-ants-coregistration.R.log` | Rscript job; installs ANTs if missing |
 | img_pipe | `cmd_run_nipy_coreg()` | `scripts/cmd-rave-nipy-coregistration.R`, `log-rave-nipy-*` | Rscript job; configures python, pip-installs nipy |
@@ -430,6 +448,34 @@ nonlinear: control points; ANTs: warps; FSL: `ct2t1.mat`; AFNI:
 `afni_3dAllineate/`) and `<imaging_path>/derivative/`
 (`conf-coregistration.yaml`, copies, `transform-ctIJK2mrRAS.txt`,
 `transform-ctRAS2mrRAS.txt`).
+
+YAEL-reg3d (`ravetools::register_volume3d`, rigid; presets in ravecore
+`reg3d_preset()`: Rigid = shrink 4/2/1, sigmas 2/1/0, iterations 1000/500/250,
+sampling 0.2; DenseRigid = the same with sampling 1; FastRigid = shrink 8/4/2,
+sigmas 3/2/1, iterations 200/150/100, sampling 0.05):
+* registers the **full-resolution** images; an image with a side of 384
+  voxels or more is saved twice: the original (`CT_ORIG.nii.gz` /
+  `MRI_ORIG.nii.gz`) and a copy with those sides resampled to 384 over the same
+  field of view (`CT_RAW.nii.gz` / `MRI_reference.nii.gz`, for viewers);
+  `CT_RAS_to_MR_RAS.txt` is the same for both, `CT_IJK_to_MR_RAS.txt` uses the
+  saved `CT_RAW.nii.gz` sform, `ct_in_t1.nii.gz` is on the saved
+  `MRI_reference.nii.gz` grid (0 outside the CT field, as ANTs);
+* writes every image as NIfTI-1 (ieegio would write NIfTI-2 above 512 voxels,
+  which threeBrain's oro.nifti reader rejects) and the registration record
+  `reg3d/reg3d.dcf` + `reg3d/reg3d0GenericAffine.mat` (a subfolder, so
+  electrode localization's transform list is unchanged);
+* writes into a hidden temporary folder and replaces `coregistration/` only
+  after every write succeeded (old folder kept as
+  `coregistration_[backup_<time>]`, which also moves YAEL's `transformations/`,
+  `anat/` and `log/` subfolders, as NiftyReg and ANTs do); the template writes
+  `conf-coregistration.yaml` only after a successful run and keeps the old one
+  as `conf-coregistration_[backup_<time>].yaml`;
+* conf `command$execute` is `ravecore::reg3d_rigid` with scalar arguments
+  `reg_type`, `cost`, `interp`, `max_side`; outputs add `registration` and,
+  when written, `CT_ORIG` / `MRI_ORIG`.
+On the de-identified demo pair (blanked CT, skull-stripped MRI) every
+MI-based tool, YAEL-reg3d and NiftyReg included, converges to a pose that
+cuts through the brain; judge accuracy on real data.
 
 ## Reports
 
@@ -453,6 +499,7 @@ generated!" with the path and a "View report" link, or an error.
 | FreeSurfer | recon-all, clinical, YAEL+recon-all | `cmd_freesurfer_home()`, option `freesurfer_path` |
 | FSL | FLIRT | `cmd_fsl_home()`, option `fsl_path` |
 | AFNI | 3dAllineate | `cmd_afni_home()`, option `afni_path` |
+| ravetools (R package) | YAEL-reg3d co-registration | imported by ravecore (>= 0.3.1), always installed |
 | ANTs (rpyANTs, python) | YAEL, ANTs co-registration | `rpyANTs::ants_available()` |
 | NiftyReg (RNiftyReg) | NiftyReg co-registration | R package, always installed |
 | nipy (python) | img_pipe | rpymat environment |
@@ -504,7 +551,8 @@ input; subject defaults `nii_t1`/`nii_ct` (`:232`, `:265`) are never set;
   and the electrode tables in `rave/meta`.
 * `fs/mri/ct_in_t1.nii.gz` is byte-identical to the T1 (misnamed).
 * `notes/surface_reconstruction.*` hold the import history (bug 2).
-* Machine: FreeSurfer 8.0.0, 32 GB RAM, ANTs and NiftyReg available.
+* Machine: FreeSurfer 8.0.0, 32 GB RAM, ANTs and NiftyReg available
+  (YAEL-reg3d needs only ravecore and ravetools).
 
 ## MCP migration
 
@@ -516,7 +564,8 @@ Done 2026-10-04 (plan:
   `param_acpc_infile`, `param_acpc_refresh`; `param_fs_infile`,
   `param_fs_refresh`, `param_fs_prog`, `param_fs_fresh_start`
   (`writable = FALSE`); `param_coreg_ct`, `param_coreg_refresh`,
-  `param_coreg_mri`, `coreg_ct_program`, all 16 per-program inputs; the four
+  `param_coreg_mri`, `coreg_ct_program`, all per-program inputs (16, plus
+  the three YAEL-reg3d inputs added later); the four
   `jump_*` links in `basic_info`.
 * **Button scripts** (observer bodies moved verbatim; each button runs its
   script; a printed summary appended): `import_t1`, `import_ct`,
@@ -534,4 +583,7 @@ Done 2026-10-04 (plan:
   chat; MCP agents read the descriptions and the manual's first lines.
 * **`test-mcp.R`** (demo only): backs up and restores the subject itself,
   verified by checksum; error cases first; `do_write <- FALSE` stops before
-  the imports.
+  the imports. Since YAEL-reg3d it checks the default program, runs YAEL-reg3d
+  Rigid (outputs, conf, the electrode-localization reader's view) and the
+  report on it, then ANTs and NiftyReg. Run it against a test app in an
+  isolated copy of the repo: `RAVE_TEST_PORT=17299 Rscript modules/yael_preprocess/test-mcp.R`.

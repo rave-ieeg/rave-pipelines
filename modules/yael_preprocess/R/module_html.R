@@ -398,6 +398,13 @@ module_html <- function() {
                   shiny::tags$li(
                     shiny::pre(
                       class = "pre-compact no-padding display-inline",
+                      "YAEL-reg3d"
+                    ),
+                    " (rigid) is built into RAVE and needs no extra installs."
+                  ),
+                  shiny::tags$li(
+                    shiny::pre(
+                      class = "pre-compact no-padding display-inline",
                       "NiftyReg"
                     ),
                     " is always available. "
@@ -514,24 +521,106 @@ module_html <- function() {
                           inputId = ns("coreg_ct_program"),
                           label = "Program",
                           choices = c(
+                            "YAEL-reg3d",
                             "NiftyReg",
                             "ANTs",
                             "img_pipe",
                             "AFNI",
                             "FSL"
                           ),
-                          selected = "NiftyReg"
+                          selected = "YAEL-reg3d"
                         ),
                         inputId = "coreg_ct_program",
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
-                          "[Select] Co-registration program: `NiftyReg` (default), `ANTs`, `img_pipe`,",
-                          "`AFNI`, `FSL`. Recommend `ANTs` (by far the best algorithm). Agents may run",
-                          "only `ANTs` or `NiftyReg` from RAVE (script `run_coregistration`, after the",
-                          "user confirms); for the others use script `save_coregistration_script`.",
-                          "Each program shows its own parameter inputs."
+                          "[Select] Co-registration program: `YAEL-reg3d` (default; built into RAVE,",
+                          "rigid), `NiftyReg`, `ANTs`, `img_pipe`, `AFNI`, `FSL`. Recommend in this order:",
+                          "`ANTs` >= `YAEL-reg3d` > `FSL` > `NiftyReg` > the rest; `YAEL-reg3d` first when",
+                          "script `imaging_status` shows `ants=not available` (RAVE's Python not",
+                          "configured). Agents may run only `YAEL-reg3d`, `ANTs` or `NiftyReg` from RAVE",
+                          "(script `run_coregistration`, after the user confirms); for the others use",
+                          "script `save_coregistration_script`. Each program shows its own parameter",
+                          "inputs."
                         ),
                         tooltip = "Program used to align the CT to the MRI."
+                      )
+                    )
+                  )
+                ),
+
+                # native: YAEL-reg3d
+                shiny::conditionalPanel(
+                  condition = sprintf(
+                    "input['%s']==='YAEL-reg3d'",
+                    ns("coreg_ct_program")
+                  ),
+                  shiny::fluidRow(
+                    shiny::column(
+                      width = 12L,
+                      "Coregistration parameters"
+                    ),
+
+                    shiny::column(
+                      width = 4L,
+                      shidashi::register_input(
+                        shiny::selectInput(
+                          inputId = ns("coreg_reg3d_type"),
+                          label = "Registration type",
+                          choices = c("Rigid", "DenseRigid", "FastRigid"),
+                          selected = "Rigid"
+                        ),
+                        inputId = "coreg_reg3d_type",
+                        update = "shiny::updateSelectInput(value=selected)",
+                        description = paste(
+                          "[Select: `Rigid` (default, under a minute), `DenseRigid` (samples every voxel,",
+                          "a few minutes), `FastRigid` (coarse, seconds)] YAEL-reg3d rigid registration",
+                          "variant; shown when `coreg_ct_program` is `YAEL-reg3d`. Read by scripts",
+                          "`run_coregistration` and `save_coregistration_script`."
+                        ),
+                        tooltip = "YAEL-reg3d rigid registration variant."
+                      )
+                    ),
+
+                    shiny::column(
+                      width = 4L,
+                      shidashi::register_input(
+                        shiny::selectInput(
+                          inputId = ns("coreg_reg3d_cost"),
+                          label = "Cost function",
+                          choices = c("MI" = "mattes", "CC" = "cc"),
+                          selected = "mattes"
+                        ),
+                        inputId = "coreg_reg3d_cost",
+                        update = "shiny::updateSelectInput(value=selected)",
+                        description = paste(
+                          "[Select: `mattes` (shown as MI, mutual information; default, suits CT-MRI),",
+                          "`cc` (shown as CC, cross-correlation; for images of the same modality)]",
+                          "YAEL-reg3d cost function; shown when `coreg_ct_program` is `YAEL-reg3d`. Read",
+                          "by scripts `run_coregistration` and `save_coregistration_script`."
+                        ),
+                        tooltip = "YAEL-reg3d cost function."
+                      )
+                    ),
+
+                    shiny::column(
+                      width = 4L,
+                      shidashi::register_input(
+                        shiny::selectInput(
+                          inputId = ns("coreg_reg3d_interp"),
+                          label = "Interpolation",
+                          choices = c("trilinear", "bspline", "nearest"),
+                          selected = "trilinear"
+                        ),
+                        inputId = "coreg_reg3d_interp",
+                        update = "shiny::updateSelectInput(value=selected)",
+                        description = paste(
+                          "[Select: `trilinear` (default), `bspline`, `nearest`] How YAEL-reg3d resamples",
+                          "the images it saves (`ct_in_t1`, and copies of images with a side of 384",
+                          "voxels or more); the alignment itself does not change. Shown when",
+                          "`coreg_ct_program` is `YAEL-reg3d`. Read by scripts `run_coregistration` and",
+                          "`save_coregistration_script`."
+                        ),
+                        tooltip = "YAEL-reg3d interpolation of the saved images."
                       )
                     )
                   )

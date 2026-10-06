@@ -10,8 +10,8 @@ Authors@R: c(
     )
 Description: Use 'dcm2niix' to import 'DICOM' files to 'NIFTI' format.
     Apply 'FreeSurfer' or 'ANTsPyx' commands to perform 'MRI' segmentation
-    and parcellation. Provide 'ANTs', 'NiftyReg', and 'FSL-FLIRT' to 
-    co-register 'CT' and 'MRI'. This module is not mandatory. Users can 
+    and parcellation. Provide the built-in 'YAEL-reg3d', 'ANTs', 'NiftyReg',
+    and 'FSL-FLIRT' to co-register 'CT' and 'MRI'. This module is not mandatory. Users can 
     integrate their own pipelines. Please see 'CITATION' file for
     references.
 URL: https://yael.wiki

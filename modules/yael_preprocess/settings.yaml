@@ -12,9 +12,12 @@ params:
     float: 'Yes'
     crop: 'No'
   segmentation:
-    program: recon-all
-    flag: -all
-    fresh_start: no
+    program: YAEL-only
+  reg3d:
+    reference: MRI_acpc.nii.gz
+    reg_type: Rigid
+    cost: mattes
+    interp: trilinear
   niftyreg:
     reference: MRI_acpc.nii.gz
     reg_type: rigid

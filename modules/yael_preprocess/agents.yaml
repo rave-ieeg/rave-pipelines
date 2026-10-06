@@ -158,8 +158,11 @@ parameters:
       5. MRI preprocessing: `save_mri_preprocessing_script` (recommend
          `YAEL+recon-all`; `YAEL-only` when FreeSurfer is not needed or the
          memory is short: FreeSurfer 7.x needs 16 GB, 8.x needs 32 GB).
-      6. Co-registration: `run_coregistration` with `ANTs` (recommended) or
-         `NiftyReg`; other programs: `save_coregistration_script`.
+      6. Co-registration: recommend `ANTs` > `YAEL-reg3d` > `FSL` >
+         `NiftyReg` > the rest; `YAEL-reg3d` first when `imaging_status`
+         shows `ants=not available`. Run `ANTs`, `YAEL-reg3d` or `NiftyReg`
+         with `run_coregistration`; other programs (FSL included):
+         `save_coregistration_script`.
       7. Reports: `generate_coregistration_report`,
          `generate_normalization_report` (no need to ask).
     - Ask the user before every run from RAVE (imports, co-registration).

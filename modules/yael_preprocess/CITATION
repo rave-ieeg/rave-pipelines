@@ -265,3 +265,37 @@ bibentry(
   header       = "[FSL-FLIRT]",
   textVersion = "[11][FSL-FLIRT] Jenkinson, M., Bannister, P., Brady, M. and Smith, S., 2002. Improved optimization for the robust and accurate linear registration and motion correction of brain images. Neuroimage, 17(2), pp.825-841."
 )
+
+bibentry(bibtype = "Manual",
+         key = "wang2026ravetools",
+         title = "{ravetools}: Signal and Image Processing Toolbox for Analyzing Intracranial Electroencephalography Data",
+         year = "2026",
+         note = "R package version 0.3.2",
+         url = "https://CRAN.R-project.org/package=ravetools",
+         author = c(
+           as.person("Zhengjia Wang"),
+           as.person("John Magnotti"),
+           as.person("Michael Beauchamp")
+         ),
+         header       = "[YAEL-reg3d] Manual",
+         textVersion = "[12][YAEL-reg3d] Wang Z, Magnotti J, Beauchamp M (2026). ravetools: Signal and Image Processing Toolbox for Analyzing Intracranial Electroencephalography Data. R package version 0.3.2, https://CRAN.R-project.org/package=ravetools ."
+)
+
+bibentry(bibtype = "Article",
+         key = "avants2008",
+         title = "Symmetric diffeomorphic image registration with cross-correlation: evaluating automated labeling of elderly and neurodegenerative brain",
+         journal = "Medical Image Analysis",
+         year = "2008",
+         volume = "12",
+         number = "1",
+         pages = "26--41",
+         doi = "10.1016/j.media.2007.06.004",
+         author = c(
+           as.person("Brian B. Avants"),
+           as.person("Charles L. Epstein"),
+           as.person("Murray Grossman"),
+           as.person("James C. Gee")
+         ),
+         header       = "[YAEL-reg3d]",
+         textVersion = "[13][YAEL-reg3d] Avants BB, Epstein CL, Grossman M, Gee JC (2008). Symmetric diffeomorphic image registration with cross-correlation: evaluating automated labeling of elderly and neurodegenerative brain. Medical Image Analysis, 12(1), 26-41."
+)

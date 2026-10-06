@@ -792,6 +792,86 @@ rm(._._env_._.)
             }), target_depends = c("check_result", "params",
             "subject")), deps = c("check_result", "params", "subject"
         ), cue = targets::tar_cue("always"), pattern = NULL,
+        iteration = "list"), CT_MR_coregistration_via_reg3d = targets::tar_target_raw(name = "coreg_reg3d",
+        command = quote({
+            .__target_expr__. <- quote({
+                coreg_reg3d <- tryCatch({
+                  if (!is.function(asNamespace("ravecore")$cmd_run_reg3d_rigid)) {
+                    stop("YAEL-reg3d needs a newer RAVE (ravecore 0.1.1.20 or later). ",
+                      "Please update RAVE, or choose another program.")
+                  }
+                  imaging_path <- subject$imaging_path
+                  mri_path <- file.path(imaging_path, "derivative",
+                    params$nipy$reference)
+                  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
+                    mri_path <- file.path(imaging_path, "inputs",
+                      "MRI", params$nii_t1)
+                  }
+                  if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
+                    stop("Please choose a valid MRI Nifti file")
+                  }
+                  ct_path <- file.path(imaging_path, "inputs",
+                    "CT", params$nii_ct)
+                  if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
+                    stop("Please choose a valid CT Nifti file. Current file is missing: ",
+                      ct_path)
+                  }
+                  ravecore::cmd_run_reg3d_rigid(subject = subject,
+                    ct_path = ct_path, mri_path = mri_path,
+                    reg_type = params$reg3d$reg_type %OF% c("Rigid",
+                      "DenseRigid", "FastRigid"), cost = params$reg3d$cost %OF%
+                      c("mattes", "cc"), interp = params$reg3d$interp %OF%
+                      c("trilinear", "bspline", "nearest"), verbose = FALSE,
+                    dry_run = TRUE)
+                }, error = function(e) {
+                  list(error = TRUE, condition = e)
+                })
+            })
+            tryCatch({
+                eval(.__target_expr__.)
+                return(coreg_reg3d)
+            }, error = function(e) {
+                asNamespace("ravepipeline")$resolve_pipeline_error(name = "coreg_reg3d",
+                  condition = e, expr = .__target_expr__.)
+            })
+        }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL,
+            target_export = "coreg_reg3d", target_expr = quote({
+                {
+                  coreg_reg3d <- tryCatch({
+                    if (!is.function(asNamespace("ravecore")$cmd_run_reg3d_rigid)) {
+                      stop("YAEL-reg3d needs a newer RAVE (ravecore 0.1.1.20 or later). ",
+                        "Please update RAVE, or choose another program.")
+                    }
+                    imaging_path <- subject$imaging_path
+                    mri_path <- file.path(imaging_path, "derivative",
+                      params$nipy$reference)
+                    if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
+                      mri_path <- file.path(imaging_path, "inputs",
+                        "MRI", params$nii_t1)
+                    }
+                    if (!path_is_valid(mri_path) || dir.exists(mri_path)) {
+                      stop("Please choose a valid MRI Nifti file")
+                    }
+                    ct_path <- file.path(imaging_path, "inputs",
+                      "CT", params$nii_ct)
+                    if (!path_is_valid(ct_path) || dir.exists(ct_path)) {
+                      stop("Please choose a valid CT Nifti file. Current file is missing: ",
+                        ct_path)
+                    }
+                    ravecore::cmd_run_reg3d_rigid(subject = subject,
+                      ct_path = ct_path, mri_path = mri_path,
+                      reg_type = params$reg3d$reg_type %OF% c("Rigid",
+                        "DenseRigid", "FastRigid"), cost = params$reg3d$cost %OF%
+                        c("mattes", "cc"), interp = params$reg3d$interp %OF%
+                        c("trilinear", "bspline", "nearest"), verbose = FALSE,
+                      dry_run = TRUE)
+                  }, error = function(e) {
+                    list(error = TRUE, condition = e)
+                  })
+                }
+                coreg_reg3d
+            }), target_depends = c("params", "subject")), deps = c("params",
+        "subject"), cue = targets::tar_cue("always"), pattern = NULL,
         iteration = "list"), CT_MR_coregistration_via_NiftyReg = targets::tar_target_raw(name = "coreg_niftyreg",
         command = quote({
             .__target_expr__. <- quote({
