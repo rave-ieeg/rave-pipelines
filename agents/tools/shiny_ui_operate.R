@@ -39,12 +39,27 @@ shiny_ui_operate <- shidashi::mcp_wrapper(
             } else {
               selector <- target
             }
-            session$sendCustomMessage("shidashi.click", list(selector = selector))
-            sprintf(paste(
-              "Clicked `%s` (nothing happens if no element matches).",
-              "The app reacts after this call returns: check the result with",
-              "`shiny_query_ui` (or a module script that reports progress)."
-            ), selector)
+            # The browser refuses elements inside
+            # `[mcp-agent-disabled="true"]`: those are for people only
+            promises::then(shidashi::mcp_click(selector, session = session), function(res) {
+              if (isTRUE(res$refused)) {
+                stop(sprintf(paste(
+                  "`%s` is disabled for agents: ask the user to click it",
+                  "themselves; they must approve."
+                ), target), call. = FALSE)
+              }
+              if (!isTRUE(res$matched)) {
+                note <- paste(res$note, collapse = "")
+                stop(sprintf("No element on the page matches `%s`.%s", selector,
+                             if (nzchar(note)) paste0(" ", note) else ""),
+                     call. = FALSE)
+              }
+              sprintf(paste(
+                "Clicked `%s`. The app reacts after this call returns: check",
+                "the result with `shiny_query_ui` (or a module script that",
+                "reports progress)."
+              ), selector)
+            })
           },
           "dismiss_modal" = {
             shiny::removeModal(session = session)
@@ -104,7 +119,9 @@ shiny_ui_operate <- shidashi::mcp_wrapper(
         "(all if empty).",
         "The app reacts after this call returns: confirm the result with",
         "`shiny_query_ui`. A click can start long or destructive work (e.g. a",
-        "dialog's Confirm button): ask the user first."
+        "dialog's Confirm button): ask the user first. Some buttons are for",
+        "people only (`mcp-agent-disabled`): the click is refused; ask the",
+        "user to click them."
       ),
       arguments = list(
         action = ellmer::type_enum(

@@ -275,9 +275,7 @@ use `YAEL+recon-all`; otherwise switch FreeSurfer versions, or use `YAEL-only`.
   RAVE's settings for every subject.
 * **First runs may install software.** ANTs co-registration installs ANTs when
   it is missing; img_pipe sets up its Python packages; YAEL downloads its
-  templates. YAEL-reg3d installs nothing, but needs ravecore 0.1.1.20 or later
-  (otherwise it shows "YAEL-reg3d needs a newer RAVE": ask the user to update
-  RAVE, or use another program).
+  templates. YAEL-reg3d installs nothing.
 * **Memory.** YAEL's default MNI template needs 16 GB of RAM (it falls back to
   another template otherwise); FreeSurfer 8.x needs 32 GB.
 * **AFNI ignores "MR image"**: it always uses the MRI chosen in MRI

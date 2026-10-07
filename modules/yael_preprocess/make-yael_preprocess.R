@@ -796,10 +796,6 @@ rm(._._env_._.)
         command = quote({
             .__target_expr__. <- quote({
                 coreg_reg3d <- tryCatch({
-                  if (!is.function(asNamespace("ravecore")$cmd_run_reg3d_rigid)) {
-                    stop("YAEL-reg3d needs a newer RAVE (ravecore 0.1.1.20 or later). ",
-                      "Please update RAVE, or choose another program.")
-                  }
                   imaging_path <- subject$imaging_path
                   mri_path <- file.path(imaging_path, "derivative",
                     params$nipy$reference)
@@ -838,10 +834,6 @@ rm(._._env_._.)
             target_export = "coreg_reg3d", target_expr = quote({
                 {
                   coreg_reg3d <- tryCatch({
-                    if (!is.function(asNamespace("ravecore")$cmd_run_reg3d_rigid)) {
-                      stop("YAEL-reg3d needs a newer RAVE (ravecore 0.1.1.20 or later). ",
-                        "Please update RAVE, or choose another program.")
-                    }
                     imaging_path <- subject$imaging_path
                     mri_path <- file.path(imaging_path, "derivative",
                       params$nipy$reference)

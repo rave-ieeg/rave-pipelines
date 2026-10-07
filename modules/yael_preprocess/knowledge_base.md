@@ -428,10 +428,8 @@ MR image resolution (targets `main.Rmd:421-624`): `derivative/<reference>`
 if valid, else `inputs/MRI/<nii_t1>`. AFNI always uses `inputs/MRI/<nii_t1>`.
 CT: `inputs/CT/<nii_ct>`, else error "Please choose a valid CT Nifti file".
 The YAEL-reg3d target builds these paths from `subject$imaging_path` (the
-others from `check_result$path_temp`) and first stops with "YAEL-reg3d needs a
-newer RAVE (ravecore 0.1.1.20 or later) ..." when the installed ravecore lacks
-`cmd_run_reg3d_rigid()`; the error object shows in the script panel and the
-"Error found!" toast, and the other programs still build.
+others from `check_result$path_temp`); its errors show in the script panel and
+the "Error found!" toast, and the other programs still build.
 
 | Program | ravecore | Script / log | Runs as |
 |---|---|---|---|
