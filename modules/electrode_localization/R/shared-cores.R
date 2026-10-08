@@ -25,6 +25,245 @@ load_freesurfer_lookup_table <- function() {
 }
 
 
+# ---- FreeSurfer labels, by the 3D viewer's rule ------------------------------
+# An R copy of threeBrain's rule for localization electrodes
+# (`getAnatomicalLabelFromPosition.js`, `LocElectrode.computeFreeSurferLabel`
+# in `localization.js`), so prototype contacts get the labels the viewer gives
+# sphere contacts at the same positions.
+
+# Index ranges each atlas prefers (cortical labels over white matter, ...)
+FS_LABEL_RANGES_APARC <- rbind(
+  c(1001, 1035), c(2001, 2035), c(3001, 3035), c(4001, 4035),
+  c(1101, 1212), c(2101, 2212), c(3101, 3181), c(4101, 4181),
+  c(3201, 3207), c(4201, 4207)
+)
+FS_LABEL_ATLASES <- list(
+  # in the order the viewer computes them (used to infer the hemisphere)
+  "aseg" = list(column = "aseg", preferred = NULL),
+  "aparc+aseg" = list(column = "aparc_aseg", preferred = FS_LABEL_RANGES_APARC),
+  "aparc.DKTatlas+aseg" = list(column = "aparc_DKTatlas_aseg", preferred = FS_LABEL_RANGES_APARC),
+  "aparc.a2009s+aseg" = list(
+    column = "aparc_a2009s_aseg",
+    preferred = rbind(
+      c(11101, 11175), c(12101, 12175), c(13101, 13175), c(14101, 14175),
+      FS_LABEL_RANGES_APARC
+    )
+  )
+)
+# `FSLabel` is the first of these with a label, else the `aseg` label
+FS_LABEL_PICK_ORDER <- c("aparc.a2009s+aseg", "aparc+aseg", "aparc.DKTatlas+aseg", "aseg")
+
+# Read the atlases the viewer shows (the files `threeBrain`'s
+# `brain$add_atlas()` reads, which `brain$localize()` adds) as integer arrays,
+# about 64 MB each. Missing atlases are left out (their labels are "Unknown").
+load_fs_label_atlases <- function(subject) {
+  fs_path <- subject$freesurfer_path
+  if (length(fs_path) != 1 || is.na(fs_path) || !dir.exists(fs_path)) {
+    return(list())
+  }
+  atlases <- list()
+  for (atlas in names(FS_LABEL_ATLASES)) {
+    fnames <- sprintf("%s%s", atlas, c(".mgz", ".nii.gz", ".nii"))
+    paths <- c(file.path(fs_path, "mri", fnames),
+               file.path(dirname(fs_path), "atlases", fnames))
+    paths <- paths[file.exists(paths)]
+    if (!length(paths)) { next }
+    volume <- ieegio::read_volume(paths[[1]])
+    data <- volume$data[]
+    dims <- dim(data)[seq_len(3)]
+    data <- array(as.integer(data), dim = dims)
+    vox2ras <- volume$transforms$vox2ras
+    atlases[[atlas]] <- list(
+      data = data,
+      dim = dims,
+      # viewer positions are tkrRAS; `vox2ras` (scanner) when the file has no tkrRAS
+      ras_to_vox_tkr = if (is.matrix(volume$transforms$vox2ras_tkr)) solve(volume$transforms$vox2ras_tkr) else NULL,
+      ras_to_vox = solve(vox2ras),
+      # voxels per millimeter along each index
+      delta = 1 / sqrt(colSums(vox2ras[seq_len(3), seq_len(3), drop = FALSE]^2))
+    )
+  }
+  atlases
+}
+
+fs_label_lut <- local({
+  lut <- NULL
+  function() {
+    if (is.null(lut)) {
+      cmap <- load_freesurfer_lookup_table()$cmap
+      ids <- as.integer(names(cmap$map))
+      labels <- vapply(cmap$map, function(item) {
+        paste(item$Label, collapse = "")
+      }, "")
+      o <- order(ids)
+      lut <<- list(ids = ids[o], labels = unname(labels[o]))
+    }
+    lut
+  }
+})
+
+# Labels at tkrRAS positions (`n x 3`), for every atlas and the picked
+# `FSLabel`. `hemisphere` ("left", "right", or "auto"; recycled per row) limits
+# the labels, as the plan's hemisphere does in the viewer; "auto" is inferred
+# from the labels, else from the side of the midline (the viewer uses the
+# nearest pial surface). `tkr_to_scanner` is needed only for atlases stored
+# without tkrRAS (NIfTI).
+compute_fs_labels <- function(tkr_ras, atlases, hemisphere = "auto",
+                              tkr_to_scanner = NULL, max_step = 2) {
+  tkr_ras <- matrix(as.numeric(tkr_ras), ncol = 3)
+  n <- nrow(tkr_ras)
+  hemisphere <- tolower(as.character(rep_len(hemisphere, n)))
+  hemisphere[is.na(hemisphere)] <- "auto"
+  lut <- fs_label_lut()
+
+  lut_label <- function(id) {
+    lbl <- lut$labels[match(as.integer(id), lut$ids)]
+    if (is.na(lbl)) "Unknown" else lbl
+  }
+  is_preferred <- function(id, ranges) {
+    if (!length(ranges)) { return(TRUE) }
+    any(id >= ranges[, 1] & id <= ranges[, 2])
+  }
+  is_correct_hemisphere <- function(label, hemi) {
+    if (startsWith(hemi, "l")) {
+      return(!(grepl("^(ctx|wm|)[_-]?rh", label, perl = TRUE) ||
+                 grepl("Right", label, fixed = TRUE)))
+    }
+    if (startsWith(hemi, "r")) {
+      return(!(grepl("^(ctx|wm|)[_-]?lh", label, perl = TRUE) ||
+                 grepl("Left", label, fixed = TRUE)))
+    }
+    TRUE
+  }
+  js_round <- function(x) { floor(x + 0.5) }
+
+  label_one <- function(ras1, atlas, preferred, hemi) {
+    if (is.null(atlas)) { return(0L) }
+    if (!is.null(atlas$ras_to_vox_tkr)) {
+      vox <- (atlas$ras_to_vox_tkr %*% c(ras1, 1))[seq_len(3)]
+    } else {
+      if (is.null(tkr_to_scanner)) { return(0L) }
+      scanner <- tkr_to_scanner %*% c(ras1, 1)
+      vox <- (atlas$ras_to_vox %*% scanner)[seq_len(3)]
+    }
+    dims <- atlas$dim
+    step <- atlas$delta * max_step
+    ijk0 <- js_round(vox)
+    ijk1 <- pmax(pmin(ijk0, dims - step - 1), step)
+    inside <- all(ijk0 >= 0 & ijk0 < dims)
+    label_id <- if (inside) atlas$data[ijk0[[1]] + 1, ijk0[[2]] + 1, ijk0[[3]] + 1] else 0L
+    if (is.na(label_id)) { label_id <- 0L }
+
+    if (label_id != 0 && is_preferred(label_id, preferred) &&
+        is_correct_hemisphere(lut_label(label_id), hemi)) {
+      return(label_id)
+    }
+
+    # search the box around the position, as the viewer does
+    ranges <- lapply(seq_len(3), function(d) {
+      idx <- seq(js_round(ijk1[[d]] - step[[d]]), js_round(ijk1[[d]] + step[[d]]))
+      idx[idx >= 0 & idx < dims[[d]]] + 1
+    })
+    block <- atlas$data[ranges[[1]], ranges[[2]], ranges[[3]]]
+    block <- block[!is.na(block) & block > 0]
+    if (!length(block)) { return(0L) }
+    counts <- table(block)
+    keys <- as.integer(names(counts))
+    counts <- as.integer(counts)
+    o <- order(keys)
+    keys <- keys[o]
+    counts <- counts[o]
+    keep <- vapply(keys, function(k) {
+      is_correct_hemisphere(lut_label(k), hemi) && is_preferred(k, preferred)
+    }, FALSE)
+    if (any(keep)) {
+      keys <- keys[keep]
+      counts <- counts[keep]
+    }
+    # ties go to the larger index, like the viewer
+    label_id <- keys[[max(which(counts == max(counts)))]]
+
+    # a label from the other hemisphere becomes its counterpart
+    lbl <- lut_label(label_id)
+    swapped <- NA_character_
+    if (startsWith(hemi, "l")) {
+      if (grepl("^(ctx|wm|)([_-]?)rh", lbl, perl = TRUE)) {
+        swapped <- sub("^(ctx|wm|)([_-]?)rh", "\\1\\2lh", lbl, perl = TRUE)
+      } else if (grepl("Right", lbl, fixed = TRUE)) {
+        swapped <- sub("Right", "Left", lbl, fixed = TRUE)
+      }
+    } else if (startsWith(hemi, "r")) {
+      if (grepl("^(ctx|wm|)([_-]?)lh", lbl, perl = TRUE)) {
+        swapped <- sub("^(ctx|wm|)([_-]?)lh", "\\1\\2rh", lbl, perl = TRUE)
+      } else if (grepl("Left", lbl, fixed = TRUE)) {
+        swapped <- sub("Left", "Right", lbl, fixed = TRUE)
+      }
+    }
+    if (!is.na(swapped)) {
+      id2 <- lut$ids[match(swapped, lut$labels)]
+      if (!is.na(id2)) { label_id <- id2 }
+    }
+    label_id
+  }
+
+  labels_at <- function(ras1, hemi) {
+    vapply(names(FS_LABEL_ATLASES), function(atlas) {
+      as.integer(label_one(ras1, atlases[[atlas]], FS_LABEL_ATLASES[[atlas]]$preferred, hemi))
+    }, 0L)
+  }
+
+  rows <- lapply(seq_len(n), function(ii) {
+    ras1 <- tkr_ras[ii, ]
+    hemi <- hemisphere[[ii]]
+    if (anyNA(ras1) || sum(ras1^2) == 0) {
+      ids <- structure(rep(0L, length(FS_LABEL_ATLASES)), names = names(FS_LABEL_ATLASES))
+    } else {
+      ids <- labels_at(ras1, hemi)
+      if (!hemi %in% c("left", "right")) {
+        # infer the hemisphere from the labels (the viewer's order), then
+        # label again with it
+        hemi <- NA_character_
+        for (atlas in names(FS_LABEL_ATLASES)) {
+          m <- regmatches(tolower(lut_label(ids[[atlas]])),
+                          regexpr("(lh|rh|left|right)-", tolower(lut_label(ids[[atlas]]))))
+          if (length(m) && ids[[atlas]] != 0) {
+            hemi <- ifelse(startsWith(m, "r"), "right", "left")
+            break
+          }
+        }
+        if (is.na(hemi)) { hemi <- ifelse(ras1[[1]] < 0, "left", "right") }
+        ids <- labels_at(ras1, hemi)
+      }
+    }
+    picked <- "aseg"
+    for (atlas in FS_LABEL_PICK_ORDER) {
+      if (atlas == "aseg" || ids[[atlas]] > 0) {
+        picked <- atlas
+        break
+      }
+    }
+    row <- list(Hemisphere = hemi, FSIndex = ids[[picked]],
+                FSLabel = if (ids[[picked]] == 0) "Unknown" else lut_label(ids[[picked]]))
+    for (atlas in FS_LABEL_PICK_ORDER) {
+      column <- FS_LABEL_ATLASES[[atlas]]$column
+      row[[paste0("FSIndex_", column)]] <- ids[[atlas]]
+      row[[paste0("FSLabel_", column)]] <- if (ids[[atlas]] == 0) "Unknown" else lut_label(ids[[atlas]])
+    }
+    row
+  })
+  if (!n) {
+    return(data.frame(Hemisphere = character(0L), FSIndex = integer(0L), FSLabel = character(0L)))
+  }
+  columns <- names(rows[[1]])
+  structure(
+    lapply(structure(columns, names = columns), function(column) {
+      unlist(lapply(rows, `[[`, column), use.names = FALSE)
+    }),
+    class = "data.frame",
+    row.names = seq_len(n)
+  )
+}
+
 get_image_candidates_from_coregistration_folder <- function(subject) {
   fs_path <- subject$freesurfer_path
 
@@ -157,6 +396,7 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     files <- file.path(subject$meta_path, c("electrodes_unsaved.csv", "electrodes.csv"))
     files <- files[file.exists(files)]
 
+    existing_table <- NULL
     try({
       if (length(files)) {
         files <- files[[1]]
@@ -174,20 +414,28 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
         )
         if (all(tname1 %in% names(electrode_table))) {
           tname2 <- tname2[tname2 %in% names(electrode_table)]
-          electrode_table <- electrode_table[, tname2]
-
-          # check if there are electrodes missing
-          missing_electrodes <- as.integer(electrode_table$Electrode)
-          missing_electrodes <- missing_electrodes[!missing_electrodes %in% as.integer(plan_table$Electrode)]
-
-          if (length(missing_electrodes)) {
-            stop("Detected channel ", dipsaus::deparse_svec(missing_electrodes),
-                 " from RAVE data. Please include them in the electrode plan.")
-          }
-          plan_table <- merge(electrode_table, plan_table, by = "Electrode", all.y = TRUE)
+          existing_table <- electrode_table[, tname2]
         }
       }
     }, silent = TRUE)
+
+    if (is.data.frame(existing_table)) {
+      # Channels of the existing table must stay in the plan: otherwise the
+      # merge is skipped and the staged table (`electrodes_unsaved.csv`) loses
+      # every coordinate. This error is raised outside the `try` above, before
+      # anything is written
+      missing_electrodes <- as.integer(existing_table$Electrode)
+      missing_electrodes <- missing_electrodes[!missing_electrodes %in% as.integer(plan_table$Electrode)]
+
+      if (length(missing_electrodes)) {
+        stop("Channel ", dipsaus::deparse_svec(missing_electrodes),
+             " found in the existing electrode table (", basename(files[[1]]),
+             "). Please include them in the electrode plan.")
+      }
+      try({
+        plan_table <- merge(existing_table, plan_table, by = "Electrode", all.y = TRUE)
+      }, silent = TRUE)
+    }
 
     # "Coord_x", "Coord_y", "Coord_z",
     # "MNI305_x", "MNI305_y", "MNI305_z",
@@ -457,6 +705,9 @@ stage_localization <- function(subject, brain, localization_list) {
 
   prototype_list <- dipsaus::fastmap2()
 
+  # FreeSurfer atlases, read when a prototype group needs labels
+  fs_label_atlases <- NULL
+
   re <- lapply(localization_list, function(item) {
 
     if (!is.data.frame(item) || !nrow(item)) {
@@ -533,6 +784,24 @@ stage_localization <- function(subject, brain, localization_list) {
       # item$MNI305_x <- contact_mni305[1, ]
       # item$MNI305_y <- contact_mni305[2, ]
       # item$MNI305_z <- contact_mni305[3, ]
+
+      # FreeSurfer labels at the contacts, by the viewer's rule (the viewer
+      # labels only the control points)
+      if (is.null(fs_label_atlases)) {
+        fs_label_atlases <<- load_fs_label_atlases(subject)
+      }
+      labels <- compute_fs_labels(
+        t(contact_tkrras),
+        atlases = fs_label_atlases,
+        hemisphere = item$Hemisphere,
+        tkr_to_scanner = brain$Norig %*% solve(brain$Torig)
+      )
+      item$FSIndex <- labels$FSIndex
+      item$FSLabel <- labels$FSLabel
+      item$FSLabel_aparc_a2009s_aseg <- labels$FSLabel_aparc_a2009s_aseg
+      item$FSLabel_aparc_aseg <- labels$FSLabel_aparc_aseg
+      item$FSLabel_aparc_DKTatlas_aseg <- labels$FSLabel_aparc_DKTatlas_aseg
+      item$FSLabel_aseg <- labels$FSLabel_aseg
 
     }
 

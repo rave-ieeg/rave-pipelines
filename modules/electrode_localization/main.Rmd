@@ -319,7 +319,7 @@ if (isTRUE(as.list(postprocess_opts)[["nonlinear_volumetric_mapping"]])) {
 ### Post-processing by calculating the template mapping via surface registration
 
 ```{rave postprocess_surface_mapping, export = "postprocess_surface_mapping", cue="always"}
-if (isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
+if (isTRUE(as.list(postprocess_opts)[["nonlinear_surface_mapping"]])) {
   electrode_table <- subject$get_electrode_table()
   
   if (!is.data.frame(electrode_table)) {

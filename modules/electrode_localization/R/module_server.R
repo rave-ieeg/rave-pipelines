@@ -309,14 +309,124 @@ module_server <- function(input, output, session, ...) {
           shiny::div(
             class = "float-right",
             shiny::modalButton("Dismiss"),
-            dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
+            # People only: agents' clicks on it are refused (`mcp-agent-disabled`)
+            shidashi::register_input(
+              # (a tag list: the attribute goes on its button)
+              htmltools::tagQuery(
+                dipsaus::actionButtonStyled(ns("save_btn"), "Save to subject")
+              )$filter("button")$addAttrs(`mcp-agent-disabled` = "true")$allTags(),
+              inputId = "save_btn",
+              update = "dipsaus::updateActionButtonStyled",
+              writable = FALSE,
+              description = paste(
+                "[Button, people only] 'Save to subject' in the 'Electrode table'",
+                "dialog: writes the electrode table to the subject",
+                "(meta/electrodes.csv, BIDS electrodes.tsv, the imaging",
+                "`localization` folder) with the post-process options the person",
+                "ticks. Agents cannot click it: ask the user to review the table",
+                "and click it themselves."
+              ),
+              tooltip = "Save the electrode table to the subject."
+            )
           )
         )
 
       )
     ))
 
-  }, alert_params = list(text = "Temporarily saving the current electrodes to generate the coordinate table"))
+    # Summary for agents
+    staged <- table_preview$electrode_table
+    localized <- rowSums(cbind(staged$Coord_x, staged$Coord_y, staged$Coord_z)^2) > 0
+    c(
+      sprintf("staged=%s", file.path(component_container$data$subject$meta_path, "electrodes_unsaved.csv")),
+      sprintf("electrodes=%d, localized=%d", nrow(staged), sum(localized, na.rm = TRUE)),
+      paste(
+        "next=the 'Electrode table' dialog is open. The person reviews it, ticks",
+        "the post-process options, and clicks 'Save to subject' (people only).",
+        "To close it without saving: `shiny_ui_operate` action `dismiss_modal`."
+      )
+    )
+  }, description = c(
+    "Same as clicking 'Stage & Show Electrode Table' (RAVE!). Stages the current",
+    "localization of every group into the subject's staged table",
+    "(meta/electrodes_unsaved.csv, geometry_unsaved.json; electrode-model",
+    "contacts get their positions and FreeSurfer labels), then opens the",
+    "'Electrode table' dialog listing every electrode. Its 'Save to subject'",
+    "button is for people only. Result: the staged file, electrode counts, and",
+    "the next step."
+  ), alert_params = list(text = "Temporarily saving the current electrodes to generate the coordinate table"))
+
+  # Read-only summary for agents
+  server_tools$set_script(
+    "localization_status",
+    {
+      subject <- component_container$data$subject
+      plan_list <- local_data$plan_list
+      active <- local_reactives$active_plan
+      localize_data <- pipeline$read("localize_data")
+      methods <- c(
+        ijk2ras = "CT (IJK) to MR (RAS) transform + Raw CT",
+        fsl = "FSL transform + Raw CT + MRI",
+        resampled = "Re-sampled CT",
+        no_ct = "Localize without CT"
+      )
+      file_name <- function(path) {
+        if (length(path) == 1 && !is.na(path) && nzchar(path)) basename(path) else "none"
+      }
+      method <- unname(methods[paste(localize_data$transform_space, collapse = "")])
+      if (is.na(method)) { method <- "unknown" }
+      lines <- c(
+        sprintf("subject=%s", subject$subject_id),
+        sprintf("method=%s", method),
+        sprintf("ct=%s, mri=%s", file_name(localize_data$ct_path), file_name(localize_data$mri_path))
+      )
+      for (ii in seq_along(plan_list)) {
+        group_info <- plan_list[[ii]]
+        group_table <- group_info$group_table
+        placed <- rowSums(cbind(group_table$Coord_x, group_table$Coord_y, group_table$Coord_z)^2) > 0
+        control_points <- group_info$prototype$control_points
+        if (is.data.frame(control_points)) {
+          state <- sprintf(
+            "electrode model %s, control points placed %d/%d, contacts positioned %d/%d",
+            group_info$prototype_name, sum(!is.na(control_points$tkr_R)),
+            nrow(control_points), sum(placed, na.rm = TRUE), nrow(group_table))
+        } else {
+          state <- sprintf("type %s, electrodes placed %d/%d", group_info$type,
+                           sum(placed, na.rm = TRUE), nrow(group_table))
+        }
+        lines <- c(lines, sprintf(
+          "group %d%s: %s, channels %s, hemisphere %s, %s, Interp Size %s",
+          ii, if (isTRUE(active == ii)) " (active)" else "", group_info$label_prefix,
+          group_info$dimension, group_info$hemisphere, state,
+          paste(group_info$interpolation_string, collapse = "")))
+      }
+      if (!length(active)) {
+        lines <- c(lines, "active group=none (click a group button `switch_plan_btn_<i>`)")
+      }
+      staged <- file.path(subject$meta_path, "electrodes_unsaved.csv")
+      saved <- file.path(subject$meta_path, "electrodes.csv")
+      lines <- c(
+        lines,
+        sprintf("staged=%s", if (file.exists(staged)) format(file.mtime(staged)) else "none"),
+        sprintf("saved=%s", if (file.exists(saved)) format(file.mtime(saved)) else "none")
+      )
+      localization_path <- file.path(subject$imaging_path, "localization")
+      if (dir.exists(localization_path)) {
+        lines <- c(lines, sprintf("saved files (imaging localization folder)=%s",
+                                  paste(list.files(localization_path), collapse = ", ")))
+      }
+      cat(lines, sep = "\n")
+      lines
+    },
+    description = c(
+      "Read-only summary of the loaded localization: subject, method, CT and MRI",
+      "files; for each group its label, channels, hemisphere, type or electrode",
+      "model, how many electrodes (or control points) are placed, and Interp",
+      "Size; the active group; when the staged and saved tables were last",
+      "written, and the files in the imaging `localization` folder. Writes",
+      "nothing."
+    )
+  )
 
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -341,6 +451,8 @@ module_server <- function(input, output, session, ...) {
       component_container$reset_data()
       local_data$plan_list <- NULL
       local_data$last_group_id <- NULL
+      local_data$fs_label_atlases <- NULL
+      local_data$hand_picked_labels <- NULL
 
       component_container$data$subject <- subject
       component_container$data$ct_exists <- ct_exists
@@ -389,11 +501,20 @@ module_server <- function(input, output, session, ...) {
         group_info <- local_data$plan_list[[ ii ]]
         if (!length(group_info)) { return(NULL) }
         blabel <- group_info$button_label
-        dipsaus::actionButtonStyled(
-          ns(sprintf("switch_plan_btn_%d", ii)),
-          label = blabel,
-          type = "default",
-          class = "margin-5 btn-xs"
+        shidashi::register_input(
+          dipsaus::actionButtonStyled(
+            ns(sprintf("switch_plan_btn_%d", ii)),
+            label = blabel,
+            type = "default",
+            class = "margin-5 btn-xs"
+          ),
+          inputId = sprintf("switch_plan_btn_%d", ii),
+          update = "dipsaus::updateActionButtonStyled",
+          description = sprintf(paste(
+            "[Button] Shows electrode group %s in the group table and the 3D",
+            "viewer, where people place its electrodes. Writes nothing."
+          ), blabel),
+          tooltip = "Show this electrode group in the table and the viewer."
         )
       })
     }),
@@ -552,10 +673,14 @@ module_server <- function(input, output, session, ...) {
     label_prefix <- snapshot$label_prefix
     label_position <- c(NA, NA, NA)
 
-    try({
-      # Old threeBrain might not have this method
-      brain_proxy$set_incoming_localization_hemisphere( hemisphere )
-    })
+    # "Re-compute FreeSurfer labels" and "Reset current group" drop the labels
+    # picked by hand in this group
+    if (reset_labels || reset) {
+      local_data$hand_picked_labels <- setdiff(local_data$hand_picked_labels,
+                                               group_table$Electrode)
+    }
+
+    brain_proxy$set_incoming_localization_hemisphere( hemisphere )
 
     ii <- 1L
     if (!reset) {
@@ -631,7 +756,9 @@ module_server <- function(input, output, session, ...) {
           item$Coord_x %?<-% row$Coord_x
           item$Coord_y %?<-% row$Coord_y
           item$Coord_z %?<-% row$Coord_z
-          if ( reset_labels ) {
+          # Labels follow the position: the viewer gets fixed labels only for
+          # the ones picked by hand (until "Re-compute FreeSurfer labels")
+          if ( reset_labels || !isTRUE(row$Electrode %in% local_data$hand_picked_labels) ) {
             item$FSIndex <- NULL
             item$FSLabel <- NULL
           }
@@ -687,20 +814,15 @@ module_server <- function(input, output, session, ...) {
     }
 
     # update label decoration
-    # Use is.function(brain_proxy$set_text_decoration) for backward
-    # compatibility support in case user has not yet upgraded to
-    # the latest threeBrain package
-    if (is.function(brain_proxy$set_text_decoration)) {
-      if (anyNA(label_position)) {
-        # print(sprintf("Deleting decor L825: %s", label_prefix))
-        brain_proxy$delete_text_decoration(id = label_prefix)
-      } else {
-        # print(sprintf("Setting decor L828: %s", label_prefix))
-        brain_proxy$set_text_decoration(id = label_prefix,
-                                        text = label_prefix,
-                                        position = label_position,
-                                        font_size = 3)
-      }
+    if (anyNA(label_position)) {
+      # print(sprintf("Deleting decor L825: %s", label_prefix))
+      brain_proxy$delete_text_decoration(id = label_prefix)
+    } else {
+      # print(sprintf("Setting decor L828: %s", label_prefix))
+      brain_proxy$set_text_decoration(id = label_prefix,
+                                      text = label_prefix,
+                                      position = label_position,
+                                      font_size = 3)
     }
 
 
@@ -762,22 +884,94 @@ module_server <- function(input, output, session, ...) {
 
 
   # render group table here
-  format_group_table <- function(df) {
-    mni152 <- ravecore::MNI305_to_MNI152 %*% rbind(df$MNI305_x, df$MNI305_y, df$MNI305_z, 1)
-    sel <- df$Coord_x == 0 & df$Coord_y == 0 & df$Coord_z == 0
-    mni152[, sel] <- 0
+
+  # FreeSurfer atlases for the labels of prototype contacts, read once per
+  # loaded subject
+  get_fs_label_atlases <- function() {
+    atlases <- local_data$fs_label_atlases
+    if (is.null(atlases)) {
+      atlases <- tryCatch({
+        load_fs_label_atlases(component_container$data$subject)
+      }, error = function(e) {
+        ravepipeline::logger("Cannot read the FreeSurfer atlases: ",
+                             paste(e$message, collapse = "\n"), level = "warning")
+        list()
+      })
+      local_data$fs_label_atlases <- atlases
+    }
+    atlases
+  }
+
+  # scannerRAS and MNI152 (neurosynth link) of tkrRAS positions; positions at
+  # the origin (or missing) are not localized yet and stay blank
+  format_coordinates <- function(tkr) {
+    brain <- component_container$data$brain
+    tkr <- matrix(as.numeric(tkr), ncol = 3)
+    localized <- !is.na(rowSums(tkr)) & rowSums(tkr^2) > 0
+    tkr[!localized, ] <- 0
+    scanner <- brain$Norig %*% solve(brain$Torig) %*% rbind(t(tkr), 1)
+    mni152 <- ravecore::MNI305_to_MNI152 %*% brain$xfm %*% scanner
+    scanner_text <- sprintf("%.0f,%.0f,%.0f", scanner[1, ], scanner[2, ], scanner[3, ])
     mni152_text <- sprintf("%.0f,%.0f,%.0f", mni152[1, ], mni152[2, ], mni152[3, ])
     mni152_link <- url_neurosynth(mni152[1, ], mni152[2, ], mni152[3, ])
     mni152_col <- sprintf('<a href="%s" target="_blank">%s</a>', mni152_link, mni152_text)
-    mni152_col[sel] <- ""
+    scanner_text[!localized] <- ""
+    mni152_col[!localized] <- ""
+    list(scannerRAS = scanner_text, MNI152 = mni152_col, localized = localized)
+  }
+
+  format_group_table <- function(df) {
+    coords <- format_coordinates(cbind(df$Coord_x, df$Coord_y, df$Coord_z))
     table_output <- data.frame(
       row.names = df$Electrode,
       Label = df$Label,
-      tkrRAS = sprintf("%.0f,%.0f,%.0f", df$Coord_x, df$Coord_y, df$Coord_z),
-      MNI152 = mni152_col,
+      scannerRAS = coords$scannerRAS,
+      MNI152 = coords$MNI152,
       FSLabel = df$FSLabel
     )
     table_output
+  }
+
+  # Prototype groups: one row per control point. Control points that are
+  # contacts show the contact's label and FreeSurfer label; fiducial markers
+  # show `(marker k)`
+  format_prototype_table <- function(ginfo) {
+    geometry_table <- ginfo$geometry_table
+    group_table <- ginfo$group_table
+    n <- nrow(geometry_table)
+    tkr <- cbind(geometry_table$tkr_R, geometry_table$tkr_A, geometry_table$tkr_S)
+    coords <- format_coordinates(tkr)
+
+    channel <- geometry_table$Channel
+    if (!length(channel)) { channel <- rep(NA, n) }
+    is_contact <- !is.na(channel)
+    marker_number <- cumsum(!is_contact)
+
+    label <- rep("non-contact", n)
+    label[is_contact] <- as.character(group_table$Label[match(channel[is_contact], group_table$Electrode)])
+    label[is_contact & is.na(label)] <- sprintf("Channel %s", channel[is_contact & is.na(label)])
+
+    fs_label <- rep("", n)
+    fs_label[!is_contact] <- sprintf("(marker %d)", marker_number[!is_contact])
+    todo <- is_contact & coords$localized
+    if (any(todo)) {
+      brain <- component_container$data$brain
+      fs_label[todo] <- compute_fs_labels(
+        tkr[todo, , drop = FALSE],
+        atlases = get_fs_label_atlases(),
+        hemisphere = paste(ginfo$hemisphere, collapse = ""),
+        tkr_to_scanner = brain$Norig %*% solve(brain$Torig)
+      )$FSLabel
+    }
+
+    row_names <- ifelse(is_contact, as.character(channel), sprintf("M%d", marker_number))
+    data.frame(
+      row.names = make.unique(row_names),
+      Label = label,
+      scannerRAS = coords$scannerRAS,
+      MNI152 = coords$MNI152,
+      FSLabel = fs_label
+    )
   }
   shiny::bindEvent(
     ravedash::safe_observe({
@@ -790,27 +984,7 @@ module_server <- function(input, output, session, ...) {
 
       table_output <- NULL
       if ( is.data.frame(ginfo$geometry_table) ) {
-        # TODO: display control points instead of the group table
-        geometry_table <- ginfo$geometry_table
-
-        sel <- !(
-          is.na( geometry_table$tkr_R ) |
-            is.na( geometry_table$tkr_A ) |
-            is.na( geometry_table$tkr_S )
-        )
-        tkrRAS_str <- sprintf("%.0f,%.0f,%.0f", geometry_table$tkr_R, geometry_table$tkr_A, geometry_table$tkr_S)
-        tkrRAS_str[!sel] <- ""
-
-        chan_str <- sprintf("%.0f", geometry_table$Channel)
-        chan_str[ chan_str == "NA" ] <- "non-contact"
-
-        if (is.data.frame(geometry_table)) {
-          table_output <- data.frame(
-            Electrode = chan_str,
-            ModelXYZ = sprintf("%.0f,%.0f,%.0f", geometry_table$model_x, geometry_table$model_y, geometry_table$model_z),
-            tkrRAS = tkrRAS_str
-          )
-        }
+        table_output <- format_prototype_table(ginfo)
       }
       if (!is.data.frame(table_output)) {
         table_output <- format_group_table(ginfo$group_table)
@@ -891,37 +1065,69 @@ module_server <- function(input, output, session, ...) {
   )
 
   output$fsindex_selector <- shiny::renderUI({
-    selected <- group_table_selected()
-    if (length(selected) != 1 || isFALSE(selected)) { return() }
+    # TRUE for a sphere row, NA for a prototype row (no label picker)
+    row_selected <- group_table_selected()
+    if (length(row_selected) != 1 || isFALSE(row_selected)) { return() }
     ridx <- shiny::isolate(input$group_table_rows_selected)
 
     labels <- c("[unchanged]", unname(component_container$data$fslut$labels))
     selected <- shiny::isolate(input$fsindex_label) %OF% labels
 
-    if (isTRUE(selected)) {
+    if (isTRUE(row_selected)) {
       shiny::tagList(
         shiny::div(
           class = "margin-top-5",
-          shiny::p("To re-localize this electrode, click ", shiny::actionLink(ns("relocalize_electrode"), label = "here")),
+          shiny::p("To re-localize this electrode, click ", shidashi::register_input(
+            shiny::actionLink(ns("relocalize_electrode"), label = "here"),
+            inputId = "relocalize_electrode",
+            update = "shiny::updateActionLink",
+            description = paste(
+              "[Link] Re-localize the row selected in the group table: the next",
+              "electrode placed in the 3D viewer (the person double-clicks the CT",
+              "or MRI) replaces that row. A notification lets the person cancel."
+            ),
+            tooltip = "Place this electrode again in the viewer."
+          )),
           shiny::p("If you want to change the FreeSurfer label, please select one from below:")
         ),
         shidashi::flex_container(
           style = "align-items: end;",
           shidashi::flex_item(
             size = 2,
-            shinyWidgets::pickerInput(
-              inputId = ns("fsindex_label"), label = "FreeSurfer Label",
-              choices = labels, selected = selected,
-              multiple = FALSE, width = "100%",
-              options = list(
-                `live-search` = TRUE
-              )
+            shidashi::register_input(
+              shinyWidgets::pickerInput(
+                inputId = ns("fsindex_label"), label = "FreeSurfer Label",
+                choices = labels, selected = selected,
+                multiple = FALSE, width = "100%",
+                options = list(
+                  `live-search` = TRUE
+                )
+              ),
+              inputId = "fsindex_label",
+              update = "shinyWidgets::updatePickerInput(value=selected)",
+              description = paste(
+                "[Picker] FreeSurfer label for the electrode selected in the group",
+                "table (sphere groups only); \"[unchanged]\" keeps its label. Saved",
+                "by `fsindex_label_next`. A label picked by hand stays until",
+                "'Re-compute FreeSurfer labels'; others follow the electrode's",
+                "position. Change labels only when the user asks."
+              ),
+              tooltip = "FreeSurfer label for the selected electrode."
             )
           ),
           shidashi::flex_item(
             shiny::div(
               class = "form-group",
-              dipsaus::actionButtonStyled(ns("fsindex_label_next"), "Save & Next", width = "100%")
+              shidashi::register_input(
+                dipsaus::actionButtonStyled(ns("fsindex_label_next"), "Save & Next", width = "100%"),
+                inputId = "fsindex_label_next",
+                update = "dipsaus::updateActionButtonStyled",
+                description = paste(
+                  "[Button] 'Save & Next': gives the selected electrode the label in",
+                  "`fsindex_label` (table and 3D viewer), then selects the next row."
+                ),
+                tooltip = "Save this label and select the next electrode."
+              )
             )
           )
         )
@@ -929,7 +1135,17 @@ module_server <- function(input, output, session, ...) {
     } else {
       shiny::div(
         class = "margin-top-5",
-        shiny::p("To re-localize this electrode, click ", shiny::actionLink(ns("relocalize_electrode"), label = "here"), ".")
+        shiny::p("To re-localize this electrode, click ", shidashi::register_input(
+            shiny::actionLink(ns("relocalize_electrode"), label = "here"),
+            inputId = "relocalize_electrode",
+            update = "shiny::updateActionLink",
+            description = paste(
+              "[Link] Re-localize the row selected in the group table: the next",
+              "electrode placed in the 3D viewer (the person double-clicks the CT",
+              "or MRI) replaces that row. A notification lets the person cancel."
+            ),
+            tooltip = "Place this electrode again in the viewer."
+          ), ".")
       )
     }
   })
@@ -952,9 +1168,25 @@ module_server <- function(input, output, session, ...) {
       if (isTRUE(label %in% component_container$data$fslut$labels)) {
         # change label
         # if(nrow(group_table) < ridx) { return() }
-        group_table$FSIndex[[ridx]] <- component_container$data$fslut$cmap$get_key(label)
+        # unnamed: shiny would send a named value to the viewer as an object
+        fs_index <- as.integer(unname(component_container$data$fslut$cmap$get_key(label)))
+        group_table$FSIndex[[ridx]] <- fs_index
         group_table$FSLabel[[ridx]] <- label
         local_data$plan_list[[group_id]]$group_table <- group_table
+
+        # Labels picked by hand stay (the viewer keeps them) until
+        # "Re-compute FreeSurfer labels"; others follow the positions
+        local_data$hand_picked_labels <- unique(c(local_data$hand_picked_labels,
+                                                  group_table$Electrode[[ridx]]))
+
+        # Tell the viewer too, so its table (and a later "Re-compute") agrees
+        # with this one. The viewer holds the rows up to the first one not
+        # localized yet (see `show_group()`)
+        localized <- group_table$Coord_x != 0 | group_table$Coord_y != 0 | group_table$Coord_z != 0
+        if (all(localized[seq_len(ridx)])) {
+          brain_proxy$set_localization_electrode(
+            which = ridx, params = list(FSIndex = fs_index), update_shiny = TRUE)
+        }
       }
 
       next_ridx <- ridx + 1L
@@ -1353,12 +1585,8 @@ module_server <- function(input, output, session, ...) {
         # Offset 6 mm; do not remove decoration because remove action
         # happens with clear electrodes, requiring update_viewer=TRUE
         # hence this is branch always add electrodes
-        #
-        # Also use is.function(brain_proxy$set_text_decoration) for backward
-        # compatibility support in case user has not yet upgraded to
-        # the latest threeBrain package
         label_position <- c1 + tmp * 6
-        if (!anyNA(label_position) && is.function(brain_proxy$set_text_decoration)) {
+        if (!anyNA(label_position)) {
           # print(sprintf("Setting decor: %s", label_prefix))
           brain_proxy$set_text_decoration(id = label_prefix,
                                           text = label_prefix,

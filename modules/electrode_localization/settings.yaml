@@ -1,8 +1,8 @@
 localization_list: ${EXTDATA-SETTINGS|localization_list|json}
 localization_plan: ${EXTDATA-SETTINGS|localization_plan|json}
-path_ct: '{subject$freesurfer_path}/../coregistration/CT_RAW.nii.gz'
-path_mri: '{subject$freesurfer_path}/../coregistration/MRI_reference.nii.gz'
-path_transform: '{subject$freesurfer_path}/../coregistration/CT_IJK_to_MR_RAS.txt'
+path_ct: '{subject$imaging_path}/coregistration/CT_RAW.nii.gz'
+path_mri: '{subject$imaging_path}/coregistration/MRI_reference.nii.gz'
+path_transform: '{subject$imaging_path}/coregistration/CT_IJK_to_MR_RAS.txt'
 postprocess_opts:
   nonlinear_surface_mapping: yes
   nonlinear_volumetric_mapping: yes

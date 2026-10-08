@@ -20,9 +20,31 @@ module_html <- function() {
               ),
               shiny::hr(),
               shiny::span(
-                shiny::actionLink(ns("action_reset_btn"), "Reset current group"),
+                shidashi::register_input(
+                  shiny::actionLink(ns("action_reset_btn"), "Reset current group"),
+                  inputId = "action_reset_btn",
+                  update = "shiny::updateActionLink",
+                  description = paste(
+                    "[Link] 'Reset current group': removes every placed electrode of",
+                    "the active group from the table and the 3D viewer (positions",
+                    "back to 0), so the group can be placed again; the staged table",
+                    "changes at the next RAVE! (script `run_analysis`). Destructive:",
+                    "ask the user first."
+                  ),
+                  tooltip = "Remove the active group's electrodes to place them again."
+                ),
                 " | ",
-                shiny::actionLink(ns("action_reset_fslabel_btn"), "Re-compute FreeSurfer labels")
+                shidashi::register_input(
+                  shiny::actionLink(ns("action_reset_fslabel_btn"), "Re-compute FreeSurfer labels"),
+                  inputId = "action_reset_fslabel_btn",
+                  update = "shiny::updateActionLink",
+                  description = paste(
+                    "[Link] 'Re-compute FreeSurfer labels': labels every electrode of",
+                    "the active group again at its current position (labels picked",
+                    "by hand are dropped). Writes nothing."
+                  ),
+                  tooltip = "Label the active group's electrodes again from their positions."
+                )
               ),
               shiny::div(
                 class = "overflow-auto max-height-vh50",

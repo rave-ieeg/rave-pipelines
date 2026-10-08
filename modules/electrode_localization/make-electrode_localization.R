@@ -575,7 +575,7 @@ rm(._._env_._.)
         pattern = NULL, iteration = "list"), postprocess_surface_mapping = targets::tar_target_raw(name = "postprocess_surface_mapping", 
         command = quote({
             .__target_expr__. <- quote({
-                if (isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
+                if (isTRUE(as.list(postprocess_opts)[["nonlinear_surface_mapping"]])) {
                   electrode_table <- subject$get_electrode_table()
                   if (!is.data.frame(electrode_table)) {
                     stop("Invalid electrode table. Please save the electrode localization results first.")
@@ -620,7 +620,7 @@ rm(._._env_._.)
         }), format = asNamespace("ravepipeline")$target_format_dynamic(name = NULL, 
             target_export = "postprocess_surface_mapping", target_expr = quote({
                 {
-                  if (isTRUE(as.list(postprocess_opts)[["postprocess_surface_mapping"]])) {
+                  if (isTRUE(as.list(postprocess_opts)[["nonlinear_surface_mapping"]])) {
                     electrode_table <- subject$get_electrode_table()
                     if (!is.data.frame(electrode_table)) {
                       stop("Invalid electrode table. Please save the electrode localization results first.")

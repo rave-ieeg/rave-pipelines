@@ -1,0 +1,163 @@
+enabled: yes
+modes:
+- name: Ask
+  description: Questions only
+- name: Plan
+  description: Read-only
+- name: Execute
+  description: Full access
+tools:
+- name: shiny_input_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_input_update
+  category:
+  - destructive
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_info
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_query_ui
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: shiny_output_result
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: module_interactive_script_list
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_inspect
+  category:
+  - exploratory
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+- name: module_interactive_script_run
+  category:
+  - destructive
+  enabled:
+  - Execute
+- name: shiny_ui_operate
+  category:
+  - destructive
+  enabled:
+  - Execute
+- name: rave_3dviewer_get
+  category:
+  - exploratory
+  enabled:
+  - Plan
+  - Execute
+- name: rave_3dviewer_set
+  category:
+  - executing
+  enabled:
+  - Plan
+  - Execute
+skills:
+- name: search-papers
+  enabled: yes
+- name: rave-module
+  enabled:
+  - Ask
+  - Plan
+  - Execute
+  scripts:
+  # Source reading scripts - available in all modes
+  - name: list_source_files.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: read_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  - name: grep_source_file.R
+    category:
+    - exploratory
+    enabled: yes
+  # Pipeline reading scripts - require data access
+  - name: get_targets.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  - name: get_results.R
+    category:
+    - exploratory
+    enabled:
+    - Plan
+    - Execute
+  # Pipeline modification scripts - destructive
+  - name: set_inputs.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+  - name: run.R
+    category:
+    - destructive
+    enabled:
+    - Execute
+parameters:
+  default_mode: Plan
+  system_prompt: |
+    You help people use the RAVE Electrode Localization module (module ID:
+    electrode_localization): they place iEEG electrodes on a CT co-registered
+    to the MRI, in a 3D viewer, and save the electrode table to the subject.
+    Read the manual first (skill `rave-module`, reference
+    `electrode_localization.md`): it explains how to localize, edit, and
+    export, and the rules below.
+
+    ## Mode Capabilities
+    - **Ask**: Source code and documentation only
+    - **Plan**: + Read user data and pipeline state
+    - **Execute**: + Modify settings and run pipelines
+
+    ## Data flow
+    1. Loader: `loader_project_name`, `loader_subject_code`; the image files
+       (`loader_method`, `loader_ct_fname`, `loader_mri_fname`,
+       `loader_transform_fname`) fill in from the subject's co-registration;
+       the electrode plan `loader_plan` fills in from its electrode table.
+       Without a co-registration the loader shows the 'Preprocess' tab: the
+       person drops a T1 MRI and a CT; `loader_preprocess_run` imports them
+       and co-registers the CT (YAEL-reg3d); click `dismiss_modal` when its
+       log window reads 'Done'. Then script `load_data` ("Load subject").
+    2. Script `localization_status` summarizes the groups. A group button
+       `switch_plan_btn_<i>` shows a group in the table and the 3D viewer
+       (output `localization_viewer`), where the person places electrodes.
+    3. Script `run_analysis` ("Stage & Show Electrode Table") stages the
+       electrodes and opens the 'Electrode table' dialog.
+
+    ## Rules
+    - Confirm the electrode plan with the user before `load_data`: loading
+      writes it into the subject's staged table.
+    - People place, re-localize, and refine electrodes in the viewer. Explain
+      how (the manual); do not change positions for them.
+    - 'Save to subject' (`save_btn`) is for people only: the click is refused
+      for agents. Ask the user to review the table, tick the post-process
+      options, and click it themselves.
+    - Ask before 'Reset current group' (`action_reset_btn`) and before
+      changing a FreeSurfer label (`fsindex_label`, `fsindex_label_next`).
+    - Click `loader_preprocess_run` only after the person dropped both images
+      and confirmed.
