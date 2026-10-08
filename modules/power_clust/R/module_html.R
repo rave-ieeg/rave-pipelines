@@ -29,6 +29,7 @@ module_html <- function() {
                     ),
                     tooltip = "Window to analyze, in seconds after each condition group's start event.",
                     inputId = "time_range",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSliderInput",
                     description = paste(
                       "Analysis window, JSON `[start, end]` in seconds relative to",
@@ -52,6 +53,7 @@ module_html <- function() {
                     ),
                     tooltip = "Frequency band (Hz) whose power is averaged; it must include at least one wavelet frequency.",
                     inputId = "frequency_range",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSliderInput",
                     description = paste(
                       "Frequency band in Hz, JSON `[low, high]` (step 1); bounds",
@@ -75,6 +77,7 @@ module_html <- function() {
                     ),
                     tooltip = "Threshold of the decomposition of each group's electrode similarity matrix; lower values tend to keep fewer components (default 0.5).",
                     inputId = "zeta_threshold",
+                    hint = "analysis_optional",
                     update = "shiny::updateSliderInput",
                     description = paste(
                       "Zeta threshold, a number from 0.05 to 0.95 (step 0.05,",
@@ -126,6 +129,7 @@ module_html <- function() {
             shidashi::register_input(
               comp_condition_groups$ui_func(),
               inputId = "condition_groups",
+              hint = "analysis_mandatory",
               update = "dipsaus::updateCompoundInput2",
               description = paste(
                 "Condition groups (a compound input in the card 'Create",

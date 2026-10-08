@@ -8,9 +8,10 @@ t-statistic, duration, and onset. Results are shown as figures by electrode,
 by trial, and for one channel, as a results table, and in a 3D viewer; an
 HTML report can be saved into the subject.
 
-**Prerequisite:** the subject needs Notch-filtered voltage (run the Notch
-filter module first), an epoch, and a reference. Only LFP electrodes are
-analyzed.
+**Prerequisite:** the subject needs imported voltage, an epoch, and a
+reference. Notch-filtered voltage (from the Notch filter module) is usual,
+but voltage that is not Notch-filtered loads too, for example CCEP data,
+which are not Notch-filtered. Only LFP electrodes are analyzed.
 
 ## Table of contents
 

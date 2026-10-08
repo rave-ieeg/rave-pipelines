@@ -27,6 +27,7 @@ module_html <- function() {
                     ),
                     tooltip = "Sample rate (Hz) of the saved power and phase.",
                     inputId = "target_sample_rate",
+                    hint = "analysis_optional",
                     update = "shiny::updateNumericInput",
                     description = paste(
                       "[Numeric, Hz] The sample rate to which the wavelet power/phase coefficients are down-sampled after wavelet computation but before saving.",
@@ -43,6 +44,7 @@ module_html <- function() {
                     ),
                     tooltip = "Down-sample the voltage by this factor before the wavelet; this lowers the Nyquist frequency.",
                     inputId = "pre_downsample",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select, integer as string] Down-sample factor applied to the voltage signal BEFORE the wavelet (will affect Nyquist frequency).",
@@ -61,6 +63,7 @@ module_html <- function() {
                     ),
                     tooltip = "Compute the wavelet in single (float) precision, which is faster; unchecked uses double precision.",
                     inputId = "precision",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
                       "[Boolean] When `true`, the wavelet is computed in single (float) precision, which is faster;",
@@ -82,6 +85,7 @@ module_html <- function() {
                     ),
                     tooltip = "Generate the wavelet frequencies and cycles with the built-in tool, or upload a preset table.",
                     inputId = "use_preset",
+                    hint = "analysis_forbidden",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] How the wavelet kernel table (Frequency + Cycles) is generated: `Builtin tool`",
@@ -118,6 +122,7 @@ module_html <- function() {
                       ),
                       tooltip = "Lowest and highest wavelet frequency (Hz).",
                       inputId = "freq_range",
+                      hint = "analysis_mandatory",
                       update = "shiny::updateSliderInput",
                       description = paste(
                         "[Numeric length of two, Hz] Lower and upper frequency of the built-in kernel table, as `[low, high]`.",
@@ -136,6 +141,7 @@ module_html <- function() {
                       ),
                       tooltip = "Spacing between the wavelet frequencies (Hz).",
                       inputId = "freq_step",
+                      hint = "analysis_mandatory",
                       update = "shiny::updateSliderInput",
                       description = paste(
                         "[Numeric, Hz] Spacing between consecutive frequencies in the built-in kernel table. Default `2`.",
@@ -154,6 +160,7 @@ module_html <- function() {
                       ),
                       tooltip = "Number of wavelet cycles at the lowest and the highest frequency.",
                       inputId = "cycle_range",
+                      hint = "analysis_mandatory",
                       update = "shiny::updateSliderInput",
                       description = paste(
                         "[Integer length-2] Number of Morlet wavelet cycles at the lowest and highest frequency, as `[low, high]`.",

@@ -485,6 +485,7 @@ module_server <- function(input, output, session, ...) {
               shiny::textInput(ns("preview_save_name"), "Reference name",
                                value = preview_save_name),
               inputId = "preview_save_name",
+              hint = "analysis_mandatory",
               update = "shiny::updateTextInput",
               description = paste(
                 "Name of the reference table to save: letters, digits, or underscore only.",
@@ -1851,6 +1852,7 @@ module_server <- function(input, output, session, ...) {
                   selected = ref_selection
                 ),
                 inputId = "reference_channels",
+                hint = "analysis_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = "Select an existing reference signal to use for this group. You can also create a new reference signal by selecting '[new reference]' and entering the channels to average."
               )
@@ -2121,6 +2123,7 @@ module_server <- function(input, output, session, ...) {
             placeholder = "Enter reference channels"
           ),
           inputId = "reference_channels_new",
+          hint = "analysis_optional",
           description = paste(
             "Enter the channels to average for the new reference signal (e.g. 1-100 for using channel 1 to 100 for calculating CAR). ",
             "You can also leave this blank to calculate the channels with least anti-correlation using CARLA.",

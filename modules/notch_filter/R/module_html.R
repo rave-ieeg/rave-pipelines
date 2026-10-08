@@ -29,6 +29,7 @@ module_html <- function() {
                     ),
                     tooltip = "Base frequency of the notch filter (Hz).",
                     inputId = "notch_filter_base_freq",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateNumericInput",
                     description = "[Numeric] The base frequency of the notch filter. For example, `60` Hz for power line noise. Pick 50 Hz for power line noise in Europe/Asia."
                   ) # notch_filter_base_freq
@@ -43,6 +44,7 @@ module_html <- function() {
                     ),
                     tooltip = "Multiples of the base frequency to filter, separated by commas (e.g. 1,2,3).",
                     inputId = "notch_filter_times",
+                    hint = "analysis_optional",
                     update = "shiny::updateTextInput",
                     description = "[Text of integers separated by commas] The multiples of the base frequency to be filtered. For example, `1,2,3` will filter 60 Hz, 120 Hz, and 180 Hz (for a `notch_filter_base_freq` = 60 Hz base frequency)."
                   ) # notch_filter_times
@@ -56,6 +58,7 @@ module_html <- function() {
                     ),
                     tooltip = "Half bandwidth (Hz) of the filter at each multiple, separated by commas.",
                     inputId = "notch_filter_bandwidth",
+                    hint = "analysis_optional",
                     update = "shiny::updateTextInput",
                     description = paste(
                       "[Text of integers separated by commas] The half bandwidths of the notch filter for each frequency to be filtered.",
@@ -81,6 +84,7 @@ module_html <- function() {
                       multiple = TRUE
                     ),
                     inputId = "notch_filter_channel_types",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "The channel types to be included in the notch filter. LFP macro-channels will always be included.",

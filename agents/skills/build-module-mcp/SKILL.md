@@ -137,7 +137,9 @@ Allowed without asking:
    Show the user the table and every gap that seems to need a UI or pipeline
    change, with your non-UI alternative. Wait for answers.
 2. **Register inputs** agents must set (see Quick reference). This includes
-   inputs inside `renderUI` and tab footers.
+   inputs inside `renderUI` and tab footers. Give each one a `hint` (see
+   "Input hints"); ravedash presets come with defaults that a module overrides
+   with the preset's `hint` argument.
 3. **Convert actions to scripts** (see Script pattern). Each button keeps one
    code path: its observer runs the script, or agents click it with
    `shiny_ui_operate` (dialog buttons whose function must stay as it is).
@@ -156,7 +158,9 @@ Allowed without asking:
    * Check every claim about behaviour against the code; drop what you cannot verify.
    * Domain semantics come from the user.
    * Give agents: the script order, which inputs exist in which state, and the
-     questions to ask the user.
+     questions to ask the user that no input hint covers. Which inputs to ask
+     about comes from the hints and the rule at the top of
+     `rave-module/SKILL.md`, not from a list in the manual.
 7. **`test-mcp.R`.** Set `module <- "<id>"`, then load the shared helpers with
    `source("agents/skills/build-module-mcp/test-common.R")`: `tool` (R-native
    arguments), `set_input`, `wait_input`, `set_input_wait` (re-sends until the
@@ -286,6 +290,27 @@ no tooltip.
 | button (gets clicked) | `shiny::updateActionButton`, `dipsaus::updateActionButtonStyled` |
 | card tabset | `shidashi::card_tabset_activate(value=title)` (lets agents open a tab so its footer inputs exist) |
 
+### Input hints
+
+`hint` (shidashi >= 0.2.0.17) tells agents what to do with an input before
+they act; `shiny_input_info` returns it, and agents follow the rule at the
+top of `rave-module/SKILL.md`.
+
+| Hint | Use for |
+|---|---|
+| `loader_mandatory` | loader inputs the user must choose: project, subject, epoch, trial window, reference, electrodes |
+| `loader_optional` | loader inputs with a sound default (anchor events, files the module preselects) |
+| `loader_forbidden` | loader inputs agents leave alone (people-only, or "change only when the user asks") |
+| `analysis_mandatory` | inputs that define the result and have no safe default: conditions, baseline, analysis windows, line frequency |
+| `analysis_optional` | inputs with a sound default (thresholds, display options) |
+| `analysis_forbidden` | analysis inputs agents leave alone |
+| `no_hint` | everything else (the default) |
+
+ravedash presets set their own defaults (loader inputs `loader_mandatory`,
+condition groups, baseline windows and analysis ranges `analysis_mandatory`);
+override them with the preset's `hint` argument, by input ID:
+`presets_loader_epoch(hint = c(loader_epoch_name__trial_starts = "loader_optional"))`.
+
 ## Live testing
 
 The developer's own app usually runs on port 17283: never stop it or drive it
@@ -329,6 +354,9 @@ cp "$SCRATCH/settings.yaml.bak" modules/<id>/settings.yaml
 ## Done checklist
 
 * All edited R files parse (`Rscript -e 'parse("<file>")'`).
+* Every registered input has the right `hint`:
+  `shiny_input_info(hints = [...])` lists the loader and analysis forms you
+  expect.
 * `test-mcp.R` passes end to end on the test copy (port 17299).
 * Each converted button, clicked as a person would (`shiny_ui_operate` or
   `shiny_input_update` on the button, plus a screenshot), still works and still

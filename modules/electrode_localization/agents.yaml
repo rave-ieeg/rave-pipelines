@@ -151,7 +151,9 @@ parameters:
 
     ## Rules
     - Confirm the electrode plan with the user before `load_data`: loading
-      writes it into the subject's staged table.
+      writes it into the subject's staged table. Placed channels left out of
+      the plan are removed from it, and a group planned with another electrode
+      model loses its positions (the result's `warning=` lines; tell the user).
     - People place, re-localize, and refine electrodes in the viewer. Explain
       how (the manual); do not change positions for them.
     - 'Save to subject' (`save_btn`) is for people only: the click is refused
@@ -160,4 +162,7 @@ parameters:
     - Ask before 'Reset current group' (`action_reset_btn`) and before
       changing a FreeSurfer label (`fsindex_label`, `fsindex_label_next`).
     - Click `loader_preprocess_run` only after the person dropped both images
-      and confirmed.
+      and confirmed. It refuses subjects that already have a co-registered CT:
+      those use the MRI/CT Preprocessing module.
+    - Never write the subject's electrode table another way, e.g. pipeline
+      target `localization_result_final` (skill script `run.R`).

@@ -48,6 +48,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Where the electrode coordinates come from: the subject's electrodes.csv, or an uploaded table.",
                 inputId = "loader_electrode_source",
+                hint = "loader_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Select] Where the electrode coordinates come from:",
@@ -111,6 +112,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Extra volumes (atlases) to load.",
                 inputId = "loader_volume_types",
+                hint = "loader_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Multi-select, JSON array] Extra volumes (atlases) to load,",
@@ -132,6 +134,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Extra surface types to load.",
                 inputId = "loader_surface_types",
+                hint = "loader_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Multi-select, JSON array] Extra surface types to load, e.g.",
@@ -153,6 +156,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Surface annotations or measurements to load.",
                 inputId = "loader_annot_types",
+                hint = "loader_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Multi-select, JSON array] Surface annotations or",
@@ -174,6 +178,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Streamline (fiber tract) bundles to load.",
                 inputId = "loader_streamline_types",
+                hint = "loader_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Multi-select, JSON array] Streamline (fiber tract) bundles",
@@ -194,6 +199,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Draw the contacts as spheres instead of electrode shapes.",
                 inputId = "loader_use_spheres",
+                hint = "loader_optional",
                 update = "shiny::updateCheckboxInput",
                 description = paste(
                   "[Checkbox, true/false] Draw contacts as spheres instead of",
@@ -213,6 +219,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Radius (mm) of the sphere contacts.",
                 inputId = "loader_override_radius",
+                hint = "loader_optional",
                 update = "shiny::updateNumericInput",
                 description = paste(
                   "[Number, mm, 0 to 10] Radius of sphere contacts; a value",
@@ -231,6 +238,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                 ),
                 tooltip = "Also load the template brain, e.g. to map electrodes to it.",
                 inputId = "loader_use_template",
+                hint = "loader_optional",
                 update = "shiny::updateCheckboxInput",
                 description = paste(
                   "[Checkbox, true/false] Also load the template brain, e.g.",

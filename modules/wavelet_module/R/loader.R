@@ -48,6 +48,18 @@ loader_server <- function(input, output, session, ...) {
   server_tools <- ravedash::get_default_handlers(session = session)
   server_tools$set_script(
     "load_data",
+    description = c(
+      "Load the subject chosen in the loader (same as clicking 'Load subject').",
+      "It reads `loader_project_name` and `loader_subject_code`, saves them to",
+      "the pipeline settings, and reads the subject's Notch-filtered electrodes",
+      "and sample rates (targets `notch_filtered_electrodes`, `sample_rates`,",
+      "`subject`); no signal data are read. Returns a summary: the",
+      "Notch-filtered electrodes and the sample rate, which bounds",
+      "`pre_downsample` and the frequency range. After loading, the module",
+      "restores the previous wavelet run's `target_sample_rate`,",
+      "`pre_downsample` and `precision`, if any. A failed load (for example,",
+      "no Notch filter yet) returns the error, and people see an alert."
+    ),
     {
       # gather information from preset UIs
       settings <- tryCatch({

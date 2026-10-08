@@ -112,6 +112,7 @@ compute_fs_labels <- function(tkr_ras, atlases, hemisphere = "auto",
                               tkr_to_scanner = NULL, max_step = 2) {
   tkr_ras <- matrix(as.numeric(tkr_ras), ncol = 3)
   n <- nrow(tkr_ras)
+  if (!length(hemisphere)) { hemisphere <- "auto" }
   hemisphere <- tolower(as.character(rep_len(hemisphere, n)))
   hemisphere[is.na(hemisphere)] <- "auto"
   lut <- fs_label_lut()
@@ -397,6 +398,7 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     files <- files[file.exists(files)]
 
     existing_table <- NULL
+    existing_model <- NULL
     try({
       if (length(files)) {
         files <- files[[1]]
@@ -415,23 +417,74 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
         if (all(tname1 %in% names(electrode_table))) {
           tname2 <- tname2[tname2 %in% names(electrode_table)]
           existing_table <- electrode_table[, tname2]
+          # electrode model of each channel (none in older tables)
+          existing_model <- electrode_table$Prototype
         }
       }
     }, silent = TRUE)
 
+    # What the merge drops from placed electrodes: the loader's summary and a
+    # notification in the module show these
+    merge_notes <- NULL
     if (is.data.frame(existing_table)) {
-      # Channels of the existing table must stay in the plan: otherwise the
-      # merge is skipped and the staged table (`electrodes_unsaved.csv`) loses
-      # every coordinate. This error is raised outside the `try` above, before
-      # anything is written
-      missing_electrodes <- as.integer(existing_table$Electrode)
-      missing_electrodes <- missing_electrodes[!missing_electrodes %in% as.integer(plan_table$Electrode)]
-
-      if (length(missing_electrodes)) {
-        stop("Channel ", dipsaus::deparse_svec(missing_electrodes),
-             " found in the existing electrode table (", basename(files[[1]]),
-             "). Please include them in the electrode plan.")
+      normalize_model <- function(x) {
+        x <- toupper(trimws(as.character(x)))
+        x[is.na(x)] <- ""
+        x
       }
+      model_name <- function(x) { ifelse(nzchar(x), x, "no electrode model") }
+      existing_channels <- as.integer(existing_table$Electrode)
+      plan_channels <- as.integer(plan_table$Electrode)
+      placed <- rowSums(cbind(existing_table$Coord_x, existing_table$Coord_y,
+                              existing_table$Coord_z)^2) > 0
+      placed[is.na(placed)] <- FALSE
+      plan_row <- match(existing_channels, plan_channels)
+
+      # Channels no longer in the plan leave the staged table (the merge keeps
+      # the plan's channels only)
+      removed <- existing_channels[is.na(plan_row) & placed]
+      if (length(removed)) {
+        merge_notes <- c(merge_notes, sprintf(paste(
+          "Channels %s are no longer in the plan: they and their positions were",
+          "removed from the staged table. The saved table (electrodes.csv) keeps",
+          "them until the next 'Save to subject'."
+        ), dipsaus::deparse_svec(removed)))
+      }
+
+      # A channel planned with another electrode model starts over: positions
+      # placed with one model (or as single contacts) do not fit another. A
+      # change to a plain type keeps the contact positions (the plan also
+      # gets a plain type when the model is not installed here)
+      if (!length(existing_model)) {
+        existing_model <- rep("", nrow(existing_table))
+      }
+      old_model <- normalize_model(existing_model)
+      new_model <- normalize_model(plan_table$Prototype[plan_row])
+      changed <- !is.na(plan_row) & nzchar(new_model) & old_model != new_model
+      changed_placed <- changed & placed
+      if (any(changed_placed)) {
+        groups <- plan_table$LabelPrefix[plan_row[changed_placed]]
+        for (group in unique(groups)) {
+          sel <- which(changed_placed)[groups == group]
+          merge_notes <- c(merge_notes, sprintf(
+            "%s (channels %s): electrode model changed from %s to %s; its positions were reset.",
+            group, dipsaus::deparse_svec(existing_channels[sel]),
+            model_name(old_model[sel][[1]]), model_name(new_model[sel][[1]])
+          ))
+        }
+      }
+      existing_table <- existing_table[!changed, , drop = FALSE]
+
+      # Keep a copy of the staged table it replaces (`electrodes.csv` is not
+      # written here)
+      if (length(merge_notes) && write_table &&
+          identical(basename(files[[1]]), "electrodes_unsaved.csv")) {
+        backup_path <- ravecore::backup_file(files[[1]], quiet = TRUE)
+        merge_notes <- c(merge_notes, sprintf(
+          "The previous staged table was copied to %s (subject's meta folder).",
+          basename(backup_path)))
+      }
+
       try({
         plan_table <- merge(existing_table, plan_table, by = "Electrode", all.y = TRUE)
       }, silent = TRUE)
@@ -543,6 +596,7 @@ make_localization_plan_list <- function(subject, localization_plan, write_table 
     plan_table$SignalType <- etypes_default
 
     plan_list <- split(plan_table, plan_table$LabelPrefix)
+    attr(plan_list, "merge_notes") <- merge_notes
 
     # save to "electrodes_unsaved.csv"
     if ( write_table ) {
@@ -788,7 +842,14 @@ stage_localization <- function(subject, brain, localization_list) {
       # FreeSurfer labels at the contacts, by the viewer's rule (the viewer
       # labels only the control points)
       if (is.null(fs_label_atlases)) {
-        fs_label_atlases <<- load_fs_label_atlases(subject)
+        # labels are "Unknown" when the atlases cannot be read
+        fs_label_atlases <<- tryCatch({
+          load_fs_label_atlases(subject)
+        }, error = function(e) {
+          ravepipeline::logger("Cannot read the FreeSurfer atlases: ",
+                               paste(e$message, collapse = "\n"), level = "warning")
+          list()
+        })
       }
       labels <- compute_fs_labels(
         t(contact_tkrras),

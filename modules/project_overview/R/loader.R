@@ -26,6 +26,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               ),
               tooltip = "The RAVE project to summarize.",
               inputId = "loader_project_name",
+              hint = "loader_mandatory",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
                 "RAVE project to load (a project name such as 'demo'). The",

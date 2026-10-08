@@ -53,6 +53,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                       choices = character(0L)
                     ),
                     inputId = "mri_path",
+                    hint = "loader_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] Raw pre-surgery T1 MRI to import: a NIfTI file or a DICOM folder,",
@@ -86,6 +87,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                       choices = character(0L)
                     ),
                     inputId = "ct_path",
+                    hint = "loader_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] Raw post-implant CT to import: a NIfTI file or a DICOM folder, as",
@@ -136,6 +138,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   value = ravecore::cmd_dcm2niix(error_on_missing = FALSE, unset = "")
                 ),
                 inputId = "cmd_dcm2niix_path",
+                hint = "loader_forbidden",
                 update = "shiny::updateTextInput",
                 description = paste(
                   "[Text, read-only for agents] Path to the dcm2niix program; filled in when RAVE finds it.",
@@ -155,6 +158,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   value = ravecore::cmd_freesurfer_home(error_on_missing = FALSE, unset = "")
                 ),
                 inputId = "cmd_fs_path",
+                hint = "loader_forbidden",
                 update = "shiny::updateTextInput",
                 description = paste(
                   "[Text, read-only for agents] Path to the FreeSurfer home folder; filled in when RAVE finds it.",
@@ -174,6 +178,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   value = ravecore::cmd_fsl_home(error_on_missing = FALSE, unset = "")
                 ),
                 inputId = "cmd_fsl_path",
+                hint = "loader_forbidden",
                 update = "shiny::updateTextInput",
                 description = paste(
                   "[Text, read-only for agents] Path to the FSL home folder; filled in when RAVE finds it.",
@@ -193,6 +198,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   value = ravecore::cmd_afni_home(error_on_missing = FALSE, unset = "")
                 ),
                 inputId = "cmd_afni_path",
+                hint = "loader_forbidden",
                 update = "shiny::updateTextInput",
                 description = paste(
                   "[Text, read-only for agents] Path to the AFNI home folder; filled in when RAVE finds it.",

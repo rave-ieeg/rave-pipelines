@@ -40,6 +40,7 @@ module_html <- function() {
                       value = FALSE
                     ),
                     inputId = "passing_filter_enabled",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = "Enable one passing filter (low-pass, high-pass, or band-pass)."
                   ),
@@ -62,6 +63,7 @@ module_html <- function() {
                             selected = "low_pass"
                           ),
                           inputId = "passing_filter_type",
+                          hint = "analysis_optional",
                           update = "shiny::updateSelectInput(value=selected)",
                           description = "Passing filter type."
                         )
@@ -87,6 +89,7 @@ module_html <- function() {
                             selected = "firls"
                           ),
                           inputId = "passing_filter_method",
+                          hint = "analysis_optional",
                           update = "shiny::updateSelectInput(value=selected)",
                           description = "Passing filter design method."
                         )
@@ -103,6 +106,7 @@ module_html <- function() {
                             value = NA, min = 0
                           ),
                           inputId = "passing_freq1",
+                          hint = "analysis_optional",
                           update = "shiny::updateNumericInput",
                           description = "For low/high-pass filter, this is the cutoff frequency; for band-pass filter, this is the high-pass cutoff."
                         )
@@ -121,6 +125,7 @@ module_html <- function() {
                               value = NA, min = 0
                             ),
                             inputId = "passing_freq2",
+                            hint = "analysis_optional",
                             update = "shiny::updateNumericInput",
                             description = "For low/high-pass filter, this is the cutoff frequency; for band-pass filter, this is the low-pass cutoff."
                           )
@@ -136,6 +141,7 @@ module_html <- function() {
                       value = FALSE
                     ),
                     inputId = "bandstop_filter_enabled",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = "Enable one band-stop (notch-like) filter."
                   ),
@@ -150,6 +156,7 @@ module_html <- function() {
                         placeholder = "59-61, 119-121, 179-181"
                       ),
                       inputId = "bandstop_filter_ranges",
+                      hint = "analysis_optional",
                       update = "shiny::updateTextInput(value=value)",
                       description = "Comma-separated stopband ranges, e.g. 59-61, 119-121, 179-181."
                     )
@@ -194,6 +201,7 @@ module_html <- function() {
                       value = TRUE
                     ),
                     inputId = "enable_baseline_method",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateCheckboxInput(value=value)",
                     description = "Enable/Disable baseline correction after down-sampling signals"
                   )
@@ -212,8 +220,13 @@ module_html <- function() {
                         step = 0.01
                       ),
                       inputId = "baseline_window",
+                      hint = "analysis_optional",
                       update = "shiny::updateSliderInput",
-                      description = "Time window (seconds) used for baseline correction; updated automatically when epoch data is loaded"
+                      description = paste(
+                        "Time window (seconds) used for baseline correction; updated automatically when epoch data is loaded.",
+                        "Ask the user for it only when the baseline is enabled (`enable_baseline_method`)."
+                      ),
+                      tooltip = "Time window (seconds) used for baseline correction; updated automatically when epoch data is loaded"
                     )
                   )
                 )
@@ -241,6 +254,7 @@ module_html <- function() {
                     ),
                     tooltip = "Remove the linear trend and/or the mean of each signal before filtering.",
                     inputId = "remove_drift_method",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "Drift removal, the first processing step: 'none', 'detrend'",
@@ -267,6 +281,7 @@ module_html <- function() {
                       value = TRUE
                     ),
                     inputId = "pre_downsample_factor_auto",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
                       "Whether to automatically decimate the signals before",
@@ -284,6 +299,7 @@ module_html <- function() {
                         value = 1L, min = 1L, step = 1L
                       ),
                       inputId = "pre_downsample_factor",
+                      hint = "analysis_optional",
                       update = "shiny::updateNumericInput",
                       description = paste(
                         "Integer factor by which the signal is downsampled",
@@ -318,6 +334,7 @@ module_html <- function() {
                       value = TRUE
                     ),
                     inputId = "post_downsample_factor_auto",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
                       "Whether to automatically decimate the signals after",
@@ -336,6 +353,7 @@ module_html <- function() {
                         value = 1L, min = 1L, step = 1L
                       ),
                       inputId = "post_downsample_factor",
+                      hint = "analysis_optional",
                       update = "shiny::updateNumericInput",
                       description = paste(
                         "Integer factor by which the signal is downsampled",
@@ -408,6 +426,7 @@ module_html <- function() {
                   choices = "Trial Onset"
                 ),
                 inputId = "analysis_event",
+                hint = "analysis_mandatory",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "Align the trials based on events after signal filtering ",
@@ -434,6 +453,7 @@ module_html <- function() {
                   )
                 ),
                 inputId = "condition_groups",
+                hint = "analysis_mandatory",
                 update = "dipsaus::updateCompoundInput2",
                 description = paste(
                   "Condition groups used for trial averaging and contrast, JSON",
@@ -473,6 +493,7 @@ module_html <- function() {
                       step = 0.01
                     ),
                     inputId = "crp_detection_window",
+                    hint = "analysis_optional",
                     update = "shiny::updateSliderInput",
                     description = paste(
                       "Post-stimulus window [t_start, t_end] within which the",
@@ -492,6 +513,7 @@ module_html <- function() {
                       value = DEFAULT_CRP_PARAMS$remove_artifacts
                     ),
                     inputId = "crp_remove_artifacts",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
                       "Discard trials flagged as artifacts before estimating the",
@@ -520,6 +542,7 @@ module_html <- function() {
                       selected = "earliest_possible"
                     ),
                     inputId = "crp_onset_border",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "Earliest time the onset scan may reach. 'Disabled' skips",
@@ -537,6 +560,7 @@ module_html <- function() {
                       value = 5L, min = 1L, step = 1L
                     ),
                     inputId = "crp_time_step",
+                    hint = "analysis_optional",
                     update = "shiny::updateNumericInput",
                     description = paste(
                       "Sampling step (in samples) used when sweeping candidate",
@@ -554,6 +578,7 @@ module_html <- function() {
                       value = 98, min = 1, max = 100, step = 1
                     ),
                     inputId = "crp_threshold_quantile",
+                    hint = "analysis_optional",
                     update = "shiny::updateNumericInput",
                     description = paste(
                       "Fraction (percent) of the peak mean projection magnitude",

@@ -348,8 +348,11 @@ co-registration in either order, then reports.
 * Set the subject: `tool("tool__shiny_input_update", inputId = "loader_project_name", value = "YAEL")`,
   then `inputId = "loader_subject_code"`.
 * Only for a first import, choose the images: `inputId = "mri_path"` and
-  `inputId = "ct_path"` (values from `tool("tool__shiny_input_info", inputId = "mri_path")`;
-  never `"[Upload]"`).
+  `inputId = "ct_path"`. Ask the user which DICOM folder or NIfTI file in the
+  subject's raw folder to use: agents cannot read the dropdown's choices, and
+  `tool("tool__shiny_input_info", inputIds = list("mri_path", "ct_path"))`
+  shows only the preselected value (`current_value`). `Rscript subject_info.R <project/subject>`
+  shows whether a native MRI is imported already. Never `"[Upload]"`.
 * `tool("tool__module_interactive_script_run", name = "load_data")`: its output
   lists the to-do items, warnings, and program paths. Tell the user the
   warnings.

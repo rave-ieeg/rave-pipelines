@@ -3,6 +3,43 @@ name: rave-module
 description: "Load, configure, run pipelines and read module source files to understand RAVE module architecture"
 ---
 
+## Before loading data or running an analysis (read first)
+
+Loading reads gigabytes of data and takes minutes; an analysis can take
+longer. Collect what the user wants first, in as few messages as possible,
+so the user can walk away while you work:
+
+1. **Is the data loaded already?** `shiny_input_info` returns
+   `@state.loader_opened`. When it is `false`, the data are loaded and the
+   loader is closed: the user most likely wants to change analysis inputs
+   only. Take the loader values from the page (`current_value`) and do not
+   ask about them unless the user asks for other data.
+2. **Which data.** Get the project and subject (only the project for
+   `project_overview`) from the user's words, and ask for whatever is
+   missing; never pick one yourself. If the request already answers
+   everything below, fill in the inputs and go without asking.
+3. **The form.** `shiny_input_info` gives every input a `hint`. Pass
+   `hints: ["loader_mandatory", "loader_optional"]` for the loader form and
+   `hints: ["analysis_mandatory", "analysis_optional"]` for the analysis
+   form. Agents cannot read a dropdown's choices: get the real ones with
+   `Rscript subject_info.R <project/subject>` (blocks, electrodes by type,
+   epochs, references, imaging) and `Rscript project_info.R <project>`
+   (subjects).
+4. **Before loading,** ask every `loader_mandatory` input in one message,
+   with the real choices. Load nothing on a guess. A value the loader filled
+   in by itself is the module's last-used value, not the user's answer.
+   "All electrodes" means all LFP channels.
+5. **Before the analysis,** ask the `analysis_mandatory` inputs of the
+   actions the user wants (for example, no export settings when the user
+   only wants a validation): in the same message when you can, otherwise in
+   one message right after loading, once their choices are known (for
+   example the condition names in the `load_data` summary). Include the
+   confirmations the module's manual asks for.
+6. **Then work until it is done.** Keep `*_optional` inputs at their current
+   or default values and tell the user which you used; never change
+   `*_forbidden` inputs. Ask again only when an answer turns out invalid, and
+   list the valid choices.
+
 ## Instructions
 
 Interact with RAVE modules under `modules/{module_id}/`. This skill provides
@@ -91,13 +128,28 @@ into a tool call like this:
 | `Rscript set_inputs.R notch_filter '{"subject_code":"YAB"}'` | `file_name: "set_inputs.R"`, `args: ["notch_filter", "{\"subject_code\":\"YAB\"}"]` |
 
 - Every script takes the module ID first (`power_explorer`, `notch_filter`,
-  ...). A call that leaves out a required argument is refused, and the reply
-  shows the script's usage (`<x>` required, `[x]` optional). The list at the
-  end of this readme shows every script's usage.
+  ...), except `subject_info.R` and `project_info.R` (see "Subject and
+  project scripts"). A call that leaves out a required argument is refused,
+  and the reply shows the script's usage (`<x>` required, `[x]` optional).
+  The list at the end of this readme shows every script's usage.
 - Never put `Rscript`, a path, or `action` in `args`, and never pack several
   words into one item (`["power_explorer --target=x"]` is wrong).
 - Reference files are read with `skill_load__rave-module`, not run:
   `action: "reference"`, `file_name: "references/power_explorer.md"`.
+
+## Subject and project scripts
+
+Read-only, and quick: they read the subject's metadata, never its signals.
+Use them to offer the user the real choices before loading data.
+
+| Script | Purpose |
+|--------|---------|
+| `subject_info.R` | A subject's blocks, electrodes by signal type (sample rates, Notch filter, Wavelet), epochs and references (defaults marked), and imaging (native MRI, MNI normalization, CT-MRI co-registration, FreeSurfer) |
+| `project_info.R` | The subjects of a project; without a project, the projects |
+
+    Rscript subject_info.R demo/DemoSubject
+    Rscript project_info.R demo
+    Rscript project_info.R
 
 ## Pipeline Scripts 
 
@@ -282,6 +334,8 @@ implementation details, read the module source instead (see below).
 
 ## Notes
 
-- The first argument to every script is always `module_id` (e.g., `notch_filter`)
+- The first argument to every script is `module_id` (e.g., `notch_filter`),
+  except `subject_info.R` (`<project/subject>`) and `project_info.R`
+  (`[project]`)
 - Module path resolves to `modules/{module_id}/` relative to project root
 - Source reading is privacy-protected: `settings.yaml` and `_targets/` are blocked

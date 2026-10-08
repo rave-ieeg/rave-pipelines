@@ -36,6 +36,7 @@ module_html <- function() {
                   )
                 },
                 inputId = "electrode_group",
+                hint = "analysis_optional",
                 update = "dipsaus::updateCompoundInput2",
                 description = paste(
                   "Set groups for electrode channels so that each group can be assigned a reference type.",
@@ -74,6 +75,7 @@ module_html <- function() {
                       choices = character(0L)
                     ),
                     inputId = "group_name",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = "Select a group to set the reference type for that group. Make sure to set the electrode groups and click on `electrode_group_btn` first."
                   )
@@ -90,6 +92,7 @@ module_html <- function() {
                     ),
                     tooltip = "Reference type for the selected group.",
                     inputId = "reference_type",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = "Select a reference type for the selected group (by input `group_name`)."
                   )

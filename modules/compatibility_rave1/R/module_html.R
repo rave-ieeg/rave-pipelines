@@ -101,6 +101,7 @@ module_html <- function() {
                     ),
                     tooltip = "RAVE data format to validate: 2 or 1.",
                     inputId = "validation_version",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select: `2` or `1`] Data format that 'Validate subject'",
@@ -122,6 +123,7 @@ module_html <- function() {
                     ),
                     tooltip = "How thoroughly to validate: normal or basic.",
                     inputId = "validation_mode",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select: `normal` or `basic`] How much 'Validate subject'",
@@ -153,6 +155,7 @@ module_html <- function() {
                 ),
                 tooltip = "Convert the loaded subject so RAVE 1.0 modules can read it; this rewrites subject files.",
                 inputId = "compatibility_do",
+                hint = "analysis_forbidden",
                 update = "dipsaus::updateActionButtonStyled",
                 description = paste(
                   "[Action button, read-only] 'Make this subject RAVE 1.0",
@@ -181,6 +184,7 @@ module_html <- function() {
                     ),
                     tooltip = "Data to export: wavelet power, Notch-filtered voltage, or raw voltage.",
                     inputId = "export_type",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select: `power`, `voltage`, or `raw-voltage`] Data to",
@@ -203,6 +207,7 @@ module_html <- function() {
                     ),
                     tooltip = "Channels to export, e.g. 14-15 or 1-5,8; blank exports all.",
                     inputId = "export_electrode",
+                    hint = "analysis_optional",
                     update = "shiny::updateTextInput",
                     description = paste(
                       "[Text] Channels to export, e.g. `14-15` or `1-5,8`; blank",
@@ -221,6 +226,7 @@ module_html <- function() {
                     ),
                     tooltip = "Reference applied to the exported data.",
                     inputId = "export_reference",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] Reference applied to the exported data: one of the",
@@ -242,6 +248,7 @@ module_html <- function() {
                     ),
                     tooltip = "Epoch (trial onsets) that cuts the data into trials.",
                     inputId = "export_epoch",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] Epoch (table of trial onsets) that cuts the data",
@@ -261,6 +268,7 @@ module_html <- function() {
                         ),
                         tooltip = "Start of each trial window, in seconds before the onset (negative).",
                         inputId = "export_pre",
+                        hint = "analysis_optional",
                         update = "shiny::updateNumericInput",
                         description = paste(
                           "[Numeric, seconds] Start of each trial window relative",
@@ -279,6 +287,7 @@ module_html <- function() {
                         ),
                         tooltip = "End of each trial window, in seconds after the onset (positive).",
                         inputId = "export_post",
+                        hint = "analysis_optional",
                         update = "shiny::updateNumericInput",
                         description = paste(
                           "[Numeric, seconds] End of each trial window after its",

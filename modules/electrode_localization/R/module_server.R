@@ -445,6 +445,21 @@ module_server <- function(input, output, session, ...) {
       brain <- pipeline$read("brain")
       fslut <- pipeline$read("fslut")
 
+      # Placed electrodes the plan removed or reset when loading (see
+      # `make_localization_plan_list()`). Shown here: ravedash clears all
+      # notifications when the data is loaded, after the loader's script
+      merge_notes <- attr(pipeline$read("plan_list"), "merge_notes")
+      if (length(merge_notes)) {
+        ravedash::show_notification(
+          title = "Electrode plan changed",
+          message = paste(sprintf("<p>%s</p>", htmltools::htmlEscape(merge_notes)),
+                          collapse = ""),
+          type = "warning",
+          autohide = FALSE,
+          class = ns("plan_merge_notes")
+        )
+      }
+
       ravepipeline::logger("Repository read from the pipeline; initializing the module UI", level = "debug")
 
       # Reset preset UI & data

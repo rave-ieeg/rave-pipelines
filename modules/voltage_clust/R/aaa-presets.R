@@ -169,7 +169,8 @@ presets_condition_groups <- with(asNamespace("ravedash"), {
 
 # Define components
 loader_project <- ravedash::presets_loader_project()
-loader_subject <- ravedash::presets_loader_subject()
+# The module clusters Notch-filtered voltage: it needs no Wavelet power
+loader_subject <- ravedash::presets_loader_subject(checks = "notch")
 loader_epoch <- ravedash::presets_loader_epoch()
 loader_electrodes <- ravedash::presets_loader_electrodes()
 loader_reference <- ravedash::presets_loader_reference()

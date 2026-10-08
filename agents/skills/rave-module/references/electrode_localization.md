@@ -20,19 +20,25 @@ People keep their usual buttons. These rules are for agents only:
    `crosshair`), and read the results; do not move electrodes for people.
 2. **Confirm the electrode plan before loading.** Script `load_data` writes the
    plan (`loader_plan`) into the subject's staged table
-   (`meta/electrodes_unsaved.csv`), keeping positions already placed. Channels
-   already in that table must stay in the plan, or loading fails (nothing is
-   written).
+   (`meta/electrodes_unsaved.csv`), keeping positions already placed. Placed
+   channels left out of the plan are removed from that table, and a group
+   planned with another electrode model loses its positions (a plain type
+   such as iEEG keeps them). Loading then warns
+   (`warning=` lines) and backs up the previous staged table.
 3. **'Save to subject' is for people only.** Its button (`save_btn`, in the
    'Electrode table' dialog) refuses agents' clicks. Ask the person to review
-   the table, tick the post-process options they need, and click it.
+   the table, tick the post-process options they need, and click it. Never
+   write the subject's electrode table any other way either, for example by
+   running the pipeline target `localization_result_final` (skill script
+   `run.R`).
 4. **Ask first** before 'Reset current group' (`action_reset_btn`; it removes
    the group's placed electrodes) and before changing a FreeSurfer label
    (`fsindex_label`, `fsindex_label_next`).
 5. **Preprocessing from the loader** (`loader_preprocess_run`) only after the
-   person dropped both images (agents cannot drop files) and confirmed; it
-   replaces the subject's co-registration. For DICOM images, or to choose
-   images from the subject's raw folder, use the MRI/CT Preprocessing module.
+   person dropped both images (agents cannot drop files) and confirmed. It is
+   for subjects without a co-registered CT: it refuses when the subject has
+   one, or when a file is missing. To co-register again, for DICOM images, or
+   to use images already imported, use the MRI/CT Preprocessing module.
 
 ## Table of contents
 
@@ -61,7 +67,9 @@ Step 2: 'Image Selection' card:
   'Refresh file list' reads the folder again.
 * **'Preprocess' tab** (shown when the subject has no co-registered CT): drop a
   T1 MRI and a CT (NIfTI, `.nii` or `.nii.gz`) and click 'Run YAEL preprocess
-  pipeline'. It imports both images, copies the MRI into place without
+  pipeline'. It runs only on two freshly dropped files, and refuses subjects
+  that already have a co-registered CT (use the MRI/CT Preprocessing module
+  for those). It imports both images, copies the MRI into place without
   processing it (simple-import: no surfaces or atlases yet), and co-registers
   the CT to the MRI with YAEL-reg3d (FastRigid, about a minute). A log window
   shows progress; click 'Done' when it is finished. A notification then gives a
@@ -219,9 +227,12 @@ subject' (people only).
 * The loader's preprocessing uses YAEL-reg3d FastRigid, a quick registration:
   check that the CT's bright contacts sit where the electrodes are; for a finer
   registration use the MRI/CT Preprocessing module.
-* Loading with a plan that leaves out channels already in the staged or saved
-  table fails with "... Please include them in the electrode plan."; nothing is
-  written.
+* Loading with a plan that leaves out placed channels of the staged or saved
+  table removes them from the staged table; planning a group with another
+  electrode model resets its positions (a plain type keeps them). An 'Electrode plan changed' warning lists both,
+  and names the backup of the previous staged table
+  (`electrodes_unsaved_[backup_<time>].csv` in the meta folder). The saved
+  table keeps them until the next 'Save to subject'.
 * Clicking a group right after loading may show nothing while the viewer still
   loads its images; click it again.
 * Running YAEL + FreeSurfer recon-all after saving removes the saved electrode
@@ -267,14 +278,18 @@ opens the 'Electrode table' dialog). A script's reply has `result` and
 ### Load data
 
 * Subject: `tool("tool__shiny_input_update", inputId = "loader_project_name", value = "demo")`,
-  then `loader_subject_code`; wait until `loader_ct_fname` has choices
-  (`tool("tool__shiny_input_info", inputIds = list("loader_ct_fname", "loader_plan"))`).
-  No choices: no co-registration yet (see rule 5, or the MRI/CT Preprocessing module).
+  then `loader_subject_code`; wait until `loader_ct_fname` has a value
+  (`current_value` in `tool("tool__shiny_input_info", inputIds = list("loader_ct_fname", "loader_plan"))`;
+  agents cannot read a dropdown's choices). No value: no co-registration yet
+  (`Rscript subject_info.R <project/subject>` shows `CT-MRI coregistration: missing`;
+  see rule 5, or the MRI/CT Preprocessing module).
 * Plan: read `loader_plan` and confirm it with the user; to change it:
   `tool("tool__shiny_input_update", inputId = "loader_plan", value = "[{\"label\":\"LA\",\"dimension\":\"1-12\",\"type\":\"iEEG\",\"hemisphere\":\"auto\"}]")`.
 * Load: `tool("tool__module_interactive_script_run", name = "load_data")`. On
   failure the error is in the reply and an 'Error found!' alert stays open:
-  `tool("tool__shiny_ui_operate", action = "close_alert2")`.
+  `tool("tool__shiny_ui_operate", action = "close_alert2")`. `warning=` lines
+  in the result say which placed channels the plan removed or reset: tell the
+  user.
 * Preprocess (after the person dropped the files and confirmed):
   `tool("tool__shiny_input_update", inputId = "loader_preprocess_run", value = "")`;
   poll `tool("tool__shiny_query_ui", css_selector = "#electrode_localization-dismiss_modal")`

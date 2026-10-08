@@ -3,9 +3,12 @@
 # open is still needed: input updates and clicks round-trip through it.
 #
 # The test writes the subject's staged electrode table
-# (meta/electrodes_unsaved.csv, geometry_unsaved.json) by loading and staging.
-# It never saves to the subject: it checks that agents' clicks on 'Save to
-# subject' are refused. Back up the subject's meta folder and
+# (meta/electrodes_unsaved.csv, geometry_unsaved.json) by loading and staging;
+# after each plan change it restores the staged table and deletes the backup
+# that loading made. It never saves to the subject: it checks that agents'
+# clicks on 'Save to subject' are refused. It clicks 'Run YAEL preprocess
+# pipeline' only to check the refusal (the subject has a co-registration and
+# nothing is dropped). Back up the subject's meta folder and
 # `modules/electrode_localization/settings.yaml` first, and restore them after.
 
 module <- "electrode_localization"
@@ -21,7 +24,7 @@ full_plan <- lapply(seq_len(4), function(ii) {
        dimension = sprintf("%d-%d", ii * 12 - 11, ii * 12),
        type = model, hemisphere = "auto")
 })
-short_plan <- full_plan[1]   # leaves out channels 13-48 of the staged table
+short_plan <- full_plan[1]   # leaves out the placed channels 13-48
 
 # ---- helpers ----------------------------------------------------------------
 
@@ -30,13 +33,14 @@ subject <- ravecore::as_rave_subject(sprintf("%s/%s", project_name, subject_code
 staged_file <- file.path(subject$meta_path, "electrodes_unsaved.csv")
 saved_file <- file.path(subject$meta_path, "electrodes.csv")
 
-plan_labels <- function(value) {
+# label, type, and channels of each group (plans in this test can share labels)
+plan_signature <- function(value) {
   vapply(unname(value)[vapply(unname(value), is.list, FALSE)], function(group) {
-    paste(group$label, collapse = "")
+    paste(group$label, group$type, group$dimension, collapse = "")
   }, "")
 }
 same_plan <- function(plan) {
-  function(value) identical(plan_labels(value), vapply(plan, `[[`, "", "label"))
+  function(value) identical(plan_signature(value), plan_signature(plan))
 }
 
 stopifnot(app_running(), module_open())
@@ -64,17 +68,74 @@ checks["loader: CT filled in"] <-
 checks["loader: scripts listed"] <- all(c("load_data") %in%
   vapply(list_scripts(.quiet = TRUE)$scripts, `[[`, "", "name"))
 
-# Error case: a plan that leaves out channels of the staged table
-md5_staged <- tools::md5sum(staged_file)
-set_input_wait("loader_plan", short_plan, check = same_plan(short_plan))
-error_text <- run_script_error("load_data")
-checks["load error: names the missing channels"] <-
-  grepl("13-48", error_text) && grepl("include them in the electrode plan", error_text)
-checks["load error: staged table unchanged"] <- unname(tools::md5sum(staged_file) == md5_staged)
-Sys.sleep(1)
+# Drag & drop preprocessing refuses a subject that has a co-registered CT (it
+# also refuses without dropped files, so nothing can run here)
+coreg_dir <- file.path(subject$imaging_path, "coregistration")
+coreg_mtimes <- file.mtime(list.files(coreg_dir, full.names = TRUE))
+set_input("loader_preprocess_run", "")
+wait_until(function() nzchar(alert_text()), "preprocess refusal alert", timeout = 30)
+checks["preprocess: refused, names the co-registered CT"] <-
+  grepl("already has a co-registered CT (CT_RAW.nii.gz)", alert_text(), fixed = TRUE)
 operate("close_alert2")
 Sys.sleep(1)
-checks["load error: alert closed"] <- !nzchar(alert_text())
+checks["preprocess: co-registration untouched"] <-
+  identical(file.mtime(list.files(coreg_dir, full.names = TRUE)), coreg_mtimes)
+
+# Plan changes warn and back up the staged table, which is restored after each
+staged_copy <- tempfile(fileext = ".csv")
+file.copy(staged_file, staged_copy)
+staged_before <- read.csv(staged_copy)
+list_backups <- function() {
+  list.files(subject$meta_path, pattern = "^electrodes_unsaved_\\[backup_", full.names = TRUE)
+}
+backups_before <- list_backups()
+restore_staged <- function() {
+  file.copy(staged_copy, staged_file, overwrite = TRUE)
+  unlink(setdiff(list_backups(), backups_before))
+}
+coords_of <- function(tbl, chans) {
+  unname(as.matrix(tbl[match(chans, tbl$Electrode), c("Coord_x", "Coord_y", "Coord_z")]))
+}
+toast_text <- function() page_text(".toast-container")
+# the warning shows once the module opens (ravedash clears notifications then)
+warning_shown <- function() {
+  tryCatch({
+    wait_until(function() grepl("Electrode plan changed", toast_text(), fixed = TRUE),
+               "the 'Electrode plan changed' notification", timeout = 20)
+  }, error = function(e) FALSE)
+}
+
+# A plan without LB-LD removes their placed channels from the staged table
+set_input_wait("loader_plan", short_plan, check = same_plan(short_plan))
+loaded <- run_script("load_data")
+wait_until(data_loaded, "data loaded", timeout = 120)
+staged <- read.csv(staged_file)
+new_backups <- setdiff(list_backups(), backups_before)
+checks["plan without groups: result warns about channels 13-48"] <-
+  any(grepl("^warning=Channels 13-48 are no longer in the plan", loaded$result))
+checks["plan without groups: staged table keeps channels 1-12 and their positions"] <-
+  identical(sort(staged$Electrode), 1:12) &&
+  isTRUE(all.equal(coords_of(staged, 1:12), coords_of(staged_before, 1:12)))
+checks["plan without groups: previous staged table backed up"] <-
+  length(new_backups) == 1 &&
+  unname(tools::md5sum(new_backups) == tools::md5sum(staged_copy))
+checks["plan without groups: people see the warning"] <- isTRUE(warning_shown())
+restore_staged()
+
+# Planning AHL with another 12-contact model resets AHL only
+model_plan <- full_plan
+model_plan[[1]]$type <- "SEEG-DIXI-D08-12AM"
+set_input_wait("loader_plan", model_plan, check = same_plan(model_plan))
+loaded <- run_script("load_data")
+wait_until(data_loaded, "data loaded", timeout = 120)
+staged <- read.csv(staged_file)
+checks["model change: result warns about AHL"] <-
+  any(grepl("^warning=AHL \\(channels 1-12\\): electrode model changed", loaded$result))
+checks["model change: AHL reset, other groups kept"] <-
+  all(coords_of(staged, 1:12) == 0) &&
+  isTRUE(all.equal(coords_of(staged, 13:48), coords_of(staged_before, 13:48)))
+checks["model change: people see the warning"] <- isTRUE(warning_shown())
+restore_staged()
 
 # Load with the full plan
 set_input_wait("loader_plan", full_plan, check = same_plan(full_plan))
@@ -84,6 +145,11 @@ checks["load: result names the subject"] <-
 checks["load: result lists the groups"] <-
   any(grepl("AHL (SEEG-ADTECH-SD12R-SP05X-000, 12 channels)", loaded$result, fixed = TRUE))
 wait_until(data_loaded, "data loaded", timeout = 120)
+Sys.sleep(3)
+checks["load: unchanged plan, no warning"] <-
+  !any(grepl("^warning=", loaded$result)) && !grepl("Electrode plan changed", toast_text(), fixed = TRUE)
+checks["load: staged positions kept"] <-
+  isTRUE(all.equal(coords_of(read.csv(staged_file), 1:48), coords_of(staged_before, 1:48)))
 
 # ---- main page ----------------------------------------------------------------
 

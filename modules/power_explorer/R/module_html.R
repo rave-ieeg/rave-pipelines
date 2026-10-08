@@ -28,6 +28,7 @@ module_html <- function(){
               shiny::checkboxInput(ns('enable_custom_ROI'), 'Custom ROI', value = FALSE),
               tooltip = "Analyze the loaded electrodes in the chosen ROI groups instead of the electrode list.",
               inputId = "enable_custom_ROI",
+              hint = "analysis_optional",
               update = "shiny::updateCheckboxInput",
               description = paste(
                 "Custom ROI on/off. When on and `custom_roi_variable` is not",
@@ -48,6 +49,7 @@ module_html <- function(){
                   selected = character(0), choices=character(0)),
                 tooltip = "Electrode table column that defines the ROI, e.g. FSLabel.",
                 inputId = "custom_roi_variable",
+                hint = "analysis_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "ROI variable: 'none', or a column of the subject's",
@@ -66,6 +68,7 @@ module_html <- function(){
                               'Interaction model')),
                 tooltip = "'Filter only' just limits the electrodes; the other two choices also split each analysis window by ROI group and add the ROI as a factor of the model.",
                 inputId = "custom_roi_type",
+                hint = "analysis_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "How to use the custom ROI: 'Filter only' (default) only limits",
@@ -113,6 +116,7 @@ module_html <- function(){
                                        multiple = TRUE))
                 ),
                 inputId = "custom_roi_groupings",
+                hint = "analysis_optional",
                 update = "dipsaus::updateCompoundInput2",
                 description = paste(
                   "ROI groups, as a JSON array of 1 to 15 objects, e.g.",
@@ -172,6 +176,7 @@ module_html <- function(){
                 min =0, max=1, step = 0.01, dragRange = TRUE),
               tooltip = "Baseline window in seconds, relative to each trial's anchor event.",
               inputId = "baseline_window",
+              hint = "analysis_mandatory",
               update = "shiny::updateSliderInput",
               description = paste(
                 "Baseline window [start, end] in seconds, relative to each",
@@ -185,6 +190,7 @@ module_html <- function(){
                 selected=get_baseline_scope(names=TRUE)[1],
                 choices =get_baseline_scope(names=TRUE)),
               inputId = "baseline_scope",
+              hint = "analysis_mandatory",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
                 "Baseline scope: 'Per frequency, trial, and electrode' (default),",
@@ -198,6 +204,7 @@ module_html <- function(){
                 selected=get_unit_of_analysis(names=TRUE)[1],
                 choices=get_unit_of_analysis(names=TRUE)),
               inputId = "baseline_unit",
+              hint = "analysis_mandatory",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
                 "Unit of analysis (baseline correction): '% Change Power'",
@@ -219,6 +226,7 @@ module_html <- function(){
               ),
               tooltip = "Compute only the per-electrode statistics (faster): the 3D viewer and the 'By Electrode' card refresh, the other plots do not.",
               inputId = "quick_omnibus_only",
+              hint = "analysis_optional",
               update = "shiny::updateCheckboxInput",
               description = paste(
                 "Quick mode. TRUE: `run_analysis` computes only the per-electrode",
@@ -265,6 +273,7 @@ module_html <- function(){
                 )
               ),
               inputId = "ui_analysis_settings",
+              hint = "analysis_mandatory",
               update = "dipsaus::updateCompoundInput2",
               description = paste(
                 "Analysis windows, as a JSON array of 1 to 5 objects, e.g.",
@@ -289,6 +298,7 @@ module_html <- function(){
               shiny::selectInput(inputId=ns('condition_variable'),
                                  "Condition Variable", choices=c('Condition')),
               inputId = "condition_variable",
+              hint = "analysis_mandatory",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
                 "Epoch column that holds the trial conditions (the columns whose",
@@ -306,6 +316,7 @@ module_html <- function(){
                   shiny::textInput(inputId = "label", label = "Label"),
                   shiny::selectInput(inputId = "conditions", label = "Conditions", choices = "", multiple = TRUE))),
               inputId = "first_condition_groupings",
+              hint = "analysis_mandatory",
               update = "dipsaus::updateCompoundInput2",
               description = paste(
                 "Levels of the first trial factor, as a JSON array of 1 to 15",
@@ -328,6 +339,7 @@ module_html <- function(){
               shiny::checkboxInput(ns('enable_second_condition_groupings'), 'Second Trial Factor', value = FALSE),
               tooltip = "Add a second trial factor: group the conditions into at least two levels.",
               inputId = "enable_second_condition_groupings",
+              hint = "analysis_optional",
               update = "shiny::updateCheckboxInput",
               description = paste(
                 "Second trial factor on/off (default off). Turn it on before",
@@ -347,6 +359,7 @@ module_html <- function(){
                     shiny::selectInput(inputId = "conditions", label = "Conditions", choices = "", multiple = TRUE))
                 ),
                 inputId = "second_condition_groupings",
+                hint = "analysis_optional",
                 update = "dipsaus::updateCompoundInput2",
                 description = paste(
                   "Levels of the second trial factor (with",
@@ -1493,6 +1506,7 @@ module_html <- function(){
                                                    updateOn = 'blur'),
                                   tooltip = "Trials to leave out as outliers, e.g. 3,17,40-42; applies from the next 'RAVE!' run.",
                                   inputId = "flagged_trials",
+                                  hint = "analysis_optional",
                                   update = "shiny::updateTextInput",
                                   description = paste(
                                     "Trials flagged as outliers, e.g. '3,17,40-42': the whole list,",

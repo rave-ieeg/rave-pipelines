@@ -120,6 +120,10 @@ finish anyway.
 
 ### Load data
 
+* First follow the rule at the top of the `rave-module` skill readme: find
+  out which data, read the loader form
+  (`tool("tool__shiny_input_info", hints = list("loader_mandatory", "loader_optional"))`),
+  and ask the user every `loader_mandatory` input in one message.
 * Set a loader input: `tool("tool__shiny_input_update", inputId = "{loader_input_id}", value = "{value}")`
 * {Repeat for each loader input.}
 * Load the data: `tool("tool__module_interactive_script_run", name = "load_data")`

@@ -178,7 +178,13 @@ loader_viewer <- ravedash::presets_loader_3dviewer(height = "100%")
 
 # import_export_pipeline <- ravedash::presets_import_export_subject_pipeline()
 # electrode_selector <- ravedash::presets_analysis_electrode_selector2()
-baseline_choices <- ravedash::presets_baseline_choices()
+baseline_choices <- ravedash::presets_baseline_choices(
+  # the unit and scope are lab conventions too: agents ask
+  hint = c(
+    baseline_choices__unit_of_analysis = "analysis_mandatory",
+    baseline_choices__global_baseline_choice = "analysis_mandatory"
+  )
+)
 comp_condition_groups <- presets_condition_groups()
 # comp_analysis_ranges <- ravedash::presets_analysis_ranges()
 

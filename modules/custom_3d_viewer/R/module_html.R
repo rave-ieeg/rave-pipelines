@@ -31,6 +31,7 @@ module_html <- function() {
                 ),
                 tooltip = "Where the electrode values come from: an uploaded table, or none.",
                 inputId = "data_source",
+                hint = "analysis_mandatory",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Select] Where the electrode values come from: \"Uploads\"",
@@ -80,6 +81,7 @@ module_html <- function() {
                   ),
                   tooltip = "Uploaded table whose values color the electrodes; [New Uploads] shows the upload box.",
                   inputId = "uploaded_source",
+                  hint = "analysis_mandatory",
                   update = "shiny::updateSelectInput(value=selected)",
                   description = paste(
                     "[Select] The uploaded table that colors the electrodes, e.g.",

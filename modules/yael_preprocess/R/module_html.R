@@ -73,6 +73,7 @@ module_html <- function() {
                           selected = "Auto"
                         ),
                         inputId = "param_dcm2niix_merge",
+                        hint = "analysis_optional",
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
                           "[Select: `Auto` (default), `Yes`, `No`] dcm2niix option for a DICOM import:",
@@ -94,6 +95,7 @@ module_html <- function() {
                         selected = "Yes"
                       ),
                       inputId = "param_dcm2niix_float",
+                      hint = "analysis_optional",
                       update = "shiny::updateSelectInput(value=selected)",
                       description = paste(
                         "[Select: `Yes` (default), `No`] dcm2niix option for a DICOM import:",
@@ -113,6 +115,7 @@ module_html <- function() {
                         selected = "No"
                       ),
                       inputId = "param_dcm2niix_crop",
+                      hint = "analysis_optional",
                       update = "shiny::updateSelectInput(value=selected)",
                       description = paste(
                         "[Select: `No` (default), `Yes`, `Ignore`] dcm2niix option for a DICOM import:",
@@ -163,6 +166,7 @@ module_html <- function() {
                       choices = character(0L)
                     ),
                     inputId = "param_acpc_infile",
+                    hint = "analysis_mandatory",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] The imported MRI (a file in the subject's imaging `inputs/MRI`",
@@ -303,6 +307,7 @@ module_html <- function() {
                             selected = "recon-all"
                           ),
                           inputId = "param_fs_prog",
+                          hint = "analysis_mandatory",
                           update = "shiny::updateSelectInput(value=selected)",
                           description = paste(
                             "[Select] MRI preprocessing command: `recon-all -all`, `recon-all -autorecon1`,",
@@ -327,6 +332,7 @@ module_html <- function() {
                             value = FALSE
                           ),
                           inputId = "param_fs_fresh_start",
+                          hint = "analysis_forbidden",
                           update = "shiny::updateCheckboxInput",
                           description = paste(
                             "[Checkbox, read-only for agents] When ticked, recon-all first deletes the",
@@ -463,6 +469,7 @@ module_html <- function() {
                           choices = character(0L)
                         ),
                         inputId = "param_coreg_ct",
+                        hint = "analysis_mandatory",
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
                           "[Select] The imported CT (a file in the subject's imaging `inputs/CT`",
@@ -499,6 +506,7 @@ module_html <- function() {
                           choices = character(0L)
                         ),
                         inputId = "param_coreg_mri",
+                        hint = "analysis_mandatory",
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
                           "[Select] The MR image the CT is aligned to (a file in the subject's imaging",
@@ -531,6 +539,7 @@ module_html <- function() {
                           selected = "YAEL-reg3d"
                         ),
                         inputId = "coreg_ct_program",
+                        hint = "analysis_optional",
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
                           "[Select] Co-registration program: `YAEL-reg3d` (default; built into RAVE,",

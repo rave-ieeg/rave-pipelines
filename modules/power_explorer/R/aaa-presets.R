@@ -211,6 +211,7 @@ build_electrode_selector <- function (id = "electrode_text", varname = "analysis
         update = "shiny::updateTextInput",
         tooltip = "Electrodes to analyze, e.g. 14, or 1-30,55-60,88.",
         inputId = comp$get_sub_element_id(with_namespace = FALSE),
+        hint = "analysis_optional",
         description = paste(
           "Electrode selector text input: electrode channels that are to be",
           "analyzed, e.g. `14` for single channel, `1-30,55-60,88` for channel",
@@ -542,6 +543,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
           shiny::selectInput(inputId = id, label = "Epoch name",
             choices = c(value, ""), selected = value, multiple = FALSE),
           inputId = comp$get_sub_element_id(with_namespace = FALSE),
+          hint = "loader_mandatory",
           update = "shiny::updateSelectInput(value=selected)",
           description = paste(
             "Epoch name: one of the subject's epoch tables (trial onsets and",
@@ -558,6 +560,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
           with_namespace = TRUE), label = "Pre", min = -10, step = .1,
           value = pre),
         inputId = comp$get_sub_element_id("trial_starts", with_namespace = FALSE),
+        hint = "loader_mandatory",
         update = "shiny::updateNumericInput",
         description = paste(
           "Trial start in seconds, relative to the anchor event. Use a",
@@ -579,6 +582,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
                   selected = pre_event
                 ),
                 inputId = comp$get_sub_element_id("trial_starts_rel_to_event", with_namespace = FALSE),
+                hint = "loader_optional",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "Event that the trial start is anchored to: 'Trial Onset'",
@@ -599,6 +603,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
           value = post),
         tooltip = "Trial end in seconds, relative to the anchor event.",
         inputId = comp$get_sub_element_id("trial_ends", with_namespace = FALSE),
+        hint = "loader_mandatory",
         update = "shiny::updateNumericInput",
         description = paste(
           "Trial end in seconds, relative to the anchor event (default reads from pipeline settings).",
@@ -617,6 +622,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
                 selected = post_event
               ),
               inputId = comp$get_sub_element_id("trial_ends_rel_to_event", with_namespace = FALSE),
+              hint = "loader_optional",
               update = "shiny::updateSelectInput(value=selected)",
               description = paste(
                 "Event that the trial end is anchored to: 'Trial Onset'",
@@ -641,6 +647,7 @@ build_epoch_loader <- function (id = "loader_epoch_name", varname = "epoch_choic
                                             with_namespace = TRUE), label = "Load first block as single trial",
           status = "success", shape = "square", animation = "smooth", value=lst),
         inputId = comp$get_sub_element_id("load_single_trial", with_namespace = FALSE),
+        hint = "loader_forbidden",
         update = "shinyWidgets::updatePrettyCheckbox",
         description = paste(
           "'Load first block as single trial', for continuous recordings. When",

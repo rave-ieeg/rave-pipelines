@@ -33,6 +33,13 @@ profile"):
 * An existing profile name (e.g. `default`, `noref`) loads that profile's
   groups and references, so you can edit them.
 
+Agents ask the user which reference they want before loading, and choose the
+starting profile from the answer:
+* **Bipolar:** `[Blank profile]`: each electrode shaft gets its own group.
+* **Common average (CAR):** `noref`, when the subject has it: all channels
+  start in one group. `Rscript subject_info.R <project/subject>` lists the
+  subject's reference profiles.
+
 Step 3: Click **"Load subject"**.
 
 ### 2. Analysis inputs

@@ -34,6 +34,7 @@ module_html <- function() {
                   ),
                   tooltip = "Subjects to include; leave blank to include all.",
                   inputId = "subject_codes",
+                  hint = "analysis_mandatory",
                   update = "shiny::updateSelectInput(value=selected)",
                   description = paste(
                     "Subjects to include, a JSON array of subject codes, e.g.",
@@ -59,6 +60,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "group_viewer",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = "Include group-level 3D brain viewer in the report"
               ),
@@ -75,6 +77,7 @@ module_html <- function() {
                     ),
                     tooltip = "Template brain for the group 3D viewer; a template that is not installed is downloaded first.",
                     inputId = "template_subject",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "Template brain of the group 3D viewer (exists while",
@@ -95,6 +98,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "electrode_coverage",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = "Include electrode coverage table in the report"
               ),
@@ -107,6 +111,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "subjects_metadata",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = "Include subjects metadata summary table in the report"
               ),
@@ -119,6 +124,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "epoch_references",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = "Include epoch and reference tables in the report"
               )
@@ -137,6 +143,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "module_reports",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = "Include per-subject module reports table in the report"
               ),
@@ -152,6 +159,7 @@ module_html <- function() {
                       multiple = TRUE
                     ),
                     inputId = "module_filter",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = "Filter module reports by module name (blank = all modules)"
                   )
@@ -166,6 +174,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "native_viewer",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = paste(
                   "Include each subject's own 3D brain viewer (slow: it loads",
@@ -181,6 +190,7 @@ module_html <- function() {
                   width = "100%"
                 ),
                 inputId = "validation",
+                hint = "analysis_optional",
                 update = "shiny::updateCheckboxInput",
                 description = paste(
                   "Include each subject's data validation results (slow: it",

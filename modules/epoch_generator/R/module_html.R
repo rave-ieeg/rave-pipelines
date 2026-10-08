@@ -42,6 +42,7 @@ module_html <- function() {
                     choices = character(0L)
                   ),
                   inputId = "block",
+                  hint = "analysis_mandatory",
                   update = "shiny::updateSelectInput(value=selected)",
                   description = paste(
                     "Recording block to work on, e.g. '008' (the subject's",
@@ -60,6 +61,7 @@ module_html <- function() {
                     choices = character(0L)
                   ),
                   inputId = "epoch_file",
+                  hint = "analysis_mandatory",
                   update = "shiny::updateSelectInput(value=selected)",
                   description = paste(
                     "File in the block's raw folder, or imported channel",
@@ -99,6 +101,7 @@ module_html <- function() {
                     choices = character(0L)
                   ),
                   inputId = "varname",
+                  hint = "analysis_mandatory",
                   update = "shiny::updateSelectInput(value=selected)",
                   description = paste(
                     "Variable (MATLAB/HDF5) or channel (EDF/NEV) of the loaded",
@@ -116,6 +119,7 @@ module_html <- function() {
                     value = 1
                   ),
                   inputId = "sample_rate",
+                  hint = "analysis_mandatory",
                   update = "shiny::updateNumericInput",
                   description = paste(
                     "Sample rate (Hz) of the trigger signal; set it before",
@@ -179,6 +183,7 @@ module_html <- function() {
                       "Difference plot"
                     ),
                     inputId = "plot_difference",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
                       "Plot and threshold the sample-to-sample difference of the",
@@ -196,6 +201,7 @@ module_html <- function() {
                       "Absolute plot"
                     ),
                     inputId = "plot_absolute",
+                    hint = "analysis_optional",
                     update = "shiny::updateCheckboxInput",
                     description = paste(
                       "Plot and threshold the absolute value of the signal",
@@ -215,6 +221,7 @@ module_html <- function() {
                       choices = c("Above", "Below")
                     ),
                     inputId = "threshold_direction",
+                    hint = "analysis_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "'Above': onsets where the plotted signal rises to the",
@@ -235,6 +242,7 @@ module_html <- function() {
                       value = 0, step = 1, min = 0
                     ),
                     inputId = "num_duration",
+                    hint = "analysis_optional",
                     update = "shiny::updateNumericInput",
                     description = paste(
                       "Minimum duration (s): crossings separated by shorter gaps",

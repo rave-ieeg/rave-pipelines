@@ -66,9 +66,10 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   "and co-registers the CT to the MRI with YAEL-reg3d (FastRigid,",
                   "about a minute). A log window opens; when its button reads",
                   "'Done', click it (`shiny_ui_operate` click `dismiss_modal`) to",
-                  "fill in the image files. Click only after the person dropped",
-                  "both files and confirmed: running again replaces the subject's",
-                  "co-registration."
+                  "fill in the image files. Only for subjects without a co-registered",
+                  "CT: refused when the subject has one, or when either file is not",
+                  "dropped (the MRI/CT Preprocessing module handles those cases).",
+                  "Click only after the person dropped both files and confirmed."
                 ),
                 tooltip = "Import the dropped images and co-register the CT to the MRI."
               )
@@ -90,6 +91,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                   )
                 ),
                 inputId = "loader_method",
+                hint = "loader_forbidden",
                 update = "shiny::updateSelectInput(value=selected)",
                 description = paste(
                   "[Select] How the CT is aligned to the MRI: 'CT (IJK) to MR (RAS)",
@@ -120,6 +122,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                       choices = character(0L)
                     ),
                     inputId = "loader_ct_fname",
+                    hint = "loader_optional",
                     update = "shiny::updateSelectInput(value=selected)",
                     description = paste(
                       "[Select] CT image, a file in the subject's co-registration",
@@ -143,6 +146,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                         choices = character(0L)
                       ),
                       inputId = "loader_mri_fname",
+                      hint = "loader_optional",
                       update = "shiny::updateSelectInput(value=selected)",
                       description = paste(
                         "[Select] MRI that the transform maps the CT onto (e.g.",
@@ -162,6 +166,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
                         choices = character(0L)
                       ),
                       inputId = "loader_transform_fname",
+                      hint = "loader_optional",
                       update = "shiny::updateSelectInput(value=selected)",
                       description = paste(
                         "[Select] Transform from the CT to the MRI:",
@@ -224,6 +229,7 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
           ),
           shidashi::register_input(
             inputId = "loader_plan",
+            hint = "loader_mandatory",
             update = "dipsaus::updateCompoundInput2",
             description = paste(
               "Electrode plan: one entry per electrode group, as JSON, e.g.",
@@ -236,8 +242,10 @@ loader_html <- function(session = shiny::getDefaultReactiveDomain()) {
               "`hemisphere`: \"auto\", \"left\", or \"right\".",
               "Filled in from the subject's electrode table. Confirm the plan",
               "with the user before `load_data`: loading writes it into the",
-              "subject's staged table (meta/electrodes_unsaved.csv), and channels",
-              "already in that table must stay in the plan."
+              "subject's staged table (meta/electrodes_unsaved.csv). Placed",
+              "channels left out of the plan are removed from that table, and a",
+              "group planned with another electrode model starts over (loading",
+              "warns)."
             ),
           dipsaus::compoundInput2(
             max_height = "80vh",
@@ -694,6 +702,27 @@ loader_server <- function(input, output, session, ...) {
                                            subject_code = subject_code,
                                            strict = FALSE)
 
+      # Only for subjects without co-registered images, and only with both
+      # images dropped here: the MRI/CT Preprocessing module handles the rest.
+      # (Checked before the alert below, which closes when this observer ends)
+      coreg_params <- load_coreg_params()
+      if (length(coreg_params$ct_filename)) {
+        loading_error(sprintf(paste(
+          "This subject already has a co-registered CT (%s). To co-register",
+          "again, please use the MRI/CT Preprocessing module."
+        ), paste(coreg_params$ct_filename, collapse = ", ")))
+        return()
+      }
+      if (!is_dropped_file(input$loader_preprocess_t1) ||
+          !is_dropped_file(input$loader_preprocess_ct)) {
+        loading_error(paste(
+          "Please drop both a T1w MRI and a CT image (NIfTI) on this tab.",
+          "To use images already imported for this subject, please use the",
+          "MRI/CT Preprocessing module."
+        ))
+        return()
+      }
+
       dipsaus::shiny_alert2(
         title = "Checking current environment",
         icon = "info",
@@ -707,9 +736,8 @@ loader_server <- function(input, output, session, ...) {
 
       subject$initialize_paths(include_freesurfer = FALSE)
 
-      # Import the dropped images (or reuse the ones imported earlier), then
-      # `simple-import` the MRI and co-register the CT with YAEL-reg3d:
-      # nothing here needs Python
+      # Import the dropped images, then `simple-import` the MRI and
+      # co-register the CT with YAEL-reg3d: nothing here needs Python
       mri_path <- import_dropped_image(input$loader_preprocess_t1, subject, type = "MRI")
       ct_path <- import_dropped_image(input$loader_preprocess_ct, subject, type = "CT")
 
@@ -906,8 +934,10 @@ loader_server <- function(input, output, session, ...) {
         subject_code = subject_code
       )
 
-      # Summary for agents
+      # Summary for agents. `warning=`: placed electrodes the plan removed or
+      # reset (people see them in a notification once the module opens)
       plan_list <- pipeline$read("plan_list")
+      merge_notes <- attr(plan_list, "merge_notes")
       c(
         sprintf("subject=%s/%s", project_name, subject_code),
         sprintf("method=%s", paste(input$loader_method, collapse = "")),
@@ -917,6 +947,7 @@ loader_server <- function(input, output, session, ...) {
                   ifelse(nzchar(sub$Prototype[[1]]), sub$Prototype[[1]], sub$LocationType[[1]]),
                   nrow(sub))
         }, ""), collapse = "; ")),
+        sprintf("warning=%s", merge_notes),
         "next=pick a group (buttons `switch_plan_btn_<i>`), then run script `localization_status`"
       )
     },
@@ -926,10 +957,12 @@ loader_server <- function(input, output, session, ...) {
       "`loader_mri_fname`, `loader_transform_fname`), and the electrode plan",
       "(`loader_plan`). Confirm the plan with the user first: loading writes it",
       "into the subject's staged electrode table (meta/electrodes_unsaved.csv),",
-      "keeping the coordinates already localized. Fails, and writes nothing,",
-      "when the plan leaves out channels of that table. Loads the brain, CT, and",
-      "3D viewer (up to a minute). Result: subject, method, CT file, and the",
-      "groups with their electrode models."
+      "keeping the coordinates already localized. Placed channels left out of",
+      "the plan are removed from that table, and a group planned with another",
+      "electrode model loses its positions; the previous table is backed up and the",
+      "result has a `warning=` line for each. Loads the brain, CT, and 3D viewer",
+      "(up to a minute). Result: subject, method, CT file, and the groups with",
+      "their electrode models."
     ),
     binding_event = "load_data",
     # Let the module know the data has been changed
@@ -944,56 +977,43 @@ loader_server <- function(input, output, session, ...) {
 }
 
 
+# A file dropped on a `fancyFileInput` that is still in its upload folder
+is_dropped_file <- function(file_info) {
+  length(file_info) > 0 && length(file_info$datapath) == 1 &&
+    isTRUE(file.exists(file_info$datapath))
+}
+
 # Import a dropped NIfTI image the way the MRI/CT preprocessing module imports
 # NIfTI files (`ravecore::cmd_run_dcm2niix()`): `inputs/<type>/<type>_RAW.nii[.gz]`
 # under the imaging folder, with a copy in `derivative/`. Unlike that function,
 # the temporary upload path is not recorded as the image source. Without a
-# dropped file, returns the image imported earlier, or NULL.
+# dropped file, returns NULL.
 import_dropped_image <- function(file_info, subject, type = c("MRI", "CT")) {
   type <- match.arg(type)
+  if (!is_dropped_file(file_info)) { return(NULL) }
+
   imaging_path <- subject$imaging_path
   input_dir <- file.path(imaging_path, "inputs", type)
-
-  if (length(file_info) && length(file_info$datapath) == 1 &&
-      isTRUE(file.exists(file_info$datapath))) {
-    if (!grepl("\\.nii(\\.gz)?$", file_info$name, ignore.case = TRUE)) {
-      stop(sprintf("The %s image must be a NIfTI file (.nii or .nii.gz).", type))
-    }
-    ext <- ifelse(grepl("\\.gz$", file_info$name, ignore.case = TRUE), ".nii.gz", ".nii")
-    deriv_dir <- file.path(imaging_path, "derivative")
-    ravepipeline::dir_create2(input_dir)
-    ravepipeline::dir_create2(deriv_dir)
-
-    # one image per type: drop the copy with the other extension
-    stale <- sprintf("%s_RAW%s", type, setdiff(c(".nii.gz", ".nii"), ext))
-    unlink(file.path(c(input_dir, deriv_dir), stale))
-
-    fname <- sprintf("%s_RAW%s", type, ext)
-    for (dst in file.path(c(input_dir, deriv_dir), fname)) {
-      if (!file.copy(file_info$datapath, dst, overwrite = TRUE, copy.date = TRUE)) {
-        stop(sprintf("Cannot import the %s image to %s", type, dst))
-      }
-    }
-    unlink(file_info$datapath)
-    return(normalizePath(file.path(input_dir, fname), winslash = "/"))
+  if (!grepl("\\.nii(\\.gz)?$", file_info$name, ignore.case = TRUE)) {
+    stop(sprintf("The %s image must be a NIfTI file (.nii or .nii.gz).", type))
   }
+  ext <- ifelse(grepl("\\.gz$", file_info$name, ignore.case = TRUE), ".nii.gz", ".nii")
+  deriv_dir <- file.path(imaging_path, "derivative")
+  ravepipeline::dir_create2(input_dir)
+  ravepipeline::dir_create2(deriv_dir)
 
-  # Nothing dropped: the image imported earlier, including images that
-  # earlier versions of this loader imported through YAEL (`inputs/anat`)
-  candidates <- switch(
-    type,
-    "MRI" = file.path(input_dir, c("MRI_acpc.nii.gz", "MRI_RAW.nii.gz", "MRI_RAW.nii")),
-    "CT" = file.path(input_dir, c("CT_RAW.nii.gz", "CT_RAW.nii"))
-  )
-  anat_dir <- file.path(imaging_path, "inputs", "anat")
-  if (dir.exists(anat_dir)) {
-    anat_pattern <- ifelse(type == "MRI", "_T1w\\.nii(\\.gz)?$", "_CT\\.nii(\\.gz)?$")
-    candidates <- c(candidates, list.files(anat_dir, pattern = anat_pattern,
-                                           ignore.case = TRUE, full.names = TRUE))
+  # one image per type: drop the copy with the other extension
+  stale <- sprintf("%s_RAW%s", type, setdiff(c(".nii.gz", ".nii"), ext))
+  unlink(file.path(c(input_dir, deriv_dir), stale))
+
+  fname <- sprintf("%s_RAW%s", type, ext)
+  for (dst in file.path(c(input_dir, deriv_dir), fname)) {
+    if (!file.copy(file_info$datapath, dst, overwrite = TRUE, copy.date = TRUE)) {
+      stop(sprintf("Cannot import the %s image to %s", type, dst))
+    }
   }
-  candidates <- candidates[file.exists(candidates)]
-  if (!length(candidates)) { return(NULL) }
-  normalizePath(candidates[[1]], winslash = "/")
+  unlink(file_info$datapath)
+  normalizePath(file.path(input_dir, fname), winslash = "/")
 }
 
 # `simple-import` of the MRI/CT preprocessing module: put the MRI in the
