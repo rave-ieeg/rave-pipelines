@@ -657,16 +657,8 @@ ensure_pial_envelope <- function(subject) {
 
 load_brain_with_electrode_prototypes <- function(subject, plan_list) {
 
-  brain <- tryCatch({
-    threeBrain::threeBrain(path = subject$freesurfer_path,
-                           subject_code = subject$subject_code)
-  }, error = function(e) {
-    threeBrain::freesurfer_brain2(
-      fs_subject_folder = subject$freesurfer_path,
-      subject_name = subject$subject_code,
-      use_141 = FALSE
-    )
-  })
+  brain <- threeBrain::threeBrain(path = subject$freesurfer_path,
+                                  subject_code = subject$subject_code)
   geom_def_path <- file.path(subject$meta_path, "geometry_unsaved.json")
   geom_defs <- list()
   if (file.exists(geom_def_path)) {
