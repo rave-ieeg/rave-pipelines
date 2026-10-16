@@ -1622,13 +1622,11 @@ loader_server <- function(input, output, session, ...) {
 
               brpath <- nev_path[[1]]
               # brpath <- '~/rave_data/raw_dir/PAV058/001/raw/PAV054_Datafile_001.nev'
-              header <- readNSx::import_nsp(
-                brpath, prefix = tempfile(),
-                exclude_events = c("spike", "video_sync", "digital_inputs",
-                                   "tracking", "button_trigger", "comment"),
-                exclude_nsx = 1:9, verbose = TRUE)
+              # headers only: the data packets (spike waveforms) can take
+              # gigabytes
+              header <- readNSx::read_nev_header(brpath)
 
-              elec_table <- header$nev$header_extended$NEUEVLBL
+              elec_table <- header$header_extended$NEUEVLBL
               elec_table$labelprefix <- gsub("[0-9_-]+$", "", elec_table$label)
 
               nsinfo <- lapply(split(elec_table, elec_table$labelprefix), function(x) {
