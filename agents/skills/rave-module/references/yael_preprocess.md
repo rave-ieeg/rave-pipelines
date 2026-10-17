@@ -188,9 +188,8 @@ in R):
   normalized `T1`, or the YAEL normalization.
 * **Co-registration**: the CT resampled into MRI space and the CT-to-MRI
   transforms (`coregistration`). Electrode Localization reads these to place
-  the electrodes. YAEL-reg3d registers the full-resolution images and also
-  saves an image with a side of 384 voxels or more as a smaller copy for
-  viewers (`CT_RAW.nii.gz`; the original is `CT_ORIG.nii.gz`).
+  the electrodes. YAEL-reg3d saves the CT (`CT_RAW.nii.gz`) and the MRI
+  (`MRI_reference.nii.gz`) at their original resolution.
 * **Reports**: "Coregistration Quality Report" (CT overlaid on the MRI, for
   checking the alignment) and "Normalization Quality Report" (the subject's MRI
   against the MNI templates; needs YAEL normalization).

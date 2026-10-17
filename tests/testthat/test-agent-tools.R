@@ -97,35 +97,95 @@ operate <- function(session, ...) {
   tool(...)
 }
 
-test_that("click on a module input sends shidashi.click with its namespaced ID", {
+# `shidashi::mcp_click` needs a page to answer the click, so the click tests
+# replace it: the stand-in records the selector and answers with `reply`, as
+# the browser would
+mock_mcp_click <- function(reply = list(matched = TRUE, clicked = TRUE, refused = FALSE),
+                           env = parent.frame()) {
+  clicks <- new.env()
+  clicks$selectors <- character()
+  testthat::local_mocked_bindings(
+    mcp_click = function(selector, session = NULL, ...) {
+      clicks$selectors <- c(clicks$selectors, selector)
+      promises::promise_resolve(reply)
+    },
+    .package = "shidashi", .env = env
+  )
+  clicks
+}
+
+# A click returns a promise: run the event loop until it settles, then return
+# its value or raise its error
+settle <- function(promise, timeout = 5) {
+  state <- new.env()
+  state$done <- FALSE
+  promises::then(
+    promise,
+    onFulfilled = function(value) {
+      state$value <- value
+      state$done <- TRUE
+    },
+    onRejected = function(error) {
+      state$error <- error
+      state$done <- TRUE
+    }
+  )
+  deadline <- Sys.time() + timeout
+  while (!state$done && Sys.time() < deadline) {
+    later::run_now(0.05)
+  }
+  if (!state$done) { stop("The click did not settle within ", timeout, " s") }
+  if (!is.null(state$error)) { stop(state$error) }
+  state$value
+}
+
+test_that("click on a module input clicks its namespaced ID", {
+  clicks <- mock_mcp_click()
   session <- fake_session(inputs = "wavelet_confirm_btn2")
-  reply <- operate(session, action = "click", target = "wavelet_confirm_btn2")
-  expect_length(session$sent, 1)
-  expect_equal(session$sent[[1]]$type, "shidashi.click")
-  expect_equal(session$sent[[1]]$message$selector, "#wavelet_module-wavelet_confirm_btn2")
+  reply <- settle(operate(session, action = "click", target = "wavelet_confirm_btn2"))
+  expect_equal(clicks$selectors, "#wavelet_module-wavelet_confirm_btn2")
   expect_match(reply, "shiny_query_ui")
 })
 
 test_that("click also takes the input ID with the module prefix", {
+  clicks <- mock_mcp_click()
   session <- fake_session(inputs = "wavelet_confirm_btn2")
-  operate(session, action = "click", target = "wavelet_module-wavelet_confirm_btn2")
-  expect_equal(session$sent[[1]]$message$selector, "#wavelet_module-wavelet_confirm_btn2")
+  settle(operate(session, action = "click", target = "wavelet_module-wavelet_confirm_btn2"))
+  expect_equal(clicks$selectors, "#wavelet_module-wavelet_confirm_btn2")
 })
 
 test_that("click refuses a module input that is not on the page", {
+  clicks <- mock_mcp_click()
   session <- fake_session(inputs = "wavelet_do_btn")
   expect_error(
     operate(session, action = "click", target = "wavelet_confirm_btn"),
     "not on the page"
   )
-  expect_length(session$sent, 0)
+  expect_length(clicks$selectors, 0)
 })
 
 test_that("click sends a CSS selector as it is", {
-  session <- fake_session()
-  operate(session, action = "click", target = ".swal-button")
-  expect_equal(session$sent[[1]]$type, "shidashi.click")
-  expect_equal(session$sent[[1]]$message$selector, ".swal-button")
+  clicks <- mock_mcp_click()
+  settle(operate(fake_session(), action = "click", target = ".swal-button"))
+  expect_equal(clicks$selectors, ".swal-button")
+})
+
+test_that("click on a control for people only says to ask the user", {
+  mock_mcp_click(list(matched = TRUE, clicked = FALSE, refused = TRUE))
+  session <- fake_session(inputs = "save_btn")
+  expect_error(
+    settle(operate(session, action = "click", target = "save_btn")),
+    "`save_btn` is disabled for agents: ask the user"
+  )
+})
+
+test_that("click that matches no element is an error with the browser's note", {
+  mock_mcp_click(list(matched = FALSE, clicked = FALSE, refused = FALSE,
+                      note = "Invalid selector."))
+  err <- expect_error(settle(operate(fake_session(), action = "click", target = ".nothing")))
+  expect_match(conditionMessage(err), "No element on the page matches `.nothing`.",
+               fixed = TRUE)
+  expect_match(conditionMessage(err), "Invalid selector.", fixed = TRUE)
 })
 
 test_that("click needs a target", {

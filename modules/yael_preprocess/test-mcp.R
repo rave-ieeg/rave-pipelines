@@ -312,10 +312,10 @@ tryCatch({
     "MR image" = identical(conf$reference_image$path,
                            file.path(imaging_path, "derivative", "MRI_RAW.nii.gz")),
     "registration record" = file.exists(file.path(coreg_dir, "reg3d", "reg3d.dcf")),
-    # full-resolution registration; 384-voxel copy of the CT for viewers
-    "original CT kept" = identical(nifti_dim("CT_ORIG.nii.gz"), c(512L, 512L, 178L)),
-    "viewer copy capped" = identical(nifti_dim("CT_RAW.nii.gz"), c(384L, 384L, 178L)),
-    "MRI not capped" = !file.exists(file.path(coreg_dir, "MRI_ORIG.nii.gz")),
+    # images saved at their original resolution, no down-sampled copies
+    "CT at full resolution" = identical(nifti_dim("CT_RAW.nii.gz"), c(512L, 512L, 178L)),
+    "no original copies" = !any(file.exists(file.path(
+      coreg_dir, c("CT_ORIG.nii.gz", "MRI_ORIG.nii.gz")))),
     "status shows it" = grepl("reg3d_rigid", field(status(), "coregistration")),
     # what electrode localization's loader picks (R/loader.R, load_coreg_params)
     "EL: transform mode" = "CT_IJK_to_MR_RAS" %in% names(conf$outputs),

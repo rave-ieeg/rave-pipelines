@@ -1,13 +1,16 @@
 require(testthat)
 test_that("import native formats", {
 
-  pipeline <- ravepipeline::pipeline("import_lfp_native", paths = file.path(rstudioapi::getActiveProject(),
+  skip_without_rave1()
+  skip_without_kc_raw()
+
+  pipeline <- ravepipeline::pipeline("import_lfp_native", paths = file.path(normalizePath(testthat::test_path("..", "..")),
                                                                       "modules"))
 
   # pipeline path is correct
   expect_equivalent(
     pipeline$pipeline_path,
-    normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "import_lfp_native"))
+    normalizePath(file.path(normalizePath(testthat::test_path("..", "..")), "modules", "import_lfp_native"))
   )
 
   blocks <- c("003", "004")

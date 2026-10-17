@@ -4,13 +4,16 @@ require(testthat)
 
 test_that("Notch filter", {
 
-  pipeline <- ravepipeline::pipeline("notch_filter", paths = file.path(rstudioapi::getActiveProject(),
+  skip_without_rave1()
+  skip_without_kc_raw()
+
+  pipeline <- ravepipeline::pipeline("notch_filter", paths = file.path(normalizePath(testthat::test_path("..", "..")),
                                                                       "modules"))
 
   # pipeline path is correct
   expect_equivalent(
     pipeline$pipeline_path,
-    normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "notch_filter"))
+    normalizePath(file.path(normalizePath(testthat::test_path("..", "..")), "modules", "notch_filter"))
   )
 
   subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)

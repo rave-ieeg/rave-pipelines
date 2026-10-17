@@ -1,14 +1,17 @@
 require(testthat)
 test_that("reference", {
 
+  skip_without_rave1()
+  skip_without_kc_raw()
+
   pipeline <- ravepipeline::pipeline(
     pipeline_name = "reference_module",
-    paths = file.path(rstudioapi::getActiveProject(), "modules"))
+    paths = file.path(normalizePath(testthat::test_path("..", "..")), "modules"))
 
   # pipeline path is correct
   expect_equivalent(
     pipeline$pipeline_path,
-    normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "reference_module"))
+    normalizePath(file.path(normalizePath(testthat::test_path("..", "..")), "modules", "reference_module"))
   )
 
   subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
@@ -18,8 +21,8 @@ test_that("reference", {
   ref_path1 <- file.path(subject1$reference_path, "ref_6-7,14-15,22-23,30-31,38-39.h5")
   ref_path2 <- file.path(subject2$reference_path, "ref_6-7,14-15,22-23,30-31,38-39.h5")
 
-  expect_true(file.exists(ref_path1))
-  skip_if_not(file.exists(ref_path1))
+  skip_if_not(file.exists(ref_path1),
+              sprintf("needs the RAVE 1.0 reference file %s", ref_path1))
 
   if(!file.exists(ref_path2)) {
     # generate reference data

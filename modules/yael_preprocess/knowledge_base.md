@@ -451,13 +451,12 @@ YAEL-reg3d (`ravetools::register_volume3d`, rigid; presets in ravecore
 `reg3d_preset()`: Rigid = shrink 4/2/1, sigmas 2/1/0, iterations 1000/500/250,
 sampling 0.2; DenseRigid = the same with sampling 1; FastRigid = shrink 8/4/2,
 sigmas 3/2/1, iterations 200/150/100, sampling 0.05):
-* registers the **full-resolution** images; an image with a side of 384
-  voxels or more is saved twice: the original (`CT_ORIG.nii.gz` /
-  `MRI_ORIG.nii.gz`) and a copy with those sides resampled to 384 over the same
-  field of view (`CT_RAW.nii.gz` / `MRI_reference.nii.gz`, for viewers);
-  `CT_RAS_to_MR_RAS.txt` is the same for both, `CT_IJK_to_MR_RAS.txt` uses the
-  saved `CT_RAW.nii.gz` sform, `ct_in_t1.nii.gz` is on the saved
-  `MRI_reference.nii.gz` grid (0 outside the CT field, as ANTs);
+* registers and saves the images at their **original resolution**:
+  `CT_RAW.nii.gz` / `MRI_reference.nii.gz` are the inputs (header kept),
+  `CT_IJK_to_MR_RAS.txt` uses the `CT_RAW.nii.gz` sform, `ct_in_t1.nii.gz` is on
+  the `MRI_reference.nii.gz` grid (0 outside the CT field, as ANTs); there are no
+  down-sampled copies (ravecore `2580f86`): threeBrain's viewer reads oversized
+  volumes decimated itself (`de794cb`);
 * writes every image as NIfTI-1 (ieegio would write NIfTI-2 above 512 voxels,
   which threeBrain's oro.nifti reader rejects) and the registration record
   `reg3d/reg3d.dcf` + `reg3d/reg3d0GenericAffine.mat` (a subfolder, so
@@ -469,8 +468,7 @@ sigmas 3/2/1, iterations 200/150/100, sampling 0.05):
   `conf-coregistration.yaml` only after a successful run and keeps the old one
   as `conf-coregistration_[backup_<time>].yaml`;
 * conf `command$execute` is `ravecore::reg3d_rigid` with scalar arguments
-  `reg_type`, `cost`, `interp`, `max_side`; outputs add `registration` and,
-  when written, `CT_ORIG` / `MRI_ORIG`.
+  `reg_type`, `cost`, `interp`; outputs add `registration`.
 On the de-identified demo pair (blanked CT, skull-stripped MRI) every
 MI-based tool, YAEL-reg3d and NiftyReg included, converges to a pose that
 cuts through the brain; judge accuracy on real data.

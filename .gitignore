@@ -23,3 +23,4 @@ unused
 .positai
 preset-migration-checklist.md
 /logs/
+tests/testthat/testthat-problems.rds

@@ -624,12 +624,12 @@ module_html <- function() {
                         update = "shiny::updateSelectInput(value=selected)",
                         description = paste(
                           "[Select: `trilinear` (default), `bspline`, `nearest`] How YAEL-reg3d resamples",
-                          "the images it saves (`ct_in_t1`, and copies of images with a side of 384",
-                          "voxels or more); the alignment itself does not change. Shown when",
+                          "the CT onto the MRI grid (`ct_in_t1`); the alignment itself does not",
+                          "change. Shown when",
                           "`coreg_ct_program` is `YAEL-reg3d`. Read by scripts `run_coregistration` and",
                           "`save_coregistration_script`."
                         ),
-                        tooltip = "YAEL-reg3d interpolation of the saved images."
+                        tooltip = "YAEL-reg3d interpolation of the aligned CT."
                       )
                     )
                   )

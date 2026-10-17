@@ -1,6 +1,6 @@
 # TODO
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-09.
 
 ## Open from the shidashi PR #5 adaptation
 
@@ -12,256 +12,114 @@ shidashi, SVG capture, `stream_viz`, `npm run build`). Still to check by hand:
 - [ ] Test MCP `shiny_query_ui` SVG capture
 - [ ] Test the `stream_viz` widget
 
+## Found in the 2026-10-09 regression test
+
+Details are in `BUGS.md` (entries and "Test Results").
+
+- [ ] Decide whether the interim `initialize_partition()` calls stay (ravecore
+  `power_baseline`, voltage_explorer `filter_repository()`). They cost a few
+  milliseconds, and users who install from CRAN still get filearray 0.2.3,
+  which needs them.
+- [ ] ravepipeline: report generation prints every environment variable, API
+  keys included, to the app's console (`R/pipeline-report.R:253-254`;
+  `BUGS.md`).
+- [ ] threeBrain: the 3D viewer can keep stale electrode colors after a
+  cluster update (power_clust, voltage_clust; `BUGS.md`).
+- [ ] `rave_3dviewer_get` read back old controller values 2-3 s after
+  `rave_3dviewer_set` while three test apps were running (e.g. Voxel Display
+  still "normal" after setting "hidden"); the panel showed the new value at
+  once. The tool note says about 0.5 s, so an agent that reads back at once
+  may think its set failed.
+  - Related, minor: threeBrain reports "Voxel Opacity" as -1 below 0.001 (on
+    purpose, `PresetRaymarchingVoxels.js`), while its spec says 0 to 1.
+
 ## MCP support for modules
 
-What was done per module, the deviations, and what is open are below. The
-agent manuals are in `agents/skills/rave-module/references/<id>.md`.
+The agent manuals are in `agents/skills/rave-module/references/<id>.md`.
 power_explorer, custom_3d_viewer, and compatibility_rave1 also keep their
 plans in `modules/<id>/plan-mcp_support.md`.
 
 | Module | Status |
 |---|---|
-| notch_filter, reference_module, wavelet_module, custom_3d_viewer, compatibility_rave1, power_explorer | Done and committed |
-| power_clust, voltage_clust, voltage_explorer, project_overview | Done and tested live on 2026-10-02; **not committed** |
-| configure_rave, connectivity_viewer, electrode_localization, epoch_generator, generate_surface_atlas, group_3d_viewer, import_bids, import_lfp_native, import_signals, jupyterlab, standalone_report, standalone_viewer, stimpulse_finder, surface_reconstruction, trace_viewer, yael_preprocess | No MCP support yet (no `agents.yaml`) |
+| notch_filter, reference_module, wavelet_module, custom_3d_viewer, compatibility_rave1, power_explorer, power_clust, voltage_clust, voltage_explorer, project_overview, epoch_generator, yael_preprocess | Done and committed |
+| electrode_localization | Phases 0-1 done and committed (2026-10-08); phases 2-4 open |
+| configure_rave, connectivity_viewer, generate_surface_atlas, group_3d_viewer, import_bids, import_lfp_native, import_signals, jupyterlab, standalone_report, standalone_viewer, stimpulse_finder, surface_reconstruction, trace_viewer | No MCP support yet (no `agents.yaml`) |
 
 ### Shared test helpers (2026-10-02)
 
-Done:
-- `agents/skills/build-module-mcp/test-common.R` holds the helpers every
-  `test-mcp.R` used to copy (`mcp`, `tool`, `set_input`, `set_input_wait`,
-  `run_script`, `operate`, `page_text`, `output_text`, `viewer_get`, ...).
-  A test sets `module <- "<id>"` and loads them with one `source()` line.
-- Tool arguments are R values now, not JSON text: `httr2` sends them as JSON
-  and the app decodes them into the same R values (`I("a")` for a
-  one-element array, `list()` for an empty one). All ten tests were changed.
-- The skill's test step (`agents/skills/build-module-mcp/SKILL.md`, step 7)
-  points to the new file.
-- Re-run live after the change (port 17299):
-  - power_clust, voltage_clust, project_overview, and custom_3d_viewer, end
-    to end;
-  - with their write switches off: voltage_explorer (`do_write`),
-    compatibility_rave1 (`do_write`), wavelet_module (`do_apply`), and
-    power_explorer (`do_write`, `do_flags`).
+Every `test-mcp.R` loads `agents/skills/build-module-mcp/test-common.R` and
+passes R values as tool arguments. All tests but two were re-run live after
+that change.
 
-Open:
 - [ ] Re-run `notch_filter` and `reference_module`. They were not re-run:
   notch_filter's script ends by applying the filter, and reference_module
   saves references into its test subject.
 
 ### Tooltips for people (2026-10-02)
 
-shidashi 0.2.0.12 shows a registered input's `tooltip` when people hover over
-it. By default the tooltip is the first sentence of the agent `description`.
+shidashi shows a registered input's `tooltip` when people hover over it. By
+default the tooltip is the first sentence of the agent `description`.
 
-Done:
-- 114 inputs in the ten MCP modules have their own `tooltip`, written for
-  people, where the description speaks to agents (script names, JSON
-  formats, rules).
-- Checked by rendering each module's loader and main UI offline and reading
-  every tooltip; the 92 tooltips left at the default read fine for people.
-- Compound inputs, card tab sets, the object list, and file uploads get no
-  tooltip (shidashi adds none there).
-
-Open:
-- [ ] No module requires shidashi >= 0.2.0.12. With 0.2.0.11 or older,
-  `register_input()` has no `tooltip` argument, so these modules stop with
-  "unused argument (tooltip = ...)".
 - [ ] ravedash presets still show agent wording to people. Examples: the
   "Create" button and name field of the "Create new subject" and "Create new
   project" dialogs (`presets_loader_subject`, `presets_import_setup_native`)
   say "...; only the user may create subjects."
 
-### Report style sheet warning (2026-10-02)
+### power_explorer (Power Explorer)
 
-Every report from a module that ships `report_styles.css` logged pandoc's
-"Could not fetch resource report_styles.css". The affected modules are
-electrode_localization, notch_filter, power_explorer, project_overview,
-voltage_explorer, and yael_preprocess. Each report also kept a link to that
-file, which browsers could not load (a 404). The styles were applied all
-along.
+Found in the 2026-10-09 test; not changed.
 
-Cause: ravepipeline's `pipeline_report_generate()` passed the style sheet
-twice. The dependency copy, given by absolute path, was embedded. The `css`
-output option, a path relative to the pipeline folder, was not: rmarkdown runs
-pandoc in `intermediates_dir`, which has no copy of the file. This started
-with ravepipeline `36dc248` (2025-08-21).
-
-Done (ravepipeline, uncommitted):
-- Removed the `css` option. Only the dependency copy remains, in the same
-  place in the page, so reports look the same.
-- New test `tests/testthat/test-pipeline-report.R`. It failed before the fix
-  and passes now; the whole suite passes.
-- A `NEWS.md` entry, and version 0.2.0.10.
-- Checked live with project_overview's export on port 17299, running 0.2.0.10
-  from a scratch library:
-  - no warning in the job's output;
-  - the zipped `report.html` embeds the style sheet once and links nothing
-    else.
-
-Reports made before the fix keep the dead link. It is harmless, and they
-were not rewritten.
-
-Open:
-- [ ] Install ravepipeline 0.2.0.10 into the main library and commit. Restart
-  running apps and R consoles after installing: a package reinstalled under a
-  session that has it loaded breaks that session's later lazy loads.
+- [ ] "Waterfall over Time" repeats electrode numbers on its y-axis (16, 15,
+  15, 14, 14 for electrodes 14-16), so the half-way gridlines carry an
+  electrode's number. `yat <- pretty(y.seq)` gives fractional ticks for 2-4
+  electrodes, and `labels = y.els[yat]` truncates them
+  (`R/shared-graphing.R:1134-1141`). Fine with 5 (`pretty(1:5)` is `1:5`).
+  Old code.
+- [ ] Once, right after the quick custom-ROI run with "Group/Stratify
+  results" (it switches `btp_panelvar` to `ROI_label`,
+  `R/module_server.R:507`), the By Condition > By Trial plot logged "Error in
+  if: argument is of length zero" (`plot_by_condition_by_trial`,
+  `R/shared-graphing.R:2681`). People may briefly see an error there. It
+  rendered fine afterwards; not reproduced, and which `if` failed is
+  unknown.
 
 ### power_clust (Power Clustering)
 
-Done:
-- Registered `time_range`, `frequency_range`, `zeta_threshold`, `n_clusters`,
-  `condition_groups`, and "Load Settings" (read-only).
-- The output tab set got a stable `inputId` (`cluster_tabset`, approved),
-  registered with `card_tabset_activate`.
-- Scripts:
-  - `load_data` and `run_analysis` got descriptions and summaries;
-  - new read-only `cluster_summary` and `pipeline_progress`.
-- `agents.yaml` (with `shiny_ui_operate` and the 3D viewer tools for
-  `viewer`), the manual, and `test-mcp.R`.
-
-Deviations from the plan, and solutions:
-- After a new load the module keeps its old results in `local_data`, while
-  the plots ask for a run. `cluster_summary` follows the plots: no results
-  while `update_outputs` is empty or FALSE.
-- Reloading identical data skips re-initialization, so the test checks "no
-  results after loading" only on a freshly opened page.
-- Errors reach agents at the end of `output`, after the logged code of the
-  run: `Error in ...: <message>` for invalid inputs, `Possible issue:
-  <message>` for a failing pipeline step. The manual and test say so.
-
-Open:
 - [ ] "or Mask file" (`loader_mask_file`) is not read anywhere.
-- [ ] Tab title typo "Diagnostic plots" (visible; not changed).
+- [ ] The visible tab title typo is fixed (`759e5a3`), but the
+  `cluster_tabset` description still names the tab `'Diagnosic plots'`
+  (`R/module_html.R:177`); the tab is "Diagnostic plots". An agent that
+  sends the description's name leaves the card with no tab showing (shidashi
+  deactivates every tab whose title does not match), and people see a
+  "Cannot activate tab" toast.
+- [ ] `test-mcp.R` never runs its "no results right after loading" check. It
+  treats the page as reused when `n_clusters` exists (`test-mcp.R:204`), but
+  `n_clusters` is static UI in the output card's footer
+  (`R/module_html.R:228`). So the test prints "Reused page: skipping ..."
+  even on a fresh page (seen 2026-10-09). A change that keeps old results
+  after loading would go unnoticed.
+- [ ] The run's error handler calls `logger(traceback(e))`
+  (`R/module_server.R:206`). The same call failed in voltage_clust (see
+  there); not seen failing here.
 
 ### voltage_clust (ERP Clustering)
 
-Done: the same as power_clust, without a frequency band. The baseline offers
-only "Demean" and "Per trial and electrode" and uses only the windows.
-
-Deviations from the plan, and solutions:
-- **"Load subject" failed for everyone** (`unused argument (progress_quiet =
-  TRUE)`). The argument dates from the old promise-based call; `set_script`
-  runs the call synchronously, which forwards it to the targets run. You
-  removed it.
-- A failed load rewrote `_targets.yaml` (reporter lines); restored from HEAD.
-
-Open:
-- [ ] The test left the pipeline store and the 1.7 GB baseline cache
-  (`data/cache`) in its demo/DemoSubject state, as a consistent pair. The
-  next ds005953_01 load rebuilds both, which takes a while.
 - [ ] The settings download is named `pipeline-power_clust-settings.yaml`.
 - [ ] `main.Rmd` passes `frequency_range`, which its settings do not have,
   into `...` (unused).
-- [ ] "or Mask file" is unused; "Diagnostic plots" typo.
-
-### voltage_explorer (Voltage Explorer)
-
-Done:
-- Fixed the detrend select, which was registered as `detrend_method` instead
-  of `remove_drift_method`.
-- Registered the 13 plot options, `by_cond_channel_selector`, and six buttons
-  and links (read-only, each naming its script).
-- Moved six observer bodies verbatim into scripts: `inspect_filters`,
-  `reset_signal_config`, `reset_crp_params`, `reset_plot_options`,
-  `send_to_electrode_selector`, and `open_report_dialog`.
-- The report: agents click the dialog's `do_generate_report` with
-  `shiny_ui_operate` (its code untouched), after confirming with the user,
-  then poll the new read-only `report_status`.
-- New read-only `pipeline_progress`; a `run_analysis` result.
-- `agents.yaml`, the manual, and `test-mcp.R`. One report was written to
-  `demo/DemoSubject/reports/report-univariateVoltage_datetime-261001T233513_voltage_explorer/`.
-- 2026-10-03: an emptied or unknown colormap name no longer closes the
-  session (the nine plot-option reactives are `ravedash::safe_reactive()` over
-  `use_preference_input()`, which keeps the stored value); the CRP-parameter
-  heatmap drops its summary bars and slims its legend instead of erroring on
-  narrow figures; `test-mcp.R` gained the emptied-colormap step (passed live,
-  `do_write = FALSE`). Needs ravedash >= 0.1.3.55 and shidashi >= 0.2.0.13
-  (non-clearable `colormapSelectInput`).
-
-Deviations from the plan, and solutions:
-- **Preferences** live in RAVE's global store
-  (`ravepipeline:::global_preferences("default")`, keys
-  `voltage_explorer.*`), not in the module folder. Tests snapshot and restore
-  those keys.
-- After a run the module collapses "Signal Configurations". Agents set its
-  inputs either way; people expand it (in the manual).
-- To clear a numeric input, send `""`: JSON `null` is ignored.
-- The test checks that the pipeline ran through target `data_placeholder`
-  (cue "always"): the metrics are rebuilt only when their inputs change.
-
-Open:
-- [x] A band-pass with one cutoff shows people a red "Coding Error"
-  notification with the reason. This is ravedash's default for the Run
-  Analysis observer; decide whether to keep it. Fixed on 2026-10-02:
-  - **Notification:** known filter-input problems now show a red
-    notification, "Invalid filter settings", that says what to change:
-    - one cutoff: "A band-pass filter requires two cutoff frequencies.
-      Please enter both, or choose a low-pass or high-pass filter if only one
-      cutoff is needed.";
-    - a cutoff out of range: the message names the bound.
-  - **How:** `stop_filter_input()` in `R/module_server.R` shows the
-    notification, then stops with the same message as a `rave_muffled`
-    error, so ravedash shows nothing else. Agents get the message as the
-    script's error. The same applies to "Inspect combined filter".
-  - **Checked live:** `test-mcp.R` covers the agent run and a footer click
-    (no "Coding Error"), before and after the fix.
-- [x] `with_selector_filter_column()` prints the whole table on every viewer
-  update (`print(erp_tbl)`).
-- [x] `DESCRIPTION` still has a placeholder Title and Description. Filled in
-  (Title, author, Description, BugReports, as in the other modules). A new
-  `CITATION` cites RAVE and the CRP method (Miller et al., 2023,
-  doi:10.1371/journal.pcbi.1011105).
-- [X] `R/shared-filters.R` has another session's uncommitted filearray
-  partition fix (see `BUGS.md`); it was not touched (Fix is done, no touch).
+- [ ] "or Mask file" is unused; the `cluster_tabset` description has the
+  same `'Diagnosic plots'` leftover (`R/module_html.R:154`).
+- [ ] `test-mcp.R` never runs its "no results right after loading" check, as
+  in power_clust (`test-mcp.R:200`; `n_clusters` is at
+  `R/module_html.R:205`).
+- [ ] The run's error handler could not log the traceback:
+  `ravepipeline::logger(traceback(e), ...)` (`R/module_server.R:196`) logged
+  "Cannot log the following call ... subscript out of bounds". This was
+  probably during the test's deliberate failing run (2026-10-09). People
+  still get the error toast; only the traceback for debugging is lost.
 
 ### project_overview (Project Overview)
 
-Done:
-- Registered `loader_project_name`, the output tab set `output_cardset`, and
-  "Generate Report" (read-only).
-- Scripts:
-  - new `generate_report` (the observer body verbatim, plus a summary);
-  - Export Report (`run_analysis`) got a description and the job-id line;
-  - new read-only `export_status` and `pipeline_progress`.
-- Clearer descriptions for the inputs.
-- `agents.yaml`, the manual, and `test-mcp.R`. Nothing is written into the
-  project.
-
-Deviations from the plan, and solutions:
-- **Tables in a hidden tab come back empty** from `shiny_output_result`.
-  shidashi renders the output on the server, but DT draws nothing at zero
-  size (`lazyRender`). Agents show the tab with `output_cardset` first. An
-  `outputOptions(suspendWhenHidden = FALSE)` attempt was reverted.
-- **"Export Report" hung forever, for people too.** `utils::zip()` in the
-  background job printed a line per file into the job's stdout, a
-  `callr::r_bg()` pipe that nothing drains.
-  - Fixed in ravepipeline (commit `1cc1cec`, installed as 0.2.0.9):
-    `start_job_callr` sends job stdout and stderr to `process_outputs.txt` in
-    the job folder. A new test, `tests/testthat/test-jobs-child-output.R`,
-    hangs without the fix and passes with it.
-  - The module also zips quietly (`flags = "-r9Xq"`) while it serves an MCP
-    call. shidashi 0.2.0.12 sets `SHIDASHI_USING_MCP` to "TRUE" during each
-    MCP tool call, and the export job inherits it. The plan named the
-    variable `SHIDASHI_MCP_ACTIVE`; shidashi shipped the other name.
-- `export_status` compares normalized paths: the job reports
-  `/private/var/...`, while `tempfile()` gives `/var/...`.
-
-Re-checked on 2026-10-02, after both fixes were installed:
-- `test-mcp.R` passed on a test app started without the variable. The
-  export job's process had `SHIDASHI_USING_MCP=TRUE`, and its output had no
-  zip "adding:" lines.
-
-Open:
-- [x] `settings.yaml` holds `subject_codes: DemoSubject, YAB` from a test
-  run; restore it if that was not intended. (I will sanitize settings.yaml. do NOT report settings.yaml issues unless the input specs are changed, not the value. Otherwise the text is annoying)
-- [x] The module's own `TODO.md` describes an older design, and
-  `SKILL_draft.md` is a guide to writing `main.Rmd`. (leave it. The file is there no harm)
-- [x] Packaging warns "Could not fetch resource report_styles.css". The
-  copied power_explorer reports under `build/module_reports/` link a
-  stylesheet that is not next to them (This is a bug). Fixed in
-  ravepipeline; see "Report style sheet warning". The copies were not the
-  cause: pandoc warned while rendering `report-export.Rmd` itself.
 - [ ] Found while checking the export, not changed:
   - ravepipeline renders with its own format object, so the YAML `output:`
     options of `report-export.Rmd` are ignored: `code_folding: none` became
@@ -274,3 +132,63 @@ Open:
   - The zip also carries module files such as `TODO.md`, `test-mcp.R`, and an
     old `report-export.html`. The `report` fork policy copies everything
     except `build`, `shared/user`, and `main.html`.
+
+### epoch_generator (Generate Epoch)
+
+- [ ] Once, the test page's Shiny session closed while idle after the person
+  checks (no R or JS error logged). The same click sequence did not
+  reproduce it.
+- [ ] The "Epoch threshold" toast (it does not hide) covers the card header's
+  download icon; people close it first. Not changed.
+- [ ] The double-click fill keeps 4 significant digits (approved). For a
+  small pulse on a large offset (e.g. counts near 8,388,000) that rounds the
+  threshold onto the baseline; typing the value works. Not changed.
+- [ ] Not changed, documented in the manual: the x-axis is in samples for 20000
+  samples or fewer (the brush then fails), the MAT rate stays from the
+  previous file, a block change re-selects a guessed file, a minimum duration
+  of 0 lets staged onsets be staged twice, "Load existing epoch" drops
+  conditions, "Save & Download" gives no feedback and does not refresh the
+  list, transforms do not re-run the thresholding, and NSx/BrainVision files
+  appear only as imported channels.
+- [ ] The "Threshold" field uses `numericInput(updateOn = "blur")`, which
+  shiny has only since 1.11.0 (the installed 1.14.0 has it). Nothing asks for
+  that shiny: shidashi and ravedash require shiny >= 1.7, and
+  `ravemanager::update_rave()` installs with `upgrade = FALSE`, so it keeps
+  an older shiny. With an older shiny the module's page fails to build
+  ("unused argument (updateOn = ...)").
+- [ ] Suggestion: a line in build-module-mcp `SKILL.md` that MCP agents never
+  see `system_prompt` (rules belong in descriptions and the manual's top).
+
+### electrode_localization (Electrode Localization)
+
+Plan: `~/.claude/plans/i-want-to-migrate-iridescent-lemon.md`.
+
+- [ ] YAEL-reg3d misregisters yael_demo_001's CT_RAW + MRI_reference
+  (skull-stripped, 9% non-zero): FastRigid (mattes or cc) and Rigid put 0-1
+  of the 48 saved contacts on metal; the subject's ANTs transform puts 48/48.
+  Rigid took ~1900 s offline (yael_preprocess notes say ~40 s on 2026-10-04).
+  Not checked on a raw T1 with skull (no such image allowed).
+- [ ] `save_electrode_table()` still writes `custom-data` under
+  `raw_path/rave-imaging` (BIDS); not changed (only the loader was asked).
+- [ ] Phases 2-4 (read-only voxel/atlas inspection, undo, refine): design
+  round with the user.
+- [ ] The default 3D view hides the CT behind the opaque sagittal slice
+  (`BUGS.md`, "Electrode Localization hides the CT in its default 3D view").
+
+### yael_preprocess (MRI/CT Preprocessing)
+
+- [ ] "Start re-alignment" stays disabled after a failed start (pre-existing;
+  people reload the page). Not changed.
+- [ ] Both imports share one log file name when built in the same second; the
+  CT import overwrites the T1 import's log. Not changed.
+- [ ] Old `notes/surface_reconstruction.*` files stay on subjects; harmless.
+
+## import_signals: NEV/NSx freeze (2026-10-15)
+
+Plan: `~/.claude/plans/the-import-module-is-woolly-brook.md`.
+
+- [ ] Release readNSx 0.1.1: the module's NEV preview calls
+  `readNSx::read_nev_header()` (new). The release also reads NEV packets in
+  chunks (excluded events cost nothing) and stores full spike waveforms.
+- [ ] Release ravecore with `nev_cache_key()` (validation and import hash each
+  NEV file once per session instead of up to six times).

@@ -489,8 +489,11 @@ rave_3dviewer_controller_value <- function(label, value, spec) {
     "option" = {
       values <- spec$values %||% spec$choices
       if (length(value) == 1 && !is.na(value)) {
-        if (value %in% values) { return(value) }
-        idx <- match(as.character(value), as.character(spec$choices))
+        # Send the option's own value: 0.5 for 0.5, "0.5", or the label "x 0.5"
+        idx <- match(as.character(value), as.character(values))
+        if (is.na(idx)) {
+          idx <- match(as.character(value), as.character(spec$choices))
+        }
         if (!is.na(idx)) { return(values[[idx]]) }
       }
       stop(sprintf("`%s` must be one of %s.", label, rave_3dviewer_quote(values)),

@@ -5,15 +5,18 @@ require(testthat)
 
 test_that("Wavelet", {
 
+  skip_without_rave1()
+  skip_without_kc_raw()
+
   pipeline <- ravepipeline::pipeline(
     pipeline_name = "wavelet_module",
-    paths = file.path(rstudioapi::getActiveProject(), "modules")
+    paths = file.path(normalizePath(testthat::test_path("..", "..")), "modules")
   )
 
   # pipeline path is correct
   expect_equivalent(
     pipeline$pipeline_path,
-    normalizePath(file.path(rstudioapi::getActiveProject(), "modules", "wavelet_module"))
+    normalizePath(file.path(normalizePath(testthat::test_path("..", "..")), "modules", "wavelet_module"))
   )
 
   subject2 <- ravecore::as_rave_subject("test2/KC", strict = FALSE)
@@ -117,14 +120,18 @@ test_that("Wavelet", {
 
 test_that("Wavelet quick (float+downsample)", {
 
+  skip_without_rave1()
+  skip_without_kc_raw()
+
   # use test3/KC
 
   # import data
   subject2 <- ravecore::as_rave_subject('test3/KC', strict = FALSE)
   if(!length(subject2$electrodes) || !all(subject2$data_imported)) {
 
+    blocks <- c("003", "004")
     pipeline <- ravepipeline::pipeline(pipeline_name = "import_lfp_native",
-                                 paths = file.path(rstudioapi::getActiveProject(), "modules"))
+                                 paths = file.path(normalizePath(testthat::test_path("..", "..")), "modules"))
     pipeline$set_settings(
       skip_validation = TRUE,
       import_channels__sample_rate = 2000L,
@@ -146,7 +153,7 @@ test_that("Wavelet quick (float+downsample)", {
   if(!all(subject2$notch_filtered)) {
     pipeline <- ravepipeline::pipeline(
       pipeline_name = "notch_filter",
-      paths = file.path(rstudioapi::getActiveProject(), "modules"))
+      paths = file.path(normalizePath(testthat::test_path("..", "..")), "modules"))
     pipeline$set_settings(
       subject_code = "KC",
       project_name = "test3",
@@ -162,7 +169,7 @@ test_that("Wavelet quick (float+downsample)", {
   subject2 <- ravecore::as_rave_subject('test3/KC', strict = FALSE)
   pipeline <- ravepipeline::pipeline(
     pipeline_name = "wavelet_module",
-    paths = file.path(rstudioapi::getActiveProject(), "modules")
+    paths = file.path(normalizePath(testthat::test_path("..", "..")), "modules")
   )
   subject1 <- ravecore::as_rave_subject("test1/KC", strict = FALSE)
   frequencies <- subject1$preprocess_settings$wavelet_params$frequencies

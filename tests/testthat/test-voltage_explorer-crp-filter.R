@@ -6,7 +6,7 @@ source(testthat::test_path(
   "..", "..", "modules", "voltage_explorer", "R", "shared-viewer_table.R"
 ), local = TRUE)
 source(testthat::test_path(
-  "..", "..", "modules", "voltage_explorer", "R", "shared-selector_filter_electrodes.R"
+  "..", "..", "modules", "voltage_explorer", "R", "shared-crp_filter_electrodes.R"
 ), local = TRUE)
 
 # Stand-in for `CRP_VIEWER_METRICS` (defined in `shared-common.R`, which needs a
