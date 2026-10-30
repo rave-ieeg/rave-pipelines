@@ -11,20 +11,28 @@ dry_run <- isTRUE(ravepipeline::raveio_getopt("cmd_dry_run", default = FALSE))
 mri_commands <- rbind(
   c(value = "recon-all -all", label = "recon-all -all (~6hr)",
     description = "FreeSurfer recon-all"),
+
   c("recon-all -autorecon1", "recon-all -autorecon1 (~10min)",
     "FreeSurfer recon-all, stage 1 only, no surface"),
+
   c("recon-all-clinical.sh", "recon-all-clinical.sh (~6hr)",
     "FreeSurfer recon-all for low-resolution T1"),
+
   c("YAEL-native+recon-all", "YAEL-ravetools+recon-all (~6.5hr)",
     "Normalize to MNI152 using RAVE\n + FreeSurfer surface reconstruction"),
-  c("YAEL-native-mni152b", "YAEL-ravetools MNI152b (~45min)",
+
+  c("YAEL-native-mni152b", "YAEL-ravetools MNI152b (~2hr)",
     "Normalize to MNI152b Asym+Sym, 0.5 mm"),
+
   c("YAEL-native-mni152a", "YAEL-ravetools MNI152a (~30min)",
     "Normalize to MNI152a Asym+Sym, 1 mm"),
+
   c("YAEL+recon-all", "YAEL-ants+recon-all (~7hr)",
     "Normalize to MNI152 using antspyx\n + FreeSurfer surface reconstruction"),
+
   c("YAEL-only", "YAEL-ants (~1hr)",
     "Normalize to MNI152 only using antspyx"),
+
   c("simple-import", "Simple import (~5s)",
     "Copy the MRI without processing it")
 )
