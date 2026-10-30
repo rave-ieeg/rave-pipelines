@@ -179,10 +179,12 @@ module_server <- function(input, output, session, ...) {
   # `server_tools$trigger_script("run_analysis")`
   server_tools$set_script("run_analysis", {
     synced_controllers <- c(
-      "Display Coordinates", "Show Panels", "Slice Brightness", "Slice Mode",
+      "Display Coordinates", "Show Panels", "View Layout",
+      "Slice Brightness", "Slice Contrast", "Slice Mask", "Slice Mode",
+      "Radiographic View", "Crosshair Gap",
       "Coronal (P - A)", "Axial (I - S)", "Sagittal (L - R)",
       "Overlay Coronal", "Overlay Axial", "Overlay Sagittal",
-      "Frustum Near", "Frustum Far",
+      "Frustum",
 
       # "Voxel Display", "Voxel Opacity",
       "Voxel Min", "Voxel Max", "Voxel Label",
@@ -191,16 +193,30 @@ module_server <- function(input, output, session, ...) {
       "Left Hemisphere", "Right Hemisphere",
       "Left Opacity", "Right Opacity",
       "Left Mesh Clipping", "Right Mesh Clipping",
+      "Subcortical Surface", "Sub-Left Opacity", "Sub-Right Opacity",
       "Surface Color", "Blend Factor", "Sigma", "Decay", "Range Limit",
+      "Surface Color Data", "Surface Color Map",
+      "Surface Color Min", "Surface Color Max",
+      "Surface Threshold Data", "Surface Threshold Range",
+      "Surface Threshold Method",
 
-      "Surface Mapping", "Volume Mapping", "Visibility",
-      "Electrode Shape", "Outlines", "Text Scale", "Text Visibility",
+      "Map Electrodes", "Surface Mapping", "Volume Mapping",
+      "Projection Threshold", "Target Surface", "Visibility",
+      "Electrode Shape", "Prototype Cutoff", "Outlines", "Translucent",
+      "Text Scale", "Electrode Text",
 
       "Display Data", "Display Range",
       "Threshold Data", "Threshold Range", "Threshold Method",
-      "Additional Data",
+      "Additional Data", "Radius Value", "Radius Range", "Radius Ratio",
+      "Inactive Color", "Speed", "Video Mode",
 
-      "Show Legend", "Show Time", "Highlight Box", "Info Text", "Time"
+      "Show Legend", "Show Time", "Highlight Box", "Info Text", "Time",
+
+      "Streamline Display", "Streamline Width", "Streamline Opacity",
+      "Line Length", "Line Retention", "Line Simplify Factor",
+      "Line Selector", "Distance Threshold", "Faded Linewidth",
+
+      "Focus Object Type"
     )
 
     controllers <- pipeline$get_settings("controllers", default = list())
@@ -219,8 +235,14 @@ module_server <- function(input, output, session, ...) {
     #   controllers[["Voxel Opacity"]] <- proxy_controllers[["Voxel Opacity"]]
     # }
 
+    # the streamline toggles are named after the bundles:
+    # `Show all (<circuit>)` and `Show: <circuit>/<bundle>`
+    controller_names <- as.character(names(proxy_controllers))
     proxy_controllers <- proxy_controllers[
-      names(proxy_controllers) %in% synced_controllers]
+      controller_names %in% synced_controllers |
+        startsWith(controller_names, "Show all (") |
+        startsWith(controller_names, "Show: ")
+    ]
 
     for (nm in names(proxy_controllers)) {
       controllers[[nm]] <- proxy_controllers[[nm]]
