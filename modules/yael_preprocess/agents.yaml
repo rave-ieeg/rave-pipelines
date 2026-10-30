@@ -157,7 +157,11 @@ parameters:
          `save_acpc` only after they confirm.
       5. MRI preprocessing: `save_mri_preprocessing_script` (recommend
          `YAEL+recon-all`; `YAEL-only` when FreeSurfer is not needed or the
-         memory is short: FreeSurfer 7.x needs 16 GB, 8.x needs 32 GB).
+         memory is short: FreeSurfer 7.x needs 16 GB, 8.x needs 32 GB). When
+         `imaging_status` shows `ants=not available`, recommend the native
+         entries, which need no Python: `YAEL-native+recon-all`, or without
+         FreeSurfer `YAEL-native-mni152b` (`YAEL-native-mni152a` needs less
+         memory but less details).
       6. Co-registration: recommend `ANTs` > `YAEL-reg3d` > `FSL` >
          `NiftyReg` > the rest; `YAEL-reg3d` first when `imaging_status`
          shows `ants=not available`. Run `ANTs`, `YAEL-reg3d` or `NiftyReg`

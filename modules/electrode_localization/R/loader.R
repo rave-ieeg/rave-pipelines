@@ -775,13 +775,14 @@ loader_server <- function(input, output, session, ...) {
           # YAEL + recon-all on the same MRI; it rebuilds the FreeSurfer
           # folder that `simple-import` created
           complete_script <- tryCatch({
-            complete_cmd <- ravecore::cmd_run_yael_preprocess(
+            complete_cmd <- ravecore::cmd_run_yael_preprocess_native(
               subject = subject,
               t1w_path = mri_path,
               normalize_template = c(
-                "mni_icbm152_nlin_asym_09b"
+                "mni_icbm152_nlin_asym_09a"
               ),
               run_recon_all = TRUE,
+              overwrite = FALSE,
               dry_run = TRUE,
               verbose = FALSE
             )

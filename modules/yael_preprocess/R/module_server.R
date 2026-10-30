@@ -127,8 +127,8 @@ module_server <- function(input, output, session, ...) {
     description = c(
       "Generates the 'Normalization Quality Report' (the subject's MRI against",
       "the MNI templates) in the background, as people do with 'Generate",
-      "Reports'. Needs YAEL normalization (MRI preprocessing `YAEL+recon-all` or",
-      "`YAEL-only`; script `imaging_status`). Writes a report folder into the",
+      "Reports'. Needs YAEL normalization (any YAEL command in MRI preprocessing;",
+      "script `imaging_status`). Writes a report folder into the",
       "subject's reports; agents may run it without asking. Output: whether a",
       "normalization exists, and the reports folder. Follow it like",
       "`generate_coregistration_report`."
@@ -953,10 +953,16 @@ module_server <- function(input, output, session, ...) {
       "rebuilt 0.3 s after a change: check that `program` and `mri` in the output",
       "are what you set. Recommend `YAEL+recon-all` (or `YAEL-only` when",
       "FreeSurfer is not needed or memory is short: FreeSurfer 7.x needs 16 GB of",
-      "RAM, 8.x needs 32 GB; see `imaging_status`). Never run the command inside",
+      "RAM, 8.x needs 32 GB; see `imaging_status`). When `imaging_status` shows",
+      "`ants=not available`, recommend `YAEL-native+recon-all` (or, without",
+      "FreeSurfer, `YAEL-native-mni152b`, or `YAEL-native-mni152a` for less",
+      "memory). Never run the command inside",
       "RAVE: only in a separate terminal on the computer that runs RAVE, if you",
       "have one; otherwise give the command to the user. Never run it when",
-      "`fresh_start` is TRUE ('Remove existing work' ticked by a person). MRI",
+      "`fresh_start` is TRUE ('Remove existing work' ticked by a person).",
+      "Unticked, FreeSurfer continues an existing folder and ignores the chosen",
+      "MRI, and YAEL keeps an existing normalization: when `imaging_status` shows",
+      "either, ask the user first. MRI",
       "preprocessing and co-registration may run in either order or at the same",
       "time, once the images are imported (and ACPC saved, when used)."
     ),
@@ -1017,8 +1023,9 @@ module_server <- function(input, output, session, ...) {
         error_notification(cmd$condition)
         return()
       }
-      ravepipeline::logger("Running FreeSurfer recon-all from console", level = "info")
-      run_command_pipeline(cmd = cmd, wait = FALSE, title = "FreeSurfer recon-all")
+      program <- paste(input$param_fs_prog, collapse = "")
+      ravepipeline::logger("Running {program} from console", level = "info", use_glue = TRUE)
+      run_command_pipeline(cmd = cmd, wait = FALSE, title = program)
     }),
     input$btn_recon_run,
     ignoreNULL = TRUE, ignoreInit = TRUE
@@ -1300,7 +1307,26 @@ module_server <- function(input, output, session, ...) {
           },
           "YAEL-only" = {
             list(
-              program = "YAEL-only"
+              program = "YAEL-only",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "YAEL-native+recon-all" = {
+            list(
+              program = "YAEL-native+recon-all",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "YAEL-native-mni152b" = {
+            list(
+              program = "YAEL-native-mni152b",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
+            )
+          },
+          "YAEL-native-mni152a" = {
+            list(
+              program = "YAEL-native-mni152a",
+              fresh_start = isTRUE(input$param_fs_fresh_start)
             )
           },
           {

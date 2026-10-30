@@ -264,8 +264,27 @@ tryCatch({
     "script written now" = written_since(script_file, t_save),
     "command runs the script" = grepl(script_file, field(saved, "command"), fixed = TRUE),
     "nothing started" = !identical(field(run_script("command_status", .quiet = TRUE)$result,
-                                         "state"), "running")
+                                         "state"), "running"),
+    "keeps FreeSurfer work" = "overwrite <- FALSE" %in% readLines(script_file)
   ), "save_mri_preprocessing_script")
+
+  # a native entry: the asymmetric and the symmetric template, without FreeSurfer
+  set_input_wait("param_fs_prog", "YAEL-native-mni152a")
+  wait_until(function() {
+    saved <- run_script("save_mri_preprocessing_script", .quiet = TRUE)$result
+    identical(field(saved, "program"), "YAEL-native-mni152a")
+  }, "the YAEL-native-mni152a script", timeout = 30, interval = 1)
+  saved <- run_script("save_mri_preprocessing_script")$result
+  script_file <- field(saved, "script")
+  native_script <- readLines(script_file)
+  check_all(c(
+    "native script" = identical(
+      script_file, file.path(imaging_path, "scripts", "cmd-yael-preprocess-native-simple.R")),
+    "both templates" = paste0('normalize_template <- c("mni_icbm152_nlin_asym_09a", ',
+                              '"mni_icbm152_nlin_sym_09a")') %in% native_script,
+    "no FreeSurfer" = "run_recon_all <- 0" %in% native_script,
+    "keeps existing work" = "overwrite <- FALSE" %in% native_script
+  ), "save_mri_preprocessing_script, native entry")
 
   # ---- 6. co-registration: YAEL-reg3d, report, ANTs, NiftyReg -------------------
 

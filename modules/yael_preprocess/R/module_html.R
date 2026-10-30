@@ -6,6 +6,29 @@
 # 4. CT co-registration
 dry_run <- isTRUE(ravepipeline::raveio_getopt("cmd_dry_run", default = FALSE))
 
+# MRI preprocessing commands: `value` is the program the pipeline reads, `label`
+# the name with its estimated time, and `description` the gray line below it
+mri_commands <- rbind(
+  c(value = "recon-all -all", label = "recon-all -all (~6hr)",
+    description = "FreeSurfer recon-all"),
+  c("recon-all -autorecon1", "recon-all -autorecon1 (~10min)",
+    "FreeSurfer recon-all, stage 1 only, no surface"),
+  c("recon-all-clinical.sh", "recon-all-clinical.sh (~6hr)",
+    "FreeSurfer recon-all for low-resolution T1"),
+  c("YAEL-native+recon-all", "YAEL-ravetools+recon-all (~6.5hr)",
+    "Normalize to MNI152 using RAVE\n + FreeSurfer surface reconstruction"),
+  c("YAEL-native-mni152b", "YAEL-ravetools MNI152b (~45min)",
+    "Normalize to MNI152b Asym+Sym, 0.5 mm"),
+  c("YAEL-native-mni152a", "YAEL-ravetools MNI152a (~30min)",
+    "Normalize to MNI152a Asym+Sym, 1 mm"),
+  c("YAEL+recon-all", "YAEL-ants+recon-all (~7hr)",
+    "Normalize to MNI152 using antspyx\n + FreeSurfer surface reconstruction"),
+  c("YAEL-only", "YAEL-ants (~1hr)",
+    "Normalize to MNI152 only using antspyx"),
+  c("simple-import", "Simple import (~5s)",
+    "Copy the MRI without processing it")
+)
+
 module_html <- function() {
 
   shiny::div(
@@ -292,31 +315,52 @@ module_html <- function() {
                       shiny::column(
                         width = 12L,
                         shidashi::register_input(
-                          shiny::selectInput(
+                          shiny::selectizeInput(
                             inputId = ns("param_fs_prog"),
                             label = "Command",
-                            choices = c(
-                              "recon-all -all",
-                              "recon-all -autorecon1",
-                              "recon-all-clinical.sh",
-                              # "ants-preprocessing",
-                              "YAEL+recon-all",
-                              "YAEL-only",
-                              "simple-import"
-                            ),
-                            selected = "recon-all"
+                            choices = structure(mri_commands[, "value"], names = mri_commands[, "label"]),
+                            selected = "recon-all -all",
+                            options = list(
+                              # the card body would clip the list: show it on the body,
+                              # within the window, above the floating subject panel
+                              dropdownParent = "body",
+                              onDropdownOpen = I(paste(
+                                "function($dropdown) {",
+                                "  var room = window.innerHeight - $dropdown[0].getBoundingClientRect().top - 12;",
+                                "  $dropdown.css({ 'z-index': 1100, 'font-size': this.$control.css('font-size') });",
+                                "  this.$dropdown_content.css('max-height', Math.max(200, room) + 'px');",
+                                "}"
+                              )),
+                              descriptions = as.list(structure(
+                                mri_commands[, "description"], names = mri_commands[, "value"]
+                              )),
+                              # opacity, not a color: readable on the highlighted row and in dark mode
+                              render = I(paste(
+                                "{ option: function(item, escape) {",
+                                "  return '<div class=\"option\"><div>' + escape(item.label) + '</div>' +",
+                                "    '<div class=\"small\" style=\"opacity: 0.7\">' +",
+                                "    escape(this.settings.descriptions[item.value] || '') + '</div></div>';",
+                                "} }"
+                              ))
+                            )
                           ),
                           inputId = "param_fs_prog",
                           hint = "analysis_mandatory",
                           update = "shiny::updateSelectInput(value=selected)",
                           description = paste(
                             "[Select] MRI preprocessing command: `recon-all -all`, `recon-all -autorecon1`,",
-                            "`recon-all-clinical.sh`, `YAEL+recon-all`, `YAEL-only`, `simple-import`.",
-                            "Recommend `YAEL+recon-all`, or `YAEL-only` when FreeSurfer is not needed or",
-                            "the computer's memory is short (FreeSurfer 7.x needs 16 GB of RAM, 8.x needs",
-                            "32 GB; script `imaging_status` shows both). Agents never run these from RAVE:",
-                            "script `save_mri_preprocessing_script` saves the script and returns the",
-                            "terminal command."
+                            "`recon-all-clinical.sh`, `YAEL+recon-all`, `YAEL-only`, `YAEL-native+recon-all`,",
+                            "`YAEL-native-mni152b`, `YAEL-native-mni152a`, `simple-import`. Set these values;",
+                            "people see other names: `YAEL-ants` for `YAEL-only`, `YAEL-ravetools` for the",
+                            "`YAEL-native` entries. Recommend `YAEL+recon-all`, or",
+                            "`YAEL-only` when FreeSurfer is not needed or the computer's memory is short",
+                            "(FreeSurfer 7.x needs 16 GB of RAM, 8.x needs 32 GB; script `imaging_status`",
+                            "shows both). When it shows `ants=not available`, recommend the native entries,",
+                            "which need no Python: `YAEL-native+recon-all`, or without FreeSurfer",
+                            "`YAEL-native-mni152b` (0.5 mm; `YAEL-native-mni152a` is 1 mm and needs less",
+                            "memory). Both normalize to the asymmetric and the symmetric MNI152 template.",
+                            "Agents never run these from RAVE: script `save_mri_preprocessing_script` saves",
+                            "the script and returns the terminal command."
                           ),
                           tooltip = "Command used to preprocess the MRI."
                         )
@@ -335,11 +379,13 @@ module_html <- function() {
                           hint = "analysis_forbidden",
                           update = "shiny::updateCheckboxInput",
                           description = paste(
-                            "[Checkbox, read-only for agents] When ticked, recon-all first deletes the",
-                            "subject's FreeSurfer folder. Agents must never tick it, and never run a",
-                            "saved script made while it was ticked; ask the user instead."
+                            "[Checkbox, read-only for agents] When ticked, the command starts over:",
+                            "FreeSurfer commands (YAEL+recon-all included) first delete the subject's",
+                            "FreeSurfer folder, and YAEL commands remove the `tmp` folder under the imaging",
+                            "folder and calculate the normalization again. Agents must never tick it, and",
+                            "never run a saved script made while it was ticked; ask the user instead."
                           ),
-                          tooltip = "Delete the subject's previous FreeSurfer work before running the command.",
+                          tooltip = "Start over: delete the subject's previous FreeSurfer work and YAEL temporary files, and redo the normalization.",
                           writable = FALSE
                         )
                       )
@@ -352,18 +398,20 @@ module_html <- function() {
                 shiny::div(
                   class = "float-right",
                   shiny::div(
+                    # keeps the buttons in one row: an inline `display` on the
+                    # panel would override the CSS rule that Shiny hides it with
+                    style = "display: flex; gap: 0.25rem;",
                     local({
                       if (dry_run) {
                         NULL
                       } else {
                         shiny::conditionalPanel(
-                          "!['recon-all-clinical.sh', 'recon-all -all', 'YAEL+recon-all', 'YAEL-only'].includes( input.param_fs_prog )",
+                          "!['recon-all-clinical.sh', 'recon-all -all', 'YAEL+recon-all', 'YAEL-only', 'YAEL-native+recon-all'].includes( input.param_fs_prog )",
                           shiny::actionButton(
                             ns("btn_recon_run"),
                             "Run from RAVE"
                           ),
-                          ns = ns,
-                          style = "display: inline"
+                          ns = ns
                         )
                       }
                     }),

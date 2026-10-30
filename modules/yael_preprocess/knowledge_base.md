@@ -79,6 +79,9 @@ code, no behaviour change for people.
 * **MRI preprocessing:** recommend YAEL+recon-all; YAEL-only when FreeSurfer
   is not needed. When RAVE is local, check FreeSurfer version vs RAM:
   7.x needs 16 GB, 8.x needs 32 GB; if short, switch versions or YAEL-only.
+  With `ants=not available`, the native entries take their place:
+  YAEL-native+recon-all, YAEL-native-mni152b, or YAEL-native-mni152a for less
+  memory.
 * **Import = confirming the image** for the whole pipeline. Re-importing a
   different image invalidates all processing of the old one; DICOM import
   deleting `<imaging_path>/inputs/<TYPE>` is by design. Agents import a type
@@ -128,9 +131,10 @@ Side effects of that evaluation, each time:
   path) in namespace `surface_reconstruction`
   (`<subject>/notes/surface_reconstruction.json|yaml`; ravecore
   `R/workflow-dcm2niix.R:170`).
-* `morphmri_ants` always, and `image_segmentation` for YAEL programs, call
-  `cmd_run_yael_preprocess()`, which runs `rpyANTs::ensure_template()` for
-  each template (may download).
+* `morphmri_ants` always, and `image_segmentation` for `YAEL+recon-all` and
+  `YAEL-only`, call `cmd_run_yael_preprocess()`, which runs
+  `rpyANTs::ensure_template()` for each template (may download). The native
+  programs locate templates only when their script runs.
 * `check_commandline_tools` may call `raveio_setopt()` (see loading).
 
 ### UI input -> `params` (settings.yaml)
@@ -367,21 +371,30 @@ Card "MRI Preprocessing" (`R/module_html.R:163-270`).
 | `mri_preview` | 3-plane plot of `inputs/MRI/<nii_t1>` |
 | `param_fs_infile` | files in `inputs/MRI`; preselects subject default `nii_t1` (never set) |
 | `param_fs_refresh` | action link "Refresh" |
-| `param_fs_prog` | `selected = "recon-all"` is not a choice, so `recon-all -all` shows |
+| `param_fs_prog` | selectize; values are the programs below; labels, times and gray descriptions come from `mri_commands` in `R/module_html.R` |
 | `param_fs_fresh_start` | "Remove existing work before running the command (if applicable)" |
-| `btn_recon_run` | conditionalPanel: only `recon-all -autorecon1`, `simple-import`; absent if `cmd_dry_run` |
+| `btn_recon_run` | conditionalPanel: only `recon-all -autorecon1`, `YAEL-native-mni152b`, `YAEL-native-mni152a`, `simple-import`; absent if `cmd_dry_run` |
 | `btn_recon_copy` | "Save & run by yourself" |
 
-Target `image_segmentation` (`main.Rmd:287-398`) stops "Please choose a Nifti
+Target `image_segmentation` (`main.Rmd:287-433`) stops "Please choose a Nifti
 file under ..." when `nii_t1` is invalid, then by program:
 
 | Program | ravecore | Script / log | Notes |
 |---|---|---|---|
 | `recon-all -all` / `-autorecon1` | `cmd_run_freesurfer_recon_all(args = flag, overwrite = fresh_start)` | `scripts/cmd-fs-recon.sh`, `log-recon-all-*` | `-all` 6-12 h; `-autorecon1` 8-10 min |
 | `recon-all-clinical.sh` | `cmd_run_freesurfer_recon_all_clinical()` | `scripts/cmd-fs-recon-clinical.sh` | |
-| `YAEL+recon-all` | `cmd_run_yael_preprocess(templates 09b, 09a, 09c, run_recon_all = TRUE)` | `scripts/cmd-yael-preprocess-full.R`, `log-yael-preprocess-*` | ANTs normalization, then recon-all on `inputs/MRI/MRI_RAW.nii.gz` with overwrite |
-| `YAEL-only` | `cmd_run_yael_preprocess(template 09b, run_recon_all = FALSE)` | `scripts/cmd-yael-preprocess-simple.R` | ANTs surfaces + envelopes |
+| `YAEL+recon-all` | `cmd_run_yael_preprocess(templates 09b, 09a, 09c, run_recon_all = TRUE)` | `scripts/cmd-yael-preprocess-full.R`, `log-yael-preprocess-*` | ANTs normalization, then recon-all on `inputs/MRI/MRI_RAW.nii.gz` |
+| `YAEL-only` | `cmd_run_yael_preprocess(template 09b, run_recon_all = FALSE)` | `scripts/cmd-yael-preprocess-simple.R` | ANTs normalization; `add_surfaces = TRUE` |
+| `YAEL-native+recon-all` | `cmd_run_yael_preprocess_native(template 09b, run_recon_all = TRUE)` | `scripts/cmd-yael-preprocess-native-full.R`, `log-yael-preprocess-native-*` | native normalization, then recon-all as above |
+| `YAEL-native-mni152b` | `cmd_run_yael_preprocess_native(asym + sym 09b, run_recon_all = FALSE)` | `scripts/cmd-yael-preprocess-native-simple.R` | asym first, so `normalize_back` and MNI coordinates use it |
+| `YAEL-native-mni152a` | `cmd_run_yael_preprocess_native(asym + sym 09a, run_recon_all = FALSE)` | same script | 1 mm |
 | `simple-import` | `cmd_run_r()` | temp script and log | copies T1 to `fs/mri/brain.<ext>`, `derivative/MRI_RAW.<ext>` |
+
+All YAEL programs pass `overwrite = fresh_start`. When true, the script removes
+`<imaging_path>/tmp` (scratch files, `tmp/coregister_*`), runs the workflow with
+`normalize_policy = "all"`, and recon-all deletes `fs/`. When false, an existing
+normalization to a template is kept (`normalize_policy = "auto"`), and recon-all
+continues an existing `fs/mri`, which fails on a folder from `simple-import`.
 
 recon-all template (`inst/shell-templates/recon-all-t1.sh`):
 * fresh start: `rm -r <imaging_path>/fs`;
@@ -485,7 +498,7 @@ generated!" with the path and a "View report" link, or an error.
 | Report | Entry | Reads |
 |---|---|---|
 | Coregistration Quality Report | `report-coregistration.Rmd` | `<imaging_path>/coregistration/` (underlay MRI, overlay CT, transform) |
-| Normalization Quality Report | `report-normalization.Rmd` | `<imaging_path>/normalization/`, YAEL templates |
+| Normalization Quality Report | `report-normalization.Rmd` (native engine: reads the results of both engines, no Python) | `<imaging_path>/normalization/`, YAEL templates |
 
 ## External programs
 
@@ -495,8 +508,8 @@ generated!" with the path and a "View report" link, or an error.
 | FreeSurfer | recon-all, clinical, YAEL+recon-all | `cmd_freesurfer_home()`, option `freesurfer_path` |
 | FSL | FLIRT | `cmd_fsl_home()`, option `fsl_path` |
 | AFNI | 3dAllineate | `cmd_afni_home()`, option `afni_path` |
-| ravetools (R package) | YAEL-reg3d co-registration | imported by ravecore (>= 0.3.1), always installed |
-| ANTs (rpyANTs, python) | YAEL, ANTs co-registration | `rpyANTs::ants_available()` |
+| ravetools (R package) | YAEL-reg3d co-registration, `YAEL-native` commands | imported by ravecore (>= 0.3.1), always installed |
+| ANTs (rpyANTs, python) | `YAEL+recon-all`, `YAEL-only`, ANTs co-registration | `rpyANTs::ants_available()` |
 | NiftyReg (RNiftyReg) | NiftyReg co-registration | R package, always installed |
 | nipy (python) | img_pipe | rpymat environment |
 

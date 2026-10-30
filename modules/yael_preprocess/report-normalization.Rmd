@@ -63,12 +63,13 @@ if (!dir.exists(normalization_path)) {
   stop(
     "Unable to find normalization path. ",
     "The MR normalization report is only available after you run ",
-    "'YAEL-only' or 'YAEL+recon-all' in the preprocessing")
+    "one of the YAEL commands in the MRI preprocessing")
 }
 
 available_templates <- unique(c("mni_icbm152_nlin_asym_09b", 
                                 rpyANTs:::BUILTIN_TEMPLATES))
-yael_process <- ravecore::as_yael_process(subject)
+# The native engine reads the results of both engines and needs no Python
+yael_process <- ravecore::as_yael_process(subject, engine = "native")
 
 has_mapping <- vapply(available_templates, function(name) {
   mapping <- yael_process$get_template_mapping(template_name = name)
@@ -80,7 +81,7 @@ if (!length(available_mapping)) {
   stop(
     "Unable to find valid normalization files. ",
     "The MR normalization report is only available after you run ",
-    "'YAEL-only' or 'YAEL+recon-all' in the preprocessing")
+    "one of the YAEL commands in the MRI preprocessing")
 }
 
 diagnose_normalization <- function(template_name) {

@@ -12,9 +12,9 @@ labs may use their own imaging pipeline (see https://yael.wiki).
 **Prerequisite:** a RAVE subject (project and subject code), and its T1 MRI and
 CT as DICOM folders or NIfTI files, either inside the subject's raw folder or
 uploaded in the loader. DICOM images need `dcm2niix`; FreeSurfer is needed only
-for surface reconstruction; YAEL and ANTs co-registration use RAVE's Python
-environment; YAEL-reg3d co-registration (the default) is built into RAVE and
-needs neither.
+for surface reconstruction; `YAEL+recon-all`, `YAEL-only` and ANTs
+co-registration use RAVE's Python environment; the `YAEL-native` commands and
+YAEL-reg3d co-registration (the default) are built into RAVE and need no Python.
 
 ## Rules for agents (read first)
 
@@ -45,10 +45,13 @@ People keep their usual buttons. These rules are for agents only:
    terminal (on macOS: open Terminal and run it). Never run it inside RAVE: when
    RAVE closes, its jobs stop. Otherwise, give the user the command to run.
 4. **Recommend YAEL+recon-all** for MRI preprocessing, or **YAEL-only** when
-   FreeSurfer surfaces are not needed. When RAVE runs on your computer, check
-   the FreeSurfer version against the computer's memory: FreeSurfer 7.x needs
-   16 GB of RAM and 8.x needs 32 GB. If the memory is short, tell the user to
-   switch FreeSurfer versions or to run YAEL-only.
+   FreeSurfer surfaces are not needed. When script `imaging_status` shows
+   `ants=not available`, recommend the native entries, which need no Python:
+   **YAEL-native+recon-all**, or without FreeSurfer **YAEL-native-mni152b**
+   (**YAEL-native-mni152a** needs less memory). When RAVE runs on your computer,
+   check the FreeSurfer version against the computer's memory: FreeSurfer 7.x
+   needs 16 GB of RAM and 8.x needs 32 GB. If the memory is short, tell the user
+   to switch FreeSurfer versions or to run an entry without FreeSurfer.
 5. **ACPC re-alignment is the person's job.** You may choose the MRI, open the
    card, start the viewer, and explain each step; the person places AC and PC.
    Click "Save ACPC alignment results." only after the person says they are done
@@ -136,22 +139,36 @@ posterior commissures (AC, PC) define the axes.
 * **MRI file (select one with the best quality)**: the imported MRI, or
   `MRI_acpc.nii.gz` after ACPC re-alignment. "Refresh" updates the list. The
   preview shows the chosen image.
-* **Command**:
-  * `YAEL+recon-all` (recommended): YAEL normalization to MNI templates, then
+* **Command** (the dropdown shows each name with its estimated time, and a gray
+  description below; these are the input values):
+  * `YAEL+recon-all` (shown as "YAEL-ants+recon-all", recommended): YAEL
+    normalization to MNI templates with ANTs, then FreeSurfer reconstruction.
+    Hours.
+  * `YAEL-only` (shown as "YAEL-ants"): YAEL normalization with ANTs, without
+    FreeSurfer, when surfaces are not needed.
+  * `YAEL-native+recon-all` (shown as "YAEL-ravetools+recon-all"): normalization
+    to the asymmetric MNI152b template with the native engine (no Python), then
     FreeSurfer reconstruction. Hours.
-  * `YAEL-only`: YAEL normalization without FreeSurfer, when surfaces are not
-    needed.
+  * `YAEL-native-mni152b` (shown as "YAEL-ravetools MNI152b"): native
+    normalization to the asymmetric and the symmetric 0.5 mm templates, without
+    FreeSurfer. Up to 22 GB of memory.
+  * `YAEL-native-mni152a` (shown as "YAEL-ravetools MNI152a"): the same with the
+    1 mm templates. About 8 GB of memory. Both entries take minutes to tens of
+    minutes per template, depending on the image.
   * `recon-all -all`: full FreeSurfer reconstruction, 6-12 hours.
   * `recon-all -autorecon1`: normalizes and skull-strips the MRI only, about 10
     minutes; enough to localize electrodes.
   * `recon-all-clinical.sh`: FreeSurfer's script for clinical images.
   * `simple-import`: copies the MRI into place without processing it.
-* **Remove existing work before running the command (if applicable)**: deletes
-  the subject's previous FreeSurfer folder first. Without it, FreeSurfer
-  continues an existing folder and ignores the chosen MRI.
+* **Remove existing work before running the command (if applicable)**: FreeSurfer
+  commands (`YAEL+recon-all` and `YAEL-native+recon-all` included) delete the
+  subject's previous FreeSurfer folder first; YAEL commands remove the `tmp`
+  folder under the imaging folder and calculate the normalization again. Without
+  it, FreeSurfer continues an existing folder and ignores the chosen MRI, and
+  YAEL keeps an existing normalization.
 * "Save & run by yourself" saves the script and shows the terminal command to
-  paste. "Run from RAVE" is offered only for `recon-all -autorecon1` and
-  `simple-import`.
+  paste. "Run from RAVE" is offered only for `recon-all -autorecon1`,
+  `YAEL-native-mni152b`, `YAEL-native-mni152a` and `simple-import`.
 
 **Co-registration CT and T1**: aligns the CT to the MRI.
 * **CT file**: the imported CT ("Refresh" updates the list). The preview shows
@@ -209,7 +226,8 @@ Step 3 (optional): ACPC re-alignment; then follow
 Steps 4 and 5 may run in either order, or at the same time (e.g. start the
 terminal run of step 4, then do step 5 in RAVE).
 Step 4: In "MRI Preprocessing", click "Refresh", choose the imported MRI
-(`MRI_RAW`) and `YAEL+recon-all` (or `YAEL-only`), then "Save & run by
+(`MRI_RAW`) and the command by rule 4 (`YAEL+recon-all`, or `YAEL-native+recon-all`
+when `imaging_status` shows `ants=not available`), then "Save & run by
 yourself" and run the command in a terminal
 ([Procedure — Run a long step in a terminal](#procedure--run-a-long-step-in-a-terminal)).
 Step 5: In "Co-registration CT and T1", click "Refresh", choose the CT, the
@@ -251,6 +269,8 @@ Step 1: Find the FreeSurfer version (the `build-stamp.txt` file in the
 computer's memory.
 Step 2: FreeSurfer 7.x needs 16 GB of RAM, 8.x needs 32 GB. With enough memory,
 use `YAEL+recon-all`; otherwise switch FreeSurfer versions, or use `YAEL-only`.
+When `imaging_status` shows `ants=not available`, use `YAEL-native+recon-all`
+and `YAEL-native-mni152b` (or `YAEL-native-mni152a`) in their place.
 
 ## Caveats
 
@@ -276,7 +296,9 @@ use `YAEL+recon-all`; otherwise switch FreeSurfer versions, or use `YAEL-only`.
   it is missing; img_pipe sets up its Python packages; YAEL downloads its
   templates. YAEL-reg3d installs nothing.
 * **Memory.** YAEL's default MNI template needs 16 GB of RAM (it falls back to
-  another template otherwise); FreeSurfer 8.x needs 32 GB.
+  another template otherwise); FreeSurfer 8.x needs 32 GB. The native engine
+  needs 32 GB for the 0.5 mm templates: on smaller computers, use
+  `YAEL-native-mni152a`.
 * **AFNI ignores "MR image"**: it always uses the MRI chosen in MRI
   Preprocessing.
 
@@ -383,7 +405,12 @@ co-registration in either order, then reports.
   `save_mri_preprocessing_script`. Check `program` and `mri` in its output
   (the module rebuilds the script 0.3 s after an input change); `command` is
   the terminal command (rules 3 and 4). Do not run it when `fresh_start` is
-  TRUE.
+  TRUE. With the box unticked, FreeSurfer continues an existing folder and YAEL
+  keeps an existing normalization: when `imaging_status` shows either, ask the
+  user first. A `freesurfer_folder` with `reconstruction=none` was not made by
+  RAVE's recon-all, so ask the user where it came from: a folder from
+  `simple-import` cannot be continued and needs "Remove existing work"; a
+  FreeSurfer folder made elsewhere must not be removed.
 * Co-registration (ask first): set `param_coreg_ct`, `param_coreg_mri` (the
   same image as `param_fs_infile`), `coreg_ct_program` (`ANTs`, `YAEL-reg3d`
   or `NiftyReg`, in the order of rule 2) and its parameters (`coreg_ants_type`, `coreg_ants_aff_metric`,
